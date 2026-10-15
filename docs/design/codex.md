@@ -3428,624 +3428,618 @@ The six heroes' faces are emoji like Troq's and River's: `FACES` in
 
 ## Multiplayer
 
-The free-for-all and the two-headed dragon are built in the steps of
-[docs/codex-multiplayer.md](../codex-multiplayer.md); this section says
-what each step settled, with the reasoning, and is written as they land.
+The free-for-all and the two-headed dragon were built in the seven
+steps of [docs/codex-multiplayer.md](../codex-multiplayer.md), which
+keeps the steps, their prompts and the author's answers to its
+questions. **This section is the one home of what the series settled**,
+by subject rather than by step, with the reasoning; where the author
+overruled what a step or a decision proposed, it says what replaced it.
+The step that built each thing is named in brackets where a reader
+tracing a commit needs it.
 
-### Step 1: the seats, one reading each
+Throughout, the two-player game is **the duel**, and it changed in
+nothing a player can see: `tests/test_codex_golden.py` passed unrecorded
+through every step, the request table above holds click for click, and
+every field the series added is written to a save only where it is set,
+so a duel's save is the bytes it always was and reads on a checkout
+older than the series.
 
-The duel changed in nothing a player can see: `tests/test_codex_golden.py`
-passes unrecorded, and the request table above holds click for click.
-What changed is that each question the bot used to answer by the
-idiom `2 if x == 1 else 1` has **one reading**, so that steps 2 and 5
-change readings, not 66 sites.
+### Which rules govern
 
-- **The record holds its seats as a list.** `CodexGame.seats` is a list
-  of `{id, name}` as long as `seat_count` (two, until a variant says
-  more), an empty seat `{id: None, name: None}` so that a seat left
-  empty keeps its number -- `seats[n - 1]` is seat *n*. It is saved as
-  `"seats"`, and the four `player_1_*` / `player_2_*` keys are still
-  written for the first two seats, because D12 Ball's record spells
-  them so and `cogs/game_auth.py`'s Protocol reads them; a save without
-  `"seats"` reads them. The four are properties over the list, so
-  nothing that read them breaks -- and, being properties rather than
-  fields, they are named in `LEGACY_SEAT_KEYS`, which the loader keeps
-  beside the record's fields. Without it `load_games` dropped them as
-  retired before `from_dict` saw them, and a game saved before the list
-  came back after a restart with nobody seated ("This table is not
-  yours" to its own players), its next save writing the seats empty. `seat_user_id(seat)` and `seat_ids()`
-  are the readings the cogs use; `game_participant_ids` asks
-  `seat_ids()` of a record that has it.
+**The official rulebook and Sirlin's rulings** (the author, 2026-10-11,
+overriding the Codex series' preference for the UMR): the Core Set's
+"Rulebook version 46" at `docs/codex/Codex_Core_Set_Rulebook.pdf`, cited
+as `Rulebook p. n` by the number at the foot of its pages -- the two
+modes are p. 13 (Two-Headed Dragon) and p. 14 (Free-for-all), with p. 4
+(the tower), p. 5 (the patrol slots), p. 11 (a dead hero's levels) and
+p. 19 (armor) -- and the rulings in `codex/data/rulings.json`, which
+govern where they and the rulebook's text differ. The UMR
+(`docs/codex/Codex_UMR_v13w.pdf`, UMR p. 11-12 for the modes) is the
+source **only where the rulebook and the rulings are silent** (the
+author, 2026-10-14, question 13), and a citation of it says so. The
+worksheet's "Where the UMR differs from the rulebook" lists every
+disagreement found on these modes; in each the rulebook's reading was
+built -- Mercenaries arrive at the first upkeep rather than "begin" in
+play, a dead hero's levels go to an opposing hero rather than one of
+yours, a team never holds two of one add-on -- and where the rulebook is
+silent (the playoff's current turn) the UMR's was. One the worksheet
+recorded as the UMR's reading, the tower's detection in a dragon, the
+author overrode in favour of the team's one tower ("Attacking a dragon",
+below).
+
+### The five readings
+
+Each question the bot used to answer by the idiom `2 if x == 1 else 1`
+has **one reading** (step 1), so that the modes changed readings rather
+than 66 sites; the PR of every step showed these empty:
+
+    grep -rnE "2 if .* == 1 else 1" codex cogs/codex cogs/codex_views cogs/codex_helpers.py
+    grep -rnE "[!=]= match\.active|match\.active [!=]=" codex cogs/codex cogs/codex_views
+
 - **`codex/seats.py` is the reading; the engine's methods are its
-  door.** `opponents(match, seat)`, `turn_seats(match)` and
-  `next_seat(match)` are functions of the match alone, so the renderer
-  and the save code, which hold no engine, ask the same thing the rules
-  do; `RulesEngine.opponents`, `turn_seats`, `acting_seats` and
-  `next_seat` are one-line doors over them. `turn_seats` is `(active,)`
-  and `acting_seats` is `turn_seats`: the dragon will make them differ.
-  Nothing computes the other seat inline, and nothing asks
-  `seat == match.active`.
-- **`sole_opponent` marks the sites a table of several must answer.**
-  Where a rule reads "the opponent" and the duel's one is the whole
-  answer (Discord's *{target}* of a spell, Death and Decay's side, the
-  winner of a destroyed base), the code asks `sole_opponent`, which
-  refuses a table with several opponents rather than answering for one
-  of them. Each call is a site steps 2 and 5 give a real answer; a grep
-  for it is their audit list. Where the answer is naturally "every
-  opponent" the code already asks `opponents` (Moment's Peace, the
-  Inspectors, a hand revealed, Prynn's fading, the censors).
+  door.** `opponents(match, seat)` (every seat not on `seat`'s team, in
+  seat order), `turn_seats(match)` (whose turn it is), `acting_seats`
+  (who may act now: `turn_seats` less a seat that has locked, or all of
+  them once every one has), `next_seat` (whose turn follows) and
+  `turn_order(match, after)` (seat order, wrapping, from a seat) are
+  functions of the match alone, so the renderer and the save code, which
+  hold no engine, ask the same thing the rules do; `RulesEngine`'s
+  methods of those names are one-line doors over them. Nothing computes
+  the other seat inline, and nothing asks `seat == match.active`: "is it
+  this seat's turn" is `seat in turn_seats(match)`. `turn_seats` and
+  `acting_seats` differ only in a dragon, where a teammate who has
+  locked is still taking their turn -- their Frenzy still counts, their
+  tower is not a defender's.
+- **`sole_opponent` marks a site that must be a duel's.** Where a rule
+  reads "the opponent" and the duel's one is the whole answer, the code
+  asks `sole_opponent`, which refuses a table with several opponents
+  rather than answering for one of them; steps 2 and 5 gave each such
+  site a real answer, and what is left -- the duel's two board
+  compositions, `rivals` outside a dragon -- is a duel's by construction.
+  `rivals` is the side that wins when a seat's side loses a two-sided
+  game: the duel's one opponent, or a dragon's other team.
 - **A base is read through `MatchState.base_of` and written through
-  `set_base`**, the only code outside the field's definition and its
-  `SavedField` that names `base_hp`. A dragon's teammates will share
-  one base; the sites do not change when they do.
-- **An attack carries the seat attacked.** `MatchState.against` is the
-  seat the declared attack is against, kept beside `attacking` and
-  cleared with it, and `combat["against"]` is the same seat for the
-  attack under way. `match.against` is written to the save only while
-  an attack is declared, so a duel between attacks saves the bytes it
-  always did. A save from before reads the one opponent
-  (`components.read_defending_seat`). `engine.defending_seat(match,
-  against)` is the reading: the seat named, else the combat's, else the
-  attacker's one opponent. The defender chain takes an optional
-  `against`, so a prompt can build its rows per opponent; `DefenderOptions`
-  carries each row's `seats` (written to the wire only where there are
-  several), and `declare_attack` takes the seat the click names or the
-  options offer it on.
-- **A frame is against a seat it names.** `_against(engine, match, top)`
-  reads `top["against"]`, and a frame saved before the seat was
-  recorded reads the duel's one opponent.
-- **A kill's levels go to any opponent's hero.** `board.destroy` offers
-  the levels to every in-play hero of every opponent of the dead hero's
-  controller (the controller, not the owner, for a lent hero:
-  Rulebook p. 11); the frame lists the seats when there are several.
-  **A hero already at its maximum level is not offered them** (the
-  author, 2026-10-15: "they can't gain any more level at max"):
+  `set_base`**, the only code outside the field's definition, its
+  `SavedField` and the deal that names `base_hp`. `base_seat` says
+  whose `base_hp` a seat's base is -- their own, or their dragon's
+  head's -- and `base_cap` the most a base holds (20, a dragon's 30).
+- **The attack carries the seat attacked.** `MatchState.against` is the
+  seat a declared attack is against, kept beside `attacking` and
+  cleared with it, and `combat["against"]` the same for the attack
+  under way, written to a save only while set; a save from before reads
+  the one opponent (`components.read_defending_seat`).
+  `engine.defending_seat(match, against)` is the reading. The defender
+  chain takes an optional `against`, so a prompt builds its rows per
+  opponent, and `DefenderOptions` carries each row's `seats` (on the
+  wire only where there are several). **An effect frame is against a
+  seat it names** (`top["against"]`, read by `_against`), set by what
+  started it -- the attack's defending seat, the chosen opponent, a
+  death's controller.
+- **The controller of a card is `MatchState.controller_of`** (the
+  engine's `seat_of` is its door): the borrower while a hero is lent,
+  the owner otherwise. `PlayerState.heroes_in_play` is the heroes a
+  player *controls*, `heroes_on_table` every one in play,
+  `MatchState.patrollers(seat)` a patrol zone as it stands with the
+  heroes lent into it, and `hero_on(seat, ref)` / `board.body_of`
+  resolve either spelling of a hero's ref.
+
+### The variant and the seats
+
+- **The variant is the record's and the match's** (decision 2):
+  `codex.game.VARIANTS` names the duel, the free-for-all and the
+  two-headed dragon; `CodexGame.variant` is the lobby's until Start
+  (`set_variant`, a service door beside `set_mode`) and
+  `MatchState.variant` the match's own copy, **which every rule reads**
+  -- a match outlives its lobby. The hero count stays `mode`; the two
+  are independent axes, as the rulebook has them. A duel writes no
+  `variant` key.
+- **The record's seats are a list** (decision 3): `CodexGame.seats`,
+  `{id, name}` per seat as long as `seat_count`, an empty seat keeping
+  its number. The four `player_1_*` / `player_2_*` keys are still
+  written for the first two seats, because D12 Ball's record spells them
+  so and `cogs/game_auth.py`'s Protocol reads them; they are properties
+  over the list named in `LEGACY_SEAT_KEYS`, which the loader keeps
+  beside the record's fields -- without it a save from before the list
+  came back after a restart with nobody seated. `seat_user_id`,
+  `seat_name`, `seat_ids` and `seats_of` are the readings the cogs use.
+  `codex_helpers.seat_label` is the cog's one way to name a seat in a
+  line it composes ("Player n" where the record has no name),
+  `seat_labels` several joined with "and", and `mention_ids` the users
+  of several seats to ping, each once.
+- **A seat is any positive number the match has.** `validate` accepts
+  two to five players in seat order; `first`, `active`, `winner` and
+  `conceded` any seat it has; `tokens.player` and `tokens.addressed`
+  any positive seat. Nothing names 1 and 2.
+- **The lobby** has a row of variants -- **Duel** / **Free-for-all** /
+  **Two-headed dragon** -- under the mode's, either seated player's, a
+  helper's, or anyone's while nobody sits. A free-for-all's record has
+  five seats and starts from three complete ones; its seats are taken in
+  order and close up when a player leaves (`_close_gaps`), because turn
+  order is seat order. A dragon's has four, `CodexGame.teams()` --
+  `DRAGON_TEAMS`, seats 1 and 2 against 3 and 4, the deal's pairs -- the
+  one reading of its sides, headed "Team 1" and "Team 2"; nothing closes
+  up there (a dragon's seat order is not its turn order), so a player
+  who wants the other team leaves and sits again. `start_refusal` is the
+  one wording of why Start waits. A message has five rows, and the
+  mode's and the variant's leave three for picks, so a test game shows
+  the picks of as many seats as fit (`LobbyView.pick_seats`), a window
+  from the first seat not yet chosen for, each labelled "P3: Blood
+  Anarchs".
+- **The channel** is `codex-<n>-ffa-<p1>-<p2>-<p3>` for a free-for-all
+  and `codex-<n>-<p1>-<p2>-vs-<p3>-<p4>` for a dragon, its teams joined
+  by `-vs-` as the duel's two seats are (`channel_name`, capped at 100;
+  step 6's prompt overriding step 4's guess of a `2hd` word);
+  `CHANNEL_NAME_PATTERN` still reads the number. `/codex games` lists
+  every seat, a dragon's as "ann and bo vs cy and dee".
+
+### The free-for-all: the deal, the order and the ending
+
+- **The Mercenaries are an upkeep effect, as the rulebook has them**
+  (Rulebook p. 14; decision 6). The third, fourth and fifth players in
+  turn order from the first drawn are owed 1, 2 and 3
+  (`PlayerState.mercenaries_owed`, written only while owed); their first
+  upkeep puts them in play, first among its effects and never ordered,
+  as tokens made by no card with the ordinary arrival fatigue. The
+  UMR's "begin with them in play" is not the rulebook's.
+  `seats.turn_order` is the one reading of "from the first".
+- **The ending is the most base HP, and a tie plays off** (decision 5;
+  questions 13, 15, 16, 17, 20 and 22, all the author's of 2026-10-14).
+  A destroyed base goes through `turn.base_destroyed`: a sole leader
+  wins at that moment; a tie fills `MatchState.playoff` with the tied
+  seats **at that moment**, in turn order from the seat after the
+  active one, and `MatchState.tied` keeps the whole list, since the
+  playoff empties as it is played and the comparison after it is among
+  the tied alone. The current turn runs to its end first -- the UMR's
+  reading, the rulebook being silent -- and changes nothing about who is
+  tied. `next_seat` hands the playoff out ahead of the order and of any
+  extra turn; `begin_tech` pops it and, once it has emptied, compares
+  again: a winner, or the playoff filled again ("Still tied"). While
+  anyone is tied only a tied player's base falling counts, and the game
+  ends then on the comparison among the tied. **A debt unpaid is a base
+  destroyed**: the base to zero, the comparison then. **A destroyed base
+  is no longer a defender** (`_standing` leaves a base at 0 out): the
+  whole-game test showed tied players attacking a fallen base forever.
+  The finished game's ask says the score, and `GameOverOptions` carries
+  `winners` and every seat's `base_hp`.
+- **There is no concession in a free-for-all** (the author,
+  2026-10-11): `turn.refuse_concession`, behind
+  `GameService.check_concession`, refuses it citing Rulebook p. 14; the
+  turn message has no **Concede**, and `/codex concede` says why.
+
+### "An opponent's", the plurals, and a kill
+
+- **"An opponent's" is asked; a plural is every opponent** (decision
+  11). An effect whose text names one opponent is in
+  `effects.AN_OPPONENT` with the part that first needs to know which; at
+  a table of several, where nothing has set the frame against a seat,
+  `resolve.opponent_owed` asks a `TARGET` over each opponent's base
+  ("choose an opponent") before that part, and the answer sets the
+  frame's `against`. It is never asked of a duel, whose one row is taken
+  unasked, nor of a dragon's other team where the effect hits a base,
+  since they share one (`resolve._one_base`, the Captured Bugblatter
+  ruling). A frame something else set against a seat -- an attack's,
+  a death's, a damaged building's -- is never asked. The plurals reach
+  every opponent (`resolve._each_opposing`, `effects.EACH_OPPOSING_BASE`,
+  and `effects.EACH_OPPONENTS_ONE` for Hooded Executioner), and "each
+  opponent's base" is each *base* there is, a dragon's one hit once
+  (the Drakk Ramhorn ruling). Martial Mastery's look at a hand is an
+  opponent chosen (question 21). The audit of every card that says
+  "opponent" is in step 2's PR (#579).
+- **A dead hero's levels go to any opponent's hero, the active player
+  choosing** (Rulebook p. 11; question 18): `board.destroy` offers every
+  in-play hero of every opponent of the dead hero's **controller** --
+  the controller, not the owner, for a lent hero -- and
+  `LevelGainOptions.seats` names each hero's seat, so a mirror game's
+  two of one hero are told apart. **A hero already at its maximum level
+  is not offered them** (the author, 2026-10-15: "they can't gain any
+  more level at max"; built in its own PR, #596):
   `RulesEngine.takes_kill_levels` is the one reading, asked by
   `board.destroy` and by `LevelGainOptions`, so where one hero can still
   gain it gains them unasked, and where none can nobody does. The duel's
   golden did not change; the free-for-all's and the dragon's were
   re-recorded, since each offered a maxed hero once.
-- **The cogs ask the record and the engine.** The channel's name joins
-  every seat's name with `-vs-`, `/codex games` lists every seat, and
-  the buttons that need "the other side" ask the engine
-  (`sole_opponent`, `defending_seat`) or carry the seat the prompt gave
-  them.
-- **A seat is any positive number the match has.** `validate` accepts
-  two to five players in seat order, `first`, `active`, `winner` and
-  `conceded` any seat it has, and `tokens.player` and `tokens.addressed`
-  any positive seat.
-
-### Step 2: the free-for-all through the driver
-
-The free-for-all is played whole by the model -- three to five players,
-the policy of `tests/test_codex_driver_full_game.py` playing every seat,
-with nothing of `cogs/` imported -- and pinned by its own golden,
-`tests/golden/codex_ffa_*`. The duel's golden passes unrecorded: every
-field the step added is written to a save only where it is set.
-
-- **The variant is the record's and the match's.** `codex.game.VARIANTS`
-  names the duel, the free-for-all and the two-headed dragon;
-  `CodexGame.variant` is the lobby's until Start (`set_variant`, a
-  service door beside `set_mode`) and `MatchState.variant` the match's
-  own copy, which every rule reads -- a match outlives its lobby. A
-  free-for-all's record has five seats and starts from three complete
-  ones (`may_start`); its seats are taken in order and close up when a
-  player leaves (`_close_gaps`), because turn order is seat order. The
-  dragon is refused until step 5 builds it. A duel's record and match
-  write no `variant` key, so a save the new code writes still reads on a
-  checkout older than it.
-- **The Mercenaries are an upkeep effect, as the rulebook has them.**
-  `new_match` deals any number of seats, and in a free-for-all the third,
-  fourth and fifth players in turn order from the first drawn are owed 1,
-  2 and 3 (`PlayerState.mercenaries_owed`, written only while owed);
-  their first upkeep puts them in play -- tokens made by no card, with
-  the ordinary arrival fatigue -- first among its effects and never
-  ordered, since a gain changes nothing another effect reads that turn.
-  The UMR's "begin with them in play" is not the rulebook's (Rulebook
-  p. 14). `seats.turn_order` is the one reading of "from the first".
-- **The ending is the most base HP, and a tie plays off.** A destroyed
-  base on a free-for-all match goes through `turn.base_destroyed`: a sole
-  leader wins; a tie fills `MatchState.playoff` with the tied seats in
-  turn order from the seat after the active one, and `MatchState.tied`
-  keeps the whole list, since the playoff empties as it is played and
-  the comparison after it is among the tied alone (the author,
-  2026-10-14, question 16). The current turn runs to its end first (the
-  UMR's reading, which the author confirmed on 2026-10-14 -- the UMR is
-  the source wherever the rulebook and the rulings are silent, question
-  13) and changes nothing about who is tied (question 15). `next_seat` hands the playoff out ahead of the
-  order and of any extra turn; `begin_tech` pops it, and when it has
-  emptied makes the comparison again -- a winner, or the playoff filled
-  again ("Still tied"). While anyone is tied, only a tied player's base
-  falling counts, and the game ends at that moment on the comparison
-  among the tied (the author, 2026-10-14, question 20). A debt unpaid is a base destroyed
-  (question 17): the base to zero, the comparison then, and no
-  `lost_by_debt`. A destroyed base is no longer a defender (`_standing`
-  leaves a base at 0 out; the author, 2026-10-14, question 22): only a
-  playoff goes on past one, and the whole game showed tied players
-  attacking a fallen base forever. There is no concession (decision 5). The finished
-  game's ask says the score -- "{player:3} wins with 14 base HP:
-  {player:1}'s base is destroyed." -- and `GameOverOptions` carries
-  `winners` and every seat's `base_hp`.
-- **"An opponent's" is asked; a plural is every opponent.** An effect
-  whose text names one opponent is listed in `effects.AN_OPPONENT` with
-  the part that first needs to know which; at a table of several, where
-  nothing has set the frame against a seat, `resolve.opponent_owed`
-  asks a `TARGET` over each opponent's base ("choose an opponent")
-  before that part, and the answer sets the frame's `against`. It is
-  never asked of a duel, whose one row is taken unasked as every target
-  with one choice is -- so the duel's transcript does not change. A
-  frame something else set against a seat -- an attack's frames now
-  carry the attacked player (Troq's and Doubleshot Archer's "that
-  opponent's base"), a death's, a damaged building's -- is never asked.
-  The plurals reach every opponent through `resolve._each_opposing`
-  (Banefire Golem, Plague Lord, Ready or Not) or
-  `effects.EACH_OPPOSING_BASE` (Drakk, the Pirategang's units); Hooded
-  Executioner destroys one weakest unit of each opponent
-  (`effects.EACH_OPPONENTS_ONE`, a side at a time, so a side with one
-  weakest is taken unasked). A hand or discard pile looked at is the
-  chosen opponent's alone. Flagstone Spy's look names the seat it
-  looked at. The audit of every card that says "opponent" is in the
-  step's PR.
 - **Moment's Peace removes its caster's things from the units'
   defenders, and nothing else**: a unit may attack while any opponent is
-  not at peace, and the defender rows of a peaceful opponent are empty
-  for a unit. The tower detects and damages only an attacker of its
-  owner's (it reads the defending seat), armor refreshes on every turn
-  for every seat, and each opponent's patrol zone protects that opponent
-  alone -- all three already true after step 1, and pinned now.
-- **A kill's levels name the seat.** `LevelGainOptions.seats` is each
-  hero's seat (written where there are several), and the answer may name
-  `seat`, so a mirror game's two of one hero are told apart.
-- **A table of several has two views, every panel upright** (the
-  author, 2026-10-14, question 2): **stacked** (`render._compose_table`),
-  the active player's panel at the bottom under the turn's divider and
-  the others above it in turn order, the next to play nearest; and
-  **side by side** (`_compose_rows`), rows of two from the bottom -- the
-  active player and the next to play under the divider, three players
-  one panel above two, four two above two, five three rows with one at
-  the top, a lone panel centred, and the turn's pill centred over the
-  acting player's own panel rather than the board (the author,
-  2026-10-14). A free-for-all of three or four opens
-  side by side and one of five stacked (`CodexGame.start`); there is no
-  facing view, so step 4's Swap view toggles the two. The record's
-  `board_layout` keeps its spellings: "side_by_side" is the rows of two
-  on a table of several, and "stacked_upright" draws as "stacked".
-  `scripts/render_codex_sample.py` draws three, four and five players
-  both ways (`ffa-3`, `ffa-4`, `ffa-5`, and three and five from seat 2).
-- **Not yet**: the tower's own-turn detection names a ref, so in a mirror
-  game two of one hero hidden at once are one candidate; the lobby and
-  every Discord surface of a table of several are step 4's.
+  not at peace. **The tower** detects and damages only an attacker of
+  what its owner's side controls, and **each opponent's patrol zone**
+  protects that opponent alone. Armor refreshes on every turn for every
+  seat (Rulebook p. 19).
 
-### Step 3: repair, free gold and lending
+### The free-for-all's additions: repair and free gold
 
-The free-for-all's three additions (Rulebook p. 14), all behind
-`match.variant == "free_for_all"`. A duel's save is the save it always
-was: every field the step added is written only where it is set, and
-`tests/test_codex_golden.py` passes unrecorded for the duel. The
-free-for-all's own golden was re-recorded once, because the free gold
-adds a line and changes the gold the policy plays on.
+Both behind `match.variant == "free_for_all"` (Rulebook p. 14; decision
+7). The free-for-all's golden was re-recorded once for them (step 3),
+since the free gold adds a line and changes the gold the policy plays
+on.
 
-- **Repair is a `MAIN_ACTION` option, `repair_base`.** `RepairOption`
-  (cost 3, `allowed`, `why_not`) is on `MainActionOptions.repair`, which
-  is `None` -- and absent from the wire -- on a match that is not a
-  free-for-all; the action goes through `base_of` / `set_base`, as often
-  a turn as the gold goes, and is journaled like every other action. It
-  is refused at 20 ("the base is undamaged"), under 3 gold, and in a
-  duel (Rulebook p. 14).
-- **Free gold is read where a unit is destroyed, from who did it.**
-  `board.destroy` already carried `cause`, the seat whose effect led to
-  the destruction, and `combat`, whether combat damage did it.
-  `board._is_a_kill` is the one reading of "whenever *you* kill": the
-  killer is the active seat when combat did it and `cause` otherwise,
-  and it is a kill when the killer is the active seat and the card is
-  controlled **at that moment** by one of its opponents (a card lent to
-  an opponent is theirs). The gold is 1, to `BOUNTIES_A_TURN` (3), from
-  `PlayerState.bounties` (saved, 0, written only while set, cleared in
-  the ready phase), the gold cap respected, and said at the end of the
-  destroy line ("... {player:1} collects {gold:1}."). A hero or a
-  building never pays: `_is_a_kill` is asked of units only. Anything the
-  state of the table kills (`settle` with no cause) or an effect set off
-  by its own controller (`cause` is theirs) is nobody's kill, which is
-  the author's answer to question 19. Two cards say "the active player"
-  does it, whoever controls the card -- Blackhand Dozer and Orpal
-  Gloor's max level -- so `effects.ACTIVE_PLAYER_ACTS` names them and
-  `resolve.cause_of` gives the frame's cause as the active seat for
-  those; the Dozer and the unit it takes both pay. `cause` was only ever
-  read for a hero's kill levels, and neither card destroys a hero, so
-  nothing else moves. Obliterate's kills, which pass no combat flag,
-  carry the attacker's seat as their `cause`.
-- **Lending is a control change.** `PatrolOptions.zones` lists each
-  opponent's empty slots as `(seat, slots)` (`RulesEngine.lending_zones`,
-  a free-for-all's alone, on the wire only where there are some), and
-  the patrol answer takes `lent`, `{seat: {slot: ref}}`, beside the
-  `assignment` that is the owner's own zone: the same slot name can be
-  the owner's and a borrower's, so one slot-to-card map cannot say both,
-  and an older journal and the duel read as before. `board.lend` moves a
-  unit out of its owner's play zone into the borrower's, `controller`
-  the borrower and `CardInstance.lent` true (saved, false, written only
-  while set) -- nothing else on the card changes, no Arrives trigger
-  fires. A hero stays on its owner's list with `HeroState.lent_to` (saved,
-  `None`, written only while set) and the slot, and the borrower's zone
-  names it `<owner seat>:hero:<slug>` (`lent_hero_ref`), the spelling
-  `attached_hero` uses, because two players can field the same hero.
-- **A lent hero is read through the one controller reading.**
-  `MatchState.controller_of` (the engine's `seat_of` is its door) is the
-  borrower while it is lent and the owner otherwise; `PlayerState.
-  heroes_in_play` is the heroes the player *controls*, so a lent hero is
-  not its owner's to attack, patrol or level, and `heroes_on_table` is
-  every one in play, which is what `settle` reads for a hero at its HP.
-  `MatchState.patrollers(seat)` is a zone as it stands, with the heroes
-  lent into it, and replaces `PlayerState.patrollers()` at every site
-  that asked a defending seat; `MatchState.hero_on(seat, ref)` and
-  `board.body_of` resolve either spelling, so a lent hero is a defender,
-  a target and a fighter on its borrower's side.
-- **It comes home at the borrower's upkeep.** `board.return_lent` runs
-  first in the upkeep: every card the borrower controls with `lent` set
-  and every hero lent to them goes back -- out of the zone, `controller`
-  its owner's, into the owner's play zone and never their patrol zone,
-  no Arrives trigger, nothing else changed. It readies nothing because
-  the borrower's ready phase, which comes first, already did, as a card
-  they control (the ready phase reaches a lent hero through `lent_to`
-  for the same reason). A turn order that goes round the table brings
-  every other seat's turn between a lock and the owner's next turn, so
-  a card is home before its owner needs it.
-- **A lent card that dies pays its owner.** The scavenger's gold and the
-  technician's card go to `card.owner` for a `lent` card; it leaves play
-  to its owner's discard pile as every card does; a lent hero is named
-  on its borrower's side, goes to its owner's command zone with its two
-  summoning runes, and its two levels go to a hero of an opponent of its
-  **controller**, the active player choosing, as for any hero (question
-  18).
-- **Taking the end of a turn back takes the lending back.** The undo
-  replays to the last point before the lock, so nothing lent is
-  replayed; the lock is journaled only where a choice is asked before
-  the next turn begins, and a journal that holds it replays it.
-- **Not yet**: the Discord panel offers neither the repair nor the
-  lending (step 4); a lent hero is still drawn on its owner's panel, in
-  the owner's slot; and an effect that names "your heroes" does not see
-  a hero lent to its controller, since `heroes_in_play` is the owner's
-  reading -- units, which sit in the borrower's play zone, are seen by
-  every effect.
+- **Repair is a `MAIN_ACTION` option, `repair_base`**: `RepairOption`
+  (cost 3, `allowed`, `why_not`) on `MainActionOptions.repair`, `None`
+  and absent from the wire outside a free-for-all, as often a turn as
+  the gold goes, through `base_of` / `set_base`, journaled as every
+  action is; refused at 20, under 3 gold, and in a duel.
+- **Free gold is read where a unit is destroyed, from who did it**
+  (question 19). `board._is_a_kill` is the one reading of "whenever
+  *you* kill": the killer is the active seat when combat did it and
+  `cause` otherwise, and it is a kill when the killer is the active
+  seat and the card is controlled **at that moment** by one of its
+  opponents (a card lent to an opponent is theirs). 1 gold, to
+  `BOUNTIES_A_TURN` (3) from `PlayerState.bounties` (cleared in the
+  ready phase), the gold cap respected, said at the end of the destroy
+  line. A hero or a building never pays. Anything the state of the
+  table kills, or an effect its own controller set off, is nobody's
+  kill. Two cards say "the active player" does it -- Blackhand Dozer and
+  Orpal Gloor's max level -- so `effects.ACTIVE_PLAYER_ACTS` names them
+  and `resolve.cause_of` gives their frame's cause as the active seat;
+  Obliterate's kills carry the attacker as their `cause`.
 
-### Step 4: the free-for-all on Discord
+### Lending is a control change
 
-The duel on Discord changed in nothing a player sees but the lobby's
-second row; `tests/test_codex_golden.py` passes unrecorded and the
-request table above holds, click for click, for every click that
-existed (`tests/test_codex_cog_free_for_all.py` adds the clicks a third
-seat brings).
+(Rulebook p. 14; decision 7; units and heroes, question 9.)
 
-- **The lobby has a row of variants**, **Duel** / **Free-for-all** /
-  **Two-headed dragon**, under the mode's -- the mode as the table is
-  (`LobbyView.set_variant`, the service's `set_variant` over the
-  record's), either seated player's, a helper's, or anyone's while
-  nobody sits. The dragon is refused by the record ("not in this bot
-  yet", no page) until step 6. A table prints "Seat 3 (open)" rows for
-  the seats its variant takes (a duel's keep "Player n"), and Start
-  waits on three complete seats (`CodexGame.start_refusal`, the one
-  wording of why Start is refused, shared with `CodexGame.start`).
-- **A message has five rows**, and the lobby's two for the mode and the
-  variant leave three for picks, which is why a test game shows the
-  picks of as many seats as fit (`LobbyView.pick_seats`): all of them
-  where they fit, else a window starting at the first seat not yet
-  chosen for -- a free-for-all's seats are taken in order, so that is
-  the one to fill next -- each labelled "P3: Blood Anarchs". The duel's
-  standard test game, which showed both seats' decks in four rows,
-  shows one seat's at a time now; changing the other seat's picks goes
-  through **Leave**.
-- **Start renames the channel** `codex-<n>-ffa-<p1>-<p2>-<p3>`, every
-  seat's name slugged, capped at 100 characters
-  (`cogs.codex_helpers.channel_name`; a dragon's word will be `2hd`).
-  `CHANNEL_NAME_PATTERN` still reads the number. `/codex games` lists
-  every seat, a free-for-all's under its variant's name.
-- **The turn message of a free-for-all has no Concede**, and `/codex
-  concede` answers that a free-for-all has none, citing Rulebook p. 14
-  -- the refusal is the model's (`turn.refuse_concession`, behind
-  `GameService.check_concession`), asked before the second click is
-  offered. **Swap view** toggles stacked and side by side, a table having
-  no facing view (`swapped_layout(layout, table=True)`); `/codex
-  side_by_side` is the same toggle. The board's layout and the worker
-  and Mercenary pictures are step 2's (`render.compose_board`).
-- **The turn's end is read off the snapshots, not the seat after.** The
-  standing board of the turn that ended is lit for
-  `history.previous_turn_owner`, since the seat before the active one is
-  not "the other seat" on a table (playoffs and Double Time make it
-  neither the seat number before nor the next).
-- **The undo to the previous turn asks the seat whose turn is unwound**
-  -- `previous_turn_owner`, the snapshot's active seat -- Agree theirs or
-  a helper's, **Refuse** any seat's at the table, as the duel's consent
-  is. The button reads "(asks the player before you)" on a table. **Take
-  back the end of my turn** is the seat that ended the turn
-  (`end_of_turn_owner`), and once the next seat has acted its refusal
-  names them -- "dee has already started their turn." -- where the
-  duel's keeps "Your opponent" (`opponent_started`, decision 15).
-- **The panels.** My hand answers by the clicker's seat as before. A
-  seat whose turn has ended holds a standing tech choice
-  (`standing_prompts`), so **Tech** finds the clicker's; the turn's
-  footer names the one seat the turn waits on, since a free-for-all's
-  turn waits on its own player's tech alone (a dragon's two teammates
-  are step 6's). A defender button names the side it was offered on
-  where the same ref stands on two (`against`), the tower's detection
-  labels each thing by the opponent whose it is
-  (`RulesEngine.holder_of`), and a TARGET whose rows lie on several
-  seats is pictured with the table stacked, on one seat that seat alone
-  (`side_shown`).
-- **The end**: the winner's line with the final board, the playoff's
-  lines on the turn messages they fall in, and the channel moved to
-  Codex Archive are the duel's path (`finish_game`); **Rematch** opens a
-  lobby of the same variant with the same seats and every seat's heroes
-  cleared (`CodexGame.rematch`, decision 16), with no **Keep heroes**,
-  which a swap needs and a table has none of. Abandon is any seated
-  player's or a helper's, unchanged, and the startup sweep re-arms a
-  table's buttons as a duel's.
-- **Not yet**: the two-headed dragon (steps 5 and 6).
+- `PatrolOptions.zones` lists each opponent's empty slots as
+  `(seat, slots)` (`RulesEngine.lending_zones`, a free-for-all's alone,
+  on the wire only where there are some), and the patrol answer takes
+  `lent`, `{seat: {slot: ref}}`, beside the `assignment` that is the
+  owner's own zone: the same slot name can be the owner's and a
+  borrower's, so one map cannot say both, and an older journal and the
+  duel read as before.
+- `board.lend` moves a unit into the borrower's play zone, `controller`
+  the borrower and `CardInstance.lent` set (saved only while set);
+  nothing else on the card changes and no Arrives trigger fires. A hero
+  stays on its owner's list with `HeroState.lent_to` and the slot, and
+  the borrower's zone names it `<owner seat>:hero:<slug>`
+  (`lent_hero_ref`, the spelling `attached_hero` uses, because two
+  players can field the same hero). Every reading of it goes through
+  `controller_of` ("The five readings").
+- **It comes home at the borrower's upkeep**: `board.return_lent` runs
+  first in the upkeep -- out of the zone, `controller` its owner's, into
+  the owner's play zone and never their patrol zone, no trigger, not
+  readied, since the borrower's ready phase already readied it as
+  theirs. A turn order that goes round the table brings every other
+  seat's turn between a lock and the owner's next, so a card is home
+  before its owner needs it.
+- **A lent card that dies pays its owner** (the scavenger's gold, the
+  technician's card) and leaves play to its owner's discard pile; a lent
+  hero goes to its owner's command zone with its two summoning runes,
+  its levels to an opponent of its controller.
+- **Taking the end of a turn back takes the lending back**: the undo
+  replays to the last point before the lock, and the lock is journaled
+  only where a choice is asked before the next turn begins.
 
-### Step 5: the two-headed dragon through the driver
+### The dragon: the teams, the one base, the two prompts
 
-The dragon is played whole by the model -- two teams of two, basic and
-standard, the policy of `tests/test_codex_driver_full_game.py` answering
-the two teammates' questions in turn, with nothing of `cogs/` imported --
-and pinned by its own golden, `tests/golden/codex_dragon_*`. The duel's
-and the free-for-all's goldens pass unrecorded: every field the step
-added is written to a save only where it is set. The lobby still refuses
-the variant (`CodexGame.set_variant`, "not in this bot yet"), since
-opening it, the boards and the panels are step 6's; a test builds its
-record with `CodexGame(variant="two_headed_dragon")`.
-
-- **The teams and the deal.** `MatchState.dragons` (saved, `[]`
-  otherwise) holds the two pairs, seats 1 and 2 and 3 and 4, the first
-  seat of each its head. `seats.dragon_of`, `teammate` and `opponents`
+- **The teams and the deal** (decision 9; question 1: `dragon` in the
+  code, "team" in what the bot says). `MatchState.dragons` (saved, `[]`
+  otherwise) holds the two pairs, `DRAGON_TEAMS`, the first seat of each
+  its head. `seats.dragon_of`, `teammate`, `other_team` and `opponents`
   read it, so a teammate is never an opponent and everything that asks
   `opponents` -- the tower's reach, Moment's Peace, a hand revealed, a
-  dead hero's levels, "an opponent's" -- already means the other team's
-  two. `new_match` draws the first *team*, deals both its seats 4
-  workers and the other's 5, and sets every `base_hp` to `DRAGON_BASE_HP`
-  (30); the team's base is its head's `base_hp` through `base_seat`
-  (`base_of`, `set_base`, and `base_cap` for what repairs and the "now at
-  x/30" lines count against), and **the second seat's `base_hp` is dealt
-  and never read** (decision 9). A team never holds two of the same
-  add-on (Rulebook p. 13): `build_option` refuses one the teammate has,
-  finished or not, citing the page. `engine.team_sees` is the teammate in
-  a dragon and nobody otherwise; `hands_visible_to` folds it in, and
-  `shown_to` -- behind `codex_remaining`, `own_deck` and `tech_picks_of`
-  -- refuses a codex, a deck or a tech choice that is neither the
-  viewer's own nor the one `team_sees` names (decision 13).
-- **`match.active` is whichever teammate is acting -- a deviation from
-  the step's prompt, which kept it the team's head.** 145 sites in
+  dead hero's levels, "an opponent's" -- means the other team's two.
+  `new_match` draws the first *team*, deals both its seats 4 workers
+  and the other's 5, and every base `base_cap`'s 30.
+- **The team's one base is its head's `base_hp`** through `base_seat`;
+  **the second seat's is dealt and never read** -- a number in the save
+  that means nothing, kept from being read by the `base_hp` grep. A
+  destroyed tech building or add-on deals its 2 to the team's base, and
+  a line names the base for its team (`formatting.base_owner`), however
+  the attack or the effect named the seat. **A team never holds two of
+  the same add-on** (Rulebook p. 13): `build_option` refuses one the
+  teammate has, citing the page.
+- **What a teammate sees** (decision 13; questions 4 and 14):
+  `engine.team_sees` is the teammate in a dragon and nobody otherwise;
+  `hands_visible_to` folds it in, and `shown_to` -- behind
+  `codex_remaining`, `own_deck` and `tech_picks_of` -- refuses a codex,
+  a deck or a tech choice that is neither the viewer's own nor the one
+  `team_sees` names. Nothing else of the teammate's is shown, and a
+  borrower or a watcher sees nothing hidden.
+- **`match.active` is whichever teammate is acting** -- a deviation
+  from step 5's prompt, which kept it the team's head. 145 sites in
   `codex/` read `match.active` as "the seat doing this" (every action,
-  the attack under way, a frame's `cause`), and giving each a seat of its
-  own was a second reading of the same thing. So the driver runs an
-  action **with the seat that answered it active** (`driver.answer`), and
-  puts the team's head back between actions (`driver.settle_active`,
-  once nothing stands half-resolved); every reading made on a seat's
-  behalf -- their prompt's options and ask -- is made under
-  `seats.as_active`. It costs nothing in the questions that are the
-  team's: `turn_seats` is the dragon of the active seat, the same for
-  both teammates, and `next_seat` and the snapshots rest on the head.
-  Between actions, `active` is the head; mid-attack it is the attacker.
-- **A prompt per acting seat.** `pending` stays the one reading and grows
-  a `seat`; `pending_all` lists everything the team is waiting on and
-  `pending_prompts` its questions, one per acting seat; `pending_prompt`
-  keeps its one-seat reading for the duel and the free-for-all and
-  raises `SeveralAsked` where a dragon has more than one. Where one
-  teammate's action stands half-resolved (an effect under way, an attack
-  declared, a choice inside it) the team's question is that one alone,
-  and the other's click is refused "Waiting on {player:n}'s attack."
-  (`_half_resolved`). `GameResult.prompts` carries the list (empty
-  outside a dragon, and never on the wire), `prompt` the first.
-- **Every action names its seat.** `ARGUMENTS` allows `player` on every
-  kind; in a dragon the driver finds the prompt of the action's seat,
-  fills `player` in where an older journal leaves it out (the active
-  seat's), and **journals the action with it**, so a replay is exact. A
-  duel's and a free-for-all's actions are never given one, which is why
-  their journals are the bytes they were.
-- **The team's turn.** `begin_turn` readies both teammates in seat
-  order (`_ready`), takes the turn's one snapshot, then each teammate's
-  upkeep in seat order (`_begin_upkeep`): the second's after the first's
-  has run to its end, carried on the first's frame (`then`), so a
-  question the first's upkeep asks stands where a restart finds it and
-  its answer carries on into the second's. The turn opens on both
-  teammates' `TECH_CONFIRM` (or `TECH_CHOICE`), and begins once both are
-  settled. A seat that ends its main phase (`PlayerState.locking`) owes
-  its patrol lock while the other goes on; the lock (`PlayerState.locked`,
-  cleared with the next team turn) ends that seat's actions, and the
-  second lock ends the team's main phase -- the draw runs for both (a
-  stash answered per seat first, `stash_choice`) and the tech phase's
-  "End of turn" line names both players. Both teammates owe their tech
-  choice, which stands through the other team's turn
-  (`standing_prompts` is every seat outside the turn). **An extra turn is
-  one seat's alone** ("you means you", Rulebook p. 13): Double Time's
-  `extra_turns` names a seat, `MatchState.solo` is that seat while it
-  runs, and `turn_seats` and `acting_seats` are that seat -- the
-  teammate neither readies nor acts.
+  the attack under way, a frame's `cause`), and giving each a seat of
+  its own would have been a second reading of the same thing. So the
+  driver runs an action **with the seat that answered it active**
+  (`driver.answer`) and puts the team's head back between actions
+  (`driver.settle_active`, once nothing stands half-resolved); every
+  reading made on a seat's behalf -- its prompt's options and ask -- is
+  made under `seats.as_active`. The questions that are the team's do not
+  move: `turn_seats` is the active seat's dragon, the same for both
+  teammates, and `next_seat` and the snapshots rest on the head
+  (`seats.head_of`).
+- **The dragon's two seats are two pending prompts** (decision 8).
+  `pending` stays the one reading and takes a `seat`; `pending_all`
+  lists everything the team waits on and `pending_prompts` its
+  questions, one per acting seat; `pending_prompt` keeps its one-seat
+  reading for the duel and the free-for-all and raises `SeveralAsked`
+  where a dragon has more than one, so nothing reads one teammate's
+  prompt for the team's. Where one teammate's action stands
+  half-resolved -- an effect under way, an attack declared, a choice
+  inside it -- the team's question is that one alone, and the other's
+  click is refused "Waiting on {player:n}'s attack." (`_half_resolved`):
+  the bot serialises what the rulebook calls simultaneous.
+  `GameResult.prompts` carries the list (empty outside a dragon, never
+  on the wire).
+- **Every action names its seat in a dragon.** `ARGUMENTS` allows
+  `player` on every kind; the driver finds the prompt of the action's
+  seat, fills `player` in where an older journal leaves it out, and
+  journals the action with it, so a replay is exact. A duel's and a
+  free-for-all's actions are never given one, which is why their
+  journals are the bytes they were.
+
+### The dragon's team turn
+
+- `begin_turn` readies both teammates in seat order, takes the turn's
+  one snapshot, then runs each teammate's upkeep in seat order, the
+  second's after the first's has run to its end and carried on its frame
+  (`then`), so a question the first's upkeep asks stands where a
+  restart finds it. **The turn opens on both teammates' tech
+  confirmations** (`TECH_CONFIRM` or `TECH_CHOICE`) and begins once both
+  are settled.
+- **Each seat's patrol lock is its own** (`PlayerState.locking`,
+  `locked`, cleared with the next team turn): the first lock ends that
+  seat's actions, the second the team's main phase; the draw runs for
+  both (a stash answered per seat, `stash_choice`) and the "End of turn"
+  line and the turn's heading name both players
+  (`formatting.turn_heading`). Both teammates owe their tech choice,
+  which stands through the other team's turn (`standing_prompts` is
+  every seat outside the turn).
+- **An extra turn is one seat's alone** ("you means you", Rulebook
+  p. 13): Double Time's `extra_turns` names a seat, `MatchState.solo` is
+  that seat while it runs, and `turn_seats` and `acting_seats` are that
+  seat -- the teammate neither readies nor acts.
 - **The team's end.** A destroyed base is the other team's win:
   `MatchState.winner` is the winning team's head and `conceded` the
-  conceding team's (decision 5), `GameOverOptions.winners` both players,
-  and the lines name both ("{player:3} and {player:4}'s base is
-  destroyed. {player:1} and {player:2} win!"). A teammate who cannot pay
-  Promise of Payment's debt loses for the team (question 17). The base is
-  named for its team wherever a line names it (`formatting.base_owner`),
-  however the attack or the effect named the seat.
-- **The undos.** The snapshot is the team turn's, so *To the start of my
-  turn* and the fine undo take either teammate's actions back, and
-  `start_tech_over` asks both teammates' picks again. *Take back the end
-  of my turn* is `history.end_of_turn_owners` -- both players of the team
-  that took the turn -- and closes once either player of the next team
-  has acted.
-- **Attacking.** The other team's two patrol zones are one
-  (`RulesEngine._pooled_rows`, Rulebook p. 13): a squad leader of
-  either, the attacker choosing which; else any patroller of either;
-  else anything with HP of either and the shared base once. Each zone's
-  own rows are `_foe_rows` -- the keywords' exceptions (stealth, flying,
-  unstoppable) are read zone by zone -- and a zone the attacker passes
-  protects nothing of the partner's. The defender prompt lists each row
-  with its seat as the free-for-all's does. The **tower** is the team's one
-  (a team never holds two of the same add-on, so a dragon has at most
-  one -- `team_tower`): it detects for the whole team, whichever of them
-  or their cards is attacked, and deals its 1 to an attacker of anything
-  the team controls (`detecting_tower`, `towers_seeing`; the author,
-  2026-10-14, overriding the plan's narrower "you means you" reading of
-  its detection). On its owner's own turn the teammate's *Detect* uses
-  it too. **Overpower's excess** may go
-  to anything the attacked team controls (`overpower_team`: the
-  teammate's candidates are `<seat>:<ref>`). **Moment's Peace** removes
-  its caster's cards and the shared base from the units' defenders, not
-  the teammate's. Captured Bugblatter asks nothing where the opponents
-  share one base, and "each opponent's base" (Drakk, the Pirategang) is
-  each *base* there is. A dead hero's levels go to either of the other
-  team's heroes, the active player choosing (`board.destroy` already
-  asked `opponents`), and a destroyed tech building or add-on deals its
-  2 to the team's base (`damage_base` is `base_of`'s).
-- **The words.** `Part.friendly` is set on the eight effect parts whose
-  text says "friendly" and reads the things of the seat the part is
-  relative to *and its teammate's* (`target_candidates`' `friendly`):
-  Aged Sensei, Bloom, Forest's Favor, Sparring Partner, Eyes of the
-  Chancellor, Max Geiger's max level, Vandy Anadrose's friendly unit,
-  and Orpal Gloor's "friendly to the dead unit", which is relative to
-  the dead unit's controller (`units_of_against`), not the effect's.
-  Focus Master and the five Healing cards read the teammate by the
-  engine (`focus_prevents`; the healing upkeep heals the teammate's
-  units and heroes at the healer's upkeep). `test_codex_dragon.
-  FriendlyTests` holds the fourteen texts to the flags, and that no part
-  that says "your" carries one. "Your", "you control" and a count of
-  what "you have" stay the controller's, and so does Mythmaking's malus,
-  which is an *opponent's* legendary units alone. **Nobody spends a
-  teammate's gold, uses a teammate's abilities or patrols in a
-  teammate's zone** -- each is impossible by construction (every action
-  reads the acting seat's `active_player`; the abilities list and the
-  patrol candidates are the acting seat's cards; `lending_zones` is a
-  free-for-all's alone) and `YouMeansYouTests` holds each.
-- **Not yet**: the dragon's lobby, channel, turn message, two panels at
-  once, a teammate's hand picture, the board of two rows, the shared
-  base drawn once and the concession both teammates agree to are step
-  6's. The team's turn heading and the "End of turn" line already name
-  both players (`formatting.turn_heading`). Dothram Horselord's "a
-  player with more total ATK" is read per *seat*, as written (the author, 2026-10-14, question 24).
+  conceding team's, `GameOverOptions.winners` both players, and the
+  lines name both (`formatting.side_names` and `side_verb`: "{player:1}
+  and {player:2} win!"). The finished game's ask names the team as the
+  rulebook does -- "the other team's base is destroyed." -- where it said
+  "the opposing base" until step 6, the one line the dragon's golden was
+  re-recorded for. A teammate who cannot pay Promise of Payment's debt
+  loses for the team (question 17).
 
-### Step 6: the two-headed dragon on Discord
+### Attacking a dragon
 
-The dragon is played on Discord from `/codex create_game` to **Rematch**;
-`tests/test_codex_cog_dragon.py` drives it through the cog with Discord
-faked, a person a seat and one person on all four. The duel and the
-free-for-all changed in nothing a player sees: `tests/test_codex_golden.py`
-passes unrecorded for both, and every board they draw is byte-identical
-to before (the sample script's fifty pictures, by SHA-256). The dragon's
-golden was re-recorded for one line, its last: "{player:3} and
-{player:4} win: the other team's base is destroyed." -- the team named,
-as the step's prompt words it, where it said "the opposing base".
+- **The other team's two patrol zones are one** (Rulebook p. 13;
+  `RulesEngine._pooled_rows`): a squad leader of either, the attacker
+  choosing which; else any patroller of either; else anything with HP of
+  either and the shared base once. Each zone's own rows are `_foe_rows`,
+  so stealth, flying and unstoppable are read zone by zone, and a zone
+  the attacker passes protects nothing of the partner's. The defender
+  prompt lists each row with its seat.
+- **The tower is the team's one** -- a team never holds two of one
+  add-on (`team_tower`) -- and **detects for the whole team**, whichever
+  of them or their cards is attacked, and deals its 1 to an attacker of
+  anything the team controls (`detecting_tower`, `towers_seeing`). The
+  author decided this on 2026-10-14 (question 26), overriding both the
+  plan's narrower "you means you" reading and step 5's first cut, which
+  let each teammate's tower detect for the shared base. On its owner's
+  own turn the teammate's *Detect* uses it too.
+- **Overpower's excess** may go to anything the attacked team controls,
+  read with the duel's priority over the team (`overpower_team`;
+  question 25, as built). **Moment's Peace** removes its caster's cards
+  and the shared base from the units' defenders, not the teammate's.
 
-- **The lobby seats four in two teams.** `CodexGame.set_variant` takes the
-  dragon; `CodexGame.teams()` is the one reading of the lobby's sides --
-  `DRAGON_TEAMS`, seats 1 and 2 against 3 and 4, the deal's pairs -- and
-  the lobby heads them "Team 1" and "Team 2". A seat is taken in order
-  and nothing closes up when a player leaves (a dragon's seat order is
-  not its turn order), so a player who wants the other team leaves and
-  sits again once their old seat is taken. Start waits on four complete
-  seats (`start_refusal`, Rulebook p. 13), lays the board out stacked,
-  and renames the channel `codex-<n>-<p1>-<p2>-vs-<p3>-<p4>` -- the
-  teams joined by `-vs-` (`channel_name`), the step's prompt overriding
-  step 4's guess of a `2hd` word. `/codex games` lists "ann and bo vs cy
-  and dee".
-- **A question per seat, never the team's one.** The cog reads a seat's
-  question with `pending`'s `seat` (`Codex.prompt_for`) and the turn's
-  caption with `pending_prompts`, so nothing on Discord asks
-  `pending_prompt` of a dragon, which raises there. Every action a panel
-  sends names its seat (`PanelView.act`), since the driver otherwise
-  reads an unnamed one as the team's head's (decision 8); a duel's and a
-  free-for-all's actions are sent as before, so their journals are the
-  bytes they were.
-- **The turn message names and pings both teammates** (the model's
-  heading, `post_turn_message` pinging `turn_seats`). **My hand** gives
-  each acting seat its own panel and any other seat its hand, and every
-  picture of a dragon seat's hand -- the panel's main phase, the tech
-  gate and the stash, the hand sent to a seat not acting, `/codex hand`
-  -- carries the teammate's hand under it through `hands_visible_to`,
-  captioned "<name>'s hand: 5 cards." (`revealed_caption`, which names an
-  Eyes of the Chancellor's reveal by player too, wherever there is more
-  than one opponent; the duel's "Their hand" stands). The duel's tech
-  gate and stash keep their one picture.
-- **The teammate's codex and tech choice, read-only** (decision 13). The
-  Codex browser's menu offers "<name>'s codex: <view>" in every view the
-  teammate has, after the clicker's own, read through
-  `codex_remaining`'s `viewer` so the engine's `shown_to` is the gate.
-  **Tech** answers the clicker as before, then -- while the teammate's
-  choice stands -- sends the teammate's picks pictured as the
-  confirmation pictures them, nothing to press, or, where the teammate
-  owes a choice not yet made, "<name> has not chosen their tech yet."
-  (the author, 2026-10-15; `Codex.send_teammate_tech`, through
-  `tech_picks_of`).
-- **Two panels at once, each edited by its own player's clicks.** A
-  public click edits the turn message through the gate and the clicker's
-  panel in place, as every click does; the other panel stands as it was.
-  Its next click is checked by the driver against the options as they
-  stand, and where it is refused -- no longer offered, or the
-  teammate's attack or effect stands part-way ("Waiting on bo's
-  attack.") -- `PanelView.refuse` edits that panel in place to the
-  prompt as it now stands, the reason above it. A seat asked nothing now
-  -- the teammate's action part-way, the team's tech confirmations owed
-  by the teammate, or this seat locked -- is the **waiting panel**
-  (`Codex.put_waiting`, `WaitingView`): its hand and the teammate's, why,
-  and **Back to my turn**, which asks again. The first lock leaves the
-  locker there ("Your patrol is locked ... your tech choice opens from
-  **Tech** on the turn message once the team's turn ends"); the second
-  ends the team's turn, and its locker's panel becomes the tech picker,
-  as the duel's Lock does; the first locker's choice stands too and is
-  reached from **Tech**.
-- **A test game's one person holds both acting seats**: My hand puts up
-  the first unlocked teammate's panel with a question
-  (`Codex.acting_seat_for`) and **Switch to <name> (<team>)**, which edits
-  the panel in place to the other's, with a Switch back (the author,
-  2026-10-15: "just edit in place"; the first cut sent a new message, as
-  the prompt worded it, and the panels piled up) -- the name a seat's
-  player, which in a test game is always the one person, so the team is
-  beside it (`add_switch`). Once one seat locks, its panel goes on as the
-  other's.
-- **The undos.** The undo to the start of the turn and the fine undo
-  are any acting seat's, as before (`turn_seats`). **Take back the end
-  of my turn** is either player's of the team that ended it
-  (`end_of_turn_owners`), and once the other team has acted, either is
-  told "The other team has already started their turn."
-  (`OTHER_TEAM_STARTED`). The undo to the previous turn asks the other
-  team: the public question mentions both, `UndoConfirmView.agreeing` is
-  the pair -- either may **Agree**, a helper behind the confirmation, never
-  the asker's teammate -- and anyone at the table may **Refuse**.
-- **A concession needs both teammates** (decision 15). The first click is
-  the clicker's own ephemeral confirmation, as the duel's; its second
-  click posts a public question naming the teammate (`TeamConcedeView`,
-  modelled on `UndoConfirmView`, not persistent): **Agree** is the
-  teammate's or a helper's behind the confirmation -- never the asker's --
-  **Refuse** either teammate's; on Agree the service's `concede` ends
-  the game, the other team winning, and the end goes up as a destroyed
-  base's does.
-- **The board is two rows of two** (`render._compose_dragon`; the
-  author, 2026-10-14, decision 14): the acting team's row at the bottom,
-  its head on the left, under the divider, which names both teammates
-  ("PERRYTOM AND ANN'S TURN 9") or the one seat of an extra turn; the
-  other team's row above it, turned to face it as the duel's far panel is
-  -- the row turned whole, so its head's buildings are at the board's far
-  corner where the duel's far base is -- or the same way up. **Each
-  team's one base is drawn in both teammates' columns, with JOINT on it**
-  (the author, 2026-10-15; the first cut drew it on the head's column
-  alone and left the second column a tile shorter): a level band along the tile's foot
-  (`JOINT_STRIP`, `lay_band`), so the base's name and its heart stay
-  clear, where a diagonal strip like DESTROYED's would cross both. A
-  destroyed base shows DESTROYED in its place. The base tile's heart
-  carries the base's HP wherever it is not the 20 it prints, so a
-  dragon's 30 reads as 30 (a duel's never exceeds 20, which is why its
-  boards are unchanged). **Swap view** flips the far team
-  between facing and the same way up, the duel's labels; `/codex
-  side_by_side` answers that a dragon's board is the two rows of two.
-  `scripts/render_codex_sample.py` draws one (`dragon-*`).
-- **The end.** The finished game's line names the team (above), and
-  **Rematch** keeps the seats and the teams and clears every seat's
-  heroes (`CodexGame.rematch`, decision 16), the lobby saying "the same
-  seats and teams, each choosing heroes again", with no **Keep heroes**.
-  The channel goes to Codex Archive as for any game.
-- **The requests per click** gain the dragon's rows (the table above);
-  nothing already in it changed.
-- **Not yet**: the step 7 look back. A panel the other teammate's click
-  made stale is only refreshed by its own player's next click, as
-  decision 13 says; nothing pushes it.
+### The words: "friendly", "your", "you"
+
+- **"Friendly" is a flag on an effect's part** (decision 10).
+  `Part.friendly` is set on the eight parts whose text says it and reads
+  the things of the seat the part is relative to *and its teammate's*
+  (`target_candidates`' `friends`, `dragon_of`): Aged Sensei, Bloom,
+  Forest's Favor, Sparring Partner, Eyes of the Chancellor, Max Geiger's
+  max level, Vandy Anadrose's friendly unit, and Orpal Gloor's
+  "friendly to the dead unit", relative to the dead unit's controller
+  (`units_of_against`). Focus Master and the five Healing cards read
+  the teammate by the engine (`focus_prevents`, the healing upkeep).
+  `test_codex_dragon.FriendlyTests` holds the fourteen texts to the
+  flags, and that no part saying "your" carries one.
+- **"Your", "you control" and a count of what "you have" stay the
+  controller's**, and so does Mythmaking's malus (an *opponent's*
+  legendary units). **Nobody spends a teammate's gold, uses a
+  teammate's abilities or patrols in a teammate's zone** -- each is
+  impossible by construction, and `YouMeansYouTests` holds each.
+  Dothram Horselord's "a player with more total ATK" is read per seat
+  (question 24).
+
+### The board
+
+The author settled the boards from step 2's pictures (question 2,
+2026-10-14; decision 14), replacing the worksheet's first proposal of a
+free-for-all stacked alone.
+
+- **A free-for-all has two views, every panel upright** -- a table of
+  five has no "across". **Stacked** (`render._compose_table`): the
+  active player's panel at the bottom under the turn's divider, the
+  others above in turn order, the next to play nearest. **Side by
+  side** (`_compose_rows`): rows of two from the bottom, the active
+  player and the next to play under the divider -- three players one
+  panel above two, four two above two, five three rows with one at the
+  top, a lone panel centred -- and the turn's pill over the acting
+  player's own panel rather than the board's middle. Three or four open
+  side by side and five stacked (`CodexGame.start`); **Swap view**
+  toggles the two (`swapped_layout(layout, table=True)`), and `/codex
+  side_by_side` is the same toggle. The record's `board_layout` keeps
+  its spellings: "side_by_side" is the rows of two, "stacked_upright"
+  draws as "stacked".
+- **A dragon is two rows of two** (`render._compose_dragon`): the acting
+  team's row at the bottom, its head on the left, under the divider,
+  which names both teammates ("PERRYTOM AND ANN'S TURN 9") or the one
+  seat of an extra turn; the other team's row above, turned whole to
+  face it as the duel's far panel is -- so its head's buildings are at
+  the far corner where the duel's far base is -- or the same way up;
+  **Swap view** flips between the two, and `/codex side_by_side`
+  answers that a dragon's board is the two rows of two. **Each team's
+  one base is drawn in both teammates' columns with JOINT on it** (the
+  author, 2026-10-15), a level band along the tile's foot
+  (`JOINT_STRIP`, `lay_band`) so the base's name and heart stay clear;
+  this replaced decision 14's base drawn once in the head's column with
+  the second column a tile shorter, which step 6's first cut built. The
+  base tile's heart carries the base's HP where it is not the 20 it
+  prints, so a dragon's 30 reads as 30.
+- **Every composition is built from three pieces** (step 7):
+  `_even_panels` (a row's panels drawn at its tallest's height),
+  `_pair_strip` (one or two panels two columns wide, a quiet rule
+  between) and `_stack` (strips over the turn's divider and the bottom
+  one); `compose_board` makes the divider's label once, from
+  `turn_seats`. A TARGET whose rows lie on several seats is pictured
+  with the table stacked, on one seat that seat alone (`side_shown`).
+  `scripts/render_codex_sample.py` draws three, four and five players
+  both ways (`ffa-*`, three and five also from seat 2) and a dragon both
+  ways and from the other team (`dragon-*`).
+
+### On Discord: the turn message and the panels
+
+- **The turn message names and pings the seats whose turn it is**:
+  the model's heading, `post_turn_message` pinging `turn_seats`
+  (`mention_ids`). The turn's footer names the one seat a free-for-all's
+  turn waits on, or a dragon's two.
+- **A question per seat, never the team's one.** The cog reads a
+  seat's question with `pending`'s `seat` (`Codex.prompt_for`) and the
+  turn's caption with `pending_prompts`, so nothing on Discord asks
+  `pending_prompt` of a dragon. Every action a dragon panel sends names
+  its seat (`PanelView.act`).
+- **My hand** answers by the clicker's seat: an acting seat's panel,
+  any other seat its hand. **Tech** finds the clicker's standing choice
+  (every seat whose turn has ended holds one), and in a dragon then
+  sends the teammate's picks pictured read-only, or "<name> has not
+  chosen their tech yet." (`Codex.send_teammate_tech`). The Codex
+  browser offers "<name>'s codex: <view>" after the clicker's own. Every
+  picture of a dragon seat's hand carries the teammate's under it,
+  captioned "<name>'s hand: 5 cards." (`revealed_caption`, which names
+  an Eyes of the Chancellor's reveal by player wherever there is more
+  than one opponent; the duel's "Their hand" stands).
+- **Two panels at once, each edited by its own player's clicks**
+  (decision 13). A public click edits the turn message through the gate
+  and the clicker's panel in place; the other panel stands as it was,
+  since the bot reaches an ephemeral message only through its own
+  player's interaction. Its next click is checked against the options as
+  they stand, and where refused `PanelView.refuse` edits it in place to
+  the prompt as it now stands, the reason above it (outside a dragon a
+  refusal is said privately, `SafeView.refuse`). A seat asked nothing
+  now -- the teammate's action part-way, the team's confirmations owed
+  by the teammate, or this seat locked -- gets **the waiting panel**
+  (`Codex.put_waiting`, `WaitingView`) with **Back to my turn**.
+- **A test game's one person holds both acting seats**: My hand puts
+  up the first unlocked teammate's panel with a question
+  (`Codex.acting_seat_for`) and **Switch to <name> (<team>)**, which
+  edits the panel in place to the other's (the author, 2026-10-15,
+  replacing step 6's first cut, which sent a new message each time and
+  piled the panels up).
+- **The panels of a table.** A defender button names the side it was
+  offered on where the same ref stands on two (`against`); the tower's
+  detection labels each thing by the opponent whose it is
+  (`RulesEngine.holder_of`).
+  The standing board of the turn that ended is lit for
+  `history.previous_turn_owner`, read off the snapshots, since on a
+  table the seat before the active one is not the previous turn's
+  (playoffs and Double Time make it neither).
+
+### Who may undo, concede and abandon
+
+(Decision 15, the author's of 2026-10-11, and its two later undos.)
+
+- **To the start of my turn**, and the fine undo to before an action of
+  this turn: any acting seat's, without consent -- in a dragon either
+  teammate's, the team's turn and the teammate's actions included, since
+  the undo to the turn's start takes those back unasked too (question
+  7). `start_tech_over` asks both teammates' picks again.
+- **To the start of the previous turn** asks whoever's turn it unwinds:
+  `previous_turn_owner`, the snapshot's active seat, in a free-for-all
+  (the button reads "(asks the player before you)"); the other team in a
+  dragon, the public question mentioning both, either of whom may
+  **Agree** (`UndoConfirmView.agreeing`), never the asker's teammate.
+  A helper may agree behind the confirmation, and anyone at the table
+  may **Refuse** -- the duel's consent, kept (question 12).
+- **Take back the end of my turn** is the seat that ended the turn
+  (`end_of_turn_owner`) in a free-for-all, either player of the team
+  that did (`end_of_turn_owners`) in a dragon, while nobody whose turn
+  it now is has acted; once closed it names who started --
+  "{player:n} has already started their turn." or "The other team has
+  already started their turn." (`opponent_started`,
+  `OTHER_TEAM_STARTED`) -- where the duel keeps "Your opponent".
+- **Concede**: none in a free-for-all; **in a dragon it needs both
+  teammates** (question 6). The first click is the clicker's own
+  ephemeral confirmation; its second posts a public question naming the
+  teammate (`TeamConcedeView`, modelled on `UndoConfirmView`, not
+  persistent: after a restart the asker asks again) -- **Agree** the
+  teammate's or a helper's behind the confirmation, never the asker's;
+  **Refuse** either teammate's -- and on Agree the service's `concede`
+  ends the game, the other team winning.
+- **Abandon** is unchanged in every variant: a seated player's own game
+  or a helper's; one player may abandon a game of five (question 11).
+- **Rematch** is a fresh pick of heroes (decision 16; question 8): the
+  same seats and, in a dragon, the same teams, every seat's heroes
+  cleared (`CodexGame.rematch`), no **Keep heroes** -- a swap needs two
+  seats -- and the first player or team drawn again at Start. The
+  duel's rematch is unchanged.
+
+### The goldens and the whole-game test
+
+Three goldens, each a seeded game through its `GameService` with the
+tokens intact: the duel's (`codex_service_*`, never re-recorded by the
+series), a three-player free-for-all's (`codex_ffa_*`, re-recorded once
+in step 3) and a dragon's (`codex_dragon_*`, re-recorded once in step
+6). `tests/test_codex_driver_full_game.py` plays three to five players
+and the dragon, basic and standard, with nothing of `cogs/` imported;
+its policy answers every seat (decision 18: no AI), through `answer`,
+which names the seat asked in a dragon -- the golden asks it the same
+way. `tests/test_codex_cog_free_for_all.py` and
+`tests/test_codex_cog_dragon.py` drive the cog with Discord faked, a
+person a seat and one person on every seat, and the request table above
+gained their rows without changing any it had.
+
+### What step 7 moved to one home
+
+Whatever steps 2 to 6 wrote twice moved to one place, with the tests
+unchanged and every picture the sample script draws byte-identical by
+SHA-256:
+
+- **The model**: `seats.other_team` (the render's and `next_seat`'s two
+  spellings of "the other pair"); `next_seat`'s fallback through
+  `turn_order`; `MatchState.base_seat` through `dragon_of`; the deal's
+  teams from `game.DRAGON_TEAMS` and its base HP from `base_cap`; a
+  part's friends through `dragon_of`; `formatting.side_names` and
+  `side_verb` (the flow's and the prompt's joins and four "win"/"wins");
+  `resolve._one_base` (the Captured Bugblatter test written twice); and
+  `RulesEngine.holder_of`, defined twice since step 4, the first
+  shadowed and never run, now once.
+- **The board**: `_even_panels`, `_pair_strip`, `_stack`, the label made
+  once, and a free-for-all read by its variant rather than a count of
+  players.
+- **The cogs**: `codex_helpers.seat_label`, `seat_labels` and
+  `mention_ids` over fourteen inline "seat_name or Player n", three
+  joins and two ping lists; the cog's uncalled `questions` (the
+  service's `waiting_all`) removed; `PanelView.refuse` outside a dragon
+  is `SafeView.refuse`.
+- **The tests**: `lock` and `attack` in `test_codex_free_for_all`
+  (`end_turn` and `attack_base` over them, the additions' copies gone);
+  `labels` and `end_main_and_lock` in `codex_cog_fakes`; `answer` and
+  `numbered_seats` in `test_codex_driver_full_game`, which the golden
+  imports; the sample script's `table_putter` and `set_table`.
+
+What was left in two places on purpose: the wording that differs by
+variant (the undo's and the concession's sentences say different things
+in a duel, a free-for-all and a dragon, so a shared helper would be a
+phrase table, not one reading); `TeamConcedeView` and `UndoConfirmView`,
+which share a shape but not a gate, a timeout or a message; and the
+service's handful of `waiting_all(...) if match.dragons` reads, each
+with its own condition.
+
+### Not yet, and still open
+
+- **The Discord panel offers neither the repair nor the lending.** Both
+  are the model's (`MainActionOptions.repair`, `PatrolOptions.zones`),
+  played through the driver and the goldens, but no step put them on
+  the panel: step 3 left them to step 4, and step 4 built the table's
+  turn message, panels and end without them. A free-for-all on Discord
+  plays without repairing and locks its patrol into its own zone alone.
+- **The tower's own-turn detection names a ref**, so in a mirror game
+  two of one hero hidden at once are one candidate.
+- **A lent hero is drawn on its owner's panel**, in the owner's slot,
+  and an effect that names "your heroes" does not see a hero lent to its
+  controller (`heroes_in_play` is the owner's reading there); units,
+  which sit in the borrower's play zone, are seen by every effect.
+- **A dragon panel made stale by the teammate's click** is refreshed
+  only by its own player's next click, as decision 13 says; nothing
+  pushes it.
 
 ## Running it
 

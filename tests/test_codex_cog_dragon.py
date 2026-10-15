@@ -15,11 +15,9 @@ from __future__ import annotations
 
 import unittest
 
-import discord
-
 from codex.game import GameStatus
 from codex.prompts import Action, PromptKind
-from codex_cog_fakes import Table, user
+from codex_cog_fakes import Table, end_main_and_lock, labels, user
 from codex_positions import put
 from cogs.codex_views import (
     END_OF_TURN, OTHER_TEAM_STARTED, LobbyView, PatrolView, RematchView, TeamConcedeView, TechChoiceView,
@@ -31,13 +29,7 @@ async def end_team_turn(table: Table, team) -> None:
     """Both teammates end their main phase and lock nothing: the team's
     turn ends."""
     for seat in team:
-        call = await table.turn_button("hand", table.seated(seat))
-        view = (await table.press(call.view(), "End main phase", who=table.seated(seat))).view()
-        await table.press(view, "Lock patrol", who=table.seated(seat))
-
-
-def labels(view) -> list[str]:
-    return [item.label for item in view.children if isinstance(item, discord.ui.Button)]
+        await end_main_and_lock(table, table.seated(seat))
 
 
 class LobbyTests(unittest.IsolatedAsyncioTestCase):

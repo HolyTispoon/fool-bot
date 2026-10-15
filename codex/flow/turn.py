@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, seats, tokens
-from codex.formatting import base_owner, team_name
+from codex.formatting import base_owner, side_names, side_verb, team_name
 from codex.components import CardInstance, MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
@@ -27,12 +27,6 @@ from codex.prompts import PendingPrompt, pending, tech_is_owed
 if TYPE_CHECKING:
     from codex.engine import RulesEngine
     from codex.game import CodexGame
-
-
-def _names(team: tuple[int, ...]) -> str:
-    """A side's players, as a line names them: `{player:1}`, or in a
-    dragon `{player:1} and {player:2}`."""
-    return " and ".join(tokens.player(seat) for seat in team)
 
 
 def _plural(count: int, word: str) -> str:
@@ -107,9 +101,8 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         winners = seats.rivals(match, seat)
         match.winner = winners[0]
         match.record_event("base_destroyed", loser=seat, winner=match.winner)
-        verb = "win" if len(winners) > 1 else "wins"
-        text = (f"{_names(seats.dragon_of(match, seat))}'s base is destroyed. "
-                f"{_names(winners)} {verb}!")
+        text = (f"{base_owner(match, seat)}'s base is destroyed. "
+                f"{side_names(winners)} {side_verb(winners, 'wins', 'win')}!")
         result.narration.append(f"**{text}**")
         result.headlines = (*result.headlines, Headline(text, seat=match.winner))
 
@@ -220,8 +213,8 @@ def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # A dragon's concession is the team's: the head of the team named.
     match.conceded = losers[0]
     match.record_event("conceded", loser=match.conceded, winner=match.winner)
-    text = (f"{_names(losers)} {'concede' if len(losers) > 1 else 'concedes'}. "
-            f"{_names(winners)} {'win' if len(winners) > 1 else 'wins'}!")
+    text = (f"{side_names(losers)} {side_verb(losers, 'concedes', 'concede')}. "
+            f"{side_names(winners)} {side_verb(winners, 'wins', 'win')}!")
     return StepResult(
         narration=[f"**{text}**"],
         board_changed=True,
@@ -819,7 +812,7 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
     # author, 2026-10-14, question 17).
     text = (
         f"{tokens.player(seat)} can't pay the {tokens.gold(owed)} {tokens.card('promise_of_payment')} "
-        f"promised. {_names(winners)} {'win' if len(winners) > 1 else 'wins'}!"
+        f"promised. {side_names(winners)} {side_verb(winners, 'wins', 'win')}!"
     )
     result.narration.append(f"**{text}**")
     result.headlines = (*result.headlines, Headline(text, seat=match.winner))

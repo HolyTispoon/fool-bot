@@ -296,6 +296,27 @@ FFA_SPECS = ("bashing", "finesse", "fire", "growth", "law")
 FFA_NAMES = {1: "perrytom", 2: "ann", 3: "bo", 4: "cy", 5: "dee"}
 
 
+def table_putter(match: MatchState):
+    """`put(seat, slug, ...)` for a table of several: a card in play on
+    `seat`'s side, a squad leader with its armor."""
+    def put(seat, slug, *, patrol=None, damage=0, exhausted=False, arrived=False):
+        card = match.new_instance(slug, seat)
+        card.patrol_slot, card.damage = patrol, damage
+        card.exhausted, card.arrived_this_turn = exhausted, arrived
+        card.armor = 1 if patrol == "squad_leader" else 0
+        return card
+    return put
+
+
+def set_table(match: MatchState) -> None:
+    """Every seat of a table of several some gold, some workers and a
+    finished tech I building."""
+    for player in match.players:
+        seat = player.seat
+        player.gold, player.workers = 2 + seat, 6 + seat % 3
+        player.buildings["tech1"] = BuildingState(hp=5, under_construction=False)
+
+
 def staged_free_for_all(engine: RulesEngine, count: int) -> MatchState:
     """A free-for-all of `count` in its fourth round: every seat with
     something in play, the Mercenaries of the third and later players
@@ -303,19 +324,13 @@ def staged_free_for_all(engine: RulesEngine, count: int) -> MatchState:
     match = engine.new_match(FFA_SPECS[:count], first=1, variant="free_for_all")
     match.turn, match.phase = 4 * count + 1, "main"
 
-    def put(seat, slug, *, patrol=None, damage=0, exhausted=False, arrived=False):
-        card = match.new_instance(slug, seat)
-        card.patrol_slot, card.damage = patrol, damage
-        card.exhausted, card.arrived_this_turn = exhausted, arrived
-        card.armor = 1 if patrol == "squad_leader" else 0
-        return card
+    put = table_putter(match)
 
     bases = (16, 11, 18, 14, 20)
+    set_table(match)
     for player in match.players:
         seat = player.seat
         match.set_base(seat, bases[seat - 1])
-        player.gold, player.workers = 2 + seat, 6 + seat % 3
-        player.buildings["tech1"] = BuildingState(hp=5, under_construction=False)
         for number in range(player.mercenaries_owed):
             put(seat, "mercenary", patrol="elite" if seat % 2 and not number else None)
         player.mercenaries_owed = 0
@@ -346,18 +361,10 @@ def staged_dragon(engine: RulesEngine) -> MatchState:
     match = engine.new_match(FFA_SPECS[:4], first=1, variant="two_headed_dragon")
     match.turn, match.phase = 9, "main"
 
-    def put(seat, slug, *, patrol=None, damage=0, exhausted=False, arrived=False):
-        card = match.new_instance(slug, seat)
-        card.patrol_slot, card.damage = patrol, damage
-        card.exhausted, card.arrived_this_turn = exhausted, arrived
-        card.armor = 1 if patrol == "squad_leader" else 0
-        return card
+    put = table_putter(match)
 
     match.set_base(1, 23)
-    for player in match.players:
-        seat = player.seat
-        player.gold, player.workers = 2 + seat, 6 + seat % 3
-        player.buildings["tech1"] = BuildingState(hp=5, under_construction=False)
+    set_table(match)
     match.player(1).hero.zone, match.player(1).hero.level = "play", 4
     match.player(2).add_on = AddOnState("tower", 4, under_construction=False)
     match.player(3).add_on = AddOnState("surplus", 2, under_construction=False)

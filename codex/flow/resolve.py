@@ -140,6 +140,12 @@ def _unique(ref: str) -> bool:
     return ref != WORKERS and not ref.startswith((HAND, CODEX))
 
 
+def _one_base(match: MatchState, foes) -> bool:
+    """Whether `foes` share one base: a dragon's other team (Rulebook
+    p. 13; the Captured Bugblatter ruling)."""
+    return len({match.base_seat(foe) for foe in foes}) == 1
+
+
 def opponent_owed(engine: "RulesEngine", match: MatchState, top: dict) -> bool:
     """
     Whether the frame's current part must first choose **an opponent**:
@@ -159,7 +165,7 @@ def opponent_owed(engine: "RulesEngine", match: MatchState, top: dict) -> bool:
     if top["effect"] == "captured_bugblatter" and top["seat"] not in engine.turn_seats(match):
         return False
     foes = engine.opponents(match, top["seat"])
-    if top["effect"] == "captured_bugblatter" and len({match.base_seat(foe) for foe in foes}) == 1:
+    if top["effect"] == "captured_bugblatter" and _one_base(match, foes):
         # A dragon's opponents share the one base: nothing to choose
         # (the Captured Bugblatter ruling).
         return False
@@ -854,7 +860,7 @@ def _base_damage(engine, match, top, part, target, result) -> None:
         bases = foes
     elif top["effect"] == "captured_bugblatter" and match.active in foes:
         bases = (match.active,)
-    elif top["effect"] == "captured_bugblatter" and len({match.base_seat(foe) for foe in foes}) == 1:
+    elif top["effect"] == "captured_bugblatter" and _one_base(match, foes):
         bases = foes[:1]
     else:
         bases = (_against(engine, match, top),)

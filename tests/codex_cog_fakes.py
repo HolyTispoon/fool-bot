@@ -287,6 +287,20 @@ class FakeInteraction:
         return ""
 
 
+def labels(view) -> list[str]:
+    """A view's buttons by label, in order."""
+    return [item.label for item in view.children if isinstance(item, discord.ui.Button)]
+
+
+async def end_main_and_lock(table, who) -> None:
+    """`who`'s acting seat ends its main phase and locks no patrollers,
+    from **My hand**: a free-for-all's turn, or one teammate's half of a
+    dragon's."""
+    call = await table.turn_button("hand", who)
+    view = (await table.press(call.view(), "End main phase", who=who)).view()
+    await table.press(view, "Lock patrol", who=who)
+
+
 def find_button(view, which) -> discord.ui.Button:
     """A button by the start of its label, or -- a tuple -- by the choice
     it answers with (`PanelButton.choice`): `("play", slug)`,

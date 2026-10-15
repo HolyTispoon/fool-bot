@@ -16,6 +16,7 @@ nothing themselves and save nothing.
 import discord
 
 from codex.game import GameStatus
+from cogs.codex_helpers import seat_label
 from cogs.codex_views.base import SafeView, edit_clicked, send_ephemeral
 
 #: How long the concession's confirmation stays up.
@@ -113,7 +114,7 @@ class TeamConcedeView(SafeView):
             await send_ephemeral(interaction, "Only the two teammates can refuse this.")
             return
         self.stop()
-        name = game.seat_name(refusing) or f"Player {refusing}"
+        name = seat_label(game, refusing)
         await edit_clicked(interaction, content=f"The concession was refused by {name}: the game goes on.",
                            view=None)
 
