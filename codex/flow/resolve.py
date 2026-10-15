@@ -794,7 +794,7 @@ def _steal(engine, match, top, part, target, result) -> None:
 
 def _sideline(engine, match, top, part, target, result) -> None:
     body = board.body_of(match, *target)
-    board.sideline(body)
+    board.sideline(match, body)
     result.narration.append(f"{top['by']} sidelines {_thing(match, target)}.")
 
 
@@ -2290,7 +2290,7 @@ def _disable(engine, match, top, part, target, result) -> None:
     """Disable (UMR p. 16): exhausted, sidelined if patrolling, not readied
     at its next ready phase."""
     body = board.body_of(match, *target)
-    board.disable(body)
+    board.disable(match, body)
     result.narration.append(f"{top['by']} disables {_thing(match, target)}.")
 
 
@@ -2515,7 +2515,7 @@ def _disable_picked(engine, match, top, part, target, result) -> None:
     body = board.body_of(match, *parse_target(key))
     if body is None:
         return
-    board.disable(body)
+    board.disable(match, body)
     result.narration.append(f"{top['by']} disables {_thing(match, parse_target(key))}.")
 
 
@@ -2647,7 +2647,7 @@ def _grapple(engine, match, top, part, target, result) -> None:
         landed = board.take_damage(grappler, back)
         result.narration.append(f"{_thing(match, target)} deals {landed} back to {top['by']}.")
     if alive and body.patrol_slot is not None:
-        board.sideline(body)
+        board.sideline(match, body)
         result.narration.append(f"{top['by']} sidelines {_thing(match, target)}.")
 
 
@@ -2667,10 +2667,12 @@ def _boot_camp(engine, match, top, part, target, result) -> None:
     if body is None:
         return
     body.exhausted = True
-    if body.patrol_slot is not None:
-        board.sideline(body)
     result.narration.append(f"{top['by']} exhausts {_thing(match, target)}.")
     _plus_rune(engine, match, top, part, target, result)
+    if body.patrol_slot is not None:
+        # Last: a lent card sidelined goes home, where the target no
+        # longer names it (`board.sideline`).
+        board.sideline(match, body)
 
 
 def _conscript(engine, match, top, part, target, result) -> None:
@@ -2727,7 +2729,7 @@ def _injunction(engine, match, top, part, target, result) -> None:
     hit = [card for card in player.play
            if engine.catalog.cards[card.slug].is_unit and engine.tech_level(card) == level]
     for card in hit:
-        board.disable(card)
+        board.disable(match, card)
     name = {1: "Tech I", 2: "Tech II"}[level]
     line = f"{top['by']} disables {tokens.player(seat)}'s {name} building"
     if hit:
@@ -2798,7 +2800,7 @@ def _magistrate(engine, match, top, part, target, result) -> None:
     body = board.body_of(match, seat, ref)
     if body is None:
         return
-    board.disable(body)
+    board.disable(match, body)
     drawn = draw_cards(engine, match, seat, 1, result)
     result.narration.append(
         f"{top['by']} disables {_thing(match, target)}"
@@ -2934,7 +2936,7 @@ def _sideline_all(engine, match, top, part, target, result) -> None:
     sidelined = [card for player in match.players for card in player.play
                  if engine.catalog.cards[card.slug].is_unit and card.patrol_slot is not None]
     for card in sidelined:
-        board.sideline(card)
+        board.sideline(match, card)
     result.narration.append(
         f"{top['by']} sidelines every patrolling unit." if sidelined
         else f"{top['by']} finds no patrolling unit to sideline."
@@ -3156,7 +3158,7 @@ def _finish(engine: "RulesEngine", match: MatchState, top: dict, result: StepRes
             # Entangling Vines: "Sideline the unit." (step 13)
             host_card = board.body_of(match, side, ref)
             if host_card is not None and host_card.patrol_slot is not None:
-                board.sideline(host_card)
+                board.sideline(match, host_card)
                 result.narration.append(f"{board.named(match, side, ref)} is sidelined.")
         return
     if spell in effects.CHANNELING:

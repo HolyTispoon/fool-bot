@@ -69,6 +69,13 @@ def named(match: MatchState, seat: int, ref: str, *, whose: bool = True) -> str:
         card = player.instance(instance_id)
         if card is not None:
             return f"{owner}{tokens.card(card.slug)}"
+        card = match.instance(instance_id)
+        if card is not None:
+            # A card lent into `seat`'s zone that has gone home since the
+            # ref was taken (`sideline`): named where it stands now, on
+            # its owner's side.
+            prefix = f"{tokens.player(card.controller)}'s " if whose else ""
+            return f"{prefix}{tokens.card(card.slug)}"
     future = future_card(match, seat, ref)
     if future is not None:
         return f"{owner}{tokens.card(future.slug)} in the future"
@@ -1145,19 +1152,14 @@ def return_lent(engine: "RulesEngine", match: MatchState, seat: int, result: Ste
     phase before it has already readied them as the borrower's."""
     borrowed = [card for card in match.player(seat).play if card.lent]
     for card in borrowed:
-        match.player(seat).play.remove(card)
-        card.controller = card.owner
-        card.lent = False
-        sideline(card)
-        match.player(card.owner).play.append(card)
+        sideline(match, card)
         result.narration.append(
             f"{tokens.card(card.slug)} goes home to {tokens.player(card.owner)}."
         )
     for owner in match.players:
         for hero in owner.heroes:
             if hero.lent_to == seat:
-                hero.lent_to = None
-                sideline(hero)
+                sideline(match, hero)
                 result.narration.append(
                     f"{tokens.hero(hero.slug)} goes home to {tokens.player(owner.seat)}."
                 )
@@ -1184,20 +1186,27 @@ def give_back(match: MatchState, card: CardInstance, result: StepResult) -> None
     result.narration.append(f"{tokens.card(card.slug)} goes back to {tokens.player(seat)}.")
 
 
-def sideline(body) -> None:
-    """Out of the patrol zone, and with it the squad leader's armor -- and,
-    for a hero lent into that zone, home to its owner: a hero's loan is
-    its slot in the borrower's zone (`lend`, `MatchState.patrollers`),
-    the one place on the borrower's side it can stand, so out of the
-    zone it is its owner's again, as `return_lent` sends it -- nothing
-    else on it changed, no trigger, named where it stands now (`named`).
-    Every sideline comes here, so Appel Stomp's, Calypso Vystari's, the
-    Grappling Hook's, a disable's and Oathkeeper's read alike
+def sideline(match: MatchState, body) -> None:
+    """Out of the patrol zone, and with it the squad leader's armor -- and
+    a lent patroller home to its owner (the author, 2026-10-15): a loan
+    is a slot in the borrower's zone (`lend`, `MatchState.patrollers`),
+    so out of the zone the card or hero is its owner's again, as
+    `return_lent` sends it -- a unit into the owner's play zone, never
+    their patrol zone, `controller` and `lent` back; a hero with
+    `lent_to` cleared -- nothing else on it changed, no trigger, named
+    where it stands now (`named`). Every sideline comes here, so Appel
+    Stomp's, Calypso Vystari's, the Grappling Hook's, Boot Camp's, a
+    disable's, Oathkeeper's and Entangling Vines' read alike
     (docs/design/codex.md, "Lending is a control change")."""
     body.patrol_slot = None
     body.armor = 0
     if isinstance(body, HeroState):
         body.lent_to = None
+    elif body.lent:
+        match.player(body.controller).play.remove(body)
+        body.controller = body.owner
+        body.lent = False
+        match.player(body.owner).play.append(body)
 
 
 # -- Time, the future, indestructible and disable (step 12) --------------------
@@ -1578,11 +1587,11 @@ def sentry_shields(engine: "RulesEngine", match: MatchState, bodies, result: Ste
     return []
 
 
-def disable(body) -> None:
+def disable(match: MatchState, body) -> None:
     """Disable (UMR p. 16): exhausted, sidelined if it was patrolling, and
     not readied at its next ready phase."""
     body.exhausted = True
-    sideline(body)
+    sideline(match, body)
     body.disabled = True
 
 

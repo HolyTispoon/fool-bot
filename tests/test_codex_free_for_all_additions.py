@@ -589,6 +589,32 @@ class LoanEndsTests(unittest.TestCase):
         self.assertNotIn("arrives", heard)
         self.saved_validates()
 
+    def test_a_sidelined_lent_unit_goes_home_to_its_owner(self) -> None:
+        """Appel Stomp sidelines the Tenderfoot seat 3 lent seat 2: home
+        to seat 3's play zone and never their patrol zone, theirs and not
+        lent, named on its owner's side (the author, 2026-10-15) -- so
+        nobody's upkeep has anything to send home."""
+        card = self.lend_unit(slot="elite")
+        hero_in_play(self.match, 1, level=5)
+        self.match.player(1).heroes[0].max_level_since_turn_began = True
+        hand(self.match, 1, "appel_stomp")
+        self.match.player(1).gold = 5
+        heard = said(apply(self.engine, self.game, self.match, Action(
+            PromptKind.MAIN_ACTION, "play", {"slug": "appel_stomp"})))
+        heard += "\n" + self.target(2, card.ref)
+        self.assertEqual((card.controller, card.owner, card.lent, card.patrol_slot), (3, 3, False, None))
+        self.assertIn(card, self.match.player(3).play)
+        self.assertNotIn(card, self.match.player(2).play)
+        self.assertEqual((self.match.patrollers(2), self.match.patrollers(3)), ({}, {}))
+        self.assertIn("sidelines {player:3}'s {card:tenderfoot}.", heard)
+        self.assertNotIn("arrives", heard)
+        self.saved_validates()
+        apply(self.engine, self.game, self.match, Action(PromptKind.APPEL_STOMP_TOP, "discard"))
+        heard = end_turn(self.engine, self.game, self.match)
+        self.assertEqual(self.match.active, 2)
+        self.assertNotIn("goes home", heard)
+        self.assertIn(card, self.match.player(3).play)
+
     def test_a_control_change_ends_the_loan(self) -> None:
         """Seat 1's Ogre Recruiter survives an attack on seat 3's base and
         takes the Tenderfoot seat 3 lent seat 2: the thief's for good,
