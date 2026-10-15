@@ -464,8 +464,10 @@ class PanelTests(TurnTestCase):
         back = (await self.table.press(hiring, "Back")).view()
         self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
 
-    async def test_level_up_buys_one_level_a_click(self) -> None:
-        """One button per hero, a level a click (the author, 2026-10-09)."""
+    async def test_level_up_opens_the_levels_to_choose_from(self) -> None:
+        """**Level up...** opens the levels the hero may reach, a button
+        each with its cost, and one click on a level buys every level up
+        to it (the author, 2026-10-15)."""
         match = self.table.match
         seat = match.active
         hero_in_play(match, seat)
@@ -473,14 +475,43 @@ class PanelTests(TurnTestCase):
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
         slug = match.player(seat).hero.slug
-        call = await self.table.press(view, ("level", slug))
-        self.assertNothingWentWrong(call)
-        self.assertEqual(self.table.match.player(seat).hero.level, 2)
-        self.assertEqual(self.table.match.player(seat).gold, 2)
-        call = await self.table.press(call.view(), ("level", slug))
+        opened = await self.table.press(view, ("open_level", slug))
+        self.assertNothingWentWrong(opened)
+        self.assertEqual(self.table.match.player(seat).hero.level, 1)
+        self.assertIn("to which level", opened.last()[2]["content"])
+        picker = opened.view()
+        levels = [item for item in picker.children if (item.choice or ("",))[0] == "level"]
+        self.assertEqual([item.choice for item in levels],
+                         [("level", slug, 1), ("level", slug, 2), ("level", slug, 3)])
+        for item, (level, cost) in zip(levels, [(2, 1), (3, 2), (4, 3)]):
+            self.assertTrue(item.label.startswith(f"Level {level} ({cost} gold)"), item.label)
+        back = (await self.table.press(picker, "Back")).view()
+        self.assertEqual(back.mode, "actions")
+        call = await self.table.press(picker, ("level", slug, 2))
         self.assertNothingWentWrong(call)
         self.assertEqual(self.table.match.player(seat).hero.level, 3)
         self.assertEqual(self.table.match.player(seat).gold, 1)
+        self.assertEqual(call.view().mode, "actions")
+
+    async def test_a_level_that_starts_a_band_says_so(self) -> None:
+        """The level picker marks the level that starts a band, and the
+        hero's last, off the card."""
+        match = self.table.match
+        seat = match.active
+        hero_in_play(match, seat)
+        match.player(seat).gold = 20
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        slug = match.player(seat).hero.slug
+        card = self.table.cog.engine.catalog.heroes[slug]
+        picker = (await self.table.press(view, ("open_level", slug))).view()
+        labels = {item.choice[2] + 1: item.label for item in picker.children
+                  if (item.choice or ("",))[0] == "level"}
+        self.assertEqual(sorted(labels), list(range(2, card.max_level + 1)))
+        self.assertTrue(labels[card.max_level].endswith(": max level"))
+        for band in card.bands[1:]:
+            if band.min_level != card.max_level:
+                self.assertTrue(labels[band.min_level].endswith(": new band"))
 
     async def test_a_big_hand_leaves_the_boards_row(self) -> None:
         """Five rows of five: the hand takes two rows at most, under the

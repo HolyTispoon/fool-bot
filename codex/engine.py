@@ -180,13 +180,16 @@ class HeroOption:
     """What the active player may do with one of their heroes: summon it
     for its cost, level it up to `max_levels` levels at a gold each, or
     nothing, and why -- `action` names what the button would do even
-    where `why_not` says it may not now."""
+    where `why_not` says it may not now. `level` is the hero's level
+    now, in play (0 in the command zone), which the levels offered are
+    counted from."""
 
     slug: str
     action: Optional[str] = None
     cost: int = 0
     max_levels: int = 0
     why_not: str = ""
+    level: int = 0
 
     @property
     def allowed(self) -> bool:
@@ -195,7 +198,7 @@ class HeroOption:
     def to_dict(self) -> dict:
         return {
             "slug": self.slug, "action": self.action, "cost": self.cost,
-            "max_levels": self.max_levels, "why_not": self.why_not,
+            "max_levels": self.max_levels, "why_not": self.why_not, "level": self.level,
         }
 
 
@@ -1819,16 +1822,19 @@ class RulesEngine:
             return HeroOption(hero.slug, SUMMON, card.cost)
         room = card.max_level - hero.level
         if not room:
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="at its max level")
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, level=hero.level,
+                              why_not="at its max level")
         if any(m.get("kind") == "no_level" for m in hero.modifiers):
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it can't level up this turn")
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, level=hero.level,
+                              why_not="it can't level up this turn")
         if self.levels_frozen(match, hero):
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST,
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, level=hero.level,
                               why_not="an opposing Chronofixer stops it leveling up")
         levels = min(room, player.gold // LEVEL_COST)
         if not levels:
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="not enough gold")
-        return HeroOption(hero.slug, LEVEL, LEVEL_COST, levels)
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, level=hero.level,
+                              why_not="not enough gold")
+        return HeroOption(hero.slug, LEVEL, LEVEL_COST, levels, level=hero.level)
 
     def why_not_playable(self, player: PlayerState, slug: str,
                          match: Optional[MatchState] = None, from_hand: bool = True) -> str:

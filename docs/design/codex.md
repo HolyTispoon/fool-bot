@@ -2361,9 +2361,17 @@ too, asked with `gate` for the two kinds a turn may open on
   player's hand (`HandView`) and under the tech gate's. **Hire worker** and every **Build** are green and **Attack...**
   red, beside **End main phase**'s red (the author, 2026-10-09), so the
   panel's three kinds of spending read apart at a glance; the rest
-  stay blurple or grey. **Level up** buys one
-  level a click (the author, 2026-10-09): one button per hero, pressed again for the next level, rather than a
-  menu of counts. **Attack...** turns the panel into what may attack,
+  stay blurple or grey. **Level up...** opens the
+  levels the hero may reach (the author, 2026-10-15): the panel turns
+  into a button per level from the next one up to as many as the gold
+  and the card's maximum allow, each with what it costs -- "Level 4 (2
+  gold)", ": new band" where the level starts one and ": max level" on
+  the last, off the card -- and **Back**, and the one click buys every
+  level up to it in a single action (`levels`). Opening it spends nothing
+  public, like **Attack...**. It was a level a click before (2026-10-09),
+  which made a player reaching a band press once per level, each press
+  a write to the turn message; `HeroOption.level`, the hero's level
+  now, is what the buttons count from. **Attack...** turns the panel into what may attack,
   one button each as `ref_label` names it ("Older Brother 2/2"), and
   **Back**; the attacker's button asks the defender next, in the same
   panel, and opening the mode spends nothing public, like Hire's and
