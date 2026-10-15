@@ -4,7 +4,11 @@ cog's Discord faked: the lobby's variant row, three people reaching the
 opening position, the channel's name, the turn message of a table -- no
 Concede, **Swap view** between stacked and side by side, the undos asking
 the right seat -- and the end of the game, **Rematch** with the same
-seats and every seat's heroes cleared.
+seats and every seat's heroes cleared; and the free-for-all's two
+additions on the panel (Rulebook p. 14): **Repair base** on the board's
+row, and each opponent's open slots as destinations in the patrol view,
+which **Lock patrol** answers with `lent` beside the assignment -- a
+duel's panel with no repair, a dragon's patrol view with no loan.
 
 The requests each click spends are counted as the duel's are
 (`tests/test_codex_cog_turn.py`); the board itself is `test_codex_render`'s
@@ -14,17 +18,28 @@ and `scripts/render_codex_sample.py`'s to look at.
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
-from codex import history
-from codex.game import GameStatus
-from codex.prompts import pending
 import discord
 
-from codex_cog_fakes import GAME_CHANNEL, Table, labels, user
+from codex import history
+from codex.components import PATROL_SLOTS
+from codex.game import GameStatus
+from codex.prompts import pending
+from codex_cog_fakes import GAME_CHANNEL, Table, find_button, find_select, labels, user
 from codex_cog_fakes import end_main_and_lock as end_turn
+from codex_positions import put
 from cogs.codex_views import (
-    NOT_YOUR_TABLE, LobbyView, RematchView, TurnMessageView, TurnPanelView, UndoConfirmView, UndoView,
+    NOT_YOUR_TABLE,
+    LobbyView,
+    PatrolView,
+    RematchView,
+    TurnMessageView,
+    TurnPanelView,
+    UndoConfirmView,
+    UndoView,
 )
+from cogs.codex_views.patrol import EMPTY
 from cogs.codex_views.turn import PREVIOUS_TURN_LABEL_TABLE
 
 
@@ -213,8 +228,8 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
                              PendingPrompt(PromptKind.TARGET, "", seat, options), match)
         styles = {item.label: item.style for item in view.children if getattr(item, "choice", None)}
         self.assertEqual(styles, {
-            "Your base": discord.ButtonStyle.primary,
-            **{f"{self.game.seat_name(one)}'s base": discord.ButtonStyle.danger for one in others},
+            "Your Base (20 HP)": discord.ButtonStyle.primary,
+            **{f"{self.game.seat_name(one)}'s Base (20 HP)": discord.ButtonStyle.danger for one in others},
         })
 
     async def test_the_hand_is_the_clickers_seat(self) -> None:
@@ -273,6 +288,245 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(self.table.cog.service.end_of_turn_owner(self.game.game_id), first)
         self.assertIsNotNone(history.end_of_turn_owner)
+
+
+#: An action's answers on the click's own webhook: the defer while the
+#: turn message is brought up to date, then the panel edited in place.
+PANEL_EDITED = ["response.defer", "original.edit"]
+
+
+def channel_requests(table: Table, mark: int) -> list[tuple[str, int]]:
+    """What the channel's bucket was asked for since `mark`, by kind and
+    message."""
+    return [(kind, message_id) for kind, message_id, _ in table.game_channel.since(mark)]
+
+
+class RepairTests(unittest.IsolatedAsyncioTestCase):
+    """**Repair base** on a free-for-all's panel (Rulebook p. 14): on the
+    board's row, green where the engine allows it and greyed with why
+    not where it does not, answering `MAIN_ACTION` with "repair"; a
+    duel's panel has none, since `MainActionOptions.repair` is `None`
+    there."""
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started_free_for_all()
+
+    def stage(self, base: int, gold: int) -> int:
+        """The active seat's base at `base` HP and its gold at `gold`;
+        the seat."""
+        match = self.table.match
+        match.set_base(match.active, base)
+        match.active_player.gold = gold
+        self.table.cog.service.persist(self.game, match)
+        return match.active
+
+    async def test_the_repair_is_a_green_button_on_the_boards_row(self) -> None:
+        self.stage(15, 7)
+        _, view = await self.table.panel()
+        button = find_button(view, ("repair",))
+        self.assertEqual(button.label, "Repair base (3 gold)")
+        self.assertIs(button.style, discord.ButtonStyle.success)
+        self.assertFalse(button.disabled)
+        # After the actions row and the hand, on the board's row with
+        # what may be built, before the five that always end the panel.
+        self.assertGreater(button.row, 0)
+        self.assertLessEqual(button.row, find_button(view, "My deck").row)
+        self.assertIn("Repair base (3 gold)", labels(view))
+
+    async def test_a_repair_costs_what_an_action_does(self) -> None:
+        """The turn message edited through the gate -- one of the
+        channel's -- and, on the click's own webhook, the defer and the
+        panel edited in place: a main-phase action's count
+        (docs/design/codex.md, "The requests per click")."""
+        seat = self.stage(15, 7)
+        _, view = await self.table.panel()
+        old = self.game.turn_message_id
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.press(view, ("repair",))
+        self.assertEqual([kind for kind, _, _ in call.answers], PANEL_EDITED)
+        self.assertEqual(channel_requests(self.table, mark), [("edit", old)])
+        match = self.table.match
+        self.assertEqual((match.base_of(seat), match.player(seat).gold), (16, 4))
+        self.assertEqual(match.journal[-1]["action"]["choice"], "repair")
+        self.assertIn("repairs the base: 16 HP.", self.table.game_channel.texts[old])
+        # The panel edited in place offers it again, 4 gold being enough;
+        # after the second, 1 gold is not, and the button says so.
+        self.assertFalse(find_button(call.view(), ("repair",)).disabled)
+        again = await self.table.press(call.view(), ("repair",))
+        self.assertEqual(self.table.match.player(seat).gold, 1)
+        self.assertEqual(find_button(again.view(), ("repair",)).label,
+                         "Repair base (3 gold): not enough gold")
+
+    async def test_a_refused_repair_is_greyed_with_why_not(self) -> None:
+        _, view = await self.table.panel()
+        button = find_button(view, ("repair",))
+        self.assertTrue(button.disabled)
+        self.assertIs(button.style, discord.ButtonStyle.secondary)
+        self.assertEqual(button.label, "Repair base (3 gold): the base is undamaged")
+        self.stage(15, 2)
+        _, view = await self.table.panel()
+        self.assertEqual(find_button(view, ("repair",)).label,
+                         "Repair base (3 gold): not enough gold")
+
+    async def test_a_duels_panel_has_no_repair(self) -> None:
+        duel = Table()
+        self.addCleanup(duel.close)
+        await duel.started()
+        match = duel.match
+        match.set_base(match.active, 15)
+        match.active_player.gold = 9
+        duel.cog.service.persist(duel.game, match)
+        _, view = await duel.panel()
+        self.assertIsNone(view.prompt.options.repair)
+        self.assertNotIn(("repair",), [getattr(item, "choice", None) for item in view.children])
+        self.assertEqual([label for label in labels(view) if label.startswith("Repair")], [])
+
+
+class LendingTests(unittest.IsolatedAsyncioTestCase):
+    """Lending from the patrol view (Rulebook p. 14; docs/design/codex.md,
+    "Lending is a control change"): each opponent's open slots follow the
+    owner's five in the slot menu, the patroller chosen for one is lent,
+    and **Lock patrol** answers with `lent` beside the assignment -- with
+    the assignment alone where nothing is lent, as a duel's lock does."""
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started_free_for_all()
+        match = self.table.match
+        self.seat = match.active
+        self.borrower, self.other = [seat for seat in (1, 2, 3) if seat != self.seat]
+        self.card = put(match, self.seat, "tenderfoot")
+        # The other opponent's squad leader: that slot is not open.
+        put(match, self.other, "older_brother", patrol="squad_leader")
+        self.table.cog.service.persist(self.game, match)
+        self.name = self.game.seat_name(self.borrower)
+
+    async def patrol(self) -> PatrolView:
+        """End the main phase from a fresh panel: the patrol view."""
+        _, view = await self.table.panel()
+        view = (await self.table.press(view, "End main phase")).view()
+        self.assertIsInstance(view, PatrolView)
+        return view
+
+    def key(self, slot: str, seat: int | None = None) -> str:
+        return slot if seat is None else f"{seat}:{slot}"
+
+    async def test_each_opponents_open_slots_follow_the_owners_in_the_slot_menu(self) -> None:
+        view = await self.patrol()
+        menu = find_select(view, "Choose a slot")
+        values = [option.value for option in menu.options]
+        self.assertEqual(values[:5], list(PATROL_SLOTS))
+        self.assertEqual(values[5:10], [self.key(slot, self.borrower) for slot in PATROL_SLOTS])
+        self.assertEqual(values[10:], [self.key(slot, self.other) for slot in PATROL_SLOTS
+                                       if slot != "squad_leader"])
+        by_value = {option.value: option.label for option in menu.options}
+        self.assertEqual(by_value["elite"], "Elite: empty")
+        self.assertEqual(by_value[self.key("elite", self.borrower)], f"{self.name}'s elite: empty")
+        self.assertEqual(find_select(view, "Who patrols").placeholder, "Who patrols as squad leader?")
+
+    async def test_a_destination_and_its_patroller_cost_one_edit_each_and_nothing_public(self) -> None:
+        view = await self.patrol()
+        mark = len(self.table.game_channel.requests)
+        chosen = await self.table.choose(view, "Choose a slot", self.key("elite", self.borrower))
+        self.assertEqual([kind for kind, _, _ in chosen.answers], ["response.edit"])
+        view = chosen.view()
+        menu = find_select(view, "Who is lent to")
+        self.assertEqual(menu.placeholder, f"Who is lent to {self.name} as elite?")
+        self.assertIn(self.card.ref, [option.value for option in menu.options])
+        lent = await self.table.choose(view, "Who is lent to", self.card.ref)
+        self.assertEqual([kind for kind, _, _ in lent.answers], ["response.edit"])
+        self.assertEqual(channel_requests(self.table, mark), [])
+        view = lent.view()
+        self.assertEqual(view.assignment, {self.key("elite", self.borrower): self.card.ref})
+        self.assertIn(f"**Lent to {self.name} as elite**: Tenderfoot", lent.text())
+        # The menu moved on to the owner's first empty slot, which no
+        # longer offers the card: it patrols one slot at most.
+        own = find_select(view, "Who patrols as squad leader")
+        self.assertNotIn(self.card.ref, [option.value for option in own.options])
+        # Nothing is applied before the lock: the card is still its owner's.
+        self.assertEqual(self.table.match.instance(self.card.id).controller, self.seat)
+
+    async def test_the_lock_lends_and_costs_what_the_duels_lock_does(self) -> None:
+        """The answer carries `lent` beside the assignment; the lock is
+        the turn's end -- the old message's last edit, its pin, the new
+        one's post -- and the defer and the panel edited into the tech
+        picker, as a duel's."""
+        view = await self.patrol()
+        view = (await self.table.choose(view, "Choose a slot", self.key("elite", self.borrower))).view()
+        view = (await self.table.choose(view, "Who is lent to", self.card.ref)).view()
+        old = self.game.turn_message_id
+        mark = len(self.table.game_channel.requests)
+        service = self.table.cog.service
+        with mock.patch.object(service, "apply_action", wraps=service.apply_action) as applied:
+            lock = await self.table.press(view, "Lock patrol")
+        action = applied.call_args[0][1]
+        self.assertEqual(action.arguments, {
+            "assignment": {}, "lent": {str(self.borrower): {"elite": self.card.ref}},
+        })
+        self.assertEqual([kind for kind, _, _ in lock.answers], PANEL_EDITED)
+        self.assertEqual([kind for kind, _ in channel_requests(self.table, mark)],
+                         ["edit", "pin", "send"])
+        match = self.table.match
+        card = match.instance(self.card.id)
+        self.assertEqual((card.controller, card.owner, card.lent, card.patrol_slot),
+                         (self.borrower, self.seat, True, "elite"))
+        self.assertIn(card, match.player(self.borrower).play)
+        self.assertEqual(match.patrollers(self.borrower), {"elite": card.ref})
+        self.assertEqual(match.patrollers(self.seat), {})
+        self.assertIn(f"lends **Tenderfoot** to {self.name} as elite.",
+                      self.table.game_channel.texts[old])
+
+    async def test_a_lock_that_lends_nothing_answers_as_a_duels_does(self) -> None:
+        view = await self.patrol()
+        view = (await self.table.choose(view, "Who patrols", self.card.ref)).view()
+        service = self.table.cog.service
+        with mock.patch.object(service, "apply_action", wraps=service.apply_action) as applied:
+            await self.table.press(view, "Lock patrol")
+        self.assertEqual(applied.call_args[0][1].arguments,
+                         {"assignment": {"squad_leader": self.card.ref}})
+        self.assertEqual(self.table.match.instance(self.card.id).controller, self.seat)
+
+    async def test_a_loan_is_kept_through_undo_and_taken_back_by_nobody_or_clear(self) -> None:
+        view = await self.patrol()
+        view = (await self.table.choose(view, "Choose a slot", self.key("lookout", self.borrower))).view()
+        view = (await self.table.choose(view, "Who is lent to", self.card.ref)).view()
+        undo = (await self.table.press(view, "Undo...")).view()
+        self.assertIsInstance(undo, TurnPanelView)
+        back = (await self.table.press(undo, "Back")).view()
+        self.assertIsInstance(back, PatrolView)
+        self.assertEqual(back.assignment, {self.key("lookout", self.borrower): self.card.ref})
+        view = (await self.table.choose(back, "Choose a slot", self.key("lookout", self.borrower))).view()
+        self.assertTrue(next(option.default for option in find_select(view, "Who is lent to").options
+                             if option.value == self.card.ref))
+        view = (await self.table.choose(view, "Who is lent to", EMPTY)).view()
+        self.assertEqual(view.assignment, {})
+        view = (await self.table.choose(view, "Who is lent to", self.card.ref)).view()
+        view = (await self.table.press(view, "Clear")).view()
+        self.assertEqual(view.assignment, {})
+
+
+class DragonPatrolTests(unittest.IsolatedAsyncioTestCase):
+    async def test_a_dragons_patrol_view_offers_no_loan(self) -> None:
+        """A two-headed dragon lends nothing (Rulebook p. 13 has no such
+        rule): the options carry no zones, so the slot menu is the
+        owner's five alone, as a duel's."""
+        table = Table()
+        self.addCleanup(table.close)
+        game = await table.started_dragon()
+        match = table.match
+        put(match, match.active, "tenderfoot")
+        table.cog.service.persist(game, match)
+        _, view = await table.panel()
+        view = (await table.press(view, "End main phase")).view()
+        self.assertIsInstance(view, PatrolView)
+        self.assertEqual(view.prompt.options.zones, ())
+        menu = find_select(view, "Choose a slot")
+        self.assertEqual([option.value for option in menu.options], list(PATROL_SLOTS))
+        self.assertFalse([label for label in (option.label for option in menu.options) if "'s " in label])
+        self.assertEqual(find_select(view, "Who patrols").placeholder, "Who patrols as squad leader?")
 
 
 class EndTests(unittest.IsolatedAsyncioTestCase):

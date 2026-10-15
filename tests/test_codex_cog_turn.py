@@ -593,7 +593,11 @@ class PanelTests(TurnTestCase):
         labels = [item.label for item in defending.children if getattr(item, "choice", None)]
         self.assertTrue(labels)
         self.assertFalse([item for item in defending.children if isinstance(item, discord.ui.Select)])
-        self.assertTrue(all(label.endswith(" (no patrol)") for label in labels))
+        # No patrol, so nothing beside a name but a building's HP left,
+        # and a building is green (the author, 2026-10-15).
+        self.assertFalse([label for label in labels if "patrol" in label])
+        styles = {item.label: item.style for item in defending.children if getattr(item, "choice", None)}
+        self.assertEqual(styles["Base (20 HP)"], discord.ButtonStyle.success)
         cancelled = await self.table.press(defending, "Cancel the attack")
         self.assertIs(cancelled.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertIsNone(self.table.match.attacking)
@@ -1472,8 +1476,8 @@ class EffectPanelTests(TurnTestCase):
         options = TargetOptions(seat, "brick_thief", "unit:1", 1, "repair", rows)
         view = TurnPanelView(cog, game_id, PendingPrompt(PromptKind.TARGET, "", seat, options), match)
         styles = {item.label: item.style for item in view.children if getattr(item, "choice", None)}
-        self.assertEqual(styles, {"Your base": discord.ButtonStyle.primary,
-                                  f"{self.game.seat_name(other)}'s base": discord.ButtonStyle.danger})
+        self.assertEqual(styles, {"Your Base (20 HP)": discord.ButtonStyle.primary,
+                                  f"{self.game.seat_name(other)}'s Base (20 HP)": discord.ButtonStyle.danger})
         options = DivideOptions(seat, "brick_thief", "unit:1", 2,
                                 ((f"{seat}:base", 1), (f"{other}:base", 1)))
         view = TurnPanelView(cog, game_id, PendingPrompt(PromptKind.DIVIDE_DAMAGE, "", seat, options), match)
@@ -1561,7 +1565,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         view = TurnPanelView(self.table.cog, self.game.game_id,
                              PendingPrompt(PromptKind.TARGET, "", seat, options), match)
         labels = [item.label for item in view.children if getattr(item, "choice", None)]
-        self.assertEqual(labels, ["Your base", f"{team_name(match.player(other).specs)}'s base"])
+        self.assertEqual(labels, ["Your Base (20 HP)", f"{team_name(match.player(other).specs)}'s Base (20 HP)"])
         self.assertNotIn("basher", labels[1])
 
     async def test_one_person_plays_both_sides_from_the_panel(self) -> None:

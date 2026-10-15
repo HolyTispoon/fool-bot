@@ -586,11 +586,11 @@ always.
   *may* shoot up but is never forced to. `ignores_patrollers` is the
   third answer -- unstoppable, or stealth and invisible while no detector
   sees it -- and `defender_rows` says which of the three it was, so the
-  panel's buttons can say why a defender is legal ("it flies over the patrol
-  zone", "it sneaks past the patrol zone", "it is unstoppable"). That
+  panel's buttons can say why a defender is legal ("flying", "stealth",
+  "unstoppable"). That
   reason is about getting past the zone, so a patroller the attacker
   takes anyway is said as what it is -- "squad leader" or "patroller" --
-  never "it flies over the patrol zone" beside the squad leader it is
+  never "flying" beside the squad leader it is
   attacking.
 - **A flier flew over the patrollers it had to get past**
   (`flown_over`), and each of those with anti-air deals its ATK to it:
@@ -2470,8 +2470,18 @@ too, asked with `gate` for the two kinds a turn may open on
   `history.undo_targets` says are open. The attacker is named the same
   way over the defender's buttons, and each is labelled with why it is
   legal -- "squad
-  leader", "patroller", "no patrol", in brackets after its name -- which is the engine's
+  leader", "patroller", "flying", "unstoppable vs. base", in brackets
+  after its name -- and nothing where the defender has no patrol at
+  all, the button the name alone (the author, 2026-10-15) -- which is the engine's
   (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
+  A building among them is green and the rest blurple, and every
+  building's label, here and on any other button, carries the HP it has
+  left -- "Tech I (5 HP)", "Base (17 HP)", the base capitalised on a
+  button though not in the narration -- read from `building_hp_left`;
+  a building's reason shares its HP's bracket, "Base (20 HP, flying)".
+  The reasons are kept short for a button -- "stealth vs. units",
+  "unstoppable by tech 0", "Demon, unstoppable", "unblocked" (the
+  author, 2026-10-15).
   **Nothing the turn panel asks is a menu any more**: the tower's
   detection and the three choices inside an attack -- obliterate's tie,
   sparkshot's neighbour, overpower's excess -- are buttons too, what
@@ -2764,6 +2774,9 @@ new picture up in an ephemeral message, none where the picture was kept:
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
 | My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1; **+1** |
 | Lock patrol on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
+| **Repair base** on a free-for-all's panel | **1**: the turn message through the gate, as any action | 2: the defer, the panel edited in place |
+| A slot or a patroller chosen in the patrol view, an opponent's open slot among them | **0** | 1: the panel's edit |
+| Lock patrol that lends | **3**, as the duel's Lock | 2, as the duel's |
 | An action by either teammate of a dragon (multiplayer step 6) | **1**: the turn message through the gate | 2: the defer, the clicker's own panel edited in place |
 | A dragon teammate's stale click -- the team moved on, or the other's action stands part-way | **0** | 1: the panel edited in place to the prompt as it stands |
 | The first lock of a dragon's turn | **1**: the turn message through the gate | 2: the defer, the panel edited to the waiting panel |
@@ -3660,6 +3673,19 @@ on.
   and absent from the wire outside a free-for-all, as often a turn as
   the gold goes, through `base_of` / `set_base`, journaled as every
   action is; refused at 20, under 3 gold, and in a duel.
+  - **On Discord it is a button on the panel's board row** (the panel
+    step, 2026-10-15): **Repair base (3 gold)**, green among what may be
+    built where the engine allows it, and greyed with its reason --
+    "Repair base (3 gold): the base is undamaged" -- among the refused
+    builds where it does not, which a full row gives up first
+    (`TurnPanelView.build_actions`, choice `("repair",)`). It is built
+    from `MainActionOptions.repair` and nothing else, so a duel's and a
+    dragon's panel, where that is `None`, carry no such button; the
+    click answers `MAIN_ACTION` with "repair" and costs what any action
+    does ("The requests per click"). The board's row rather than the
+    actions row because the base is on the board, and because a
+    standard game's actions row is full already -- a sixth button there
+    would take one of the hand's two rows.
 - **Free gold is read where a unit is destroyed, from who did it**
   (question 19). `board._is_a_kill` is the one reading of "whenever
   *you* kill": the killer is the active seat when combat did it and
@@ -3708,6 +3734,24 @@ on.
 - **Taking the end of a turn back takes the lending back**: the undo
   replays to the last point before the lock, and the lock is journaled
   only where a choice is asked before the next turn begins.
+- **On Discord a loan is a destination in the patrol view** (the panel
+  step, 2026-10-15; `PatrolView`). Where the options carry `zones`,
+  each opponent's open slots follow the owner's five in the slot menu --
+  "<name>'s elite: empty", the seat named by `seat_label` -- and the
+  second menu asks "Who is lent to <name> as elite?" for one; the
+  caption lists each loan under the owner's five, "**Lent to <name> as
+  elite**: Tenderfoot 1/2". The view keeps one map keyed by destination
+  (`<seat>:<slot>` for a borrower's, the slot's name for the owner's) so
+  a card placed anywhere is offered nowhere else, and **Lock patrol**
+  splits it (`split_assignment`): `lent`, `{seat: {slot: ref}}` with
+  the seat a string as a journal read back has it, beside `assignment`
+  where something is lent, and `assignment` alone where nothing is, so
+  a duel's and a dragon's answer is as it was. **Clear**, **Nobody** and
+  **Undo...**'s **Back** treat a loan as a slot. Two menus still hold:
+  the owner's five and at most four opponents' open slots are a
+  select's twenty-five. Choosing moves on to the owner's next empty
+  slot, never into an opponent's zone unasked. The view words only the
+  destination; what lending does is the model's line at the lock.
 
 ### The dragon: the teams, the one base, the two prompts
 
@@ -3955,6 +3999,13 @@ free-for-all stacked alone.
   duel said "Their" (2026-10-15): "their" says nothing with several
   other seats, and one spelling serves every table; "Your" stays, and
   a test game, whose seats are one person's, names a side by its team.
+- **The free-for-all's two additions are on the panel** since
+  2026-10-15, built from the options alone: **Repair base** on the
+  board's row ("The free-for-all's additions") and each opponent's open
+  slots as destinations in the patrol view ("Lending is a control
+  change"). Steps 3 and 4 had left both to each other, and PR #595's
+  body said PR #593 was adding the repair; #593 is Brick Thief's
+  targeted repair of a building, not the base's.
 
 ### Who may undo, concede and abandon
 
@@ -4064,18 +4115,23 @@ with its own condition.
 
 ### Not yet, and still open
 
-- **The Discord panel offers neither the repair nor the lending.** Both
-  are the model's (`MainActionOptions.repair`, `PatrolOptions.zones`),
-  played through the driver and the goldens, but no step put them on
-  the panel: step 3 left them to step 4, and step 4 built the table's
-  turn message, panels and end without them. A free-for-all on Discord
-  plays without repairing and locks its patrol into its own zone alone.
 - **The tower's own-turn detection names a ref**, so in a mirror game
   two of one hero hidden at once are one candidate.
-- **A lent hero is drawn on its owner's panel**, in the owner's slot,
-  and an effect that names "your heroes" does not see a hero lent to its
-  controller (`heroes_in_play` is the owner's reading there); units,
-  which sit in the borrower's play zone, are seen by every effect.
+- **A lent hero is drawn nowhere.** The board draws each slot from
+  `PlayerState.patroller`, which reads `heroes_in_play`, and that
+  leaves a hero with `lent_to` set out; the borrower's slots are drawn
+  from the same reading, never from `MatchState.patrollers`, the one
+  that carries `<owner seat>:hero:<slug>`. So while lent, the hero is
+  on neither panel: `scripts/render_codex_sample.py`'s staged
+  free-for-all has seat 3 lend seat 2 a unit as elite and its hero as
+  technician, and the unit is drawn as seat 2's elite while the hero is
+  in no picture (looked at on 2026-10-15, the panel step, which changed
+  no renderer). The fix is the renderer's: a slot read through
+  `MatchState.patrollers(seat)` and `hero_on`, a lent hero marked as
+  such. An effect that names "your heroes" does not see a hero lent to
+  its controller either (`heroes_in_play` is the owner's reading
+  there); units, which sit in the borrower's play zone, are seen by
+  every effect.
 - **A dragon panel made stale by the teammate's click** is refreshed
   only by its own player's next click, as decision 13 says; nothing
   pushes it.

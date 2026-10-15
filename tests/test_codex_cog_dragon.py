@@ -329,9 +329,9 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
                              PendingPrompt(PromptKind.TARGET, "", seat, options), match)
         styles = {item.label: item.style for item in view.children if getattr(item, "choice", None)}
         self.assertEqual(styles, {
-            "Your base": discord.ButtonStyle.primary,
-            f"{self.game.seat_name(mate)}'s base": discord.ButtonStyle.primary,
-            f"{self.game.seat_name(foe)}'s base": discord.ButtonStyle.danger,
+            "Your Base (30 HP)": discord.ButtonStyle.primary,
+            f"{self.game.seat_name(mate)}'s Base (30 HP)": discord.ButtonStyle.primary,
+            f"{self.game.seat_name(foe)}'s Base (30 HP)": discord.ButtonStyle.danger,
         })
 
     async def test_a_watcher_is_told_the_table_is_its_players(self) -> None:
