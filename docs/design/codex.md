@@ -1719,7 +1719,9 @@ else the bot shows is ephemeral.
   - **ARRIVED and DISABLED are grey tags of the same size as every
     other** (`STATE_FILL`), stacked at the foot of the art against the
     left edge -- states rather than anything a card of a colour put
-    there, so neither carries a colour.
+    there, so neither carries a colour. LENT joined them on 2026-10-15,
+    under both: a patroller lent into the zone it lies in
+    (multiplayer, "The board").
   - **Every tag is one height, its words centred on their capitals**
     (`pill`), and **the tags stand on one grid of rows** (`lay_tags`),
     the lowest on the art's foot: the marks down the right edge, the
@@ -3993,6 +3995,35 @@ free-for-all stacked alone.
   `scripts/render_codex_sample.py` draws three, four and five players
   both ways (`ffa-*`, three and five also from seat 2) and a dragon both
   ways and from the other team (`dragon-*`).
+- **A lent patroller is drawn in the borrower's slot, marked LENT, and
+  nowhere else** (2026-10-15, after the panel step found a lent hero in
+  no picture). `render_body` reads a zone through
+  `MatchState.patrollers(seat)` -- the one reading that carries a hero
+  another player lent into it, `<owner seat>:hero:<slug>` -- and
+  resolves either spelling of a hero's ref through `hero_on(seat, ref)`;
+  its card, its level chit and its stats are what the engine's
+  `board_reading` gives for a hero on that side, `controller_of` being
+  the borrower while it is lent, so the elite's +1 and the borrower's
+  growth grants show on it and the owner's do not. The owner's side
+  draws it nowhere, with no code saying so: its command-zone slot is
+  empty because the hero is in play, and the grid and the owner's own
+  slots are read off the owner's readings (`heroes_in_play`,
+  `PlayerState.patroller`), which leave a lent hero out -- so the
+  owner's panel with the hero lent is the panel with the hero in its
+  own slot, pixel for pixel outside that slot's tile, which
+  `tests/test_codex_render.py` holds. **LENT is a state tag** in the
+  grey of ARRIVED and DISABLED (`lay_states`, the lowest of the three,
+  on the foot of the art), on a lent unit as much as a lent hero
+  (`CardInstance.lent`, `HeroState.lent_to`): a lent unit sits in the
+  borrower's play zone and was drawn as theirs unmarked, and whose it
+  is matters when it dies (it pays its owner) and at the borrower's
+  upkeep (it goes home), so the two are marked alike. "<owner>'s" was
+  the other tag considered and not taken: a name is the frontend's and
+  `render_body` holds none, and the hero's own art and the owner's
+  empty command zone say whose it is. Every sample picture was hashed
+  before and after: the duel's, the dragon's and the standard game's
+  are byte-identical, and so is the lender's own side; only the
+  free-for-all's changed.
 
 ### On Discord: the turn message and the panels
 
@@ -4168,21 +4199,11 @@ with its own condition.
 
 - **The tower's own-turn detection names a ref**, so in a mirror game
   two of one hero hidden at once are one candidate.
-- **A lent hero is drawn nowhere.** The board draws each slot from
-  `PlayerState.patroller`, which reads `heroes_in_play`, and that
-  leaves a hero with `lent_to` set out; the borrower's slots are drawn
-  from the same reading, never from `MatchState.patrollers`, the one
-  that carries `<owner seat>:hero:<slug>`. So while lent, the hero is
-  on neither panel: `scripts/render_codex_sample.py`'s staged
-  free-for-all has seat 3 lend seat 2 a unit as elite and its hero as
-  technician, and the unit is drawn as seat 2's elite while the hero is
-  in no picture (looked at on 2026-10-15, the panel step, which changed
-  no renderer). The fix is the renderer's: a slot read through
-  `MatchState.patrollers(seat)` and `hero_on`, a lent hero marked as
-  such. An effect that names "your heroes" does not see a hero lent to
-  its controller either (`heroes_in_play` is the owner's reading
-  there); units, which sit in the borrower's play zone, are seen by
-  every effect.
+- **An effect that names "your heroes" does not see a hero lent to its
+  controller** (`heroes_in_play` is the owner's reading there); units,
+  which sit in the borrower's play zone, are seen by every effect. (The
+  board draws a lent hero in the borrower's slot since 2026-10-15 --
+  "The board", above.)
 - **A dragon panel made stale by the teammate's click** is refreshed
   only by its own player's next click, as decision 13 says; nothing
   pushes it.

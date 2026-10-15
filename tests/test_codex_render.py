@@ -11,16 +11,25 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageChops, ImageFont
 
 from codex import render
 from codex.cards import Card
+from codex.components import PATROL_SLOTS, MatchState, hero_ref
 from codex.engine import RulesEngine
+from codex.flow import board
+from tests.codex_positions import hero_in_play, put
 
 
 def size(png: bytes) -> tuple[int, int]:
     with Image.open(io.BytesIO(png)) as picture:
         return picture.size
+
+
+def panel_height(rows: int) -> int:
+    """A panel's height with `rows` rows of cards under its patrol zone."""
+    body = render.PATROL_HEIGHT + render.CELL_GAP + rows * render.CELL + (rows - 1) * render.CELL_GAP
+    return 2 * render.PADDING + body + render.NAMEPLATE_GAP + render.NAMEPLATE_HEIGHT
 
 
 class RenderTests(unittest.TestCase):
@@ -30,8 +39,7 @@ class RenderTests(unittest.TestCase):
         cls.match = cls.engine.new_match(("bashing", "finesse"), first=1)
 
     def panel_height(self, rows: int) -> int:
-        body = render.PATROL_HEIGHT + render.CELL_GAP + rows * render.CELL + (rows - 1) * render.CELL_GAP
-        return 2 * render.PADDING + body + render.NAMEPLATE_GAP + render.NAMEPLATE_HEIGHT
+        return panel_height(rows)
 
     def test_the_panel_is_the_mats_width(self) -> None:
         """The building column, the command zone -- a slot per hero --
@@ -521,6 +529,112 @@ class CodexViewTests(unittest.TestCase):
                          render.Stats(band.atk, band.hp, False, False))
         panel = render.render_panel(match, 1, "a", cards, stats=stats_of)
         self.assertEqual(panel.width, render.panel_width(1))
+
+
+def slot_tile(hero_count: int, slot: str) -> tuple[int, int, int, int]:
+    """Where a patroller's tile lies on an upright panel of a side with
+    `hero_count` heroes: the card's box in `slot`'s holder, as
+    `render_body` lays the row out, grown to the square `lying_card`
+    returns, centred on it -- every chit and tag a patroller carries is
+    inside that square."""
+    index = PATROL_SLOTS.index(slot)
+    edge = render.PADDING - render.OVERHANG   # the body's corner on the panel
+    grid_left = render.OVERHANG + render.BUILDING_WIDTH + render.BUILDING_GAP
+    holder_left = (grid_left + render.command_zone_width(hero_count) + render.ZONE_GAP
+                   + index * (render.PATROL_HOLDER + render.PATROL_SLOT_GAP))
+    card_left = holder_left + render.PATROL_PADDING
+    card_top = render.OVERHANG + render.PATROL_PADDING
+    tile = render.CELL + 2 * render.OVERHANG
+    left = edge + card_left + (render.CARD[0] - tile) // 2
+    top = edge + card_top + (render.CARD[1] - tile) // 2
+    return (left, top, left + tile, top + tile)
+
+
+class LentPatrollerTests(unittest.TestCase):
+    """A patroller lent at a free-for-all's lock (Rulebook p. 14) is
+    drawn in the borrower's slot, marked LENT, and nowhere on its
+    owner's side (docs/design/codex.md, "The board" under Multiplayer).
+    Seat 3's hero is lent to seat 2 as technician."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.engine = RulesEngine(seed=7)
+        cls.cards = cls.engine.catalog
+
+    def table(self) -> MatchState:
+        """A free-for-all of three with seat 3's hero in play, in their
+        grid, and a unit of seat 2's on the lookout."""
+        match = self.engine.new_match(("bashing", "finesse", "fire"), first=1,
+                                      variant="free_for_all")
+        match.turn, match.phase = 13, "main"
+        put(match, 2, "tenderfoot", patrol="lookout")
+        hero_in_play(match, 3, level=2)
+        return match
+
+    def lent(self) -> MatchState:
+        match = self.table()
+        board.lend(match, 3, hero_ref(match.player(3).heroes[0].slug), 2, "technician")
+        return match
+
+    def panel(self, match: MatchState, seat: int) -> Image.Image:
+        return render.render_panel(match, seat, "x", self.cards, stats=self.engine.board_reading)
+
+    def test_a_lent_hero_is_drawn_in_the_borrowers_slot_and_nowhere_else(self) -> None:
+        """The borrower's slot carries the hero (`MatchState.patrollers`,
+        `hero_on`); both sides render at a panel's size; the borrower's
+        panel is not the one without the loan; and the hero goes through
+        `hero_lying` once, for the borrower, never for its owner."""
+        match = self.lent()
+        jaina = match.player(3).heroes[0]
+        self.assertEqual(match.patrollers(2)["technician"], f"3:{hero_ref(jaina.slug)}")
+        for seat in (2, 3):
+            with self.subTest(seat=seat):
+                side = render.render_side(match, seat, "x", self.cards, self.engine.board_reading)
+                self.assertEqual(size(side), (render.panel_width(1), panel_height(1)))
+        with mock.patch.object(render, "hero_lying", wraps=render.hero_lying) as lying:
+            borrower = self.panel(match, 2)
+            self.assertEqual(len(lying.call_args_list), 1)
+            self.assertIs(lying.call_args_list[0].args[0], jaina)
+            self.assertTrue(lying.call_args_list[0].args[0].lent_to == 2)
+            lying.reset_mock()
+            self.panel(match, 3)
+            self.assertEqual(lying.call_args_list, [])
+        self.assertNotEqual(borrower.tobytes(), self.panel(self.table(), 2).tobytes())
+
+    def test_the_owners_side_is_the_same_panel_with_the_hero_gone(self) -> None:
+        """The owner's panel with the hero lent differs from the one with
+        the hero in the owner's own technician slot only inside that
+        slot's tile, and there it is the empty slot."""
+        lent = self.lent()
+        home = self.table()
+        home.player(3).heroes[0].patrol_slot = "technician"
+        empty = self.table()
+        panels = {name: self.panel(match, 3) for name, match in
+                  (("lent", lent), ("home", home), ("empty", empty))}
+        tile = slot_tile(1, "technician")
+        # In RGB: an RGBA difference's `getbbox` trims by alpha alone, and
+        # both panels are opaque everywhere.
+        differs = ImageChops.difference(panels["lent"].convert("RGB"),
+                                        panels["home"].convert("RGB")).getbbox()
+        self.assertIsNotNone(differs)
+        self.assertTrue(tile[0] <= differs[0] and tile[1] <= differs[1]
+                        and differs[2] <= tile[2] and differs[3] <= tile[3], (tile, differs))
+        self.assertEqual(panels["lent"].crop(tile).tobytes(), panels["empty"].crop(tile).tobytes())
+
+    def test_a_lent_unit_is_marked_as_the_hero_is(self) -> None:
+        """LENT on a lent unit (`CardInstance.lent`) and a lent hero
+        (`HeroState.lent_to`), a state tag that changes the card's tile;
+        neither while they are their owner's."""
+        match = self.lent()
+        thief = put(match, 3, "brick_thief")
+        self.assertFalse(render.unit_lying(thief, False, self.cards).lent)
+        board.lend(match, 3, thief.ref, 2, "elite")
+        self.assertTrue(render.unit_lying(thief, False, self.cards).lent)
+        self.assertTrue(render.hero_lying(match.player(3).heroes[0], self.cards).lent)
+        self.assertFalse(render.hero_lying(self.table().player(3).heroes[0], self.cards).lent)
+        marked = render.lying_card(render.Lying("brick_thief", lent=True), self.cards)
+        self.assertNotEqual(marked.tobytes(),
+                            render.lying_card(render.Lying("brick_thief"), self.cards).tobytes())
 
 
 if __name__ == "__main__":
