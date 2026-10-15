@@ -286,20 +286,12 @@
 === action 40: TARGET '' {"target": "1:tech1"}
 --- narration
 {card:brick_thief} deals 1 to {player:1}'s Tech I building, now at 4/5.
---- prompt TARGET (player 3)
-{player:3}, {card:brick_thief}: repair 1 damage from another building.
---- standing TECH_CHOICE (player 1)
---- standing TECH_CHOICE (player 2)
---- board changed
-=== action 41: TARGET '' {"target": "1:base"}
---- narration
-{player:1}'s base has no damage to repair.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:3} and 7 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 42: MAIN_ACTION 'play' {"slug": "older_brother"}
+=== action 41: MAIN_ACTION 'play' {"slug": "older_brother"}
 --- narration
 {player:3} plays {card:older_brother} for {gold:2}: 2/2.
 --- prompt MAIN_ACTION (player 3)
@@ -307,7 +299,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 43: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
+=== action 42: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:3} levels {hero:troq_bashar} to 2 for {gold:1}.
 --- prompt MAIN_ACTION (player 3)
@@ -315,12 +307,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 44: MAIN_ACTION 'attack' {"attacker": "unit:2"}
+=== action 43: MAIN_ACTION 'attack' {"attacker": "unit:2"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 45: CHOOSE_DEFENDER '' {"against": 1, "defender": "hero:troq_bashar"}
+=== action 44: CHOOSE_DEFENDER '' {"against": 1, "defender": "hero:troq_bashar"}
 --- narration
 {card:tenderfoot} attacks {player:1}'s {hero:troq_bashar}.
 {card:tenderfoot} deals 1; {player:1}'s {hero:troq_bashar} deals 2.
@@ -330,12 +322,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 46: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
+=== action 45: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 47: CHOOSE_DEFENDER '' {"against": 1, "defender": "hero:troq_bashar"}
+=== action 46: CHOOSE_DEFENDER '' {"against": 1, "defender": "hero:troq_bashar"}
 --- narration
 {hero:troq_bashar} attacks {player:1}'s {hero:troq_bashar}.
 {hero:troq_bashar} deals 2; {player:1}'s {hero:troq_bashar} deals 2.
@@ -345,7 +337,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 48: LEVEL_GAIN '' {"hero": "hero:river_montoya", "seat": 2}
+=== action 47: LEVEL_GAIN '' {"hero": "hero:river_montoya", "seat": 2}
 --- narration
 {hero:river_montoya} gains 2 levels for the kill: level 5, a new band, and healed.
 --- prompt MAIN_ACTION (player 3)
@@ -353,12 +345,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 49: MAIN_ACTION 'end_main' {}
+=== action 48: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 3)
 {player:3}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 50: PATROL '' {"assignment": {"elite": "unit:8", "squad_leader": "unit:7"}}
+=== action 49: PATROL '' {"assignment": {"elite": "unit:8", "squad_leader": "unit:7"}}
 --- narration
 {player:3} patrols with {card:brick_thief} as squad leader, {card:older_brother} as elite. {player:3} discards 2 and draws 4. {player:3} shuffles their discard pile into their deck.
 **End of turn 5** -- {player:3} (Bashing).
@@ -367,12 +359,12 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 51: TECH_CHOICE '' (hidden)
+=== action 50: TECH_CHOICE '' (hidden)
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
-=== action 52: TECH_CONFIRM 'confirm' {"player": 1}
+=== action 51: TECH_CONFIRM 'confirm' {"player": 1}
 --- narration
 {player:1} puts 2 tech cards into their discard pile.
 {player:1} collects {gold:6} from 6 workers: {gold:6}.
@@ -382,7 +374,7 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 53: MAIN_ACTION 'hire' (hidden)
+=== action 52: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:1} hires a worker for {gold:1}: 7 workers.
 --- prompt MAIN_ACTION (player 1)
@@ -390,7 +382,7 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 54: MAIN_ACTION 'play' {"slug": "timely_messenger"}
+=== action 53: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:1} plays {card:timely_messenger} for {gold:1}: 1/1.
 --- prompt MAIN_ACTION (player 1)
@@ -398,7 +390,7 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 55: MAIN_ACTION 'play' {"slug": "helpful_turtle"}
+=== action 54: MAIN_ACTION 'play' {"slug": "helpful_turtle"}
 --- narration
 {player:1} plays {card:helpful_turtle} for {gold:2}: 1/2.
 --- prompt MAIN_ACTION (player 1)
@@ -406,7 +398,7 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 56: MAIN_ACTION 'play' {"slug": "older_brother"}
+=== action 55: MAIN_ACTION 'play' {"slug": "older_brother"}
 --- narration
 {player:1} plays {card:older_brother} for {gold:2}: 2/2.
 --- prompt MAIN_ACTION (player 1)
@@ -414,12 +406,12 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 57: MAIN_ACTION 'attack' {"attacker": "unit:9"}
+=== action 56: MAIN_ACTION 'attack' {"attacker": "unit:9"}
 --- prompt CHOOSE_DEFENDER (player 1)
 {player:1}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
-=== action 58: CHOOSE_DEFENDER '' {"against": 2, "defender": "unit:6"}
+=== action 57: CHOOSE_DEFENDER '' {"against": 2, "defender": "unit:6"}
 --- narration
 {card:timely_messenger} attacks {player:2}'s {card:older_brother}.
 {card:timely_messenger} deals 0 (armor takes 1); {player:2}'s {card:older_brother} deals 2.
@@ -429,12 +421,12 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 59: MAIN_ACTION 'end_main' {}
+=== action 58: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
-=== action 60: PATROL '' {"assignment": {"elite": "unit:11", "squad_leader": "unit:10"}}
+=== action 59: PATROL '' {"assignment": {"elite": "unit:11", "squad_leader": "unit:10"}}
 --- narration
 {player:1} patrols with {card:helpful_turtle} as squad leader, {card:older_brother} as elite. {player:1} discards 1 and draws 3. {player:1} shuffles their discard pile into their deck.
 **End of turn 6** -- {player:1} (Bashing).
@@ -443,12 +435,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 61: TECH_CHOICE '' (hidden)
+=== action 60: TECH_CHOICE '' (hidden)
 --- prompt TECH_CONFIRM (player 2)
 {player:2}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 62: TECH_CONFIRM 'confirm' {"player": 2}
+=== action 61: TECH_CONFIRM 'confirm' {"player": 2}
 --- narration
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:6} from 6 workers: {gold:6}.
@@ -457,7 +449,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 63: MAIN_ACTION 'hire' (hidden)
+=== action 62: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 7 workers.
 --- prompt MAIN_ACTION (player 2)
@@ -465,7 +457,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 64: MAIN_ACTION 'play' {"slug": "spark"}
+=== action 63: MAIN_ACTION 'play' {"slug": "spark"}
 --- narration
 {player:2} casts {card:spark} for {gold:1}.
 --- prompt TARGET (player 2)
@@ -473,7 +465,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 65: TARGET '' {"target": "1:unit:10"}
+=== action 64: TARGET '' {"target": "1:unit:10"}
 --- narration
 {card:spark} deals 0 to {player:1}'s {card:helpful_turtle} (armor takes 1).
 --- prompt MAIN_ACTION (player 2)
@@ -481,7 +473,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 66: MAIN_ACTION 'play' {"slug": "fruit_ninja"}
+=== action 65: MAIN_ACTION 'play' {"slug": "fruit_ninja"}
 --- narration
 {player:2} plays {card:fruit_ninja} for {gold:2}: 2/2.
 --- prompt MAIN_ACTION (player 2)
@@ -489,7 +481,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 67: MAIN_ACTION 'play' {"slug": "wither"}
+=== action 66: MAIN_ACTION 'play' {"slug": "wither"}
 --- narration
 {player:2} casts {card:wither} for {gold:2}.
 --- prompt TARGET (player 2)
@@ -497,7 +489,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 68: TARGET '' {"target": "1:unit:10"}
+=== action 67: TARGET '' {"target": "1:unit:10"}
 --- narration
 {card:wither} puts a -1/-1 rune on {player:1}'s {card:helpful_turtle}.
 --- prompt MAIN_ACTION (player 2)
@@ -505,12 +497,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 69: MAIN_ACTION 'attack' {"attacker": "unit:1"}
+=== action 68: MAIN_ACTION 'attack' {"attacker": "unit:1"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 70: CHOOSE_DEFENDER '' {"against": 1, "defender": "unit:10"}
+=== action 69: CHOOSE_DEFENDER '' {"against": 1, "defender": "unit:10"}
 --- narration
 {card:tenderfoot} attacks {player:1}'s {card:helpful_turtle}.
 {card:tenderfoot} deals 1.
@@ -520,12 +512,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 71: MAIN_ACTION 'attack' {"attacker": "unit:6"}
+=== action 70: MAIN_ACTION 'attack' {"attacker": "unit:6"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 72: CHOOSE_DEFENDER '' {"against": 1, "defender": "unit:11"}
+=== action 71: CHOOSE_DEFENDER '' {"against": 1, "defender": "unit:11"}
 --- narration
 {card:older_brother} attacks {player:1}'s {card:older_brother}.
 {card:older_brother} deals 2; {player:1}'s {card:older_brother} deals 3.
@@ -536,12 +528,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 73: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
+=== action 72: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 74: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 73: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {hero:river_montoya} attacks {player:1}'s base.
 {hero:river_montoya} deals 3 to {player:1}'s base, now at 17/20.
@@ -550,12 +542,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 75: MAIN_ACTION 'end_main' {}
+=== action 74: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
 {player:2}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 76: PATROL '' {"assignment": {"squad_leader": "unit:12"}}
+=== action 75: PATROL '' {"assignment": {"squad_leader": "unit:12"}}
 --- narration
 {player:2} patrols with {card:fruit_ninja} as squad leader. {player:2} discards 0 and draws 2.
 **End of turn 7** -- {player:2} (Finesse).
@@ -564,12 +556,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 77: TECH_CHOICE '' (hidden)
+=== action 76: TECH_CHOICE '' (hidden)
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 78: TECH_CONFIRM 'confirm' {"player": 3}
+=== action 77: TECH_CONFIRM 'confirm' {"player": 3}
 --- narration
 {player:3} puts 2 tech cards into their discard pile.
 {player:3} collects {gold:7} from 7 workers: {gold:7}.
@@ -578,7 +570,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 79: MAIN_ACTION 'hire' (hidden)
+=== action 78: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:3} hires a worker for {gold:1}: 8 workers.
 --- prompt MAIN_ACTION (player 3)
@@ -586,7 +578,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 80: MAIN_ACTION 'build' {"building": "tech2"}
+=== action 79: MAIN_ACTION 'build' {"building": "tech2"}
 --- narration
 {player:3} builds a Tech II building for {gold:4}; it is finished at the end of the turn.
 --- prompt MAIN_ACTION (player 3)
@@ -594,7 +586,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 81: MAIN_ACTION 'play' {"slug": "tenderfoot"}
+=== action 80: MAIN_ACTION 'play' {"slug": "tenderfoot"}
 --- narration
 {player:3} plays {card:tenderfoot} for {gold:1}: 1/2.
 --- prompt MAIN_ACTION (player 3)
@@ -602,7 +594,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 82: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
+=== action 81: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:3} levels {hero:troq_bashar} to 3 for {gold:1}.
 --- prompt MAIN_ACTION (player 3)
@@ -610,12 +602,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 83: MAIN_ACTION 'attack' {"attacker": "unit:7"}
+=== action 82: MAIN_ACTION 'attack' {"attacker": "unit:7"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 84: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 83: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {card:brick_thief} attacks {player:1}'s base.
 --- prompt TARGET (player 3)
@@ -623,7 +615,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 85: TARGET '' {"target": "1:tech1"}
+=== action 84: TARGET '' {"target": "1:tech1"}
 --- narration
 {card:brick_thief} deals 1 to {player:1}'s Tech I building, now at 3/5.
 --- prompt TARGET (player 3)
@@ -631,49 +623,49 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 86: TARGET '' {"target": "1:base"}
+=== action 85: TARGET '' {"target": "3:base"}
 --- narration
-{card:brick_thief} repairs 1 damage on {player:1}'s base, now at 18/20.
-{card:brick_thief} deals 2 to {player:1}'s base, now at 16/20.
+{player:3}'s base has no damage to repair.
+{card:brick_thief} deals 2 to {player:1}'s base, now at 15/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 8 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 87: MAIN_ACTION 'attack' {"attacker": "unit:8"}
+=== action 86: MAIN_ACTION 'attack' {"attacker": "unit:8"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 88: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 87: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {card:older_brother} attacks {player:1}'s base.
-{card:older_brother} deals 2 to {player:1}'s base, now at 14/20.
+{card:older_brother} deals 2 to {player:1}'s base, now at 13/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 8 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 89: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
+=== action 88: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 90: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 89: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {hero:troq_bashar} attacks {player:1}'s base.
-{hero:troq_bashar} deals 2 to {player:1}'s base, now at 12/20.
+{hero:troq_bashar} deals 2 to {player:1}'s base, now at 11/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 8 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 91: MAIN_ACTION 'end_main' {}
+=== action 90: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 3)
 {player:3}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 92: PATROL '' {"assignment": {"squad_leader": "unit:13"}}
+=== action 91: PATROL '' {"assignment": {"squad_leader": "unit:13"}}
 --- narration
 {player:3} patrols with {card:tenderfoot} as squad leader. {player:3} discards 2 and draws 4.
 {player:3}'s Tech II building is finished.
@@ -683,12 +675,12 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 93: TECH_CHOICE '' (hidden)
+=== action 92: TECH_CHOICE '' (hidden)
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
-=== action 94: TECH_CONFIRM 'confirm' {"player": 1}
+=== action 93: TECH_CONFIRM 'confirm' {"player": 1}
 --- narration
 {player:1} puts 2 tech cards into their discard pile.
 {player:1} collects {gold:7} from 7 workers: {gold:7}.
@@ -698,7 +690,7 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 95: MAIN_ACTION 'hire' (hidden)
+=== action 94: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:1} hires a worker for {gold:1}: 8 workers.
 --- prompt MAIN_ACTION (player 1)
@@ -706,7 +698,7 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 96: MAIN_ACTION 'build' {"building": "tech2"}
+=== action 95: MAIN_ACTION 'build' {"building": "tech2"}
 --- narration
 {player:1} builds a Tech II building for {gold:4}; it is finished at the end of the turn.
 --- prompt MAIN_ACTION (player 1)
@@ -714,7 +706,7 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 97: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
+=== action 96: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
 --- prompt MAIN_ACTION (player 1)
@@ -722,12 +714,12 @@
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 98: MAIN_ACTION 'end_main' {}
+=== action 97: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
-=== action 99: PATROL '' {"assignment": {"squad_leader": "hero:troq_bashar"}}
+=== action 98: PATROL '' {"assignment": {"squad_leader": "hero:troq_bashar"}}
 --- narration
 {player:1} patrols with {hero:troq_bashar} as squad leader. {player:1} discards 2 and draws 4.
 {player:1}'s Tech II building is finished.
@@ -737,12 +729,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 100: TECH_CHOICE '' (hidden)
+=== action 99: TECH_CHOICE '' (hidden)
 --- prompt TECH_CONFIRM (player 2)
 {player:2}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 101: TECH_CONFIRM 'confirm' {"player": 2}
+=== action 100: TECH_CONFIRM 'confirm' {"player": 2}
 --- narration
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:7} from 7 workers: {gold:9}.
@@ -751,7 +743,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 102: MAIN_ACTION 'hire' (hidden)
+=== action 101: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 8 workers.
 --- prompt MAIN_ACTION (player 2)
@@ -759,7 +751,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 103: MAIN_ACTION 'build' {"building": "tech2"}
+=== action 102: MAIN_ACTION 'build' {"building": "tech2"}
 --- narration
 {player:2} builds a Tech II building for {gold:4}; it is finished at the end of the turn.
 --- prompt MAIN_ACTION (player 2)
@@ -767,7 +759,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 104: MAIN_ACTION 'play' {"slug": "timely_messenger"}
+=== action 103: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:2} plays {card:timely_messenger} for {gold:0}: 1/1.
 --- prompt MAIN_ACTION (player 2)
@@ -775,12 +767,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 105: MAIN_ACTION 'attack' {"attacker": "unit:1"}
+=== action 104: MAIN_ACTION 'attack' {"attacker": "unit:1"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 106: CHOOSE_DEFENDER '' {"against": 1, "defender": "hero:troq_bashar"}
+=== action 105: CHOOSE_DEFENDER '' {"against": 1, "defender": "hero:troq_bashar"}
 --- narration
 {card:tenderfoot} attacks {player:1}'s {hero:troq_bashar}.
 {card:tenderfoot} deals 0 (armor takes 1); {player:1}'s {hero:troq_bashar} deals 2.
@@ -790,12 +782,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 107: MAIN_ACTION 'attack' {"attacker": "unit:12"}
+=== action 106: MAIN_ACTION 'attack' {"attacker": "unit:12"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 108: CHOOSE_DEFENDER '' {"against": 1, "defender": "hero:troq_bashar"}
+=== action 107: CHOOSE_DEFENDER '' {"against": 1, "defender": "hero:troq_bashar"}
 --- narration
 {card:fruit_ninja} attacks {player:1}'s {hero:troq_bashar}.
 {card:fruit_ninja} deals 3; {player:1}'s {hero:troq_bashar} deals 2.
@@ -806,46 +798,46 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 109: LEVEL_GAIN '' {"hero": "hero:river_montoya", "seat": 2}
+=== action 108: LEVEL_GAIN '' {"hero": "hero:river_montoya", "seat": 2}
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:4} and 8 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 110: MAIN_ACTION 'attack' {"attacker": "unit:14"}
+=== action 109: MAIN_ACTION 'attack' {"attacker": "unit:14"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 111: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 110: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {card:timely_messenger} attacks {player:1}'s base.
-{card:timely_messenger} deals 1 to {player:1}'s base, now at 11/20.
+{card:timely_messenger} deals 1 to {player:1}'s base, now at 10/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:4} and 8 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 112: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
+=== action 111: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 113: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 112: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {hero:river_montoya} attacks {player:1}'s base.
-{hero:river_montoya} deals 3 to {player:1}'s base, now at 8/20.
+{hero:river_montoya} deals 3 to {player:1}'s base, now at 7/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:4} and 8 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 114: MAIN_ACTION 'end_main' {}
+=== action 113: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
 {player:2}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 115: PATROL '' {"assignment": {}}
+=== action 114: PATROL '' {"assignment": {}}
 --- narration
 {player:2} leaves the patrol zone empty. {player:2} discards 0 and draws 2.
 {player:2}'s Tech II building is finished.
@@ -855,12 +847,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 116: TECH_CHOICE '' (hidden)
+=== action 115: TECH_CHOICE '' (hidden)
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 117: TECH_CONFIRM 'confirm' {"player": 3}
+=== action 116: TECH_CONFIRM 'confirm' {"player": 3}
 --- narration
 {player:3} puts 2 tech cards into their discard pile.
 {player:3} collects {gold:8} from 8 workers: {gold:8}.
@@ -869,7 +861,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 118: MAIN_ACTION 'hire' (hidden)
+=== action 117: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:3} hires a worker for {gold:1}: 9 workers.
 --- prompt MAIN_ACTION (player 3)
@@ -877,7 +869,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 119: MAIN_ACTION 'play' {"slug": "timely_messenger"}
+=== action 118: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:3} plays {card:timely_messenger} for {gold:1}: 1/1.
 --- prompt MAIN_ACTION (player 3)
@@ -885,7 +877,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 120: MAIN_ACTION 'play' {"slug": "revolver_ocelot"}
+=== action 119: MAIN_ACTION 'play' {"slug": "revolver_ocelot"}
 --- narration
 {player:3} plays {card:revolver_ocelot} for {gold:2}: 3/3.
 --- prompt MAIN_ACTION (player 3)
@@ -893,7 +885,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 121: MAIN_ACTION 'play' {"slug": "granfalloon_flagbearer"}
+=== action 120: MAIN_ACTION 'play' {"slug": "granfalloon_flagbearer"}
 --- narration
 {player:3} plays {card:granfalloon_flagbearer} for {gold:3}: 2/2.
 --- prompt MAIN_ACTION (player 3)
@@ -901,7 +893,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 122: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
+=== action 121: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:3} levels {hero:troq_bashar} to 4 for {gold:1}.
 --- prompt MAIN_ACTION (player 3)
@@ -909,12 +901,12 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 123: MAIN_ACTION 'attack' {"attacker": "unit:7"}
+=== action 122: MAIN_ACTION 'attack' {"attacker": "unit:7"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 124: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 123: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {card:brick_thief} attacks {player:1}'s base.
 --- prompt TARGET (player 3)
@@ -922,7 +914,7 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 125: TARGET '' {"target": "1:tech1"}
+=== action 124: TARGET '' {"target": "1:tech1"}
 --- narration
 {card:brick_thief} deals 1 to {player:1}'s Tech I building, now at 2/5.
 --- prompt TARGET (player 3)
@@ -930,63 +922,63 @@
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 126: TARGET '' {"target": "1:tech2"}
+=== action 125: TARGET '' {"target": "3:base"}
 --- narration
-{player:1}'s Tech II building has no damage to repair.
-{card:brick_thief} deals 2 to {player:1}'s base, now at 6/20.
+{player:3}'s base has no damage to repair.
+{card:brick_thief} deals 2 to {player:1}'s base, now at 5/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 9 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 127: MAIN_ACTION 'attack' {"attacker": "unit:8"}
+=== action 126: MAIN_ACTION 'attack' {"attacker": "unit:8"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 128: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 127: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {card:older_brother} attacks {player:1}'s base.
-{card:older_brother} deals 2 to {player:1}'s base, now at 4/20.
+{card:older_brother} deals 2 to {player:1}'s base, now at 3/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 9 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 129: MAIN_ACTION 'attack' {"attacker": "unit:13"}
+=== action 128: MAIN_ACTION 'attack' {"attacker": "unit:13"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 130: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 129: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {card:tenderfoot} attacks {player:1}'s base.
-{card:tenderfoot} deals 1 to {player:1}'s base, now at 3/20.
+{card:tenderfoot} deals 1 to {player:1}'s base, now at 2/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 9 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 131: MAIN_ACTION 'attack' {"attacker": "unit:15"}
+=== action 130: MAIN_ACTION 'attack' {"attacker": "unit:15"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 132: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 131: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {card:timely_messenger} attacks {player:1}'s base.
-{card:timely_messenger} deals 1 to {player:1}'s base, now at 2/20.
+{card:timely_messenger} deals 1 to {player:1}'s base, now at 1/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 9 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 133: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
+=== action 132: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 134: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 133: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
 --- narration
 {hero:troq_bashar} attacks {player:1}'s base.
 {hero:troq_bashar} deals 2 to {player:1}'s base.
@@ -997,12 +989,12 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 135: MAIN_ACTION 'end_main' {}
+=== action 134: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 3)
 {player:3}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 136: PATROL '' {"assignment": {"elite": "unit:17", "squad_leader": "unit:16"}}
+=== action 135: PATROL '' {"assignment": {"elite": "unit:17", "squad_leader": "unit:16"}}
 --- narration
 {player:3} patrols with {card:revolver_ocelot} as squad leader, {card:granfalloon_flagbearer} as elite. {player:3} discards 0 and draws 2. {player:3} shuffles their discard pile into their deck.
 **End of turn 11** -- {player:3} (Bashing).
@@ -1011,12 +1003,12 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 137: TECH_CHOICE '' (hidden)
+=== action 136: TECH_CHOICE '' (hidden)
 --- prompt TECH_CONFIRM (player 2)
 {player:2}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 138: TECH_CONFIRM 'confirm' {"player": 2}
+=== action 137: TECH_CONFIRM 'confirm' {"player": 2}
 --- narration
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:8} from 8 workers: {gold:12}.
@@ -1025,7 +1017,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 139: MAIN_ACTION 'hire' (hidden)
+=== action 138: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 9 workers.
 --- prompt MAIN_ACTION (player 2)
@@ -1033,7 +1025,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 140: MAIN_ACTION 'play' {"slug": "nimble_fencer"}
+=== action 139: MAIN_ACTION 'play' {"slug": "nimble_fencer"}
 --- narration
 {player:2} plays {card:nimble_fencer} for {gold:2}: 2/3.
 --- prompt MAIN_ACTION (player 2)
@@ -1041,12 +1033,12 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 141: MAIN_ACTION 'attack' {"attacker": "unit:14"}
+=== action 140: MAIN_ACTION 'attack' {"attacker": "unit:14"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 142: CHOOSE_DEFENDER '' {"against": 1, "defender": "tech1"}
+=== action 141: CHOOSE_DEFENDER '' {"against": 1, "defender": "tech1"}
 --- narration
 {card:timely_messenger} attacks {player:1}'s Tech I building.
 {card:timely_messenger} deals 1 to {player:1}'s Tech I building, now at 1/5.
@@ -1055,12 +1047,12 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 143: MAIN_ACTION 'attack' {"attacker": "unit:18"}
+=== action 142: MAIN_ACTION 'attack' {"attacker": "unit:18"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 144: CHOOSE_DEFENDER '' {"against": 1, "defender": "tech1"}
+=== action 143: CHOOSE_DEFENDER '' {"against": 1, "defender": "tech1"}
 --- narration
 {card:nimble_fencer} attacks {player:1}'s Tech I building.
 {card:nimble_fencer} deals 2 to {player:1}'s Tech I building.
@@ -1070,12 +1062,12 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 145: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
+=== action 144: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 146: CHOOSE_DEFENDER '' {"against": 1, "defender": "tech2"}
+=== action 145: CHOOSE_DEFENDER '' {"against": 1, "defender": "tech2"}
 --- narration
 {hero:river_montoya} attacks {player:1}'s Tech II building.
 {hero:river_montoya} deals 3 to {player:1}'s Tech II building, now at 2/5.
@@ -1084,12 +1076,12 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
-=== action 147: MAIN_ACTION 'end_main' {}
+=== action 146: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
 {player:2}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
-=== action 148: PATROL '' {"assignment": {}}
+=== action 147: PATROL '' {"assignment": {}}
 --- narration
 {player:2} leaves the patrol zone empty. {player:2} discards 0 and draws 2. {player:2} shuffles their discard pile into their deck.
 **End of turn 12** -- {player:2} (Finesse).
@@ -1098,12 +1090,12 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 149: TECH_CHOICE '' (hidden)
+=== action 148: TECH_CHOICE '' (hidden)
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 150: TECH_CONFIRM 'confirm' {"player": 3}
+=== action 149: TECH_CONFIRM 'confirm' {"player": 3}
 --- narration
 {player:3} puts 2 tech cards into their discard pile.
 {player:3} collects {gold:9} from 9 workers: {gold:9}.
@@ -1112,7 +1104,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 151: MAIN_ACTION 'hire' (hidden)
+=== action 150: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:3} hires a worker for {gold:1}: 10 workers.
 --- prompt MAIN_ACTION (player 3)
@@ -1120,7 +1112,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 152: MAIN_ACTION 'build' {"building": "tech3"}
+=== action 151: MAIN_ACTION 'build' {"building": "tech3"}
 --- narration
 {player:3} builds a Tech III building for {gold:5}; it is finished at the end of the turn.
 --- prompt MAIN_ACTION (player 3)
@@ -1128,7 +1120,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 153: MAIN_ACTION 'play' {"slug": "iron_man"}
+=== action 152: MAIN_ACTION 'play' {"slug": "iron_man"}
 --- narration
 {player:3} plays {card:iron_man} for {gold:3}: 3/4.
 --- prompt MAIN_ACTION (player 3)
@@ -1136,12 +1128,12 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 154: MAIN_ACTION 'attack' {"attacker": "unit:7"}
+=== action 153: MAIN_ACTION 'attack' {"attacker": "unit:7"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 155: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
+=== action 154: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
 --- narration
 {card:brick_thief} attacks {player:2}'s base.
 --- prompt TARGET (player 3)
@@ -1149,7 +1141,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 156: TARGET '' {"target": "1:tech2"}
+=== action 155: TARGET '' {"target": "1:tech2"}
 --- narration
 {card:brick_thief} deals 1 to {player:1}'s Tech II building, now at 1/5.
 --- prompt TARGET (player 3)
@@ -1157,106 +1149,105 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 157: TARGET '' {"target": "1:base"}
+=== action 156: TARGET '' {"target": "3:base"}
 --- narration
-{card:brick_thief} repairs 1 damage on {player:1}'s base, now at 1/20.
+{player:3}'s base has no damage to repair.
 {card:brick_thief} deals 2 to {player:2}'s base, now at 18/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 158: MAIN_ACTION 'attack' {"attacker": "unit:8"}
+=== action 157: MAIN_ACTION 'attack' {"attacker": "unit:8"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 159: CHOOSE_DEFENDER '' {"against": 1, "defender": "base"}
+=== action 158: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
 --- narration
-{card:older_brother} attacks {player:1}'s base.
-{card:older_brother} deals 2 to {player:1}'s base.
-**{player:1}'s base is destroyed.**
+{card:older_brother} attacks {player:2}'s base.
+{card:older_brother} deals 2 to {player:2}'s base, now at 16/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 160: MAIN_ACTION 'attack' {"attacker": "unit:13"}
+=== action 159: MAIN_ACTION 'attack' {"attacker": "unit:13"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 161: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
+=== action 160: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
 --- narration
 {card:tenderfoot} attacks {player:2}'s base.
-{card:tenderfoot} deals 1 to {player:2}'s base, now at 17/20.
+{card:tenderfoot} deals 1 to {player:2}'s base, now at 15/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 162: MAIN_ACTION 'attack' {"attacker": "unit:15"}
+=== action 161: MAIN_ACTION 'attack' {"attacker": "unit:15"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 163: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
+=== action 162: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
 --- narration
 {card:timely_messenger} attacks {player:2}'s base.
-{card:timely_messenger} deals 1 to {player:2}'s base, now at 16/20.
+{card:timely_messenger} deals 1 to {player:2}'s base, now at 14/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 164: MAIN_ACTION 'attack' {"attacker": "unit:16"}
+=== action 163: MAIN_ACTION 'attack' {"attacker": "unit:16"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 165: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
+=== action 164: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
 --- narration
 {card:revolver_ocelot} attacks {player:2}'s base.
-{card:revolver_ocelot} deals 3 to {player:2}'s base, now at 13/20.
+{card:revolver_ocelot} deals 3 to {player:2}'s base, now at 11/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 166: MAIN_ACTION 'attack' {"attacker": "unit:17"}
+=== action 165: MAIN_ACTION 'attack' {"attacker": "unit:17"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 167: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
+=== action 166: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
 --- narration
 {card:granfalloon_flagbearer} attacks {player:2}'s base.
-{card:granfalloon_flagbearer} deals 2 to {player:2}'s base, now at 11/20.
+{card:granfalloon_flagbearer} deals 2 to {player:2}'s base, now at 9/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 168: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
+=== action 167: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 3)
 {player:3}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 169: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
+=== action 168: CHOOSE_DEFENDER '' {"against": 2, "defender": "base"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s base.
-{hero:troq_bashar} deals 2 to {player:2}'s base, now at 9/20.
+{hero:troq_bashar} deals 2 to {player:2}'s base, now at 7/20.
 --- prompt MAIN_ACTION (player 3)
 {player:3}, your main phase: {gold:0} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 170: MAIN_ACTION 'end_main' {}
+=== action 169: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 3)
 {player:3}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
-=== action 171: PATROL '' {"assignment": {"squad_leader": "unit:19"}}
+=== action 170: PATROL '' {"assignment": {"squad_leader": "unit:19"}}
 --- narration
 {player:3} patrols with {card:iron_man} as squad leader. {player:3} discards 0 and draws 2.
 {player:3}'s Tech III building is finished.

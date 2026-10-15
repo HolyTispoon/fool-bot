@@ -2396,10 +2396,7 @@ def _building_targets(engine, match, seat: int) -> list:
 
 
 def _damaged(engine, match, seat: int, ref: str) -> bool:
-    if board.is_building(ref):
-        return board.building_hp(match, seat, ref) < board.building_max_hp(engine, match, seat, ref)
-    card = board.body_of(match, seat, ref)
-    return card is not None and card.damage > 0
+    return engine.building_damaged(match, seat, ref)
 
 
 def _earthquake(engine, match, top, part, target, result) -> None:

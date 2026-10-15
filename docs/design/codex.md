@@ -705,6 +705,21 @@ handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
   your own things included: Wrecking Ball may hit your own base, Brick
   Thief may repair an opponent's building, Hired Stomper may hit itself
   ("mandatory, own units and itself included").
+- **A repair offers what it can mend, your own first**
+  (`RulesEngine._repair_candidates`; the author, 2026-10-15: "should
+  only offer valid repair targets"). Brick Thief's ruling makes an
+  undamaged building a legal choice that does nothing, and the one use
+  of that is not to mend an opponent's: so the damaged buildings alone
+  are offered, and one undamaged building of your own -- the base where
+  it can be -- joins them only where every damaged building is an
+  opponent's. Nothing damaged anywhere skips the part, said nothing
+  about, as any part with nothing to choose. The candidates are listed
+  **your side first** for a repair, where every other filter lists the
+  opponent's first -- what a repair helps is yours, what a damage part
+  hurts theirs. `RulesEngine.building_damaged` is the one reading of
+  "damaged", Earthquake's too. **On the panel an opponent's target is
+  red and your own blurple** (`build_target`, `build_divide`; the
+  author, 2026-10-15), so whose a button is reads before its words.
 - **`RulesEngine.target_rows` is the one reading of what may be
   chosen**: the filter's candidates, less an opponent's invisible card
   their tower has not detected (your own are always targetable, the

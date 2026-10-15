@@ -3040,6 +3040,30 @@ class RulesEngine:
         found.append("base")
         return found
 
+    def building_max_hp(self, match: MatchState, seat: int, ref: str) -> int:
+        """The most HP the base, a tech building or the add-on of `seat`'s
+        has -- what a repair stops at (Brick Thief's ruling)."""
+        if ref == "base":
+            return match.base_cap
+        if ref == "add_on":
+            return self.building_hp(match.player(seat).add_on.slug)
+        return self.building_hp(ref)
+
+    def building_damaged(self, match: MatchState, seat: int, ref: str) -> bool:
+        """Whether a building of `seat`'s -- the base, a tech building,
+        the add-on or a building card -- has damage on it: what a repair
+        has to take off, and Earthquake's "damaged"."""
+        player = match.player(seat)
+        if ref == "base":
+            return match.base_of(seat) < self.building_max_hp(match, seat, ref)
+        if ref == "add_on":
+            return player.add_on is not None and player.add_on.hp < self.building_max_hp(match, seat, ref)
+        if ref in TECH_BUILDINGS:
+            building = player.buildings[ref]
+            return building is not None and building.hp < self.building_max_hp(match, seat, ref)
+        card = self.body(match, seat, ref)
+        return card is not None and card.damage > 0
+
     @staticmethod
     def _under_construction(player: PlayerState, ref: str) -> bool:
         if ref == "add_on":
@@ -3070,7 +3094,8 @@ class RulesEngine:
                           friendly: bool = False) -> list[tuple[int, str]]:
         """
         Everything `choose` names for an effect `seat` controls, the
-        opponent's side first: before resist, invisibility and the
+        opponent's side first -- a repair's, `seat`'s own first, and only
+        what it can mend (`_repair_candidates`): before resist, invisibility and the
         flagbearer narrow it (`target_rows`). `taken` is what this cast
         has already chosen, as keys, for a part that must choose another
         (Brick Thief's repair, Two Step's second partner); `frame` the
@@ -3444,6 +3469,8 @@ class RulesEngine:
                 raise ValueError(f"not a target filter: {choose!r}")
         if choose in ("other_building", "own_unpartnered"):
             found = [row for row in found if target_key(*row) not in taken]
+        if choose == "other_building":
+            found = self._repair_candidates(match, seat, found)
         if match.dragons:
             # A team's one base is one thing to choose (Rulebook p. 13),
             # listed on the first of its seats the loop reached.
@@ -3464,6 +3491,29 @@ class RulesEngine:
             # unasked ("You choose if there's a tie").
             found = [row for row in found if row[0] == found[0][0]] if found else found
         return found
+
+    def _repair_candidates(self, match: MatchState, seat: int,
+                           found: list[tuple[int, str]]) -> list[tuple[int, str]]:
+        """
+        What a repair may choose, out of every building `found`: **the
+        damaged ones, the repairer's side first** -- a repair helps whoever
+        owns the building, so the menu leads with what the player most
+        likely wants, where a damage part leads with the opponent's.
+
+        An undamaged building is a legal choice and nothing happens to it
+        (Brick Thief's ruling, 2016-03-03), and the one reason to make it
+        is not to repair an opponent's: so one undamaged building of the
+        repairer's own -- the base where it can be -- is offered only
+        where every damaged building is an opponent's. Nothing damaged
+        anywhere leaves nothing, and the part is skipped.
+        """
+        foes = self.opponents(match, seat)
+        damaged = [row for row in found if self.building_damaged(match, *row)]
+        if damaged and all(side in foes for side, _ in damaged):
+            spare = [row for row in found if row[0] == seat and row not in damaged]
+            spare.sort(key=lambda row: row[1] != "base")
+            damaged += spare[:1]
+        return sorted(damaged, key=lambda row: row[0] in foes)
 
     def _private_candidates(self, match: MatchState, seat: int, choose: str,
                             frame: dict) -> list[str]:
