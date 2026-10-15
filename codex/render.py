@@ -2255,16 +2255,18 @@ CODEX_CARD = (176, 240)
 #: Where a hand card's printed cost coin ends and its middle sits, at
 #: `HAND_CARD`'s size: what a cost that differs is written beside.
 HAND_COST_RIGHT, HAND_COST_MIDDLE = 58, 38
-#: A cost reduced and a cost raised, beside the printed coin: green and
-#: red rather than the coin's gold, so neither reads as the printed cost.
-COST_LESS = (40, 140, 60)        # #288c3c
-COST_MORE = (190, 40, 40)        # #be2828
+#: A cost reduced and a cost raised, beside the printed coin, as fill
+#: and ink: a light grey and a dark one, never the coin's gold, so
+#: neither reads as the printed cost, and not green or red, which the
+#: game already uses (the author, 2026-10-15).
+COST_LESS, COST_LESS_INK = (205, 205, 205), SHADOW   # #cdcdcd
+COST_MORE, COST_MORE_INK = (78, 78, 78), INK         # #4e4e4e
 
 
 def cost_note(picture: Image.Image, printed: int, cost: int) -> None:
     """How much a hand card's cost is changed, beside its printed cost
-    and in a small font, where it is -- "−1" on green for River's
-    discount, "+1" on red for a wrong colour's surcharge. The printed
+    and in a small font, where it is -- "−1" on light grey for River's
+    discount, "+1" on dark grey for a wrong colour's surcharge. The printed
     coin stays in view (the author, 2026-10-15: a coin over it read as
     the printed cost, so a discount looked missing)."""
     if cost == printed:
@@ -2274,10 +2276,10 @@ def cost_note(picture: Image.Image, printed: int, cost: int) -> None:
     face = font(21)
     left, top, right, bottom = draw.textbbox((0, 0), text, font=face, anchor="lm")
     x = HAND_COST_RIGHT + 8
+    fill, ink = (COST_LESS, COST_LESS_INK) if cost < printed else (COST_MORE, COST_MORE_INK)
     draw.rounded_rectangle((x - 6, HAND_COST_MIDDLE + top - 4, x + right + 6, HAND_COST_MIDDLE + bottom + 4),
-                           radius=8, fill=COST_LESS if cost < printed else COST_MORE,
-                           outline=INK, width=2)
-    draw.text((x, HAND_COST_MIDDLE), text, font=face, fill=INK, anchor="lm")
+                           radius=8, fill=fill, outline=SHADOW, width=2)
+    draw.text((x, HAND_COST_MIDDLE), text, font=face, fill=ink, anchor="lm")
 
 
 def scaled_card(slug: str, size: tuple[int, int], cards: CardCatalog) -> Image.Image:

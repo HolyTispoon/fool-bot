@@ -2145,10 +2145,11 @@ Decision 4's shape, tried for the first time in step 3: **My hand** on
 the turn message answers the clicker alone, ephemerally -- their hand
 pictured by `render_hand` (each card's own art, numbered, its printed
 cost left in view and, where a reduction or a surcharge changes it,
-the change beside it in a small pill, "−1" on green or "+1" on red, never
-the coin's gold -- a coin over the printed one read as the printed cost,
-so River's discount looked missing, and the pill was first "now 2" in
-gold until the author asked for the difference in another colour (the
+the change beside it in a small pill, "−1" on light grey or "+1" on dark
+grey -- a coin over the printed one read as the printed cost, so River's
+discount looked missing; the pill was first "now 2" in gold, then the
+difference on green and red, until the author settled on two greys,
+since the coin is gold and the game already uses green and red (the
 author, 2026-10-15) -- greyed where it may not be played, which is the engine's
 `hand_rows`) under its count alone; the discard pile was
 listed beside it as text until the author found it read as the hand
