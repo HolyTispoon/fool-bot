@@ -237,7 +237,8 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         helper = user(303, "helper", helper=True)
         call, view = await self.concede_click(helper)
         self.assertIsNone(view)
-        self.assertIn("own side", call.text())
+        # The model's refusal, which no variant's wording has to agree with.
+        self.assertEqual(call.text(), "Only a player of the game can concede it.")
         # The confirmation is its asker's, whoever else sees it.
         _, view = await self.concede_click(self.table.active)
         call = await self.table.press(view, "Concede the game", who=self.table.waiting)

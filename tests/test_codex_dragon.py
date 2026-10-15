@@ -487,6 +487,31 @@ class UndoTests(unittest.TestCase):
         act(engine, game, match, PromptKind.MAIN_ACTION, "hire", slug=match.player(4).hand[0], player=4)
         self.assertEqual(history.end_of_turn_owners(engine, game, match), ())
 
+    def test_the_end_of_an_extra_turn_is_its_one_seats_to_take_back(self) -> None:
+        """Double Time's extra turn is one seat's alone (Rulebook p. 13,
+        "you means you"), so its end is that seat's alone to take back --
+        the team's turn before it stays both teammates' -- and whoever
+        agrees to an undo to its start is that seat too."""
+        engine, game, match = started()
+        match.extra_turns.append(2)
+        end_team_turn(engine, game, match)
+        self.assertEqual((match.turn, match.solo, match.active), (2, 2, 2))
+        # Turn 1 was the team's: either takes its end back.
+        self.assertIsNone(history.previous_turn_solo(match))
+        self.assertEqual(history.previous_turn_owners(match), (1, 2))
+        self.assertEqual(history.end_of_turn_owners(engine, game, match), (1, 2))
+        # Turn 2, the extra turn, was seat 2's alone.
+        end_team_turn(engine, game, match)
+        self.assertEqual((match.turn, match.solo, match.active), (3, None, 3))
+        self.assertEqual(history.previous_turn_owner(match), 2)
+        self.assertEqual(history.previous_turn_solo(match), 2)
+        self.assertEqual(history.previous_turn_owners(match), (2,))
+        self.assertEqual(history.end_of_turn_owners(engine, game, match), (2,))
+        said = history.undo_end_of_turn(engine, game, match)
+        self.assertEqual(said[-1], history.UNDONE_END)
+        self.assertEqual((match.turn, match.solo), (2, 2))
+        self.assertEqual(engine.turn_seats(match), (2,))
+
     def test_undo_to_the_turn_start_asks_both_teammates_tech_again(self) -> None:
         engine, game, match = started()
         for seat in (1, 2):
@@ -789,6 +814,23 @@ class OneBaseTests(unittest.TestCase):
         rows = engine.target_candidates(match, 1, "base")
         self.assertEqual(len([row for row in rows if row[1] == "base"]), 2, rows)
         self.assertEqual({engine.dragon_of(match, seat) for seat, _ in rows}, {(1, 2), (3, 4)})
+
+    def test_stampede_names_the_other_teams_base(self) -> None:
+        """The one base the excess goes to, named as the team's
+        (`formatting.base_owner`)."""
+        from test_codex_card_rulings import at_max
+
+        engine, game, match = started(teams=(("growth",), ("finesse",), ("bashing",), ("finesse",)))
+        at_max(engine, match, 1)
+        match.player(1).hand = ["stampede"]
+        match.player(1).gold = 6
+        run = act(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="stampede", player=1)
+        said = [line for group in run.groups for line in group.narration] + list(run.result.narration)
+        self.assertIn(
+            "{player:1}'s units get +3 ATK and +3 armor this turn, their excess combat damage to "
+            "{player:3} and {player:4}'s base.",
+            "\n".join(said),
+        )
 
 
 class LevelTests(unittest.TestCase):

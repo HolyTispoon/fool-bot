@@ -364,9 +364,10 @@ class GameService:
 
     # -- The end -----------------------------------------------------------
 
-    def check_concession(self, game_id: str, seat: int) -> None:
+    def check_concession(self, game_id: str, seat: Optional[int]) -> None:
         """Raise `RuleRefusal` where `seat` may not concede this game --
-        what the first click asks before it offers the second."""
+        what the first click asks before it offers the second; `None`
+        for a clicker holding no seat, refused in the model's words."""
         turn.refuse_concession(self.load(self.game(game_id)), seat)
 
     def concede(self, game_id: str, seat: int) -> GameResult:
@@ -560,6 +561,19 @@ class GameService:
         has started their turn where its end may no longer be taken
         back."""
         return history.previous_turn_owner(self.load(self.game(game_id)))
+
+    def previous_turn_solo(self, game_id: str) -> Optional[int]:
+        """The seat whose extra turn, alone, the one before this was
+        (`history.previous_turn_solo`), or `None`: what the finished
+        turn's standing board and heading carry across Double Time in a
+        two-headed dragon."""
+        return history.previous_turn_solo(self.load(self.game(game_id)))
+
+    def previous_turn_owners(self, game_id: str) -> tuple[int, ...]:
+        """Everyone whose turn the one before this was
+        (`history.previous_turn_owners`): who is asked to agree to an
+        undo to its start, and who is told the turn after it has begun."""
+        return history.previous_turn_owners(self.load(self.game(game_id)))
 
     def undo_end_of_turn(self, game_id: str) -> GameResult:
         """Take back the end of the turn before this one: the ended turn

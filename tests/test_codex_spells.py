@@ -906,6 +906,22 @@ class RedGreenUpkeepTests(unittest.TestCase):
         self.assertEqual(match.active, 2)
         self.assertEqual(dothram.controller, 1)
 
+    def test_dothram_stays_where_nobody_is_ahead_naming_each_total(self) -> None:
+        """The card's own words -- "more total ATK than each other player"
+        -- and each player's total by name, as at a table."""
+        engine, game, match = red_green()
+        dothram = put(match, 2, "dothram_horselord")  # 6 ATK
+        put(match, 1, "iron_man")
+        put(match, 1, "iron_man")  # 3 + 3
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        run = apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertEqual(dothram.controller, 2)
+        self.assertIn(
+            "{card:dothram_horselord} stays: no player has more total ATK than each other player "
+            "({player:1} 6, {player:2} 6).",
+            said(run),
+        )
+
 
 class LegendaryArrivalTests(unittest.TestCase):
     def test_a_second_galina_played_is_destroyed_on_arrival(self) -> None:
@@ -945,6 +961,22 @@ class ContinuousYourUnitsTests(unittest.TestCase):
         self.assertEqual(later.armor, 0)
         self.assertFalse(engine.stampedes(match, later))
         self.assertEqual(match.player(2).lasting, [])
+
+    def test_stampede_names_the_opponents_base(self) -> None:
+        """The duel's one opposing base, named as every base line names
+        one (`formatting.base_owner`)."""
+        from test_codex_card_rulings import at_max, red_green
+
+        engine, game, match = red_green(first=2)
+        at_max(engine, match, 2)
+        hand(match, 2, "stampede")
+        match.player(2).gold = 6
+        run = apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="stampede")
+        self.assertIn(
+            "{player:2}'s units get +3 ATK and +3 armor this turn, their excess combat damage to "
+            "{player:1}'s base.",
+            said(run),
+        )
 
     def test_a_unit_taken_from_a_stampeding_side_loses_it(self) -> None:
         from test_codex_card_rulings import at_max, red_green

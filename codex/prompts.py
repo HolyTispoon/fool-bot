@@ -937,7 +937,7 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             return PendingPrompt(
                 PromptKind.CHOOSE_NUMBER,
                 f"{tokens.player(top['seat'])}, {top['by']}: choose a number from 0 to "
-                f"{effects.NUMBER_MOST} -- your opponent can't play spells or upgrades of that cost.",
+                f"{effects.NUMBER_MOST} -- opponents can't play spells or upgrades of that cost.",
                 top["seat"],
             )
         if asks == ASKS_OATH:

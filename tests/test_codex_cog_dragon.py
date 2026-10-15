@@ -15,14 +15,17 @@ from __future__ import annotations
 
 import unittest
 
+import discord
+
 from codex.game import GameStatus
-from codex.prompts import Action, PromptKind
+from codex.prompts import Action, PendingPrompt, PromptKind
 from codex_cog_fakes import Table, end_main_and_lock, labels, user
 from codex_positions import put
 from cogs.codex_views import (
-    END_OF_TURN, OTHER_TEAM_STARTED, LobbyView, PatrolView, RematchView, TeamConcedeView, TechChoiceView,
-    TurnMessageView, TurnPanelView, UndoConfirmView, WaitingView,
+    END_OF_TURN, NOT_YOUR_TABLE, OTHER_TEAM_STARTED, LobbyView, PatrolView, RematchView, TeamConcedeView,
+    TechChoiceView, TurnMessageView, TurnPanelView, UndoConfirmView, WaitingView,
 )
+from cogs.codex_views.turn import PREVIOUS_TURN_LABEL_DRAGON
 
 
 async def end_team_turn(table: Table, team) -> None:
@@ -292,12 +295,14 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         await end_team_turn(self.table, (self.first, self.second))
         asker, other = self.foes
         undo = (await self.table.turn_button("undo", self.who(other))).view()
+        self.assertIn(PREVIOUS_TURN_LABEL_DRAGON, labels(undo))
         mark = len(self.table.game_channel.requests)
         await self.table.press(undo, "To the start of the previous turn", who=self.who(other))
         (_, _, kwargs), = self.table.game_channel.since(mark)
         confirm = kwargs["view"]
         self.assertIsInstance(confirm, UndoConfirmView)
         self.assertEqual(set(confirm.agreeing), {self.first, self.second})
+        self.assertIn("your team's turn", kwargs["content"])
         for seat in (self.first, self.second):
             self.assertIn(f"<@{self.who(seat).id}>", kwargs["content"])
         # The asker's teammate may not agree for the other team.
@@ -308,6 +313,115 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         turn = self.table.match.turn
         await confirm.agree(self.table.interaction(self.who(self.second)))
         self.assertEqual(self.table.match.turn, turn - 1)
+
+    async def test_a_target_is_named_by_its_seat_yours_apart(self) -> None:
+        """A teammate's thing and an opponent's both carry their player's
+        name -- "their" says nothing with three other seats -- the
+        opponent's red, the teammate's blurple like your own."""
+        from codex.engine import TargetRow
+        from codex.prompts import TargetOptions
+
+        match = self.table.match
+        seat, mate, foe = self.first, self.second, self.foes[0]
+        rows = tuple(TargetRow(f"{one}:base", one, "base") for one in (seat, mate, foe))
+        options = TargetOptions(seat, "brick_thief", "unit:1", 1, "repair", rows)
+        view = TurnPanelView(self.table.cog, self.game.game_id,
+                             PendingPrompt(PromptKind.TARGET, "", seat, options), match)
+        styles = {item.label: item.style for item in view.children if getattr(item, "choice", None)}
+        self.assertEqual(styles, {
+            "Your Base (30 HP)": discord.ButtonStyle.primary,
+            f"{self.game.seat_name(mate)}'s Base (30 HP)": discord.ButtonStyle.primary,
+            f"{self.game.seat_name(foe)}'s Base (30 HP)": discord.ButtonStyle.danger,
+        })
+
+    async def test_a_watcher_is_told_the_table_is_its_players(self) -> None:
+        call = await self.table.turn_button("hand", user(999, "watcher"))
+        self.assertEqual(call.last()[1][0], NOT_YOUR_TABLE)
+
+    async def choose_tech(self, seat) -> None:
+        """`seat`'s tech, owed at its own turn's start, chosen through the
+        service as the picker's Save does: the turn opens on its actions."""
+        service, game = self.table.cog.service, self.game
+        match = service.load(game)
+        asked = next(one for one in service.waiting_all(game, match)
+                     if one.kind is PromptKind.TECH_CHOICE and one.asked_player == seat)
+        slugs = [slug for slug, count in asked.options.codex for _ in range(count)][:2]
+        saved = service.apply_action(game.game_id, Action(
+            PromptKind.TECH_CHOICE, "", {"player": seat, "picks": slugs}))
+        self.assertFalse(saved.refused, saved.refusal)
+        self.assertEqual((self.table.match.active, self.table.match.phase), (seat, "main"))
+
+    def stood_and_posted(self, mark: int) -> tuple[str, str]:
+        """The headings of the turn message that stood -- the edit before
+        its pin -- and of the one posted after it, since `mark`."""
+        rows = self.table.game_channel.since(mark)
+        pinned = next(index for index, row in enumerate(rows) if row[0] == "pin")
+        self.assertEqual(rows[pinned - 1][0], "edit")
+        self.assertEqual(rows[pinned + 1][0], "send")
+        return (rows[pinned - 1][2]["content"].split("\n")[0],
+                rows[pinned + 1][2]["content"].split("\n")[0])
+
+    async def test_a_standing_turn_is_headed_by_who_took_it_across_an_extra_turn(self) -> None:
+        """Double Time in a dragon: the team's turn stands headed by both
+        teammates and the extra turn after it by its one seat -- each as
+        it was taken, off its own snapshot, not as the turn after it is
+        seated (`roll_over`) -- and the undo to the extra turn's start
+        asks that seat alone."""
+        service, game = self.table.cog.service, self.game
+        match = service.load(game)
+        match.extra_turns.append(self.second)
+        service.persist(game, match)
+        mention = {seat: f"<@{self.who(seat).id}>" for seat in (self.first, self.second, *self.foes)}
+        # The team's turn ends into the second seat's extra turn.
+        mark = len(self.table.game_channel.requests)
+        await end_team_turn(self.table, (self.first, self.second))
+        self.assertEqual((self.table.match.turn, self.table.match.solo), (2, self.second))
+        stood, posted = self.stood_and_posted(mark)
+        self.assertIn("**Turn 1**", stood)
+        for seat in (self.first, self.second):
+            self.assertIn(mention[seat], stood)
+        self.assertIn("**Turn 2**", posted)
+        self.assertIn(mention[self.second], posted)
+        self.assertNotIn(mention[self.first], posted)
+        # The extra turn ends into the other team's.
+        await self.choose_tech(self.second)
+        mark = len(self.table.game_channel.requests)
+        await end_team_turn(self.table, (self.second,))
+        self.assertEqual((self.table.match.turn, self.table.match.solo), (3, None))
+        self.assertEqual(self.table.match.active, self.foes[0])
+        stood, posted = self.stood_and_posted(mark)
+        self.assertIn("**Turn 2**", stood)
+        self.assertIn(mention[self.second], stood)
+        self.assertNotIn(mention[self.first], stood)
+        self.assertIn("**Turn 3**", posted)
+        for seat in self.foes:
+            self.assertIn(mention[seat], posted)
+        # Its end is the second seat's alone to take back, and so is the
+        # agreement to an undo to its start: the teammate who did not
+        # take it is not offered either.
+        self.assertEqual(service.end_of_turn_owners(game.game_id), (self.second,))
+        refusal = await self.table.turn_button("undo", self.who(self.first))
+        self.assertEqual(refusal.last()[1][0], "Only the player whose turn it is can undo.")
+        undo = (await self.table.turn_button("undo", self.who(self.second))).view()
+        self.assertEqual(labels(undo), [END_OF_TURN])
+        asker = self.foes[0]
+        undo = (await self.table.turn_button("undo", self.who(asker))).view()
+        mark = len(self.table.game_channel.requests)
+        await self.table.press(undo, "To the start of the previous turn", who=self.who(asker))
+        (_, _, kwargs), = self.table.game_channel.since(mark)
+        self.assertEqual(kwargs["view"].agreeing, (self.second,))
+        self.assertIn(mention[self.second], kwargs["content"])
+        self.assertNotIn(mention[self.first], kwargs["content"])
+        self.assertIn("-- your turn --", kwargs["content"])
+        confirm = kwargs["view"]
+        # The teammate who did not take the extra turn may not agree to
+        # undoing it; the seat that took it may.
+        mate = self.table.interaction(self.who(self.first))
+        await confirm.agree(mate)
+        self.assertIn("Only the player whose turn it was", mate.last()[1][0])
+        turn = self.table.match.turn
+        await confirm.agree(self.table.interaction(self.who(self.second)))
+        self.assertEqual((self.table.match.turn, self.table.match.solo), (turn - 1, self.second))
 
     async def test_a_concession_needs_both_teammates(self) -> None:
         concede = self.table.cog.concede_command.callback
@@ -421,6 +535,10 @@ class EndTests(unittest.IsolatedAsyncioTestCase):
         result = service.run(game, match, step)
         await self.table.cog.present(game, result)
         return result
+
+    async def test_a_watchers_concede_is_refused_in_the_models_words(self) -> None:
+        call = await self.table.turn_button("concede", user(999, "watcher"))
+        self.assertEqual(call.last()[1][0], "Only a player of the game can concede it.")
 
     async def test_the_winners_line_names_the_team(self) -> None:
         winners = self.table.cog.engine.turn_seats(self.table.match)

@@ -597,9 +597,15 @@ class TurnsMixin:
             return
         ended = MatchState.from_dict(board) if board is not None else MatchState.from_dict(match.to_dict())
         # The standing picture lights the player whose turn it was: the
-        # position is the one the turn handed over on.
+        # position is the one the turn handed over on, seated as the
+        # ended turn was -- its active seat, and whether it was one
+        # seat's extra turn alone (`solo`, which `turn_seats` reads
+        # first), both off its snapshot rather than the new turn's.
         # The heading is the turn that ended, too.
-        ended.active = self.service.previous_turn_owner(game.game_id) or ended.active
+        owner = self.service.previous_turn_owner(game.game_id)
+        if owner is not None:
+            ended.active = owner
+            ended.solo = self.service.previous_turn_solo(game.game_id)
         ended.turn = match.turn - 1
         if game.turn_message_id is not None:
             png = await self.render_match_png(game, ended)
@@ -737,16 +743,19 @@ class TurnsMixin:
         asker = seat_label(game, seat)
         duel = match.variant == "duel"
         # In a dragon the turn unwound was the other team's: either of its
-        # players may agree (decision 15).
-        agreeing = self.engine.dragon_of(match, opponent)
+        # players may agree (decision 15) -- unless it was one seat's
+        # extra turn alone, which is that seat's to agree to, as it was
+        # that seat's to play (`history.previous_turn_owners`).
+        agreeing = self.service.previous_turn_owners(game.game_id)
+        team = len(agreeing) > 1
         ids = mention_ids(game, agreeing)
         names = seat_labels(game, agreeing)
         note = ("Your opponent has been asked to agree to the undo." if duel else
-                "The other team has been asked to agree to the undo." if match.dragons else
+                "The other team has been asked to agree to the undo." if team else
                 f"{names} has been asked to agree to the undo.")
         await self.show_panel(interaction, game, match, seat, edit=True, note=note)
         mention = ", ".join(f"<@{one}>" for one in ids) if ids else (names or "Opponent")
-        whose, yours = ("your team's turn", "the end of it") if match.dragons else ("your turn", "the end of yours")
+        whose, yours = ("your team's turn", "the end of it") if team else ("your turn", "the end of yours")
         await send_new_prompt(
             interaction,
             f"{mention}, {asker} asks to undo to the start of turn {turn - 1} -- {whose} -- "

@@ -30,6 +30,7 @@ from codex_cog_fakes import GAME_CHANNEL, Table, find_button, find_select, label
 from codex_cog_fakes import end_main_and_lock as end_turn
 from codex_positions import put
 from cogs.codex_views import (
+    NOT_YOUR_TABLE,
     LobbyView,
     PatrolView,
     RematchView,
@@ -76,6 +77,16 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
         # Back to a duel: two seats again.
         await self.click(game, "variant_duel", self.table.basher)
         self.assertEqual((game.variant, game.seat_count), ("duel", 2))
+
+    async def test_a_test_games_lobby_says_one_person_takes_every_seat(self) -> None:
+        call = self.table.interaction(self.table.basher, self.table.lobby_channel)
+        await self.table.cog.lobby.callback(self.table.cog, call, test_game=True)
+        (game,) = self.table.cog.games.values()
+        await self.table.choose_mode(game, "basic")
+        call = await self.click(game, "variant_free_for_all", self.table.basher)
+        text = call.last()[2]["content"]
+        self.assertIn("A **test game**: one person may take every seat and play them all.", text)
+        self.assertNotIn("both", text)
 
 
     async def test_only_a_seated_player_changes_the_variant_once_somebody_sits(self) -> None:
@@ -191,6 +202,36 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         await self.table.turn_button("swap", self.active)
         self.assertEqual(self.game.board_layout, "side_by_side")
 
+    async def test_a_watcher_is_told_the_table_is_its_players(self) -> None:
+        call = await self.table.turn_button("hand", user(999, "watcher"))
+        self.assertEqual(call.last()[1][0], NOT_YOUR_TABLE)
+        self.assertNotIn("two", NOT_YOUR_TABLE)
+
+    async def test_a_watchers_concede_is_refused_in_the_models_words(self) -> None:
+        concede = self.table.cog.concede_command.callback
+        call = self.table.interaction(user(999, "watcher"))
+        await concede(self.table.cog, call)
+        self.assertEqual(call.last()[1][0], "Only a player of the game can concede it.")
+
+    async def test_a_target_is_named_by_its_seat(self) -> None:
+        """"Their" says nothing at a table of three: another seat's thing
+        carries its player's name, and your own stays "Your"."""
+        from codex.engine import TargetRow
+        from codex.prompts import PendingPrompt, PromptKind, TargetOptions
+
+        match = self.table.match
+        seat = match.active
+        others = [one for one in (1, 2, 3) if one != seat]
+        rows = tuple(TargetRow(f"{one}:base", one, "base") for one in (seat, *others))
+        options = TargetOptions(seat, "brick_thief", "unit:1", 1, "repair", rows)
+        view = TurnPanelView(self.table.cog, self.game.game_id,
+                             PendingPrompt(PromptKind.TARGET, "", seat, options), match)
+        styles = {item.label: item.style for item in view.children if getattr(item, "choice", None)}
+        self.assertEqual(styles, {
+            "Your Base (20 HP)": discord.ButtonStyle.primary,
+            **{f"{self.game.seat_name(one)}'s Base (20 HP)": discord.ButtonStyle.danger for one in others},
+        })
+
     async def test_the_hand_is_the_clickers_seat(self) -> None:
         active = self.table.match.active
         other = next(seat for seat in (1, 2, 3) if seat != active)
@@ -204,6 +245,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         await end_turn(self.table, self.table.seated(first))
         second = self.table.match.active
         self.assertNotEqual(first, second)
+        self.assertEqual(self.table.cog.service.previous_turn_owners(self.game.game_id), (first,))
         # The seat after the next is a third party: only the seat whose
         # turn is unwound may agree.
         undo = (await self.table.turn_button("undo", self.table.seated(second))).view()

@@ -3935,6 +3935,18 @@ on.
   impossible by construction, and `YouMeansYouTests` holds each.
   Dothram Horselord's "a player with more total ATK" is read per seat
   (question 24).
+- **A line a table reaches says nothing a duel's shape implied**
+  (2026-10-15, a sweep after step 7): Reputable Newsman's ask says
+  "opponents can't play" as the card does; Dothram's stays line says
+  "no player has more total ATK than each other player", the card's
+  words, and names each player's total, since a bare list is seat
+  order; Stampede's line names the base the excess goes to through
+  `base_owner` where the opponents share one (the duel's, the other
+  team's), and "the base of the opponent they attack" at a
+  free-for-all, where it is whichever the unit attacks (`combat`). The
+  cog's own lines went the same way: the hand and the test game's tech
+  refusals count no seats, a free-for-all's test-game lobby line says
+  "every seat", and the undo's button names the other team.
 
 ### The board
 
@@ -4027,7 +4039,17 @@ free-for-all stacked alone.
   The standing board of the turn that ended is lit for
   `history.previous_turn_owner`, read off the snapshots, since on a
   table the seat before the active one is not the previous turn's
-  (playoffs and Double Time make it neither).
+  (playoffs and Double Time make it neither) -- and seated as that
+  turn was: `previous_turn_solo`, off the same snapshot, says whether
+  it was one seat's extra turn, which `turn_seats` reads before the
+  team, so a dragon's turn that stood on either side of a Double Time
+  is headed and lit for who took it, not for the turn after it
+  (`roll_over`; 2026-10-15, when it carried the new turn's `solo`).
+  A target's row names its seat's player -- "fencer's base" -- for
+  anyone but the panel's own seat, a teammate's included, where the
+  duel said "Their" (2026-10-15): "their" says nothing with several
+  other seats, and one spelling serves every table; "Your" stays, and
+  a test game, whose seats are one person's, names a side by its team.
 - **The free-for-all's two additions are on the panel** since
   2026-10-15, built from the options alone: **Repair base** on the
   board's row ("The free-for-all's additions") and each opponent's open
@@ -4048,19 +4070,34 @@ free-for-all stacked alone.
 - **To the start of the previous turn** asks whoever's turn it unwinds:
   `previous_turn_owner`, the snapshot's active seat, in a free-for-all
   (the button reads "(asks the player before you)"); the other team in a
-  dragon, the public question mentioning both, either of whom may
-  **Agree** (`UndoConfirmView.agreeing`), never the asker's teammate.
+  dragon ("(asks the other team)", `previous_turn_label`), the public
+  question mentioning both, either of whom may **Agree**
+  (`UndoConfirmView.agreeing`), never the asker's teammate.
   A helper may agree behind the confirmation, and anyone at the table
   may **Refuse** -- the duel's consent, kept (question 12).
+  **Whose a turn was is one reading, `history.previous_turn_owners`**:
+  the snapshot's `solo` seat alone where the turn was one seat's extra
+  turn, else the team of its `active` seat, else that seat -- what
+  `turn_seats` read while it ran. An extra turn is "you means you"
+  (Rulebook p. 13), so its take-back and the agreement to unwinding it
+  are that seat's alone, and the teammate who did not play it is
+  offered neither (2026-10-15; until then the cog widened the owner to
+  the team on both counts). The public question then reads as a
+  free-for-all's -- "your turn", "the player whose turn it was".
 - **Take back the end of my turn** is the seat that ended the turn
   (`end_of_turn_owner`) in a free-for-all, either player of the team
-  that did (`end_of_turn_owners`) in a dragon, while nobody whose turn
-  it now is has acted; once closed it names who started --
+  that did (`end_of_turn_owners`) in a dragon -- the one seat whose
+  extra turn it was, alone -- while nobody whose turn it now is has
+  acted; once closed it names who started --
   "{player:n} has already started their turn." or "The other team has
   already started their turn." (`opponent_started`,
   `OTHER_TEAM_STARTED`) -- where the duel keeps "Your opponent".
 - **Concede**: none in a free-for-all; **in a dragon it needs both
-  teammates** (question 6). The first click is the clicker's own
+  teammates** (question 6). Who may concede at all is the model's to
+  say: a click from somebody holding no seat goes to `check_concession`
+  with `None` and is refused in its words, "Only a player of the game
+  can concede it.", in every variant (2026-10-15; the cog used to answer
+  it with "the game's two players"). The first click is the clicker's own
   ephemeral confirmation; its second posts a public question naming the
   teammate (`TeamConcedeView`, modelled on `UndoConfirmView`, not
   persistent: after a restart the asker asks again) -- **Agree** the
