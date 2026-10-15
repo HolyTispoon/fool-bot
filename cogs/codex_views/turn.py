@@ -16,10 +16,11 @@ Every control is built from the prompt's options and nothing else --
 refuses whatever the options did not offer. **The main phase is rows
 of buttons, not menus** (the author, 2026-10-09): a card in the hand
 is a button, a building is a button, each hero is one button on a row of
-their own that summons it or buys one level, and **Attack...** opens the
+their own that summons it or opens its levels, and **Attack...** opens the
 attackers as buttons.
-Three modes are the view's own and change nothing: **Attack...** opens
-what may attack, **Hire worker** the hand's cards to hire with, **Undo**
+The modes are the view's own and change nothing: **Attack...** opens
+what may attack, **Hire worker** the hand's cards to hire with, **Level
+up...** the levels a hero may reach, a button each, **Undo**
 the undos `history.undo_targets` says are open
 (`GameService.undo_targets`) under the fine undo's menu, the points of
 the turn `history.undo_points` offers (`Codex.undo_choices`, each with
@@ -149,7 +150,8 @@ class PanelButton(discord.ui.Button):
     """A button on the panel, carrying `choice` -- what it answers with
     off the prompt's options: `("play", slug)`, `("build", building)`,
     `("attack", ref)`, `("ability", effect, source)`, `("summon", hero)`,
-    `("level", hero)`, `("level_gain", ref)`, `("hire", slug)`, `("defend", ref)`, `("target", key)`,
+    `("open_level", hero)`, `("level", hero, levels)`, `("level_gain", ref)`,
+    `("hire", slug)`, `("defend", ref)`, `("target", key)`,
     `("detect", ref)`, `("obliterate", ref)`, `("sparkshot", ref)`,
     `("overpower", ref)`, or `None` for a button that is not one choice
     among several -- so a test finds it by what it chooses rather than
@@ -258,6 +260,15 @@ class PanelView(SafeView):
             return
         await self.cog.send_codex(interaction, game, match, self.seat)
 
+    async def open_board(self, interaction: discord.Interaction) -> None:
+        """**Show board**: the turn message posted again at the foot of
+        the channel and this panel sent afresh under it, this one
+        deleted (`Codex.show_board`)."""
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.cog.show_board(interaction, game, self.seat)
+
     async def show(self, interaction: discord.Interaction, view: discord.ui.View,
                    content: str | None = None) -> None:
         """Change the panel's mode in place: the click's own response."""
@@ -271,18 +282,19 @@ class TurnPanelView(PanelView):
     """
     The main phase, from `MainActionOptions`, as rows of buttons (the
     author, 2026-10-09): the actions row -- **Hire worker**,
-    **Attack...**, then a button per hero that summons it or levels it
-    up by one level a click -- then the hand, a button per card numbered
+    **Attack...**, then a button per hero that summons it or opens the
+    levels it may reach -- then the hand, a button per card numbered
     as the picture numbers it and disabled where it may not be played,
     then the board's row -- **Build** per building that may be built,
     the next tech building up disabled with why where it may not,
     **Detect...** where there is a tower, and each ability, disabled
     with its reason where it may not be used and its card is neither
-    exhausted nor arrived this turn -- and always last, in this order, **My deck**, **Undo...** and
-    **End main phase** (the author, 2026-10-09). A control the engine says no to is disabled with its
+    exhausted nor arrived this turn -- and always last, in this order, **My deck**, **Codex**,
+    **Show board**, **Undo...** and **End main phase** (the author, 2026-10-09). A control the engine says no to is disabled with its
     reason as its label. **Attack...** turns the panel into what may
     attack, one button each, and **Back**; **Hire worker** into the
-    hand, a button per card. For `CHOOSE_DEFENDER`, a button per legal
+    hand, a button per card; **Level up...** into the levels the hero
+    may reach, a button each with its cost, and **Back**. For `CHOOSE_DEFENDER`, a button per legal
     defender, each with why it is legal, and **Cancel**.
     """
 
@@ -300,7 +312,8 @@ class TurnPanelView(PanelView):
         #: where a tech lab waits on its own (`build_spec`).
         self.building = building
         self.spec = spec
-        #: The card the boost choice is about (`build_boost`).
+        #: The card the boost choice is about (`build_boost`), or the hero
+        #: the level choice is (`build_level`).
         self.slug = slug
         options = prompt.options
         if prompt.kind is PromptKind.CHOOSE_DEFENDER:
@@ -341,6 +354,8 @@ class TurnPanelView(PanelView):
             self.build_spec(options)
         elif mode == "boost":
             self.build_boost(options)
+        elif mode == "level":
+            self.build_level(options)
         else:
             self.build_actions(options)
 
@@ -432,13 +447,14 @@ class TurnPanelView(PanelView):
             for ability in options.abilities
             if not ability.allowed and ability.why_not not in (EXHAUSTED, ARRIVED)
         ]
-        # **My deck**, **Codex**, **Undo...** and **End main phase** are
-        # always the panel's last four buttons, in that order (the
-        # author, 2026-10-09; Codex 2026-10-10), after the board's row,
-        # and always placed.
+        # **My deck**, **Codex**, **Show board**, **Undo...** and **End
+        # main phase** are always the panel's last five buttons, in that
+        # order (the author, 2026-10-09; Codex 2026-10-10; Show board
+        # 2026-10-15), after the board's row, and always placed.
         last = [
             self.make_button("My deck", discord.ButtonStyle.secondary, self.open_deck),
             self.make_button("Codex", discord.ButtonStyle.secondary, self.open_codex),
+            self.make_button("Show board", discord.ButtonStyle.secondary, self.open_board),
             self.make_button("Undo...", discord.ButtonStyle.secondary, self.open_undo),
             self.make_button("End main phase", discord.ButtonStyle.danger, self.end_main),
         ]
@@ -447,10 +463,12 @@ class TurnPanelView(PanelView):
         self.place(board, row, last=last)
 
     def hero_button(self, hero) -> PanelButton:
-        """**Summon Jaina (2 gold)**, or **Level up Jaina (1 gold)** -- a
-        level a click (the author, 2026-10-09) -- disabled with its reason
-        where the engine says no: the hero limit, the runes, the gold,
-        the maximum."""
+        """**Summon Jaina (2 gold)**, or **Level up Jaina...**, which opens
+        the levels up to her last (the author, 2026-10-15; a level a click
+        before) -- or, one level short of it, **Level up Jaina to max
+        level (1 gold)**, which buys it at once, the picker having nothing
+        else to show -- disabled with its reason where the engine says no:
+        the hero limit, the runes, the gold, the maximum."""
         name = card_name(hero.slug)
         if hero.action == "summon":
             return self.make_button(
@@ -460,9 +478,15 @@ class TurnPanelView(PanelView):
                 disabled=bool(hero.why_not), choice=("summon", hero.slug),
             )
         if hero.action == "level" and not hero.why_not and hero.max_levels:
+            if self.cog.engine.catalog.heroes[hero.slug].max_level - hero.level == 1:
+                return self.make_button(
+                    f"Level up {name} to max level ({hero.cost} gold)",
+                    discord.ButtonStyle.primary, self._answer(self.level, hero.slug, 1),
+                    choice=("level", hero.slug, 1),
+                )
             return self.make_button(
-                f"Level up {name} ({hero.cost} gold)", discord.ButtonStyle.primary,
-                self._answer(self.level, hero.slug), choice=("level", hero.slug),
+                f"Level up {name}...", discord.ButtonStyle.primary,
+                self._answer(self.open_level, hero.slug), choice=("open_level", hero.slug),
             )
         return self.make_button(f"{name}: {hero.why_not or 'nothing to do'}",
                                 discord.ButtonStyle.secondary, None, disabled=True)
@@ -545,6 +569,12 @@ class TurnPanelView(PanelView):
             return "**Attack** with which?"
         if self.mode == "boost":
             return f"**{card_name(self.slug)}**: pay its boost?"
+        if self.mode == "level":
+            hero = self.hero_row()
+            if hero is None:
+                return ""
+            return (f"**Level up {card_name(hero.slug)}** from level {hero.level}, "
+                    f"{hero.cost} gold a level: to which level?")
         if self.mode == "spec":
             row = self.build_row()
             if row is not None and row.lab_specs:
@@ -603,10 +633,54 @@ class TurnPanelView(PanelView):
         effect = effects.EFFECTS[ability.effect]
         return effect.says or effect.parts[0].says
 
-    async def level(self, interaction: discord.Interaction, hero: str) -> None:
-        """One level for a gold: a level a click."""
+    # -- Levelling a hero up (UMR p. 6) --------------------------------------
+
+    def hero_row(self):
+        return next((hero for hero in self.prompt.options.heroes if hero.slug == self.slug), None)
+
+    async def open_level(self, interaction: discord.Interaction, hero: str) -> None:
+        """**Level up Jaina...**: the panel turns into the levels she may
+        reach, the shape **Attack...** has (the author, 2026-10-15)."""
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        view = TurnPanelView(self.cog, self.game_id, self.prompt, self.match, mode="level", slug=hero)
+        await self.show(interaction, view, self.cog.panel_caption(game, self.prompt, view.caption()))
+
+    def build_level(self, options) -> None:
+        """A button per level up to the hero's last, each with what it
+        costs -- those up to `max_levels` above where it stands to be
+        bought, the ones past them that the gold does not reach there,
+        greyed out (the author, 2026-10-15) -- a level that starts a band
+        or is the hero's last saying so off the card; **Back** on a row of
+        its own."""
+        hero = self.hero_row()
+        row = 0
+        if hero is not None and hero.action == "level" and not hero.why_not:
+            card = self.cog.engine.catalog.heroes[hero.slug]
+            bands = {band.min_level for band in card.bands}
+            buttons = []
+            for levels in range(1, card.max_level - hero.level + 1):
+                level = hero.level + levels
+                label = f"Level {level} ({levels * hero.cost} gold)"
+                if level == card.max_level:
+                    label += ": max level"
+                elif level in bands:
+                    label += ": new band"
+                affordable = levels <= hero.max_levels
+                buttons.append(self.make_button(
+                    label,
+                    discord.ButtonStyle.primary if affordable else discord.ButtonStyle.secondary,
+                    self._answer(self.level, hero.slug, levels) if affordable else None,
+                    disabled=not affordable, choice=("level", hero.slug, levels),
+                ))
+            row = self.place(buttons, 0, until=ROWS - 1)
+        self.button("Back", discord.ButtonStyle.secondary, self.back, row=row)
+
+    async def level(self, interaction: discord.Interaction, hero: str, levels: int) -> None:
+        """The levels the button names, a gold each, in one action."""
         await self.act(interaction, Action(
-            PromptKind.MAIN_ACTION, "level", {"levels": 1, "hero": hero},
+            PromptKind.MAIN_ACTION, "level", {"levels": levels, "hero": hero},
         ))
 
     async def ability(self, interaction: discord.Interaction, effect: str, source: str) -> None:
@@ -895,10 +969,13 @@ class TurnPanelView(PanelView):
         """What the part being resolved may choose, a button each as the
         engine offers it -- the flagbearers alone where the rule forces
         one -- under the ask, which says what the part does; and
-        **Cancel** where the model offers it."""
+        **Cancel** where the model offers it. An opponent's thing is red,
+        your own (and a teammate's) blurple."""
+        foes = self.cog.engine.opponents(self.match, self.seat)
         targets = [
             self.make_button(
-                self.target_label(row), discord.ButtonStyle.primary,
+                self.target_label(row),
+                discord.ButtonStyle.danger if row.seat in foes else discord.ButtonStyle.primary,
                 self._answer(self.target, row.key), choice=("target", row.key),
             )
             for row in options.targets
@@ -907,7 +984,10 @@ class TurnPanelView(PanelView):
         last = options.cancellable or options.done
         row = self.place(targets, 0, until=ROWS - 1 if last else ROWS)
         if options.done:
-            self.button("Done", discord.ButtonStyle.success, self.done_choosing, row=row)
+            # A repair's Done chooses nothing at all (`resolve.may_repair_nothing`).
+            repair = effects.EFFECTS[options.effect].parts[options.part].does == "repair"
+            self.button("Repair nothing" if repair else "Done", discord.ButtonStyle.success,
+                        self.done_choosing, row=row)
         if options.cancellable:
             self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_cast, row=row)
 
@@ -919,12 +999,15 @@ class TurnPanelView(PanelView):
 
     def build_divide(self, options) -> None:
         """A button per target chosen, each adding a point of the damage
-        to it, with what it has so far; **Cancel** where offered."""
+        to it, with what it has so far -- red where it is an opponent's,
+        as `build_target`'s; **Cancel** where offered."""
+        foes = self.cog.engine.opponents(self.match, self.seat)
         buttons = []
         for key, amount in options.split:
             seat, _, ref = key.partition(":")
             buttons.append(self.make_button(
-                f"+1 to {self.label(ref, int(seat))} (has {amount})", discord.ButtonStyle.primary,
+                f"+1 to {self.label(ref, int(seat))} (has {amount})",
+                discord.ButtonStyle.danger if int(seat) in foes else discord.ButtonStyle.primary,
                 self._answer(self.divide, key), choice=("divide", key),
             ))
         row = self.place(buttons, 0, until=ROWS - 1 if options.cancellable else ROWS)

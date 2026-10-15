@@ -201,13 +201,41 @@ def pick_limit(engine: "RulesEngine", match: MatchState, top: dict, part) -> int
     return part.most or 1
 
 
-def offers_done(top: dict, part) -> bool:
+def may_repair_nothing(engine: "RulesEngine", match: MatchState, top: dict, part) -> bool:
+    """
+    Whether a repair may choose nothing: where it has a damaged building
+    to offer and there is an undamaged one anywhere on the table. Brick
+    Thief's ruling lets its controller choose an undamaged building, to
+    which nothing happens (2016-03-03), so the question offers that as
+    **Done**, "Repair nothing" on the panel, rather than as a building
+    (the author, 2026-10-15: "even when you can repair your own
+    buildings, so long as there is at least one undamaged building
+    somewhere").
+    """
+    if part.does != "repair":
+        return False
+    return (bool(rows_for(engine, match, top))
+            and engine.has_undamaged_building(match, top["seat"], top.get("taken") or ()))
+
+
+def least_picks(engine: "RulesEngine", match: MatchState, top: dict, part) -> int:
+    """How many things `part` must choose before it may stop: `Part.least`,
+    every opponent's one for a part that takes one each, and none for a
+    repair that may choose nothing (`may_repair_nothing`)."""
+    if part.choose in effects.EACH_OPPONENTS_ONE:
+        return pick_limit(engine, match, top, part)
+    if may_repair_nothing(engine, match, top, part):
+        return 0
+    return part.least
+
+
+def offers_done(engine: "RulesEngine", match: MatchState, top: dict, part) -> bool:
     """Whether the question offers **Done**: the part has chosen as many
-    as it must (`Part.least`)."""
+    as it must (`least_picks`)."""
     if part.choose in effects.EACH_OPPONENTS_ONE:
         # Every opponent's is chosen: the part ends when none is left.
         return False
-    return len(top.get("picks") or []) >= part.least
+    return len(top.get("picks") or []) >= least_picks(engine, match, top, part)
 
 
 def damage_amount(engine: "RulesEngine", match: MatchState, top: dict, amount: int) -> int:
@@ -307,8 +335,7 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
             # choose is done, and said nothing about -- the board shows it.
             _end_picks(engine, match, top, part, result)
             continue
-        least = pick_limit(engine, match, top, part) if part.choose in effects.EACH_OPPONENTS_ONE else part.least
-        if len(picks) < least and len(rows) == 1:
+        if len(picks) < least_picks(engine, match, top, part) and len(rows) == 1:
             _choose(engine, match, top, part, rows[0], result)
             continue
         return False
@@ -583,7 +610,7 @@ def done_choosing(engine: "RulesEngine", game: "CodexGame", match: MatchState) -
     if part is None or asking(match) != ASKS_TARGET:
         raise RuleRefusal("Nothing is waiting on a target.")
     top = match.resolving[0]
-    if not offers_done(top, part):
+    if not offers_done(engine, match, top, part):
         raise RuleRefusal(f"That has to be chosen: {part.says}.")
     result = StepResult(board_changed=True)
     _end_picks(engine, match, top, part, result)
@@ -2396,10 +2423,7 @@ def _building_targets(engine, match, seat: int) -> list:
 
 
 def _damaged(engine, match, seat: int, ref: str) -> bool:
-    if board.is_building(ref):
-        return board.building_hp(match, seat, ref) < board.building_max_hp(engine, match, seat, ref)
-    card = board.body_of(match, seat, ref)
-    return card is not None and card.damage > 0
+    return engine.building_damaged(match, seat, ref)
 
 
 def _earthquake(engine, match, top, part, target, result) -> None:

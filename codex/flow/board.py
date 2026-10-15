@@ -194,12 +194,7 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
 
 
 def building_max_hp(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> int:
-    player = match.player(seat)
-    if ref == "base":
-        return match.base_cap
-    if ref == "add_on":
-        return engine.building_hp(player.add_on.slug)
-    return engine.building_hp(ref)
+    return engine.building_max_hp(match, seat, ref)
 
 
 def building_hp(match: MatchState, seat: int, ref: str) -> int:
@@ -554,10 +549,12 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
             continue
         # Every hero in play of every opponent of the dead hero's
         # controller may take the levels (Rulebook p. 11): the controller
-        # rather than the owner, for a lent hero.
+        # rather than the owner, for a lent hero -- less any at its
+        # maximum level, which can gain no more (`takes_kill_levels`).
         standing = [
             (foe, hero) for foe in engine.opponents(match, seat)
             for hero in match.player(foe).heroes_in_play
+            if engine.takes_kill_levels(hero)
         ]
         if not standing:
             continue

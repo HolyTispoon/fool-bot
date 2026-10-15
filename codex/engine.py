@@ -180,13 +180,16 @@ class HeroOption:
     """What the active player may do with one of their heroes: summon it
     for its cost, level it up to `max_levels` levels at a gold each, or
     nothing, and why -- `action` names what the button would do even
-    where `why_not` says it may not now."""
+    where `why_not` says it may not now. `level` is the hero's level
+    now, in play (0 in the command zone), which the levels offered are
+    counted from."""
 
     slug: str
     action: Optional[str] = None
     cost: int = 0
     max_levels: int = 0
     why_not: str = ""
+    level: int = 0
 
     @property
     def allowed(self) -> bool:
@@ -195,7 +198,7 @@ class HeroOption:
     def to_dict(self) -> dict:
         return {
             "slug": self.slug, "action": self.action, "cost": self.cost,
-            "max_levels": self.max_levels, "why_not": self.why_not,
+            "max_levels": self.max_levels, "why_not": self.why_not, "level": self.level,
         }
 
 
@@ -511,6 +514,13 @@ class RulesEngine:
 
     def hero_card(self, hero: HeroState) -> Hero:
         return self.catalog.heroes[hero.slug]
+
+    def takes_kill_levels(self, hero: HeroState) -> bool:
+        """Whether `hero` may be chosen for a dead hero's two levels: any
+        hero in play below its maximum level. A hero at its maximum can
+        gain no more, so it is never offered them (the author,
+        2026-10-15)."""
+        return hero.level < self.hero_card(hero).max_level
 
     def hero_band(self, hero: HeroState) -> HeroBand:
         return self.hero_card(hero).band(hero.level)
@@ -1819,16 +1829,19 @@ class RulesEngine:
             return HeroOption(hero.slug, SUMMON, card.cost)
         room = card.max_level - hero.level
         if not room:
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="at its max level")
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, level=hero.level,
+                              why_not="at its max level")
         if any(m.get("kind") == "no_level" for m in hero.modifiers):
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it can't level up this turn")
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, level=hero.level,
+                              why_not="it can't level up this turn")
         if self.levels_frozen(match, hero):
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST,
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, level=hero.level,
                               why_not="an opposing Chronofixer stops it leveling up")
         levels = min(room, player.gold // LEVEL_COST)
         if not levels:
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="not enough gold")
-        return HeroOption(hero.slug, LEVEL, LEVEL_COST, levels)
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, level=hero.level,
+                              why_not="not enough gold")
+        return HeroOption(hero.slug, LEVEL, LEVEL_COST, levels, level=hero.level)
 
     def why_not_playable(self, player: PlayerState, slug: str,
                          match: Optional[MatchState] = None, from_hand: bool = True) -> str:
@@ -3040,6 +3053,30 @@ class RulesEngine:
         found.append("base")
         return found
 
+    def building_max_hp(self, match: MatchState, seat: int, ref: str) -> int:
+        """The most HP the base, a tech building or the add-on of `seat`'s
+        has -- what a repair stops at (Brick Thief's ruling)."""
+        if ref == "base":
+            return match.base_cap
+        if ref == "add_on":
+            return self.building_hp(match.player(seat).add_on.slug)
+        return self.building_hp(ref)
+
+    def building_damaged(self, match: MatchState, seat: int, ref: str) -> bool:
+        """Whether a building of `seat`'s -- the base, a tech building,
+        the add-on or a building card -- has damage on it: what a repair
+        has to take off, and Earthquake's "damaged"."""
+        player = match.player(seat)
+        if ref == "base":
+            return match.base_of(seat) < self.building_max_hp(match, seat, ref)
+        if ref == "add_on":
+            return player.add_on is not None and player.add_on.hp < self.building_max_hp(match, seat, ref)
+        if ref in TECH_BUILDINGS:
+            building = player.buildings[ref]
+            return building is not None and building.hp < self.building_max_hp(match, seat, ref)
+        card = self.body(match, seat, ref)
+        return card is not None and card.damage > 0
+
     @staticmethod
     def _under_construction(player: PlayerState, ref: str) -> bool:
         if ref == "add_on":
@@ -3070,7 +3107,8 @@ class RulesEngine:
                           friendly: bool = False) -> list[tuple[int, str]]:
         """
         Everything `choose` names for an effect `seat` controls, the
-        opponent's side first: before resist, invisibility and the
+        opponent's side first -- a repair's, `seat`'s own first, and only
+        what it can mend (`_repair_candidates`): before resist, invisibility and the
         flagbearer narrow it (`target_rows`). `taken` is what this cast
         has already chosen, as keys, for a part that must choose another
         (Brick Thief's repair, Two Step's second partner); `frame` the
@@ -3444,6 +3482,8 @@ class RulesEngine:
                 raise ValueError(f"not a target filter: {choose!r}")
         if choose in ("other_building", "own_unpartnered"):
             found = [row for row in found if target_key(*row) not in taken]
+        if choose == "other_building":
+            found = self._repair_candidates(match, seat, found)
         if match.dragons:
             # A team's one base is one thing to choose (Rulebook p. 13),
             # listed on the first of its seats the loop reached.
@@ -3464,6 +3504,35 @@ class RulesEngine:
             # unasked ("You choose if there's a tie").
             found = [row for row in found if row[0] == found[0][0]] if found else found
         return found
+
+    def _repair_candidates(self, match: MatchState, seat: int,
+                           found: list[tuple[int, str]]) -> list[tuple[int, str]]:
+        """
+        What a repair may choose, out of every building `found`: **the
+        damaged ones, the repairer's side first** -- a repair helps whoever
+        owns the building, so the menu leads with what the player most
+        likely wants, where a damage part leads with the opponent's.
+        Nothing damaged anywhere leaves nothing, and the part is skipped.
+        An undamaged building, a legal choice that does nothing (Brick
+        Thief's ruling), is offered as **Repair nothing** instead
+        (`codex.flow.resolve.may_repair_nothing`).
+        """
+        foes = self.opponents(match, seat)
+        damaged = [row for row in found if self.building_damaged(match, *row)]
+        return sorted(damaged, key=lambda row: row[0] in foes)
+
+    def has_undamaged_building(self, match: MatchState, seat: int,
+                               taken: Sequence[str] = ()) -> bool:
+        """Whether any building on the table, anybody's, is undamaged --
+        less what this cast has already chosen (`taken`): what Brick
+        Thief's ruling lets a repair choose so as to repair nothing."""
+        mate = self.teammate(match, seat)
+        for side in (*self.opponents(match, seat), seat, *([mate] if mate is not None else [])):
+            refs = self._buildings_of(match, side) + [card.ref for card in self._building_cards_of(match, side)]
+            if any(target_key(side, ref) not in taken and not self.building_damaged(match, side, ref)
+                   for ref in refs):
+                return True
+        return False
 
     def _private_candidates(self, match: MatchState, seat: int, choose: str,
                             frame: dict) -> list[str]:
