@@ -561,6 +561,25 @@ class OpponentCardTests(unittest.TestCase):
         self.assertEqual(match.player(3).hero.level, 3)
         self.assertEqual(match.player(1).hero.level, 1)
 
+    def test_a_hero_at_its_maximum_level_is_not_offered_the_levels(self) -> None:
+        """A hero at its maximum can gain no more, so it is never offered a
+        dead hero's levels (the author, 2026-10-15): with the third
+        player's hero maxed, the attacker's own hero is the one that can
+        take them, and takes them unasked."""
+        engine, game, match = self.table(teams=(("bashing",), ("finesse",), ("fire",)))
+        hero_in_play(match, 1)
+        river_hp = engine.hero_stats(match.player(2).hero, match)[1]
+        hero_in_play(match, 2, damage=river_hp - 1)
+        hero_in_play(match, 3)
+        jaina = match.player(3).hero
+        jaina.level = engine.hero_card(jaina).max_level
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": "hero:troq_bashar"}))
+        apply(engine, game, match, Action(
+            PromptKind.CHOOSE_DEFENDER, arguments={"defender": "hero:river_montoya", "against": 2}))
+        self.assertIsNot(pending_prompt(engine, game, match).kind, PromptKind.LEVEL_GAIN)
+        self.assertEqual(match.player(1).hero.level, 3)
+        self.assertEqual(jaina.level, engine.hero_card(jaina).max_level)
+
     def test_discord_asks_which_opponent(self) -> None:
         engine, game, match = self.table(first=2)
         hero_in_play(match, 2)

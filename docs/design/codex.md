@@ -3433,9 +3433,13 @@ change readings, not 66 sites.
   the levels to every in-play hero of every opponent of the dead hero's
   controller (the controller, not the owner, for a lent hero:
   Rulebook p. 11); the frame lists the seats when there are several.
-  A hero already at its maximum level is still offered, as today:
-  whether the choice should skip such a hero is a question for the
-  author, since the duel's transcript would change.
+  **A hero already at its maximum level is not offered them** (the
+  author, 2026-10-15: "they can't gain any more level at max"):
+  `RulesEngine.takes_kill_levels` is the one reading, asked by
+  `board.destroy` and by `LevelGainOptions`, so where one hero can still
+  gain it gains them unasked, and where none can nobody does. The duel's
+  golden did not change; the free-for-all's and the dragon's were
+  re-recorded, since each offered a maxed hero once.
 - **The cogs ask the record and the engine.** The channel's name joins
   every seat's name with `-vs-`, `/codex games` lists every seat, and
   the buttons that need "the other side" ask the engine

@@ -515,6 +515,13 @@ class RulesEngine:
     def hero_card(self, hero: HeroState) -> Hero:
         return self.catalog.heroes[hero.slug]
 
+    def takes_kill_levels(self, hero: HeroState) -> bool:
+        """Whether `hero` may be chosen for a dead hero's two levels: any
+        hero in play below its maximum level. A hero at its maximum can
+        gain no more, so it is never offered them (the author,
+        2026-10-15)."""
+        return hero.level < self.hero_card(hero).max_level
+
     def hero_band(self, hero: HeroState) -> HeroBand:
         return self.hero_card(hero).band(hero.level)
 

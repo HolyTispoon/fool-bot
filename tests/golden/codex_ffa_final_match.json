@@ -687,7 +687,7 @@
     },
     {
       "kind": "levelled",
-      "level": 4,
+      "level": 6,
       "levels": 1,
       "seat": 3,
       "slug": "troq_bashar",
@@ -1267,7 +1267,7 @@
     {
       "add_on": null,
       "arrived_from_hand": true,
-      "base_hp": 9,
+      "base_hp": 7,
       "buildings": {
         "tech1": {
           "destroyed": false,
@@ -1409,7 +1409,7 @@
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 24,
+          "sequence": 25,
           "slug": "nimble_fencer",
           "time_runes": 0
         }
@@ -1501,12 +1501,13 @@
           "arrived_this_turn": false,
           "attacked_this_turn": true,
           "bands": {
-            "1": 3
+            "1": 3,
+            "5": 21
           },
-          "damage": 2,
+          "damage": 0,
           "disabled": false,
           "exhausted": true,
-          "level": 4,
+          "level": 6,
           "max_level_since_turn_began": false,
           "minus_runes": 0,
           "modifiers": [],
@@ -1641,7 +1642,7 @@
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 21,
+          "sequence": 22,
           "slug": "timely_messenger",
           "time_runes": 0
         },
@@ -1671,7 +1672,7 @@
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 22,
+          "sequence": 23,
           "slug": "revolver_ocelot",
           "time_runes": 0
         },
@@ -1701,7 +1702,7 @@
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 23,
+          "sequence": 24,
           "slug": "granfalloon_flagbearer",
           "time_runes": 0
         },
@@ -1731,7 +1732,7 @@
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 25,
+          "sequence": 26,
           "slug": "iron_man",
           "time_runes": 0
         }
@@ -1758,7 +1759,7 @@
     }
   ],
   "resolving": [],
-  "sequence": 25,
+  "sequence": 26,
   "tied": [
     2,
     3
@@ -2946,12 +2947,13 @@
               "arrived_this_turn": false,
               "attacked_this_turn": false,
               "bands": {
-                "1": 3
+                "1": 3,
+                "5": 21
               },
-              "damage": 2,
+              "damage": 0,
               "disabled": false,
               "exhausted": true,
-              "level": 3,
+              "level": 5,
               "max_level_since_turn_began": false,
               "minus_runes": 0,
               "modifiers": [],
@@ -3086,7 +3088,7 @@
         }
       ],
       "resolving": [],
-      "sequence": 20,
+      "sequence": 21,
       "turn": 11,
       "variant": "free_for_all",
       "winner": null
@@ -3780,7 +3782,7 @@
         },
         {
           "kind": "levelled",
-          "level": 4,
+          "level": 6,
           "levels": 1,
           "seat": 3,
           "slug": "troq_bashar",
@@ -4280,12 +4282,13 @@
               "arrived_this_turn": false,
               "attacked_this_turn": true,
               "bands": {
-                "1": 3
+                "1": 3,
+                "5": 21
               },
-              "damage": 2,
+              "damage": 0,
               "disabled": false,
               "exhausted": true,
-              "level": 4,
+              "level": 6,
               "max_level_since_turn_began": false,
               "minus_runes": 0,
               "modifiers": [],
@@ -4420,7 +4423,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 21,
+              "sequence": 22,
               "slug": "timely_messenger",
               "time_runes": 0
             },
@@ -4450,7 +4453,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 22,
+              "sequence": 23,
               "slug": "revolver_ocelot",
               "time_runes": 0
             },
@@ -4480,7 +4483,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 23,
+              "sequence": 24,
               "slug": "granfalloon_flagbearer",
               "time_runes": 0
             }
@@ -4510,7 +4513,7 @@
         3
       ],
       "resolving": [],
-      "sequence": 23,
+      "sequence": 24,
       "tied": [
         2,
         3
@@ -5208,7 +5211,7 @@
         },
         {
           "kind": "levelled",
-          "level": 4,
+          "level": 6,
           "levels": 1,
           "seat": 3,
           "slug": "troq_bashar",
@@ -5592,7 +5595,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 24,
+              "sequence": 25,
               "slug": "nimble_fencer",
               "time_runes": 0
             }
@@ -5675,12 +5678,13 @@
               "arrived_this_turn": false,
               "attacked_this_turn": false,
               "bands": {
-                "1": 3
+                "1": 3,
+                "5": 21
               },
-              "damage": 2,
+              "damage": 0,
               "disabled": false,
               "exhausted": true,
-              "level": 4,
+              "level": 6,
               "max_level_since_turn_began": false,
               "minus_runes": 0,
               "modifiers": [],
@@ -5815,7 +5819,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 21,
+              "sequence": 22,
               "slug": "timely_messenger",
               "time_runes": 0
             },
@@ -5845,7 +5849,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 22,
+              "sequence": 23,
               "slug": "revolver_ocelot",
               "time_runes": 0
             },
@@ -5875,7 +5879,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 23,
+              "sequence": 24,
               "slug": "granfalloon_flagbearer",
               "time_runes": 0
             }
@@ -5905,7 +5909,7 @@
         }
       ],
       "resolving": [],
-      "sequence": 24,
+      "sequence": 25,
       "tied": [
         2,
         3
