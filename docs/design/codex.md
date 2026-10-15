@@ -1765,7 +1765,13 @@ else the bot shows is ephemeral.
     card prints is not what it fights with once Two Step, a Grounded
     Guide, a rune or its own text has had its say, and the board was
     the one place a player could not read the difference. The numbers
-    are the engine's `body_stats`, which the cog hands the renderer
+    are the engine's `board_reading` -- `body_stats`, with the elite's
+    +1 ATK added while the body patrols there, capped and floored as
+    `attack_value` does, because the slot's bonus is what it fights
+    with and a pill that left it out read one less than the attack did;
+    frenzy, which `attack_value` adds on its controller's turn alone, is
+    not on it (the author, 2026-10-15)
+    -- which the cog hands the renderer
     (`stats=`) so that nothing in `render.py` works out a stat; HP is
     what is left, its damage taken off, and the damage chits stay
     beside it. ATK is on the card's own black and HP on its red, a

@@ -973,12 +973,27 @@ class RulesEngine:
     def board_reading(self, match: MatchState,
                       body) -> tuple[int, int, tuple[str, ...], Optional[str]]:
         """What the board shows of a unit or a hero that is a reading of
-        the rules: its ATK and HP (`body_stats`), the effects across a
-        side that reach it (`auras_on`), and what keeps a unit from
-        attacking and patrolling for now (`barred_by`)."""
-        barred = (self.barred_by(match, body) if isinstance(body, CardInstance)
-                  and self.catalog.cards[body.slug].is_unit else None)
-        return (*self.body_stats(match, body), self.auras_on(match, body), barred)
+        the rules: its ATK and HP (`body_stats`) -- the elite's +1 added
+        while it patrols there (UMR p. 10), as `attack_value` adds it, so
+        the pill shows what it fights with -- the effects across a side
+        that reach it (`auras_on`), and what keeps a unit from attacking
+        and patrolling for now (`barred_by`)."""
+        is_unit = isinstance(body, CardInstance) and self.catalog.cards[body.slug].is_unit
+        barred = self.barred_by(match, body) if is_unit else None
+        atk, hp = self.body_stats(match, body)
+        if body.patrol_slot == "elite":
+            raw = self._unit_raw(body, match) if isinstance(body, CardInstance) \
+                else self._hero_raw(body, match)
+            atk = raw[0] + ELITE_ATK
+            ceiling = (effects.ATK_CEILING.get(self.text_slug(body) or "")
+                       if isinstance(body, CardInstance) else None)
+            if ceiling is not None:
+                # Pestering Haunt: "Can't have more than 1 ATK." -- the
+                # elite's +1 too, as `attack_value` caps it.
+                atk = min(atk, ceiling)
+            # Floored once everything is added (Intimidate's ruling).
+            atk = max(atk, 0)
+        return (atk, hp, self.auras_on(match, body), barred)
 
     def attack_value(self, match: MatchState, seat: int, ref: str,
                      against: Optional[str] = None) -> int:
