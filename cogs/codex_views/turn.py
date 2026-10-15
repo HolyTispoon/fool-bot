@@ -969,10 +969,13 @@ class TurnPanelView(PanelView):
         """What the part being resolved may choose, a button each as the
         engine offers it -- the flagbearers alone where the rule forces
         one -- under the ask, which says what the part does; and
-        **Cancel** where the model offers it."""
+        **Cancel** where the model offers it. An opponent's thing is red,
+        your own (and a teammate's) blurple."""
+        foes = self.cog.engine.opponents(self.match, self.seat)
         targets = [
             self.make_button(
-                self.target_label(row), discord.ButtonStyle.primary,
+                self.target_label(row),
+                discord.ButtonStyle.danger if row.seat in foes else discord.ButtonStyle.primary,
                 self._answer(self.target, row.key), choice=("target", row.key),
             )
             for row in options.targets
@@ -981,7 +984,10 @@ class TurnPanelView(PanelView):
         last = options.cancellable or options.done
         row = self.place(targets, 0, until=ROWS - 1 if last else ROWS)
         if options.done:
-            self.button("Done", discord.ButtonStyle.success, self.done_choosing, row=row)
+            # A repair's Done chooses nothing at all (`resolve.may_repair_nothing`).
+            repair = effects.EFFECTS[options.effect].parts[options.part].does == "repair"
+            self.button("Repair nothing" if repair else "Done", discord.ButtonStyle.success,
+                        self.done_choosing, row=row)
         if options.cancellable:
             self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_cast, row=row)
 
@@ -993,12 +999,15 @@ class TurnPanelView(PanelView):
 
     def build_divide(self, options) -> None:
         """A button per target chosen, each adding a point of the damage
-        to it, with what it has so far; **Cancel** where offered."""
+        to it, with what it has so far -- red where it is an opponent's,
+        as `build_target`'s; **Cancel** where offered."""
+        foes = self.cog.engine.opponents(self.match, self.seat)
         buttons = []
         for key, amount in options.split:
             seat, _, ref = key.partition(":")
             buttons.append(self.make_button(
-                f"+1 to {self.label(ref, int(seat))} (has {amount})", discord.ButtonStyle.primary,
+                f"+1 to {self.label(ref, int(seat))} (has {amount})",
+                discord.ButtonStyle.danger if int(seat) in foes else discord.ButtonStyle.primary,
                 self._answer(self.divide, key), choice=("divide", key),
             ))
         row = self.place(buttons, 0, until=ROWS - 1 if options.cancellable else ROWS)

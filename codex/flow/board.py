@@ -194,12 +194,7 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
 
 
 def building_max_hp(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> int:
-    player = match.player(seat)
-    if ref == "base":
-        return match.base_cap
-    if ref == "add_on":
-        return engine.building_hp(player.add_on.slug)
-    return engine.building_hp(ref)
+    return engine.building_max_hp(match, seat, ref)
 
 
 def building_hp(match: MatchState, seat: int, ref: str) -> int:

@@ -1411,6 +1411,45 @@ class EffectPanelTests(TurnTestCase):
         self.assertEqual(choices(opened.view()), [("detect", first.ref)])
         self.assertIn("Back", [item.label for item in opened.view().children])
 
+    async def test_an_opponents_target_is_red_and_your_own_blurple(self) -> None:
+        """Whose a target is reads from its colour: the opponent's red,
+        your own blurple -- on a part's buttons and on divided damage's."""
+        from codex.engine import TargetRow
+        from codex.prompts import DivideOptions, PendingPrompt, TargetOptions
+
+        match, seat, other = self.stage()
+        cog, game_id = self.table.cog, self.game.game_id
+        rows = (TargetRow(f"{seat}:base", seat, "base"), TargetRow(f"{other}:base", other, "base"))
+        options = TargetOptions(seat, "brick_thief", "unit:1", 1, "repair", rows)
+        view = TurnPanelView(cog, game_id, PendingPrompt(PromptKind.TARGET, "", seat, options), match)
+        styles = {item.label: item.style for item in view.children if getattr(item, "choice", None)}
+        self.assertEqual(styles, {"Your base": discord.ButtonStyle.primary,
+                                  "Their base": discord.ButtonStyle.danger})
+        options = DivideOptions(seat, "brick_thief", "unit:1", 2,
+                                ((f"{seat}:base", 1), (f"{other}:base", 1)))
+        view = TurnPanelView(cog, game_id, PendingPrompt(PromptKind.DIVIDE_DAMAGE, "", seat, options), match)
+        self.assertEqual([item.style for item in view.children if getattr(item, "choice", None)],
+                         [discord.ButtonStyle.primary, discord.ButtonStyle.danger])
+
+    async def test_a_repairs_done_is_repair_nothing(self) -> None:
+        """A repair that may choose nothing says so on its button; any
+        other part's is **Done**."""
+        from codex.engine import TargetRow
+        from codex.prompts import PendingPrompt, TargetOptions
+
+        match, seat, other = self.stage()
+        cog, game_id = self.table.cog, self.game.game_id
+        rows = (TargetRow(f"{other}:base", other, "base"),)
+
+        def labels(effect, part):
+            options = TargetOptions(seat, effect, "unit:1", part, "", rows, done=True)
+            view = TurnPanelView(cog, game_id, PendingPrompt(PromptKind.TARGET, "", seat, options), match)
+            return [item.label for item in view.children]
+
+        self.assertIn("Repair nothing", labels("brick_thief", 1))
+        self.assertNotIn("Done", labels("brick_thief", 1))
+        self.assertIn("Done", labels("brick_thief", 0))
+
     async def test_appel_stomp_and_the_upkeep_are_buttons(self) -> None:
         match, seat, _ = self.stage()
         match.resolving = [{"kind": "appel_top", "seat": seat}]

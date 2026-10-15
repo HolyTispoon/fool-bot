@@ -1,5 +1,5 @@
 {
-  "active": 2,
+  "active": 1,
   "attacking": null,
   "combat": null,
   "conceded": null,
@@ -199,18 +199,18 @@
       "turn": 3
     },
     {
-      "cost": 2,
-      "kind": "played",
-      "seat": 4,
-      "slug": "brick_thief",
-      "turn": 3
-    },
-    {
       "kind": "levelled",
       "level": 2,
       "levels": 1,
       "seat": 3,
       "slug": "troq_bashar",
+      "turn": 3
+    },
+    {
+      "cost": 2,
+      "kind": "played",
+      "seat": 4,
+      "slug": "brick_thief",
       "turn": 3
     },
     {
@@ -2272,9 +2272,16 @@
       "turn": 20
     },
     {
+      "attacker": "unit:49",
+      "defender": "base",
+      "kind": "attacked",
+      "seat": 1,
+      "turn": 20
+    },
+    {
       "kind": "base_destroyed",
-      "loser": 4,
-      "seat": 2,
+      "loser": 3,
+      "seat": 1,
       "turn": 20,
       "winner": 1
     }
@@ -2476,6 +2483,39 @@
         "kind": "choose_defender"
       },
       "outcomes": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "player": 2
+        },
+        "choice": "end_main",
+        "kind": "main_action"
+      },
+      "outcomes": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "attacker": "unit:49",
+          "player": 1
+        },
+        "choice": "attack",
+        "kind": "main_action"
+      },
+      "outcomes": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "against": 3,
+          "defender": "base",
+          "player": 1
+        },
+        "choice": "",
+        "kind": "choose_defender"
+      },
+      "outcomes": []
     }
   ],
   "lost_by_debt": null,
@@ -2485,7 +2525,7 @@
     {
       "add_on": null,
       "arrived_from_hand": true,
-      "base_hp": 5,
+      "base_hp": 6,
       "buildings": {
         "tech1": {
           "destroyed": false,
@@ -2589,13 +2629,13 @@
           "arrived_this_turn": false,
           "attached": [],
           "attached_hero": null,
-          "attacked_this_turn": false,
+          "attacked_this_turn": true,
           "buried": [],
           "controller": 1,
           "copy_of": null,
           "damage": 0,
           "disabled": false,
-          "exhausted": false,
+          "exhausted": true,
           "flipped": false,
           "id": 49,
           "jailed": null,
@@ -2802,6 +2842,7 @@
       ],
       "hired_this_turn": false,
       "lasting": [],
+      "locking": true,
       "peace": false,
       "play": [
         {
@@ -3583,18 +3624,18 @@
           "turn": 3
         },
         {
-          "cost": 2,
-          "kind": "played",
-          "seat": 4,
-          "slug": "brick_thief",
-          "turn": 3
-        },
-        {
           "kind": "levelled",
           "level": 2,
           "levels": 1,
           "seat": 3,
           "slug": "troq_bashar",
+          "turn": 3
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 4,
+          "slug": "brick_thief",
           "turn": 3
         },
         {
@@ -5655,7 +5696,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 11,
+          "base_hp": 12,
           "buildings": {
             "tech1": {
               "destroyed": false,
@@ -6023,7 +6064,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 22,
+          "base_hp": 25,
           "buildings": {
             "tech1": {
               "destroyed": false,
@@ -6591,18 +6632,18 @@
           "turn": 3
         },
         {
-          "cost": 2,
-          "kind": "played",
-          "seat": 4,
-          "slug": "brick_thief",
-          "turn": 3
-        },
-        {
           "kind": "levelled",
           "level": 2,
           "levels": 1,
           "seat": 3,
           "slug": "troq_bashar",
+          "turn": 3
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 4,
+          "slug": "brick_thief",
           "turn": 3
         },
         {
@@ -8731,7 +8772,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 11,
+          "base_hp": 12,
           "buildings": {
             "tech1": {
               "destroyed": false,
@@ -9183,7 +9224,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 7,
+          "base_hp": 10,
           "buildings": {
             "tech1": {
               "destroyed": false,
@@ -9700,18 +9741,18 @@
           "turn": 3
         },
         {
-          "cost": 2,
-          "kind": "played",
-          "seat": 4,
-          "slug": "brick_thief",
-          "turn": 3
-        },
-        {
           "kind": "levelled",
           "level": 2,
           "levels": 1,
           "seat": 3,
           "slug": "troq_bashar",
+          "turn": 3
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 4,
+          "slug": "brick_thief",
           "turn": 3
         },
         {
@@ -11714,7 +11755,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 5,
+          "base_hp": 6,
           "buildings": {
             "tech1": {
               "destroyed": false,
@@ -12085,7 +12126,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 7,
+          "base_hp": 10,
           "buildings": {
             "tech1": {
               "destroyed": false,

@@ -2534,7 +2534,7 @@
         {
           "action": {
             "arguments": {
-              "target": "1:tech2"
+              "target": "1:base"
             },
             "choice": "",
             "kind": "target"

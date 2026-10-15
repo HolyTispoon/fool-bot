@@ -183,15 +183,63 @@ class BrickThiefTests(unittest.TestCase):
         extra hit points above its max HP)."""
         engine, game, match = bashing()
         built(match, 2, "tech1")
+        match.player(2).base_hp = 19
         hand(match, 1, "brick_thief")
         match.player(1).gold = 5
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
         apply(engine, game, match, PromptKind.TARGET, target="2:tech1")
-        offered = [row.key for row in asked(engine, game, match).options.targets]
-        self.assertIn("1:base", offered)
-        apply(engine, game, match, PromptKind.TARGET, target="1:base")
+        # The one damaged building is the opponent's, so the repair is
+        # asked rather than taken, with Done -- "Repair nothing" -- for
+        # the undamaged building of his own the ruling lets him choose.
+        options = asked(engine, game, match).options
+        self.assertEqual([row.key for row in options.targets], ["2:base"])
+        self.assertTrue(options.done)
+        apply(engine, game, match, PromptKind.TARGET, "done")
         self.assertEqual(match.player(1).base_hp, 20)
+        self.assertEqual(match.player(2).base_hp, 19)
         self.assertEqual(match.player(2).buildings["tech1"].hp, 4)
+
+    def test_the_repair_offers_the_damaged_buildings_his_own_first(self) -> None:
+        """Where one of his own buildings is damaged, the repair offers
+        the damaged buildings alone, his own before the opponent's."""
+        engine, game, match = bashing()
+        built(match, 1, "tech1", hp=3)
+        built(match, 2, "tech1", hp=4)
+        match.player(1).base_hp = 18
+        hand(match, 1, "brick_thief")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
+        apply(engine, game, match, PromptKind.TARGET, target="2:base")
+        options = asked(engine, game, match).options
+        self.assertEqual([row.key for row in options.targets], ["1:tech1", "1:base", "2:tech1"])
+        self.assertFalse(options.done, "every building on the table is damaged")
+
+    def test_repair_nothing_is_offered_beside_his_own_damaged_building(self) -> None:
+        """A building of his own to mend, and an undamaged one somewhere:
+        Repair nothing is offered all the same."""
+        engine, game, match = bashing()
+        built(match, 1, "tech1", hp=3)
+        hand(match, 1, "brick_thief")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
+        apply(engine, game, match, PromptKind.TARGET, target="2:base")
+        options = asked(engine, game, match).options
+        self.assertEqual([row.key for row in options.targets], ["1:tech1"])  # not the base he hit
+        self.assertTrue(options.done)
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertEqual(match.player(1).buildings["tech1"].hp, 3)
+        self.assertEqual(match.player(2).base_hp, 19)
+
+    def test_the_repair_with_nothing_damaged_is_skipped(self) -> None:
+        """Nothing damaged but what he just hit: nothing is asked and
+        nothing is said of the repair."""
+        engine, game, match = bashing()
+        hand(match, 1, "brick_thief")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
+        run = apply(engine, game, match, PromptKind.TARGET, target="2:base")
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertNotIn("repair", said(run))
 
     def test_brick_thief_2(self) -> None:
         """"Arrives or attacks:" means you get the effect when he arrives,
@@ -202,7 +250,7 @@ class BrickThiefTests(unittest.TestCase):
         match.player(1).gold = 5
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
         apply(engine, game, match, PromptKind.TARGET, target="2:base")
-        # The repair's one other building is his own base: taken unasked.
+        # Nothing else is damaged, so the repair asks nothing.
         self.assertEqual(match.player(2).base_hp, 19)
         thief = match.player(1).play[-1]
         thief.arrived_this_turn = False
@@ -839,13 +887,15 @@ class SpellAndTriggerRulingTests(unittest.TestCase):
         Mantis will repair as much as he can. He won't increase the max HP
         of a building though, he can only remove damage already on it."""
         engine, game, match = red_green(first=2)
-        built(match, 2, "tech1", hp=5)
+        built(match, 2, "tech1", hp=4)
         built(match, 2, "tech2")
         match.player(2).buildings["tech2"].hp = 7
         match.player(2).base_hp = 19
         hand(match, 2, "artisan_mantis")
         match.player(2).gold = 9
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="artisan_mantis")
+        offered = [row.key for row in asked(engine, game, match).options.targets]
+        self.assertEqual(offered, ["2:tech1", "2:base"])
         apply(engine, game, match, PromptKind.TARGET, target="2:base")
         self.assertEqual(match.player(2).base_hp, 20)
 
