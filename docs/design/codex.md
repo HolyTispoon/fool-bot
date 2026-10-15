@@ -2437,7 +2437,8 @@ too, asked with `gate` for the two kinds a turn may open on
   A building among them is green and the rest blurple, and every
   building's label, here and on any other button, carries the HP it has
   left -- "Tech I (5 HP)", "Base (17 HP)", the base capitalised on a
-  button though not in the narration -- read from `building_hp_left`.
+  button though not in the narration -- read from `building_hp_left`;
+  a building's reason shares its HP's bracket, "Base (20 HP, flying)".
   The reasons are kept short for a button -- "stealth vs. units",
   "unstoppable by tech 0", "Demon, unstoppable", "unblocked" (the
   author, 2026-10-15).

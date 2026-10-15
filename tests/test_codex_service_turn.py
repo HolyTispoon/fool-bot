@@ -134,6 +134,21 @@ class TurnHeadingTests(unittest.TestCase):
         match.player(1).play.remove(third)
         self.assertEqual(copy_number(match.player(1), second), 2)
 
+    def test_a_buildings_reason_shares_its_hp_bracket(self) -> None:
+        """A building names the HP it has left, and why it may be
+        attacked goes in the same bracket; anything else gets a bracket
+        of its own (the author, 2026-10-15)."""
+        from codex.formatting import ref_label
+        from codex_positions import new_game
+
+        engine, _, match = new_game()
+        guard = put(match, 2, "older_brother", patrol="squad_leader")
+        match.set_base(2, 17)
+        self.assertEqual(ref_label(engine, match, 2, "base"), "Base (17 HP)")
+        self.assertEqual(ref_label(engine, match, 2, "base", "flying"), "Base (17 HP, flying)")
+        self.assertEqual(ref_label(engine, match, 2, guard.ref, "squad leader"),
+                         "Older Brother 2/2 (squad leader)")
+
     def test_no_line_of_the_models_opens_a_turn(self) -> None:
         """The heading is not narration, so it is never said twice."""
         svc, _, game = started()

@@ -179,8 +179,8 @@ class PanelView(SafeView):
     #: (`botkit.views.GameLockedView`).
     acknowledges_while_waiting = True
 
-    def label(self, ref: str, seat: int | None = None) -> str:
-        return ref_label(self.cog.engine, self.match, self.seat if seat is None else seat, ref)
+    def label(self, ref: str, seat: int | None = None, note: str = "") -> str:
+        return ref_label(self.cog.engine, self.match, self.seat if seat is None else seat, ref, note)
 
     async def mine(self, interaction: discord.Interaction):
         """`(game, match)` for a click by this panel's player, or
@@ -894,7 +894,7 @@ class TurnPanelView(PanelView):
         seats = options.seats or (engine.sole_opponent(self.match, self.seat),) * len(options.defenders)
         defenders = [
             self.make_button(
-                f"{self.label(ref, side)} ({why})" if why else self.label(ref, side),
+                self.label(ref, side, why),
                 discord.ButtonStyle.success if engine.is_building_ref(self.match, side, ref)
                 else discord.ButtonStyle.primary,
                 # On a table the same ref can stand on two sides: the click
