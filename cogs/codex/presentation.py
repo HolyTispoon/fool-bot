@@ -19,7 +19,7 @@ from typing import Optional
 
 import discord
 
-from codex.game import CodexGame
+from codex.game import CodexGame, GameStatus
 from codex.prompts import tech_is_owed
 from codex.render import render_board, render_hand
 from cogs.codex_helpers import (
@@ -34,6 +34,7 @@ from cogs.codex_views import (
     HandView,
     LobbyView,
     TurnMessageView,
+    acknowledge,
     deck_caption,
     deck_file,
     hand_caption,
@@ -42,6 +43,7 @@ from cogs.codex_views import (
     revealed_caption,
     revealed_files,
     send_answer,
+    send_ephemeral,
     side_label,
 )
 
@@ -319,6 +321,43 @@ class PresentationMixin:
         except discord.HTTPException as error:
             LOGGER.warning("Could not delete a turn message of Codex game %s: %s", game.game_id, error)
 
+    async def send_hand_menu(self, interaction: discord.Interaction, game: CodexGame, match,
+                             seat: int) -> None:
+        """What **My hand** answers `seat` with: the panel for the
+        active player, the hand for the other."""
+        if seat in self.engine.turn_seats(match) and match.winner is None:
+            await self.show_panel(interaction, game, match, seat, edit=False)
+            return
+        await self.send_hand(interaction, game, match, seat)
+
+    async def show_board(self, interaction: discord.Interaction, game: CodexGame,
+                         seat: int) -> None:
+        """
+        **Show board**, under a hand and on the panel: the turn message
+        posted again at the foot of the channel, as `/codex resume` posts
+        it -- the old one deleted, nobody pinged -- and the hand menu
+        `seat` would get from **My hand** sent afresh under it; the one
+        clicked is deleted after, so one stands. Where the turn message
+        is the channel's last message already, it is not posted again:
+        two of the channel's requests for nothing (rate-limits.md). Runs
+        inside the click's lock, as every click does.
+        """
+        if game.status is not GameStatus.PLAYING:
+            await send_ephemeral(interaction, "This game is not being played.")
+            return
+        await acknowledge(interaction)
+        match = self.service.load(game)
+        channel = (self.bot.get_channel(game.channel_id) if game.channel_id else None) \
+            or interaction.channel
+        if game.turn_message_id is None or getattr(channel, "last_message_id", None) != game.turn_message_id:
+            await self.post_turn_message(channel, game, match, replace=True, ping=False)
+        await self.send_hand_menu(interaction, game, match, seat)
+        try:
+            await interaction.delete_original_response()
+        except discord.HTTPException as error:
+            LOGGER.info("Codex game #%s: the hand menu under Show board stays (%s)",
+                        game.game_number, error)
+
     async def send_hand(self, interaction: discord.Interaction, game: CodexGame, match,
                         seat: int) -> None:
         """A player's hand pictured, **ephemeral to them alone** -- the
@@ -335,7 +374,8 @@ class PresentationMixin:
         # opponent's hand beneath (step 13), or a dragon's teammate's
         # always is (decision 13); none for an empty hand.
         pictures = {"file": files[0]} if len(files) == 1 else {"files": files} if files else {}
-        await interaction.response.send_message(
+        await send_answer(
+            interaction,
             self.with_turn_log(game, caption + (f"\n{revealed}" if revealed else "")),
             **pictures,
             view=HandView(self, game.game_id, seat),
