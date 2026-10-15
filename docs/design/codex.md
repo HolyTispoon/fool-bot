@@ -1768,7 +1768,9 @@ else the bot shows is ephemeral.
     are the engine's `board_reading` -- `body_stats`, with the elite's
     +1 ATK added while the body patrols there, capped and floored as
     `attack_value` does, because the slot's bonus is what it fights
-    with and a pill that left it out read one less than the attack did
+    with and a pill that left it out read one less than the attack did;
+    frenzy, which `attack_value` adds on its controller's turn alone, is
+    not on it (the author, 2026-10-15)
     -- which the cog hands the renderer
     (`stats=`) so that nothing in `render.py` works out a stat; HP is
     what is left, its damage taken off, and the damage chits stay
