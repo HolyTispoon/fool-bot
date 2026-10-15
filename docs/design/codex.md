@@ -1790,7 +1790,9 @@ else the bot shows is ephemeral.
     on the first build, which kept it the viewer's way up there), and
     level with the table on an exhausted card, on the turned card's
     top right, over its cost (the author again: drawn on the card, it
-    lay on its side with it); a copy's number, which is matched to a button, still reads
+    lay on its side with it) -- on a hero, just left of its level chit,
+    which the quarter turn carries to that same corner (the author,
+    2026-10-15: the pill covered the level); a copy's number, which is matched to a button, still reads
     upright, and moves left of centre on a standing card to sit
     between the cost and the pill. Only units and heroes on the field
     carry one: not a hero in the command zone, a building card, an

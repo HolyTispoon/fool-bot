@@ -1161,7 +1161,8 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     it came, a copy's number on its top edge -- and, exhausted, the
     whole of it turned on its side at full size, lying across the cell,
     with the exhaust glyph on the cell's top corner and its stats on
-    the turned card's top right, both level with the table.
+    the turned card's top right, both level with the table -- left of
+    a hero's level chit, which the turn carries to that corner.
     """
     margin = OVERHANG
     # Wider at the sides than `OVERHANG`, for the rune chits that hang
@@ -1175,8 +1176,9 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         face = greyed(face, 0.7)
     upright.alpha_composite(face, (side, margin))
     right, bottom = side + CARD[0], margin + CARD[1]
+    level_box = None
     if lying.level is not None:
-        lay_row(upright, [lying.level], px(62), (side - px(10), margin - px(10)))
+        level_box = lay_row(upright, [lying.level], px(62), (side - px(10), margin - px(10)))
     runes = rune_chits(lying.plus_runes, lying.minus_runes)
     if runes:
         lay_row(upright, runes, px(50), (right + RUNE_HANG, margin + RUNE_CENTRE - px(25)),
@@ -1226,9 +1228,12 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if stats is not None and lying.exhausted:
         # Level with the table, on the turned card's top right -- over
         # its cost, the card's own top left once turned.
-        card_right = left + margin + CARD[1]
-        tile.alpha_composite(stats, (card_right + STAT_OVERHANG - stats.width,
-                                     card_top - STAT_OVERHANG))
+        # A hero's level chit turns with the card to that same corner,
+        # so the pill stands just left of it (the author, 2026-10-15).
+        stats_right = left + margin + CARD[1] + STAT_OVERHANG
+        if level_box is not None:
+            stats_right = min(stats_right, left + upright.height - level_box[3] - px(4))
+        tile.alpha_composite(stats, (stats_right - stats.width, card_top - STAT_OVERHANG))
     copy_centre = left + laid.width // 2
     if stats is not None and not lying.exhausted:
         # A standing card's top edge holds the cost top left and the
