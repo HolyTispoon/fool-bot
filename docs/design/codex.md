@@ -2903,10 +2903,10 @@ way and nothing is written from it.
   (`codex.flow.turn.concede`). A concession is the model's: the seat
   conceding loses, the other wins, `MatchState.conceded` remembers who
   gave up -- a saved field step 8 added, `None` in an older save -- and
-  the match waits on `GAME_OVER`, whose ask names the winner and says
-  how only where the final board does not show it ("{player:1} wins!"
-  for a destroyed base, "{player:1} wins! {player:2} conceded."), posted
-  as a heading under the final board (the author, 2026-10-15). Either
+  the match waits on `GAME_OVER`, whose ask is the winner alone,
+  "{player:1} wins!", however the game ended -- the turn's lines have
+  said how -- posted as a heading under the final board (the author,
+  2026-10-15). Either
   seat may concede,
   whoever's turn it is; refused once the game is over.
 - **A concession is not an action the journal records.** It answers no

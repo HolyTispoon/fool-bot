@@ -4508,7 +4508,7 @@ class UpkeepRulingTests(unittest.TestCase):
         self.assertEqual((match.winner, match.lost_by_debt), (2, 1))
         prompt = asked(engine, game, match)
         self.assertIs(prompt.kind, PromptKind.GAME_OVER)
-        self.assertIn("could not pay", prompt.ask)
+        self.assertEqual(prompt.ask, "{player:2} wins!")
         self.assertEqual(prompt.options.lost_by_debt, 1)
 
     def test_second_chances_random_return_is_replayed_byte_for_byte(self) -> None:

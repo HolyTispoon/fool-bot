@@ -1252,5 +1252,5 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 **End of turn 13** -- {player:3} (Bashing).
 **{player:3} wins with 20 base HP: the tie is broken.**
 --- prompt GAME_OVER (player None)
-{player:3} wins with 20 base HP: the tie is broken.
+{player:3} wins!
 --- board changed

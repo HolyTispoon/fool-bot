@@ -904,22 +904,13 @@ def tech_stands(game: "Optional[CodexGame]") -> bool:
 
 def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.winner is not None:
-        # The winner alone, "{player:1} wins!" -- a destroyed base is on
-        # the final board beside it, so only an ending the board does not
-        # show says how (the author, 2026-10-15).
-        how = ""
-        if match.conceded is not None:
-            how = f" {tokens.player(match.conceded)} conceded."
-            if match.dragons:
-                how = f" {tokens.player(match.conceded)}'s team conceded."
-        elif match.lost_by_debt is not None:
-            how = f" {tokens.player(match.lost_by_debt)} could not pay their debt."
-        elif match.variant == "free_for_all":
-            return PendingPrompt(PromptKind.GAME_OVER, _free_for_all_over(match))
+        # The winner alone, "{player:1} wins!", however the game ended
+        # -- a base, a concession, a debt, a free-for-all's score: the
+        # turn's lines have already said how (the author, 2026-10-15).
         from codex import seats
 
         wins = side_verb(seats.dragon_of(match, match.winner), "wins", "win")
-        return PendingPrompt(PromptKind.GAME_OVER, f"{base_owner(match, match.winner)} {wins}!{how}")
+        return PendingPrompt(PromptKind.GAME_OVER, f"{base_owner(match, match.winner)} {wins}!")
     seat = match.active
     if match.resolving:
         # An effect under way asks before anything else does: a target,
@@ -995,19 +986,6 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     # The upkeep is never stood on between two clicks: `begin_turn`
     # runs it through to the main phase in one step.
     return FollowOn(FollowOnStep.BEGIN_TURN)
-
-
-def _free_for_all_over(match: MatchState) -> str:
-    """A free-for-all's end, said with the score (Rulebook p. 14: the most
-    base HP wins): "{player:3} wins with 14 base HP: {player:1}'s base is
-    destroyed." -- or, after a playoff, that the tie is broken."""
-    head = f"{tokens.player(match.winner)} wins with {match.base_of(match.winner)} base HP"
-    if match.tied:
-        return f"{head}: the tie is broken."
-    fallen = [player.seat for player in match.players if match.base_of(player.seat) == 0]
-    if len(fallen) == 1:
-        return f"{head}: {tokens.player(fallen[0])}'s base is destroyed."
-    return f"{head}: a base is destroyed."
 
 
 def _finished(engine, game, match: MatchState, waiting: Union[PendingPrompt, FollowOn],
