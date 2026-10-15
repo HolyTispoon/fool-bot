@@ -293,6 +293,41 @@ class RenderTests(unittest.TestCase):
         self.assertLess(len(png), 10 * 1024 * 1024)
 
 
+class DeckLayoutTests(unittest.TestCase):
+    """`deck_layout`: **My deck**'s frames packed so the rows are filled
+    (the author, 2026-10-15)."""
+
+    def test_short_parts_share_a_row_and_wrap_to_fill_it(self) -> None:
+        """Two in hand, seven discarded, three in the pile: one row two
+        cards tall rather than three rows with gaps at their ends."""
+        self.assertEqual(render.deck_layout([2, 7, 3]), [(2, [(0, 1), (1, 4), (2, 2)])])
+
+    def test_no_row_is_wider_than_the_limit_and_every_card_has_a_place(self) -> None:
+        for sizes in ([5, 4, 3, 8], [5, 20], [1], [12, 12, 12, 12], [8, 8]):
+            layout = render.deck_layout(sizes)
+            self.assertEqual(sorted(i for _, frames in layout for i, _ in frames),
+                             list(range(len(sizes))))
+            for lines, frames in layout:
+                self.assertLessEqual(sum(columns for _, columns in frames), render.DECK_COLUMNS)
+                for index, columns in frames:
+                    self.assertGreaterEqual(lines * columns, sizes[index])
+
+    def test_a_hand_of_five_lies_in_a_row_where_it_can(self) -> None:
+        layout = render.deck_layout([5, 4, 3, 8])
+        self.assertIn((1, [(0, 5)]), layout)
+
+    def test_the_picture_is_one_image_with_every_part(self) -> None:
+        engine = RulesEngine(seed=7)
+        match = engine.new_match(("bashing", "finesse"), first=1)
+        put(match, 1, "older_brother")
+        deck = engine.own_deck(match, 1)
+        picture = Image.open(io.BytesIO(render.render_deck(
+            deck.held, deck.played, deck.discarded, deck.pile, engine.catalog)))
+        self.assertLessEqual(picture.width,
+                             render.DECK_COLUMNS * (render.CODEX_CARD[0] + 14)
+                             + 3 * (2 * render.DECK_BOX_PAD + 14) + 14)
+
+
 class EffectTagTests(unittest.TestCase):
     """The lasting effects a unit or a hero carries, as tags: the
     effect's name alone, in the colour of the card it came from."""

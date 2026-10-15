@@ -206,16 +206,17 @@ class HeroOption:
 @dataclass(frozen=True)
 class OwnDeck:
     """A player's whole deck (`RulesEngine.own_deck`): (slug, copies)
-    for every card they own; the same split in three, the copies in
-    their hand (`held`), in their discard pile (`discarded`) and
-    anywhere else -- the draw pile, in play (`elsewhere`) -- each in the
-    deck's order and leaving out a card with none there; and how many
-    are in each place."""
+    for every card they own; the same split in four, the copies in
+    their hand (`held`), in play -- on either side, or a spell being
+    cast (`played`) -- in their discard pile (`discarded`) and in their
+    draw pile (`pile`), each in the deck's order and leaving out a card
+    with none there; and how many are in each place."""
 
     cards: tuple[tuple[str, int], ...]
     held: tuple[tuple[str, int], ...]
+    played: tuple[tuple[str, int], ...]
     discarded: tuple[tuple[str, int], ...]
-    elsewhere: tuple[tuple[str, int], ...]
+    pile: tuple[tuple[str, int], ...]
     hand: int
     draw_pile: int
     discard: int
@@ -4300,9 +4301,10 @@ class RulesEngine:
         token gone (the author, 2026-10-09: "all the cards that are in
         your deck"). Counted per card, in the starting deck's order
         first, then each tech level's, the spells after their level's
-        units -- and split into the copies in the hand, those in the
-        discard pile and the rest, which **My deck** shows apart (the
-        author, 2026-10-09). A tech choice
+        units -- and split into the copies in the hand, those in play,
+        those in the discard pile and those in the draw pile, which
+        **My deck** shows apart (the author, 2026-10-09; in play its own
+        part since 2026-10-15). A tech choice
         not yet in the discard pile is not in it.
         **Its owner's alone**: the draw pile is told as a count, never
         an order.
@@ -4331,15 +4333,16 @@ class RulesEngine:
             return (card.starting_zone != "deck", card.tech_level or 0, card.is_spell,
                     order.get(slug, len(order)))
 
-        held = Counter(player.hand)
-        discarded = Counter(player.discard)
         ordered = sorted(counted, key=place)
+
+        def part(slugs) -> tuple[tuple[str, int], ...]:
+            copies = Counter(slugs)
+            return tuple((slug, copies[slug]) for slug in ordered if copies[slug])
+
         return OwnDeck(
             cards=tuple((slug, counted[slug]) for slug in ordered),
-            held=tuple((slug, held[slug]) for slug in ordered if held[slug]),
-            discarded=tuple((slug, discarded[slug]) for slug in ordered if discarded[slug]),
-            elsewhere=tuple((slug, counted[slug] - held[slug] - discarded[slug])
-                            for slug in ordered if counted[slug] > held[slug] + discarded[slug]),
+            held=part(player.hand), played=part(in_play),
+            discarded=part(player.discard), pile=part(player.deck),
             hand=len(player.hand), draw_pile=len(player.deck),
             discard=len(player.discard), in_play=len(in_play),
         )
