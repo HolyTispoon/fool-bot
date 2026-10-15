@@ -586,11 +586,11 @@ always.
   *may* shoot up but is never forced to. `ignores_patrollers` is the
   third answer -- unstoppable, or stealth and invisible while no detector
   sees it -- and `defender_rows` says which of the three it was, so the
-  panel's buttons can say why a defender is legal ("it flies over the patrol
-  zone", "it sneaks past the patrol zone", "it is unstoppable"). That
+  panel's buttons can say why a defender is legal ("flying", "stealth",
+  "unstoppable"). That
   reason is about getting past the zone, so a patroller the attacker
   takes anyway is said as what it is -- "squad leader" or "patroller" --
-  never "it flies over the patrol zone" beside the squad leader it is
+  never "flying" beside the squad leader it is
   attacking.
 - **A flier flew over the patrollers it had to get past**
   (`flown_over`), and each of those with anti-air deals its ATK to it:
@@ -2470,8 +2470,18 @@ too, asked with `gate` for the two kinds a turn may open on
   `history.undo_targets` says are open. The attacker is named the same
   way over the defender's buttons, and each is labelled with why it is
   legal -- "squad
-  leader", "patroller", "no patrol", in brackets after its name -- which is the engine's
+  leader", "patroller", "flying", "unstoppable vs. base", in brackets
+  after its name -- and nothing where the defender has no patrol at
+  all, the button the name alone (the author, 2026-10-15) -- which is the engine's
   (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
+  A building among them is green and the rest blurple, and every
+  building's label, here and on any other button, carries the HP it has
+  left -- "Tech I (5 HP)", "Base (17 HP)", the base capitalised on a
+  button though not in the narration -- read from `building_hp_left`;
+  a building's reason shares its HP's bracket, "Base (20 HP, flying)".
+  The reasons are kept short for a button -- "stealth vs. units",
+  "unstoppable by tech 0", "Demon, unstoppable", "unblocked" (the
+  author, 2026-10-15).
   **Nothing the turn panel asks is a menu any more**: the tower's
   detection and the three choices inside an attack -- obliterate's tie,
   sparkshot's neighbour, overpower's excess -- are buttons too, what

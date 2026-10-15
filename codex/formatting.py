@@ -64,13 +64,24 @@ def slot_name(slot: str) -> str:
     return SLOT_NAMES.get(slot, slot.replace("_", " "))
 
 
-def ref_label(engine, match, seat: int, ref: str) -> str:
+def ref_label(engine, match, seat: int, ref: str, note: str = "") -> str:
     """
     What `ref` names on `seat`'s side, in plain words for a button or a
-    menu: "Iron Man 3/4", "Troq Bashar 2/3", "Tech II", "Tower", "base".
-    A unit's or hero's numbers are the engine's, with its damage after
-    them where it has any. A name, never a rule.
+    menu: "Iron Man 3/4", "Troq Bashar 2/3", "Tech II (5 HP)", "Tower
+    (4 HP)", "Base (17 HP)". A unit's or hero's numbers are the
+    engine's, with its damage after them where it has any; a building's
+    is the HP it has left (`building_hp_left`, the author, 2026-10-15).
+    A `note` -- why a defender is legal -- goes in brackets after it,
+    in the one bracket a building's HP is already in: "Base (20 HP,
+    flying)", "Iron Man 3/4 (patroller)". A name, never a rule.
     """
+    label = _ref_label(engine, match, seat, ref, note)
+    if note and engine.building_hp_left(match, seat, ref) is None:
+        label += f" ({note})"
+    return label
+
+
+def _ref_label(engine, match, seat: int, ref: str, note: str) -> str:
     from codex.components import is_hero_ref
     from codex.engine import building_name, unit_ref
 
@@ -108,21 +119,31 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
         instance_id = unit_ref(ref)
         card = player.instance(instance_id) if instance_id is not None else None
         if card is None:
-            if ref == "add_on" and player.add_on is not None:
-                return catalog().name(player.add_on.slug)
-            return building_name(ref)
+            name = (catalog().name(player.add_on.slug) if ref == "add_on" and player.add_on is not None
+                    else "Base" if ref == "base" else building_name(ref))
+            return _with_hp_left(engine, match, seat, ref, name, note)
         atk, hp = engine.unit_stats(card, match)
         name = catalog().name(card.slug)
         number = copy_number(player, card)
         if number:
             name += f" #{number}"
+        if catalog().cards[card.slug].is_building_card:
+            # A building card has HP and no ATK: what it has left.
+            return _with_hp_left(engine, match, seat, ref, name, note)
         if catalog().cards[card.slug].is_permanent:
-            # A building card has HP and no ATK; an upgrade neither.
+            # An upgrade has neither.
             label = name + (f" ({hp} HP)" if hp else "")
         else:
             label = f"{name} {atk}/{hp}"
         damage = card.damage
     return f"{label}, {damage} damage" if damage else label
+
+
+def _with_hp_left(engine, match, seat: int, ref: str, name: str, note: str = "") -> str:
+    left = engine.building_hp_left(match, seat, ref)
+    if left is None:
+        return name
+    return f"{name} ({left} HP, {note})" if note else f"{name} ({left} HP)"
 
 
 def copy_number(player, card) -> int:

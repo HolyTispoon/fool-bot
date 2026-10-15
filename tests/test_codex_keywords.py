@@ -179,7 +179,7 @@ class FlyingTests(KeywordCase):
         self.assertIn("base", defenders)
         self.assertIn(guard, defenders, "it may take the patroller if it prefers")
         rows = dict(engine.defender_rows(match, flier))
-        self.assertEqual(rows["base"], "it flies over the patrol zone")
+        self.assertEqual(rows["base"], "flying")
         # The squad leader it takes is where it flies to, not over.
         self.assertEqual(rows[guard], "squad leader")
 
@@ -334,7 +334,7 @@ class StealthTests(KeywordCase):
             self.assertIn(guard, defenders)
             self.assertEqual(
                 dict(engine.defender_rows(match, sneak))["base"],
-                "it sneaks past the patrol zone",
+                "stealth",
             )
 
     def test_stealth_2(self) -> None:
@@ -425,7 +425,7 @@ class UnstoppableTests(KeywordCase):
         self.assertEqual(engine.ignores_patrollers(match, dancer), "unstoppable")
         self.assertIn("base", engine.legal_defenders(match, dancer))
         self.assertEqual(
-            dict(engine.defender_rows(match, dancer))["base"], "it is unstoppable",
+            dict(engine.defender_rows(match, dancer))["base"], "unstoppable",
         )
 
 
