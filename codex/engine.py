@@ -2733,7 +2733,7 @@ class RulesEngine:
                 # the patrol zone.
                 taken = {ref for ref, _ in rows}
                 rows += [
-                    (card.ref, "it sneaks past the patrol zone to a unit")
+                    (card.ref, "stealth vs. units")
                     for card in self._units_of(match, other)
                     if card.ref not in taken and self.may_be_attacked(match, attacker, card.ref, against=against)
                 ]
@@ -2742,8 +2742,7 @@ class RulesEngine:
                 # Colossus: "Unstoppable when attacking a base."; Traffic
                 # Director: "... when attacking a building." (step 13).
                 taken = {ref for ref, _ in rows}
-                why = ("it is unstoppable when attacking a base" if past == "base"
-                       else "it is unstoppable when attacking a building")
+                why = "unstoppable vs. base" if past == "base" else "unstoppable vs. buildings"
                 rows += [
                     (ref, why) for ref in self._standing(match, other)
                     if ref not in taken and self.is_building_ref(match, other, ref)
@@ -2755,7 +2754,7 @@ class RulesEngine:
                 # heroes, past the patrol zone (step 12).
                 taken = {ref for ref, _ in rows}
                 rows += [
-                    (ref, "it is unstoppable when attacking heroes")
+                    (ref, "unstoppable vs. heroes")
                     for ref in self._hero_refs_of(match, other)
                     if ref not in taken
                     and self.may_be_attacked(match, attacker, ref, against=against)
@@ -2801,27 +2800,29 @@ class RulesEngine:
         return isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_ATTACKING_HEROES
 
     def _open_why(self, match: MatchState, attacker: str, against: Optional[int] = None) -> str:
-        """Why nothing in the patrol zone holds this attacker."""
+        """Why nothing in the patrol zone holds this attacker -- nothing
+        where there is no patrol to get past, since an empty zone holds
+        nobody and needs no saying."""
         other = self.defending_seat(match, against)
         if not match.patrollers(other):
-            return "no patrol"
+            return ""
         sneaking = self.ignores_patrollers(match, attacker, against=against)
         if sneaking == "unstoppable":
-            return "it is unstoppable"
+            return "unstoppable"
         if self._unstoppable_by_tech_0(match, attacker, against=against):
-            return "it is unstoppable by tech 0 units"
+            return "unstoppable by tech 0"
         body = self.body(match, match.active, attacker)
         if isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_BY_RUNED:
-            return "it is unstoppable by units with -1/-1 runes"
+            return "unstoppable by runed units"
         if self.is_demon(body) and any(
             self.text_slug(card) in effects.DEMONS_UNSTOPPABLE for card in match.active_player.play
         ):
-            return "its Demons are unstoppable by units"
+            return "Demon, unstoppable"
         if sneaking:
-            return "it sneaks past the patrol zone"
+            return "stealth"
         if self.has(match, match.active, attacker, "Flying"):
-            return "it flies over the patrol zone"
-        return "no patroller can stop it"
+            return "flying"
+        return "unblocked"
 
     def flown_over(self, match: MatchState, attacker: str, defender: str) -> tuple[str, ...]:
         """
@@ -3070,6 +3071,25 @@ class RulesEngine:
         if ref == "add_on":
             return self.building_hp(match.player(seat).add_on.slug)
         return self.building_hp(ref)
+
+    def building_hp_left(self, match: MatchState, seat: int, ref: str) -> Optional[int]:
+        """The HP a building of `seat`'s -- the base, a tech building, the
+        add-on or a building card -- has left, or None where there is no
+        such building standing: what a button names beside it (the
+        author, 2026-10-15)."""
+        player = match.player(seat)
+        if ref == "base":
+            return match.base_of(seat)
+        if ref == "add_on":
+            return None if player.add_on is None else player.add_on.hp
+        if ref in TECH_BUILDINGS:
+            building = player.buildings[ref]
+            return None if building is None or building.destroyed else building.hp
+        card = self.body(match, seat, ref)
+        if not isinstance(card, CardInstance) or not self.catalog.cards[card.slug].is_building_card:
+            return None
+        _, hp = self.unit_stats(card, match)
+        return hp - card.damage
 
     def building_damaged(self, match: MatchState, seat: int, ref: str) -> bool:
         """Whether a building of `seat`'s -- the base, a tech building,

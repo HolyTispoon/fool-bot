@@ -149,7 +149,7 @@ def hand_numbers(options) -> dict[str, int]:
 class PanelButton(discord.ui.Button):
     """A button on the panel, carrying `choice` -- what it answers with
     off the prompt's options: `("play", slug)`, `("build", building)`,
-    `("attack", ref)`, `("ability", effect, source)`, `("summon", hero)`,
+    `("repair",)`, `("attack", ref)`, `("ability", effect, source)`, `("summon", hero)`,
     `("open_level", hero)`, `("level", hero, levels)`, `("level_gain", ref)`,
     `("hire", slug)`, `("defend", ref)`, `("target", key)`,
     `("detect", ref)`, `("obliterate", ref)`, `("sparkshot", ref)`,
@@ -179,8 +179,8 @@ class PanelView(SafeView):
     #: (`botkit.views.GameLockedView`).
     acknowledges_while_waiting = True
 
-    def label(self, ref: str, seat: int | None = None) -> str:
-        return ref_label(self.cog.engine, self.match, self.seat if seat is None else seat, ref)
+    def label(self, ref: str, seat: int | None = None, note: str = "") -> str:
+        return ref_label(self.cog.engine, self.match, self.seat if seat is None else seat, ref, note)
 
     async def mine(self, interaction: discord.Interaction):
         """`(game, match)` for a click by this panel's player, or
@@ -286,6 +286,10 @@ class TurnPanelView(PanelView):
     levels it may reach -- then the hand, a button per card numbered
     as the picture numbers it and disabled where it may not be played,
     then the board's row -- **Build** per building that may be built,
+    **Repair base (3 gold)** in a free-for-all, green where the engine
+    allows it and greyed with why not after the refused builds where it
+    does not (Rulebook p. 14; `MainActionOptions.repair`, `None` and so
+    no button elsewhere),
     the next tech building up disabled with why where it may not,
     **Detect...** where there is a tower, and each ability, disabled
     with its reason where it may not be used and its card is neither
@@ -415,6 +419,19 @@ class TurnPanelView(PanelView):
             )
             for row in options.buildings if not row.allowed and row.next_up
         ]
+        repair = options.repair
+        if repair is not None:
+            # The base's own repair, a free-for-all's (Rulebook p. 14):
+            # green among what may be built, or greyed with its reason
+            # among the refused builds, which a full row gives up first.
+            button = self.make_button(
+                f"Repair base ({repair.cost} gold)" if repair.allowed
+                else f"Repair base ({repair.cost} gold): {repair.why_not}",
+                discord.ButtonStyle.success if repair.allowed else discord.ButtonStyle.secondary,
+                self.repair if repair.allowed else None,
+                disabled=not repair.allowed, choice=("repair",),
+            )
+            (board if repair.allowed else refused_builds).append(button)
         if not board and not refused_builds:
             board = [self.make_button("Nothing can be built now", discord.ButtonStyle.secondary,
                                       None, disabled=True)]
@@ -723,6 +740,11 @@ class TurnPanelView(PanelView):
             self.add_item(boosted)
         self.button("Back", discord.ButtonStyle.secondary, self.back, row=1)
 
+    async def repair(self, interaction: discord.Interaction) -> None:
+        """**Repair base**: 3 gold for 1 HP off the base, as often a
+        turn as the gold goes -- a free-for-all's (Rulebook p. 14)."""
+        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "repair"))
+
     async def build(self, interaction: discord.Interaction, building: str,
                     spec: str | None = None, lab_spec: str | None = None) -> None:
         arguments = {"building": building}
@@ -886,13 +908,17 @@ class TurnPanelView(PanelView):
 
     def build_defenders(self, options) -> None:
         """The legal defenders, a button each labelled with why it is
-        legal (`DefenderOptions.why`, the engine's), and **Cancel**."""
+        legal (`DefenderOptions.why`, the engine's) -- a building green,
+        so the buildings read apart from the units and heroes (the
+        author, 2026-10-15) -- and **Cancel**."""
+        engine = self.cog.engine
         whys = options.why or ("",) * len(options.defenders)
-        seats = options.seats or (self.cog.engine.sole_opponent(self.match, self.seat),) * len(options.defenders)
+        seats = options.seats or (engine.sole_opponent(self.match, self.seat),) * len(options.defenders)
         defenders = [
             self.make_button(
-                f"{self.label(ref, side)} ({why})" if why else self.label(ref, side),
-                discord.ButtonStyle.primary,
+                self.label(ref, side, why),
+                discord.ButtonStyle.success if engine.is_building_ref(self.match, side, ref)
+                else discord.ButtonStyle.primary,
                 # On a table the same ref can stand on two sides: the click
                 # names the side the options offered it on.
                 self._answer(self.defend, ref, side if options.seats else None),
