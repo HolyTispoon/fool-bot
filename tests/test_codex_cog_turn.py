@@ -1336,6 +1336,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         await self.table.cog.lobby.callback(self.table.cog, call, test_game=True)
         (self.game,) = self.table.cog.games.values()
         self.table.game = self.game
+        await self.table.choose_mode(self.game, "basic")
         lobby = LobbyView(self.table.cog, self.game.game_id)
         await self.table.pick_heroes(lobby, self.table.basher, "bashing", menu="heroes1")
         await self.table.pick_heroes(lobby, self.table.basher, "finesse", menu="heroes2")

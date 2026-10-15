@@ -1527,6 +1527,26 @@ class ConditionedKeywordTests(KeywordCase):
         self.assertNotIn(terras.ref, engine.patrol_candidates(match))
         self.assertFalse(engine.may_attack_with(terras, match))
 
+    def test_the_board_shows_the_elites_plus_one(self) -> None:
+        """The pill reads what a body fights with: the elite's +1 ATK
+        while it patrols there (UMR p. 10), on a unit and a hero alike,
+        and nothing once it leaves the slot."""
+        engine, game, match = fresh()
+        unit = put(match, 1, "rambasa_twin", patrol="elite")
+        atk, hp = engine.unit_stats(unit, match)
+        self.assertEqual(engine.board_reading(match, unit)[:2], (atk + 1, hp))
+        self.assertEqual(engine.board_reading(match, unit)[0], engine.attack_value(match, 1, unit.ref))
+        unit.patrol_slot = None
+        self.assertEqual(engine.board_reading(match, unit)[:2], (atk, hp))
+        hero_in_play(match, 1, patrol="elite")
+        hero = match.player(1).heroes[0]
+        atk, hp = engine.hero_stats(hero, match)
+        self.assertEqual(engine.board_reading(match, hero)[:2], (atk + 1, hp))
+        # Pestering Haunt: "Can't have more than 1 ATK." -- the elite's +1 too.
+        haunt = put(match, 2, "pestering_haunt", patrol="elite")
+        self.assertEqual(engine.board_reading(match, haunt)[0], 1)
+        self.assertEqual(engine.attack_value(match, 2, haunt.ref), 1)
+
     def test_bonus_when_attacking_buildings(self) -> None:
         engine, game, match = fresh()
         tank = put(match, 1, "steam_tank").ref

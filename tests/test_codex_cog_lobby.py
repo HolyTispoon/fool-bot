@@ -100,10 +100,15 @@ class Table:
         self.cog.tokens.refresh = mock.AsyncMock()
         self.basher, self.fencer = user(101, "basher"), user(202, "fencer")
 
-    async def open_lobby(self):
+    async def open_lobby(self, mode: str = "basic"):
+        """`/codex create_game`, then the lobby's **Basic game** unless
+        `mode` is the standard game it opens on."""
         call = interaction(self.basher, guild=self.guild, channel=self.typed_channel)
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
+        if mode != game.mode:
+            await self.click(LobbyView(self.cog, game.game_id), f"mode_{mode}", self.basher,
+                             game.channel_id)
         return game, call
 
     async def click(self, view, action: str, who, channel_id: int = GAME_CHANNEL):
@@ -149,6 +154,36 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
         # The person who asked is told where, privately.
         self.assertIn(f"<#{GAME_CHANNEL}>", call.followup.send.call_args.args[0])
         self.assertTrue(call.followup.send.call_args.kwargs["ephemeral"])
+
+    async def test_the_lobby_opens_on_the_standard_game(self) -> None:
+        """The author, 2026-10-15: a lobby opens on the standard game, and
+        its text carries no basic-game warning."""
+        with suppressed_cog_saves():
+            table = Table()
+            game, _ = await table.open_lobby(mode="standard")
+        self.assertEqual(game.mode, "standard")
+        (text,), _ = table.game_channel.send.call_args
+        self.assertIn("a standard game, three heroes a side", text)
+        self.assertNotIn("recommended", text)
+
+    async def test_the_basic_game_warns_of_its_recommended_matchups(self) -> None:
+        """**Basic game** edits the lobby to name the two matchups it is
+        recommended for; **Standard game** takes the warning away."""
+        with suppressed_cog_saves():
+            table = Table()
+            game, _ = await table.open_lobby(mode="standard")
+            basic = await table.click(LobbyView(table.cog, game.game_id), "mode_basic",
+                                      table.basher)
+            standard = await table.click(LobbyView(table.cog, game.game_id), "mode_standard",
+                                         table.basher)
+        text = basic.response.edit_message.call_args.kwargs["content"]
+        self.assertIn("the basic game, one hero a side", text)
+        self.assertIn(
+            "The basic game is recommended for two matchups: **Troq Bashar** (Bashing) against "
+            "**River Montoya** (Finesse), or **Jaina Stormborne** (Fire) against "
+            "**Calamandra Moss** (Feral).", text,
+        )
+        self.assertNotIn("recommended", standard.response.edit_message.call_args.kwargs["content"])
 
     async def test_taking_a_seat_edits_the_lobby_in_place(self) -> None:
         with suppressed_cog_saves():
@@ -568,6 +603,7 @@ class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
             call = interaction(table.basher, guild=table.guild)
             await table.cog.lobby.callback(table.cog, call, test_game=True)
             (game,) = table.cog.games.values()
+            await table.click(LobbyView(table.cog, game.game_id), "mode_basic", table.basher)
             lobby = LobbyView(table.cog, game.game_id)
             await table.pick(lobby, "bashing", table.basher, menu="heroes1")
             await table.pick(lobby, "finesse", table.basher, menu="heroes2")

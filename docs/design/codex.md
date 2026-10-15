@@ -1765,7 +1765,13 @@ else the bot shows is ephemeral.
     card prints is not what it fights with once Two Step, a Grounded
     Guide, a rune or its own text has had its say, and the board was
     the one place a player could not read the difference. The numbers
-    are the engine's `body_stats`, which the cog hands the renderer
+    are the engine's `board_reading` -- `body_stats`, with the elite's
+    +1 ATK added while the body patrols there, capped and floored as
+    `attack_value` does, because the slot's bonus is what it fights
+    with and a pill that left it out read one less than the attack did;
+    frenzy, which `attack_value` adds on its controller's turn alone, is
+    not on it (the author, 2026-10-15)
+    -- which the cog hands the renderer
     (`stats=`) so that nothing in `render.py` works out a stat; HP is
     what is left, its damage taken off, and the damage chits stay
     beside it. ATK is on the card's own black and HP on its red, a
@@ -3069,8 +3075,25 @@ of heroes makes no distinction the rules do not.
 The lobby is rebuilt from the record on every change
 (`cogs/codex_views/lobby.py`): its first row **Basic game** / **Standard
 game** -- either seated player's, a helper's, or anyone's while nobody
-sits -- **Leave** and **Start** (and a rematch's **Keep heroes**). Under
-it, by the mode:
+sits -- **Leave** and **Start** (and a rematch's **Keep heroes**).
+
+**A lobby opens on the standard game** (the author, 2026-10-15:
+`LOBBY_MODE` in `cogs/codex/lobby.py`, which `/codex create_game` hands
+to `GameService.create_game`). The service's own default and the
+record's stay "basic", since a save older than step 10 is a basic game
+and the tests and the golden stage one; which game a new lobby offers
+first is the frontend's choice, not a rule. **While the lobby is on the
+basic game its text carries a warning** naming the two matchups the
+basic game is recommended for (`BASIC_MATCHUPS`, the author,
+2026-10-15): Bashing against Finesse, the neutral pair the bot was built
+from, and Fire against Feral -- Jaina against Calamandra, the Core
+Set's own first game (Rulebook p. 3). It is a line in the lobby rather
+than a message of its own, so it costs no request: the mode click
+already edits the lobby through its own response, and everybody
+choosing a hero sees it, not only whoever clicked. The menu still
+offers every hero; the warning recommends and refuses nothing.
+
+Under the first row, by the mode:
 
 - **The basic game: a menu of the landed heroes**, one pick, which
   seats the clicker with that hero. A menu because twenty heroes, when

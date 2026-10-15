@@ -43,9 +43,12 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.table.close)
 
     async def open(self):
+        """`/codex create_game`, then the lobby's **Basic game**: one
+        hero a seat."""
         call = self.table.interaction(self.table.basher, self.table.lobby_channel)
         await self.table.cog.lobby.callback(self.table.cog, call)
         (game,) = self.table.cog.games.values()
+        await self.table.choose_mode(game, "basic")
         return game
 
     async def click(self, game, action: str, who):

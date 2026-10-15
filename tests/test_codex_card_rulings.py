@@ -390,6 +390,7 @@ class IntimidateTests(unittest.TestCase):
         self.assertEqual(engine.unit_stats(ninja, match)[0], 0)
         # Its elite's +1 does not bring it back above 0: 2 - 4 + 1.
         self.assertEqual(engine.attack_value(match, 2, ninja.ref), 0)
+        self.assertEqual(engine.board_reading(match, ninja)[0], 0)
 
 
 class MaestroTests(unittest.TestCase):

@@ -49,6 +49,9 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
         call = self.table.interaction(self.table.basher, self.table.lobby_channel)
         await self.table.cog.lobby.callback(self.table.cog, call, test_game=test_game)
         (game,) = self.table.cog.games.values()
+        # The lobby opens on the standard game; these pick from the
+        # basic game's hero menu.
+        await self.table.choose_mode(game, "basic")
         return game
 
     async def click(self, game, action: str, who):
