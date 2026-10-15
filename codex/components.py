@@ -22,6 +22,7 @@ import copy
 from dataclasses import dataclass, field, fields
 from typing import Any, Iterable, Iterator, Optional
 
+from codex import seats
 from codex.game import RuleRefusal
 from gamekit.saved import SavedField
 
@@ -843,10 +844,7 @@ class MatchState:
         """The seat whose `base_hp` is `seat`'s base: their own, or in a
         dragon the team's first seat's (decision 9) -- the second seat's
         `base_hp` is dealt at 30 too and **never read**."""
-        for pair in self.dragons:
-            if seat in pair:
-                return pair[0]
-        return seat
+        return seats.dragon_of(self, seat)[0]
 
     def base_of(self, seat: int) -> int:
         """The one reading of a seat's base HP (docs/design/codex.md,

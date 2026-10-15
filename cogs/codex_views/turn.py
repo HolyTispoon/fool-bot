@@ -43,7 +43,7 @@ from codex import effects, history
 from codex.engine import ARRIVED, EXHAUSTED, TECH_BUILDINGS, building_name
 from codex.formatting import deck_name, ref_label
 from codex.prompts import Action, PromptKind
-from cogs.codex_helpers import card_name
+from cogs.codex_helpers import card_name, seat_label
 from cogs.codex_views.base import SafeView, acknowledge, edit_clicked, kept_pictures, send_ephemeral
 
 #: How long a panel answers clicks: a turn, generously. An expired panel
@@ -98,7 +98,7 @@ def opponent_started(game, match) -> str:
         return OPPONENT_STARTED
     if match.dragons:
         return OTHER_TEAM_STARTED
-    return f"{game.seat_name(match.active) or f'Player {match.active}'} has already started their turn."
+    return f"{seat_label(game, match.active)} has already started their turn."
 
 
 def undo_menu(choices, callback, row: int | None = None) -> discord.ui.Select | None:
@@ -237,7 +237,7 @@ class PanelView(SafeView):
         """
         game, match = self.load_match()
         if match is None or not match.dragons:
-            await send_ephemeral(interaction, reason)
+            await super().refuse(interaction, reason)
             return
         standing = (self.prompt.kind is PromptKind.TECH_CHOICE
                     and self.seat not in self.cog.engine.turn_seats(match))

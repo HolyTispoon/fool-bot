@@ -17,6 +17,7 @@ from codex import tokens
 from codex.cards import catalog
 from codex.formatting import team_name
 from codex.game import CodexGame, GameStatus, RuleRefusal
+from cogs.codex_helpers import seat_label
 from cogs.codex_views import LobbyView, send_ephemeral
 
 LOGGER = logging.getLogger(__name__)
@@ -153,7 +154,7 @@ class LobbyMixin:
             return f"A rematch of {last}: the same seats, each choosing heroes again."
         if game.heroes_kept:
             return f"A rematch of {last}: both players keep their heroes."
-        asked = [game.seat_name(seat) or f"Player {seat}" for seat in game.kept_heroes]
+        asked = [seat_label(game, seat) for seat in game.kept_heroes]
         if game.test_game and asked:
             asked = asked[:1]
         tail = f" ({' and '.join(asked)} asked to keep them.)" if asked else ""

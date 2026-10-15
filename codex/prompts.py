@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 from codex import tokens
 from codex.seats import seat_numbers as seats_numbers
 from codex.components import PATROL_SLOTS, MatchState
+from codex.formatting import base_owner, side_verb
 from codex import effects
 from codex.engine import (
     AbilityOption,
@@ -901,15 +902,6 @@ def tech_stands(game: "Optional[CodexGame]") -> bool:
     return game is None or not game.test_game
 
 
-def _winners(match: MatchState) -> str:
-    """Who won, as a line names them: the seat, and in a dragon the team's
-    two."""
-    from codex import seats
-
-    team = seats.dragon_of(match, match.winner)
-    return " and ".join(tokens.player(seat) for seat in team)
-
-
 def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.winner is not None:
         if match.conceded is not None:
@@ -926,8 +918,10 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             how = "the other team's base is destroyed."
         else:
             how = "the opposing base is destroyed."
-        wins = "win" if match.dragons else "wins"
-        return PendingPrompt(PromptKind.GAME_OVER, f"{_winners(match)} {wins}: {how}")
+        from codex import seats
+
+        wins = side_verb(seats.dragon_of(match, match.winner), "wins", "win")
+        return PendingPrompt(PromptKind.GAME_OVER, f"{base_owner(match, match.winner)} {wins}: {how}")
     seat = match.active
     if match.resolving:
         # An effect under way asks before anything else does: a target,

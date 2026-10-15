@@ -828,7 +828,7 @@ step is worth starting.
 | ~~4~~ | ~~Free-for-all on Discord~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | three people reach the end of a game: the lobby, the channel, the board of three in both views, the pickers standing for two, rematch |
 | ~~5~~ | ~~Two-headed dragon through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
 | ~~6~~ | ~~Two-headed dragon on Discord~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | medium | four people finish a game: two panels at once, a teammate's hand, the board of two rows, the shared base, a concession both agreed to |
-| 7 | The look back: what the modes left in two places, and the design note | small | nothing step 1 to 6 copied remains in two places; "Multiplayer" in docs/design/codex.md says what each step settled |
+| ~~7~~ | ~~The look back: what the modes left in two places, and the design note~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | small | nothing step 1 to 6 copied remains in two places; "Multiplayer" in docs/design/codex.md says what each step settled |
 | -- | Later, and not now | -- | |
 
 ### Claiming a step
@@ -946,7 +946,8 @@ Added to the Codex preamble's hard rules:
 **Landed.** What it settled -- the record's seat list, `codex/seats.py`
 and the engine's doors over it, `sole_opponent` as the marker of the
 sites steps 2 and 5 answer, `base_of`, the seat an attack is against --
-is in [docs/design/codex.md](design/codex.md), "Multiplayer", "Step 1".
+is in [docs/design/codex.md](design/codex.md), "Multiplayer", "The five
+readings" and "The variant and the seats".
 
 The 66 inline readings of "the other seat" are the whole reason the
 modes are not a day's work, and each is one of four questions that have
@@ -1065,8 +1066,9 @@ click, and the PR shows the three greps in the preamble empty.
 the match, the Mercenaries as an upkeep effect, the ending and its
 playoff (`playoff` and `tied`), debt and no concession, "an opponent's"
 asked and the plurals reaching every opponent, Moment's Peace, the
-seat on `LEVEL_GAIN` -- is in docs/design/codex.md, "Multiplayer", "Step
-2: the free-for-all through the driver".
+seat on `LEVEL_GAIN` -- is in docs/design/codex.md, "Multiplayer", "The
+free-for-all: the deal, the order and the ending" and "'An opponent's',
+the plurals, and a kill".
 
 The mode as the model, before a line of Discord: the variant, the deal,
 the Mercenaries at their upkeep, the turn order, the ending and its
@@ -1191,8 +1193,8 @@ at its end.
 the active player's doing: combat damage, or an effect whose frame they
 control), and lending as a control change with `lent` / `lent_to`, the
 `<owner>:hero:<slug>` slot, `controller_of` and the borrower's upkeep
-return -- is in docs/design/codex.md, "Multiplayer", "Step 3: repair,
-free gold and lending". The prompt below puts the stop as seat 2 lending
+return -- is in docs/design/codex.md, "Multiplayer", "The free-for-all's
+additions" and "Lending is a control change". The prompt below puts the stop as seat 2 lending
 to seat 3 and seat 1 attacking; in a turn order that goes round the
 table a borrower's turn follows the lender's directly only when the
 lender sits just before them, so the test stages seat 3 lending to
@@ -1283,7 +1285,9 @@ test, and as the transcript printed.
 five-row limit on a test game's picks, the table's channel name, no
 Concede, Swap view between stacked and side by side, the undos asking
 the seat whose turn is unwound, and the table's rematch -- is in
-[docs/design/codex.md](design/codex.md), "Multiplayer", "Step 4".
+[docs/design/codex.md](design/codex.md), "Multiplayer", "The variant and
+the seats", "The board", "On Discord" and "Who may undo, concede and
+abandon".
 
 The lobby, the channel, the turn message and the board for three to
 five seats, over the mode as it plays through the driver. Nothing in
@@ -1366,7 +1370,8 @@ and the author has looked at the board of three and the board of five.
 prompt, which kept it the head), a prompt per acting seat and an action
 that names its seat, the team's turn and its undos, the pooled patrol
 zones, the tower's detection and damage, and `Part.friendly` -- is in
-[docs/design/codex.md](design/codex.md), "Multiplayer", "Step 5".
+[docs/design/codex.md](design/codex.md), "Multiplayer", "The dragon",
+"The dragon's team turn", "Attacking a dragon" and "The words".
 
 The mode as the model: the teams, the shared base, the team's turn with
 two seats acting in one main phase, the attack priorities over both
@@ -1489,8 +1494,8 @@ of a team's turn reads as one turn with two players' actions in it.
 seat and every action naming its seat, the waiting panel and **Switch
 to**, the teammate's hand, codex and tech choice read-only, the undos
 and the concession both teammates agree to, the board of two rows with
-the team's base in both teammates' panels, marked JOINT -- is in docs/design/codex.md, "Multiplayer", "Step 6:
-the two-headed dragon on Discord".
+the team's base in both teammates' panels, marked JOINT -- is in docs/design/codex.md, "Multiplayer", "The board",
+"On Discord" and "Who may undo, concede and abandon".
 
 Two panels at once under one turn message, a teammate's hand, the
 lobby's two teams, a concession both teammates agree to, and the board
@@ -1565,6 +1570,14 @@ the author has looked at the board.
 ```
 
 ### 7. The look back: what the modes left in two places, and the design note
+
+**Landed** (2026-10-15). What the series wrote twice is in one place
+(the list is in docs/design/codex.md, "Multiplayer", "What step 7 moved
+to one home"), and that section now says what the whole series
+settled, by subject rather than by step -- the readings, the variant and
+the seats, the playoff, lending, the dragon's prompts and base, the
+words, the board, who may undo and concede, which rulebook governs --
+with what the author overruled and what replaced it.
 
 The Codex series' step 9, for the modes: once both play, what turned
 out identical in the free-for-all's and the dragon's code moves to one

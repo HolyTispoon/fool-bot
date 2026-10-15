@@ -15,26 +15,13 @@ from __future__ import annotations
 
 import unittest
 
-import discord
-
 from codex import history
 from codex.game import GameStatus
 from codex.prompts import pending
-from codex_cog_fakes import GAME_CHANNEL, Table, user
+from codex_cog_fakes import GAME_CHANNEL, Table, labels, user
+from codex_cog_fakes import end_main_and_lock as end_turn
 from cogs.codex_views import LobbyView, RematchView, TurnMessageView, UndoConfirmView, UndoView
 from cogs.codex_views.turn import PREVIOUS_TURN_LABEL_TABLE
-
-
-def labels(view) -> list[str]:
-    return [item.label for item in view.children if isinstance(item, discord.ui.Button)]
-
-
-async def end_turn(table: Table, who) -> None:
-    """The active seat's main phase ended and its patrol locked."""
-    call = await table.turn_button("hand", who)
-    view = call.view()
-    view = (await table.press(view, "End main phase", who=who)).view()
-    await table.press(view, "Lock patrol", who=who)
 
 
 class LobbyTests(unittest.IsolatedAsyncioTestCase):
@@ -236,7 +223,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         await end_turn(self.table, self.table.seated(first))
         undo = (await self.table.turn_button("undo", self.table.seated(first))).view()
         self.assertEqual(
-            [item.label for item in undo.children if isinstance(item, discord.ui.Button)],
+            labels(undo),
             ["Take back the end of my turn"],
         )
         self.assertEqual(self.table.cog.service.end_of_turn_owner(self.game.game_id), first)

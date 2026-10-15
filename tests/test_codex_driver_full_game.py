@@ -173,6 +173,25 @@ WHITE_BLUE_TEAMS = (["discipline", "ninjutsu", "strength"], ["law", "peace", "tr
 WHITE_BLUE_SEED = 20261011
 
 
+def numbered_seats(specs):
+    """A multiplayer test's seats: (user id, name, spec) for each spec in
+    seat order -- 101 "player1", 202 "player2", ... -- as the whole-game
+    test and the golden seat them."""
+    for number, spec in enumerate(specs, start=1):
+        yield 100 * number + number, f"player{number}", spec
+
+
+def answer(engine: RulesEngine, match: MatchState, prompt) -> Action:
+    """The policy's answer to `prompt`, naming the seat asked in a dragon,
+    where two teammates are asked at once (docs/design/codex.md,
+    "Multiplayer"); a duel's and a free-for-all's name none."""
+    action = choose(engine, match, prompt)
+    if match.dragons:
+        action = Action(action.kind, action.choice,
+                        {**action.arguments, "player": prompt.asked_player})
+    return action
+
+
 def play(seed: int = SEED, *, say=None, teams=None, players=None, dragon=None,
          turn_limit: int = TURN_LIMIT, max_steps: int = 20000) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
     """Play a whole game -- Bashing against Finesse, or a standard game
@@ -188,12 +207,12 @@ def play(seed: int = SEED, *, say=None, teams=None, players=None, dragon=None,
     if dragon is not None:
         if len(dragon[0]) == 3:
             game.set_mode("standard")
-        for number, team in enumerate(dragon, start=1):
-            game.take_seat(100 * number + number, f"player{number}", list(team))
+        for user_id, name, team in numbered_seats(dragon):
+            game.take_seat(user_id, name, list(team))
     elif players is not None:
         game.set_variant("free_for_all")
-        for number, spec in enumerate(players, start=1):
-            game.take_seat(100 * number + number, f"player{number}", spec)
+        for user_id, name, spec in numbered_seats(players):
+            game.take_seat(user_id, name, spec)
     elif teams is None:
         game.take_seat(101, "basher", "bashing")
         game.take_seat(202, "fencer", "finesse")
@@ -243,12 +262,9 @@ def play(seed: int = SEED, *, say=None, teams=None, players=None, dragon=None,
             # turn, so their actions interleave in one main phase.
             asked = pending_prompts(engine, game, match)
             prompt = asked[steps % len(asked)]
-            action = choose(engine, match, prompt)
-            action = Action(action.kind, action.choice,
-                            {**action.arguments, "player": prompt.asked_player})
         else:
             prompt = pending_prompt(engine, game, match)
-            action = choose(engine, match, prompt)
+        action = answer(engine, match, prompt)
         run = driver.apply(engine, game, match, action)
         assert not isinstance(run, driver.Refusal), (prompt.kind, run)
         heard(run)

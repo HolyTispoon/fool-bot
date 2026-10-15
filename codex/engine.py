@@ -34,7 +34,7 @@ from typing import Iterable, Optional, Sequence
 
 from codex import effects, keywords, seats
 from codex.cards import CardCatalog, Hero, HeroBand, catalog as load_catalog
-from codex.game import RuleRefusal
+from codex.game import DRAGON_TEAMS, RuleRefusal
 from codex.components import (
     BASE_HP as _BASE_HP,
     DRAGON_BASE_HP as _DRAGON_BASE_HP,
@@ -469,7 +469,7 @@ class RulesEngine:
         from the first are owed 1, 2 and 3 Mercenaries, which arrive in
         their first upkeep (Rulebook p. 14).
         """
-        dragons = [[1, 2], [3, 4]] if variant == "two_headed_dragon" else []
+        dragons = [list(pair) for pair in DRAGON_TEAMS] if variant == "two_headed_dragon" else []
         if first is None:
             # A dragon draws the first team, and its head goes first.
             first = self.rng.choice(tuple(pair[0] for pair in dragons) if dragons
@@ -503,7 +503,7 @@ class RulesEngine:
         for player in players:
             # A dragon team's 30 sits on its head's seat, which `base_of`
             # reads; the second seat's is dealt too and never read.
-            player.base_hp = DRAGON_BASE_HP if dragons else BASE_HP
+            player.base_hp = match.base_cap
         if variant == "free_for_all":
             order = seats.turn_order(match, first)
             for place, seat in enumerate(order[2:], start=1):
@@ -2379,13 +2379,6 @@ class RulesEngine:
         hidden thing it detected this turn."""
         return bool(self.towers_seeing(match, attacker))
 
-    def holder_of(self, match: MatchState, ref: str, among) -> int:
-        """The first of `among` whose side has `ref` in play -- which
-        opponent's thing a ref offered across a table is -- or the first
-        seat of `among` where none does (a label, never a rule)."""
-        among = tuple(among)
-        return next((seat for seat in among if ref in self._things_in_play(match, seat)), among[0])
-
     def detect_option(self, match: MatchState) -> DetectOption:
         """
         The tower's detection as an action on its owner's own turn
@@ -3132,7 +3125,7 @@ class RulesEngine:
         """
         foes = self.opponents(match, seat)
         mate = self.teammate(match, seat)
-        friends = {seat} | ({mate} if friendly and mate is not None else set())
+        friends = set(self.dragon_of(match, seat)) if friendly else {seat}
         frame = frame or {}
         found: list[tuple[int, str]] = []
 

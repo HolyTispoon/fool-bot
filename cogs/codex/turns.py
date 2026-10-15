@@ -33,14 +33,14 @@ from codex import history
 from codex.game import CodexGame, RuleRefusal
 from codex.render import render_board, render_hand, render_side
 from codex.prompts import (
-    PendingPrompt, PromptKind, owed_step, pending, pending_prompt, pending_prompts, standing_prompts,
+    PendingPrompt, PromptKind, owed_step, pending, pending_prompt, standing_prompts,
 )
 from cogs.codex_views import (
     RematchView, TeamConcedeView, UndoConfirmView, WaitingView, hand_files, kept_pictures, opponent_started,
     picture_file, revealed_caption, revealed_files, acknowledge, edit_clicked, send_answer, send_ephemeral,
 )
 from cogs.codex.core import TECH_GATE_KINDS
-from cogs.codex_helpers import elapsed_ms, pictures_size
+from cogs.codex_helpers import elapsed_ms, mention_ids, pictures_size, seat_label, seat_labels
 from cogs.game_auth import send_new_prompt
 from gamesaves.codex.service import GameResult
 
@@ -179,11 +179,6 @@ class TurnsMixin:
             return found if isinstance(found, PendingPrompt) else None
         prompt = pending_prompt(self.engine, game, match)
         return prompt if prompt is not None and prompt.asked_player == seat else None
-
-    def questions(self, game: CodexGame, match) -> tuple[PendingPrompt, ...]:
-        """Every question the acting seats are asked now: one, or a
-        dragon's one per acting seat (`pending_prompts`)."""
-        return pending_prompts(self.engine, game, match)
 
     def acting_seat_for(self, game: CodexGame, match, user_id: int) -> Optional[int]:
         """
@@ -373,7 +368,7 @@ class TurnsMixin:
         other = self.switch_target(game, match, seat, user_id)
         if other is None:
             return
-        name = game.seat_name(other) or f"Player {other}"
+        name = seat_label(game, other)
         button = discord.ui.Button(
             label=f"Switch to {name} ({team_name(match.player(other).specs)})"[:80],
             style=discord.ButtonStyle.secondary,
@@ -428,7 +423,7 @@ class TurnsMixin:
         """A teammate as the panel names them: the seat's player."""
         if seat is None:
             return "Your teammate"
-        return game.seat_name(seat) or f"Player {seat}"
+        return seat_label(game, seat)
 
     async def put_panel(self, interaction: discord.Interaction, content: str,
                         files: Optional[list[discord.File]] = None,
@@ -739,13 +734,13 @@ class TurnsMixin:
             await self.show_panel(interaction, game, match, seat, edit=True,
                                   note="There is no previous turn to go back to.")
             return
-        asker = game.seat_name(seat) or f"Player {seat}"
+        asker = seat_label(game, seat)
         duel = match.variant == "duel"
         # In a dragon the turn unwound was the other team's: either of its
         # players may agree (decision 15).
         agreeing = self.engine.dragon_of(match, opponent)
-        ids = list(dict.fromkeys(one for one in (game.seat_user_id(other) for other in agreeing) if one))
-        names = " and ".join(game.seat_name(other) or f"Player {other}" for other in agreeing)
+        ids = mention_ids(game, agreeing)
+        names = seat_labels(game, agreeing)
         note = ("Your opponent has been asked to agree to the undo." if duel else
                 "The other team has been asked to agree to the undo." if match.dragons else
                 f"{names} has been asked to agree to the undo.")

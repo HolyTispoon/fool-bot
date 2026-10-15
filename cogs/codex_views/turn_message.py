@@ -46,7 +46,7 @@ import discord
 from codex.formatting import codex_view_name, team_name
 from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_deck, render_hand
-from cogs.codex_helpers import elapsed_ms, pictures_size
+from cogs.codex_helpers import elapsed_ms, pictures_size, seat_label
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
 from cogs.codex_views.turn import UndoView, opponent_started
 
@@ -325,7 +325,7 @@ def revealed_caption(engine, match, seat: int, game=None) -> str:
     for other in engine.hands_visible_to(match, seat):
         count = len(match.player(other).hand)
         cards = f"{count} card" + ("" if count == 1 else "s") + "."
-        name = (game.seat_name(other) if game is not None else None) or f"Player {other}"
+        name = seat_label(game, other)
         if other == mate:
             lines.append(f"{name}'s hand: {cards}")
         elif match.variant == "duel":
