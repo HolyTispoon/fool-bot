@@ -21,7 +21,14 @@ from cogs.codex_views.base import (
 )
 from cogs.codex_views.ending import ConcedeConfirmView, RematchView, TeamConcedeView
 from cogs.codex_views.lobby import MODE_LABELS, LobbyView, MixedTeamView, hero_options
-from cogs.codex_views.patrol import PatrolView, next_empty
+from cogs.codex_views.patrol import (
+    PatrolView,
+    destination_key,
+    destinations,
+    next_empty,
+    split_assignment,
+    split_destination,
+)
 from cogs.codex_views.tech import (
     TechChoiceView, TechConfirmView, TechGateView, TechSavedView, picks_listed,
 )
@@ -102,6 +109,8 @@ __all__ = [
     "deck_button",
     "deck_caption",
     "deck_file",
+    "destination_key",
+    "destinations",
     "edit_clicked",
     "hand_caption",
     "hand_files",
@@ -117,6 +126,8 @@ __all__ = [
     "send_answer",
     "send_ephemeral",
     "side_label",
+    "split_assignment",
+    "split_destination",
     "swap_label",
     "swapped_layout",
     "undo_menu",
