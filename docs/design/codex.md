@@ -2254,6 +2254,28 @@ too, asked with `gate` for the two kinds a turn may open on
   back to editing both (2026-10-12: "go back to editing the board and
   hand messages rather than reposting them"), and `/codex resume`
   brings the board back down when talk has pushed it up.
+- **A new picture in an ephemeral message is drawn twice**
+  (`redraw_pictures`, 2026-10-15). Both developers, on different
+  clients, saw every new picture in an ephemeral message -- the hand,
+  the panel, the codex, `/codex card`'s own JPEG -- stay a grey box of
+  its size, while the board, WebP and edited in place too, always
+  loaded; a click that kept the picture (`kept_pictures`) showed it at
+  once. Not the format, not the size (a 100 KB card stalls where a
+  220 KB board does not), not the edit in place (**My hand**'s fresh
+  message stalls too): Discord's apps do not load a picture new to an
+  ephemeral message until the message is drawn again. So every write
+  of `edit_clicked` and `send_answer` that uploads a picture into an
+  ephemeral message -- and `/codex card` and `/codex board` beside
+  them -- schedules one more edit `PICTURE_REDRAW_DELAY` (1 s) later,
+  with the attachments the message carries and nothing else. It is a
+  task of its own, so the click's lock is not held across the wait;
+  it then takes that lock (named for it by `SafeView._scheduled_task`
+  in a context variable), reads the message back from Discord, and
+  edits only where its attachments are still the ones it went up with
+  -- a click since has drawn it already. One read and one edit through
+  the click's own webhook, none through the channel's bucket. The
+  delay is a guess: whether a second drawing that soon loads, and how
+  much sooner would, is Discord's, measured by playing.
 - **The turn's lines head the hand message, and no other ephemeral
   one** (the author, 2026-10-12: "add the turn log to the ephemeral
   message with the hand"; then "only in the hand message and the

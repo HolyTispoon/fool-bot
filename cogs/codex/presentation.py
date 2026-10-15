@@ -335,7 +335,8 @@ class PresentationMixin:
         # opponent's hand beneath (step 13), or a dragon's teammate's
         # always is (decision 13); none for an empty hand.
         pictures = {"file": files[0]} if len(files) == 1 else {"files": files} if files else {}
-        await interaction.response.send_message(
+        await send_answer(
+            interaction,
             self.with_turn_log(game, caption + (f"\n{revealed}" if revealed else "")),
             **pictures,
             view=HandView(self, game.game_id, seat),
