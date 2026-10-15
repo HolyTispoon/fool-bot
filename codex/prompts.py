@@ -161,7 +161,8 @@ class DefenderOptions:
     attacker: str
     defenders: tuple[str, ...]
     #: Why each of `defenders` is legal, in the same order: "squad
-    #: leader", "patroller", "no patrol" (`defender_rows`).
+    #: leader", "patroller", "flying" -- or ""
+    #: where there is no patrol to get past (`defender_rows`).
     why: tuple[str, ...] = ()
     #: The seat each of `defenders` is on, in the same order -- a ref
     #: alone names nothing at a table of several (`TargetRow` does the
