@@ -374,16 +374,19 @@ class PresentationMixin:
         **read-only and to `seat` alone** (Rulebook p. 13; decision 13):
         the picks pictured as the confirmation pictures them, with nothing
         to press -- a teammate changes nothing of the other's. Sent after
-        the clicker's own answer to **Tech**; nothing where the teammate
-        has no choice standing.
+        the clicker's own answer to **Tech**; where the teammate owes a
+        choice they have not made, that they have not chosen yet (the
+        author, 2026-10-15); nothing where they owe none.
         """
         mate = self.engine.team_sees(match, seat)
         if mate is None or match.winner is not None or not tech_is_owed(match, mate):
             return
         picks = self.engine.tech_picks_of(match, seat, mate)
-        if picks is None:
-            return
         name = game.seat_name(mate) or f"Player {mate}"
+        if picks is None:
+            await send_answer(interaction, f"{name} has not chosen their tech yet. Only you can see this.",
+                              ephemeral=True)
+            return
         listed = ", ".join(self.engine.catalog.name(slug) for slug in picks) or "nothing"
         kwargs: dict = {"ephemeral": True}
         if picks:

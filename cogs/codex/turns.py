@@ -365,7 +365,8 @@ class TurnsMixin:
         """
         **Switch to <name>** on a dragon test game's panel, where its one
         person holds the other acting seat too and it has a question of
-        its own (decision 13): the other seat's panel sent afresh. Named
+        its own (decision 13): the panel edited in place to the other
+        seat's (the author, 2026-10-15), with a Switch back. Named
         by the seat's player and, since every seat of a test game is the
         one person's, its team. Left off a panel with no room for it.
         """
@@ -383,7 +384,7 @@ class TurnsMixin:
             if self.prompt_for(game, fresh, other) is None:
                 await send_ephemeral(interaction, NOTHING_ASKED)
                 return
-            await self.show_panel(interaction, game, fresh, other, edit=False)
+            await self.show_panel(interaction, game, fresh, other, edit=True)
 
         button.callback = switch
         try:

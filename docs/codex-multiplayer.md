@@ -1489,7 +1489,7 @@ of a team's turn reads as one turn with two players' actions in it.
 seat and every action naming its seat, the waiting panel and **Switch
 to**, the teammate's hand, codex and tech choice read-only, the undos
 and the concession both teammates agree to, the board of two rows with
-one base a team -- is in docs/design/codex.md, "Multiplayer", "Step 6:
+the team's base in both teammates' panels, marked JOINT -- is in docs/design/codex.md, "Multiplayer", "Step 6:
 the two-headed dragon on Discord".
 
 Two panels at once under one turn message, a teammate's hand, the

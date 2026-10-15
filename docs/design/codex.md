@@ -2681,8 +2681,8 @@ Measured with the fakes, and held on every click of the whole-game test:
 | A dragon teammate's stale click -- the team moved on, or the other's action stands part-way | **0** | 1: the panel edited in place to the prompt as it stands |
 | The first lock of a dragon's turn | **1**: the turn message through the gate | 2: the defer, the panel edited to the waiting panel |
 | The second lock (the team's turn ends) | **3**, as the duel's Lock | 2, as the duel's |
-| **Tech** by a dragon seat while the teammate's choice stands | **0** | 2: the clicker's own answer, the teammate's picks |
-| **Switch to <name>** on a dragon test game's panel | **0** | 1: the other seat's panel sent |
+| **Tech** by a dragon seat while the teammate owes a choice | **0** | 2: the clicker's own answer, the teammate's picks (or that they have not chosen yet) |
+| **Switch to <name>** on a dragon test game's panel | **0** | 1: the panel edited in place to the other seat's |
 | Concede in a dragon, the second click | **1**: the public question to the teammate | 1: the confirmation edited |
 | Its **Agree** | **3**, as the duel's concession | 1: the question edited in place |
 
@@ -3839,8 +3839,10 @@ as the step's prompt words it, where it said "the opposing base".
   `codex_remaining`'s `viewer` so the engine's `shown_to` is the gate.
   **Tech** answers the clicker as before, then -- while the teammate's
   choice stands -- sends the teammate's picks pictured as the
-  confirmation pictures them, nothing to press
-  (`Codex.send_teammate_tech`, through `tech_picks_of`).
+  confirmation pictures them, nothing to press, or, where the teammate
+  owes a choice not yet made, "<name> has not chosen their tech yet."
+  (the author, 2026-10-15; `Codex.send_teammate_tech`, through
+  `tech_picks_of`).
 - **Two panels at once, each edited by its own player's clicks.** A
   public click edits the turn message through the gate and the clicker's
   panel in place, as every click does; the other panel stands as it was.
@@ -3860,10 +3862,13 @@ as the step's prompt words it, where it said "the opposing base".
   reached from **Tech**.
 - **A test game's one person holds both acting seats**: My hand puts up
   the first unlocked teammate's panel with a question
-  (`Codex.acting_seat_for`) and **Switch to <name> (<team>)**, which sends
-  the other's afresh -- the name a seat's player, which in a test game is
-  always the one person, so the team is beside it (`add_switch`). Once
-  one seat locks, its panel goes on as the other's.
+  (`Codex.acting_seat_for`) and **Switch to <name> (<team>)**, which edits
+  the panel in place to the other's, with a Switch back (the author,
+  2026-10-15: "just edit in place"; the first cut sent a new message, as
+  the prompt worded it, and the panels piled up) -- the name a seat's
+  player, which in a test game is always the one person, so the team is
+  beside it (`add_switch`). Once one seat locks, its panel goes on as the
+  other's.
 - **The undos.** The undo to the start of the turn and the fine undo
   are any acting seat's, as before (`turn_seats`). **Take back the end
   of my turn** is either player's of the team that ended it
@@ -3886,13 +3891,17 @@ as the step's prompt words it, where it said "the opposing base".
   its head on the left, under the divider, which names both teammates
   ("PERRYTOM AND ANN'S TURN 9") or the one seat of an extra turn; the
   other team's row above it, turned to face it as the duel's far panel is
-  -- the row turned whole, so its head's base is at the board's far
-  corner where the duel's far base is -- or the same way up. Each team's
-  one base is drawn on its head's column alone and the second seat's
-  column is a tile shorter (`render_body`, `building_column_height`); the
-  base tile's heart carries the base's HP wherever it is not the 20 it
-  prints, so a dragon's 30 reads as 30 (a duel's never exceeds 20, which
-  is why its boards are unchanged). **Swap view** flips the far team
+  -- the row turned whole, so its head's buildings are at the board's far
+  corner where the duel's far base is -- or the same way up. **Each
+  team's one base is drawn in both teammates' columns, with JOINT on it**
+  (the author, 2026-10-15; the first cut drew it on the head's column
+  alone and left the second column a tile shorter): a level band along the tile's foot
+  (`JOINT_STRIP`, `lay_band`), so the base's name and its heart stay
+  clear, where a diagonal strip like DESTROYED's would cross both. A
+  destroyed base shows DESTROYED in its place. The base tile's heart
+  carries the base's HP wherever it is not the 20 it prints, so a
+  dragon's 30 reads as 30 (a duel's never exceeds 20, which is why its
+  boards are unchanged). **Swap view** flips the far team
   between facing and the same way up, the duel's labels; `/codex
   side_by_side` answers that a dragon's board is the two rows of two.
   `scripts/render_codex_sample.py` draws one (`dragon-*`).

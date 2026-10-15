@@ -1437,6 +1437,8 @@ def building_tile(slug: str, hp: Optional[int] = None) -> Image.Image:
 #: author, 2026-10-10): its word, fill and ink.
 CONSTRUCTION_STRIP = ("UNDER CONSTRUCTION", GOLD, SHADOW)
 DESTROYED_STRIP = ("DESTROYED", DESTROYED_FILL, WORD)
+#: A two-headed dragon team's one base, on each teammate's column.
+JOINT_STRIP = ("JOINT", PATROL_BLUE, WORD)
 #: A strip's height, how far it runs past the picture's edges on either
 #: side, as tape wrapped round it, and its slope: rising from the
 #: bottom left to the top right, close to level with a little slant (the author,
@@ -1466,14 +1468,32 @@ def lay_strip(canvas: Image.Image, box: tuple[int, int, int, int],
                                   (top + bottom - band.height) // 2))
 
 
+def lay_band(canvas: Image.Image, box: tuple[int, int, int, int],
+             strip: tuple[str, tuple, tuple]) -> None:
+    """A level band along the bottom of the picture at `box`, inset from
+    its edges, its word centred: a label that leaves the picture's name
+    and its heart clear, where `lay_strip`'s diagonal would cross them."""
+    word, fill, ink = strip
+    left, top, right, bottom = box
+    inset = px(6)
+    band = (left + inset, bottom - inset - STRIP_HEIGHT, right - inset, bottom - inset)
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle(band, fill=fill + (255,), outline=SHADOW, width=px(2))
+    face = font(px(11))
+    width = spaced_width(word, face, px(0.3))
+    spaced_text(draw, ((band[0] + band[2] - width) / 2, (band[1] + band[3]) / 2), word, face, ink,
+                px(0.3))
+
+
 def damaged(hp: int, full: int) -> Optional[int]:
     """The HP a building's heart carries in place of its printed one:
     none while it is whole."""
     return hp if hp < full else None
 
 
-def draw_building_column(body: Image.Image, player: PlayerState, base: Optional[int],
-                         building_hp: Mapping[str, int], left: int, bottom: int) -> None:
+def draw_building_column(body: Image.Image, player: PlayerState, base: int,
+                         building_hp: Mapping[str, int], left: int, bottom: int,
+                         joint: bool = False) -> None:
     """
     The column of buildings, bottom-aligned from `bottom`, top to
     bottom: the add-on slot (`draw_add_on`), Tech III, II and I, the
@@ -1484,12 +1504,12 @@ def draw_building_column(body: Image.Image, player: PlayerState, base: Optional[
     DESTROYED across it when destroyed -- the base too, on a finished
     game's board. A damaged one's heart
     carries the HP it has now in place of the full HP it prints.
-    `base` `None` draws no base: a two-headed dragon's second seat, whose
-    team's one base is drawn on the first seat's column (decision 14), so
-    its column is a tile shorter (`building_column_height`).
+    `joint`, the base is a two-headed dragon team's one base, drawn on
+    both teammates' columns with JOINT along its foot (`JOINT_STRIP`,
+    `lay_band`; the author, 2026-10-15).
     """
     house = board_piece("chits", "house.png")
-    top = bottom - building_column_height(base is not None)
+    top = bottom - BUILDING_COLUMN_HEIGHT
     draw_add_on(body, player, building_hp, left, top)
     y = top + ADD_ON[1] + TILE_GAP
     for name in reversed(TECH_BUILDINGS):
@@ -1518,8 +1538,6 @@ def draw_building_column(body: Image.Image, player: PlayerState, base: Optional[
                       DESTROYED_STRIP if state.destroyed else CONSTRUCTION_STRIP)
         y += TILE[1] + TILE_GAP
 
-    if base is None:
-        return
     # The heart carries the base's HP wherever it is not the 20 printed:
     # below it, as any building's; above it, a dragon team's 30
     # (Rulebook p. 13).
@@ -1529,6 +1547,8 @@ def draw_building_column(body: Image.Image, player: PlayerState, base: Optional[
     body.alpha_composite(tile, (left, y))
     if base <= 0:
         lay_strip(body, (left, y, left + TILE[0], y + TILE[1]), DESTROYED_STRIP)
+    elif joint:
+        lay_band(body, (left, y, left + TILE[0], y + TILE[1]), JOINT_STRIP)
 
 
 #: A building's house chit, and how far it hangs over its corner, at
@@ -1538,11 +1558,6 @@ CHIT_OUT = round(8 * BUILDING_SCALE)
 
 
 BUILDING_COLUMN_HEIGHT = ADD_ON[1] + 4 * TILE[1] + 4 * TILE_GAP
-
-
-def building_column_height(with_base: bool = True) -> int:
-    """The building column's height: a tile shorter without the base."""
-    return BUILDING_COLUMN_HEIGHT if with_base else BUILDING_COLUMN_HEIGHT - TILE[1] - TILE_GAP
 
 
 def draw_add_on(body: Image.Image, player: PlayerState,
@@ -1682,10 +1697,10 @@ def grid_cells(player: PlayerState, cards: CardCatalog, turned: bool = False,
 PATROL_HEIGHT = 2 * PATROL_PADDING + CARD[1] + BONUS_GAP + BONUS[1]
 
 
-def body_height(cells: int, columns: int, column: int = BUILDING_COLUMN_HEIGHT) -> int:
+def body_height(cells: int, columns: int) -> int:
     rows = max(1, -(-cells // columns))
     grid = PATROL_HEIGHT + CELL_GAP + rows * CELL + (rows - 1) * CELL_GAP
-    return max(grid, column)
+    return max(grid, BUILDING_COLUMN_HEIGHT)
 
 
 def render_body(match: MatchState, seat: int, cards: CardCatalog,
@@ -1706,13 +1721,13 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
 
     cells = grid_cells(player, cards, turned, shown)
     inner_width = panel_width(len(heroes(player))) - 2 * PADDING
-    # A dragon's team has one base, drawn on its first seat's column alone
-    # (decision 14).
-    base = match.base_of(seat) if match.base_seat(seat) == seat else None
-    height = body_height(1 + len(cells), columns, building_column_height(base is not None))
+    height = body_height(1 + len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
     o = OVERHANG
-    draw_building_column(body, player, base, building_hp, o, o + height)
+    # A dragon team's one base is drawn on both teammates' columns, marked
+    # JOINT (the author, 2026-10-15).
+    draw_building_column(body, player, match.base_of(seat), building_hp, o, o + height,
+                         joint=bool(match.dragons))
 
     grid_left = o + BUILDING_WIDTH + BUILDING_GAP
     draw = ImageDraw.Draw(body)
@@ -2138,11 +2153,11 @@ def _compose_dragon(match: MatchState, layout: str, name, cards: CardCatalog, bu
     or `near`'s -- at the bottom under the turn's divider, its head on the
     left, and the other team above it, turned round to face it as the
     duel's far panel is -- the row turned whole, as one mat is, so its
-    head's panel is on the right with its base at the board's far corner,
+    head's panel is on the right, its buildings at the board's far corner
     where the duel's far base is. "stacked_upright" -- and the
     side-by-side layout, which a dragon has none of -- draws the far row
-    the same way up, its head on the left. Each team's one base is drawn on its head's column
-    alone, the second column a tile shorter (`render_body`). The divider
+    the same way up, its head on the left. Each team's one base is drawn on
+    both teammates' columns with JOINT along its foot (`render_body`). The divider
     names whose turn it is: both teammates, or the one seat taking an
     extra turn.
     """

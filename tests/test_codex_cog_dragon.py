@@ -244,6 +244,11 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_tech_shows_the_teammates_standing_picks_read_only(self) -> None:
         await end_team_turn(self.table, (self.first, self.second))
+        # Before the teammate has chosen, Tech says so.
+        early = await self.table.turn_button("tech", self.who(self.first))
+        self.assertEqual(early.last()[1][0],
+                         f"{self.game.seat_name(self.second)} has not chosen their tech yet. "
+                         "Only you can see this.")
         # The second seat saves its choice from Tech.
         call = await self.table.turn_button("tech", self.who(self.second))
         view = call.view()
@@ -365,8 +370,10 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(view.seat, first)
         switch = next(label for label in labels(view) if label.startswith("Switch to "))
         other = await self.table.press(view, switch, who=self.table.basher)
-        self.assertEqual(other.last()[0], "response.send")
+        # Edited in place, with a Switch back (the author, 2026-10-15).
+        self.assertEqual(other.last()[0], "response.edit")
         self.assertEqual(other.view().seat, second)
+        self.assertTrue(any(label.startswith("Switch to ") for label in labels(other.view())))
         # The first locks: the panel goes on as the second's.
         view = (await self.table.press(view, "End main phase", who=self.table.basher)).view()
         locked = await self.table.press(view, "Lock patrol", who=self.table.basher)
