@@ -743,7 +743,8 @@ def _level_options(engine, game, match, prompt) -> LevelGainOptions:
     # Several seats only where the dead hero had several opponents; the
     # answer may name the seat beside the ref (`seat`).
     holders = [match.player(seat) for seat in top.get("seats") or [top["seat"]]]
-    found = [(holder.seat, hero_ref(hero.slug)) for holder in holders for hero in holder.heroes_in_play]
+    found = [(holder.seat, hero_ref(hero.slug)) for holder in holders for hero in holder.heroes_in_play
+             if engine.takes_kill_levels(hero)]
     return LevelGainOptions(
         prompt.asked_player, owner.seat, tuple(ref for _, ref in found), tuple(seat for seat, _ in found),
     )

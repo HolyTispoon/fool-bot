@@ -179,7 +179,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         panel = await self.table.turn_button("hand", self.table.seated(active))
         self.assertEqual(panel.view().seat, active)
         hand = await self.table.turn_button("hand", self.table.seated(other))
-        self.assertEqual([item.label for item in hand.view().children], ["My deck", "Codex"])
+        self.assertEqual([item.label for item in hand.view().children], ["My deck", "Codex", "Show board"])
 
     async def test_the_undo_to_the_previous_turn_asks_the_seat_before(self) -> None:
         first = self.table.match.active
