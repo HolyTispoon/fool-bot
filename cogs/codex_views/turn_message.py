@@ -145,10 +145,7 @@ class TurnMessageView(SafeView):
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
-        if seat in self.cog.engine.turn_seats(match) and match.winner is None:
-            await self.cog.show_panel(interaction, game, match, seat, edit=False)
-            return
-        await self.cog.send_hand(interaction, game, match, seat)
+        await self.cog.send_hand_menu(interaction, game, match, seat)
 
     async def deck(self, interaction: discord.Interaction) -> None:
         """Every card the clicker owns, to them alone, whoever's turn it
@@ -373,12 +370,21 @@ def codex_button(callback, row: int | None = None) -> discord.ui.Button:
     return button
 
 
+def board_button(callback, row: int | None = None) -> discord.ui.Button:
+    """**Show board**: the turn message posted again at the foot of the
+    channel and the hand menu sent afresh under it, the one pressed
+    deleted (`Codex.show_board`)."""
+    button = discord.ui.Button(label="Show board", style=discord.ButtonStyle.secondary, row=row)
+    button.callback = callback
+    return button
+
 
 class HandView(SafeView):
     """
     Under the hand **My hand** shows the player whose turn it is not:
-    **My deck** and **Codex**, the hand being nothing to press. Not
-    persistent: an ephemeral message dies with the client's session.
+    **My deck**, **Codex** and **Show board**, the hand being nothing to
+    press. Not persistent: an ephemeral message dies with the client's
+    session.
     """
 
     def __init__(self, cog, game_id: str, seat: int) -> None:
@@ -388,12 +394,19 @@ class HandView(SafeView):
         self.seat = seat
         self.add_item(deck_button(self.deck))
         self.add_item(codex_button(self.codex))
+        self.add_item(board_button(self.board))
 
     async def deck(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
             return
         await self.cog.send_deck(interaction, game, match, self.seat)
+
+    async def board(self, interaction: discord.Interaction) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        await self.cog.show_board(interaction, game, self.seat)
 
     async def codex(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
@@ -407,7 +420,8 @@ class WaitingView(HandView):
     Under a dragon seat's panel edited where the team's turn asks it
     nothing now -- the teammate's action stands part-way, or this seat has
     locked: **Back to my turn**, which asks the position again and puts
-    up whatever it asks this seat, and **My deck** and **Codex**.
+    up whatever it asks this seat, and **My deck**, **Codex** and **Show
+    board**.
     """
 
     def __init__(self, cog, game_id: str, seat: int) -> None:

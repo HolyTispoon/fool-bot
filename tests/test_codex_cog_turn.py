@@ -36,6 +36,7 @@ from cogs.codex_views.turn import END_OF_TURN, OPPONENT_STARTED, UNDO_MENU
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
     CodexBrowser,
+    HandView,
     PatrolView,
     RematchView,
     TechChoiceView,
@@ -153,7 +154,7 @@ class PanelTests(TurnTestCase):
         # The other player's My hand is their hand, with My deck and
         # Codex to press.
         theirs = await self.table.turn_button("hand", self.table.waiting)
-        self.assertEqual([item.label for item in theirs.view().children], ["My deck", "Codex"])
+        self.assertEqual([item.label for item in theirs.view().children], ["My deck", "Codex", "Show board"])
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
 
     async def test_an_empty_hand_is_no_picture(self) -> None:
@@ -391,11 +392,11 @@ class PanelTests(TurnTestCase):
             self.assertTrue(item.label.startswith(f"{numbers[item.choice[1]]}. "), item.label)
         builds = [item.choice[1] for item in view.children if (item.choice or ("",))[0] == "build"]
         self.assertEqual(builds, [row.building for row in options.buildings if row.allowed])
-        # My deck, Codex, Undo... and End main phase are the panel's last
-        # four buttons, in that order (the author, 2026-10-09; Codex
-        # 2026-10-10).
-        self.assertEqual([item.label for item in view.children[-4:]],
-                         ["My deck", "Codex", "Undo...", "End main phase"])
+        # My deck, Codex, Show board, Undo... and End main phase are the
+        # panel's last five buttons, in that order (the author, 2026-10-09;
+        # Codex 2026-10-10; Show board 2026-10-15).
+        self.assertEqual([item.label for item in view.children[-5:]],
+                         ["My deck", "Codex", "Show board", "Undo...", "End main phase"])
         self.assertEqual(view.children[-1].row, max(item.row for item in view.children))
         mark = len(self.table.game_channel.requests)
         opened = await self.table.press(view, "Attack...")
@@ -502,21 +503,20 @@ class PanelTests(TurnTestCase):
         self.assertEqual([item.row for item in view.children if (item.choice or ("",))[0] == "summon"], [0])
         self.assertTrue([item for item in view.children
                          if item.label.startswith(("Build ", "Nothing can be built"))])
-        self.assertEqual([item.label for item in view.children[-4:]],
-                         ["My deck", "Codex", "Undo...", "End main phase"])
+        self.assertEqual([item.label for item in view.children[-5:]],
+                         ["My deck", "Codex", "Show board", "Undo...", "End main phase"])
 
-    async def test_the_last_four_are_never_crowded_out(self) -> None:
+    async def test_the_last_five_are_never_crowded_out(self) -> None:
         """A board's row fuller than its room gives buttons up, never My
-        deck, Codex, Undo... or End main phase, which stay last in that
-        order."""
+        deck, Codex, Show board, Undo... or End main phase, which stay
+        last in that order."""
         view = TurnPanelView.__new__(TurnPanelView)
         discord.ui.View.__init__(view)
         buttons = [view.make_button(str(n), discord.ButtonStyle.primary, None) for n in range(8)]
         last = [view.make_button(label, discord.ButtonStyle.secondary, None)
-                for label in ("My deck", "Codex", "Undo...", "End main phase")]
+                for label in ("My deck", "Codex", "Show board", "Undo...", "End main phase")]
         view.place(buttons, 4, last=last)
-        self.assertEqual(len(view.children), 5)
-        self.assertEqual(view.children[-4:], last)
+        self.assertEqual(view.children, last)
 
     async def test_an_attack_asks_its_defender_in_the_same_panel(self) -> None:
         """The attacker first, then the legal defenders, each with why it
@@ -572,6 +572,58 @@ class PanelTests(TurnTestCase):
                         line.startswith("**Turn ") or line.startswith("*") or line in rendered,
                         line,
                     )
+
+
+class ShowBoardTests(TurnTestCase):
+    """**Show board**, under a hand and on the panel: the turn message
+    posted again at the foot of the channel, the old one deleted and
+    nobody pinged, and the hand menu sent afresh under it, the one
+    pressed deleted after (the author, 2026-10-15)."""
+
+    async def test_the_panel_reposts_the_board_and_comes_back_under_it(self) -> None:
+        _, view = await self.table.panel()
+        old = self.game.turn_message_id
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.press(view, "Show board")
+        self.assertNothingWentWrong(call)
+        new = self.game.turn_message_id
+        self.assertNotEqual(new, old)
+        self.assertEqual(channel_requests(self.table, mark), [("send", new), ("delete", old)])
+        sent = self.table.game_channel.since(mark)[0][2]
+        self.assertFalse(sent["allowed_mentions"].users)
+        self.assertIsInstance(sent["view"], TurnMessageView)
+        # The fresh panel after the post, the one pressed deleted after it.
+        self.assertEqual([answer[0] for answer in call.answers],
+                         ["response.defer", "followup.send", "original.delete"])
+        fresh = call.view()
+        self.assertIsInstance(fresh, TurnPanelView)
+        self.assertIs(fresh.prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertTrue(call.last("followup.send")[2]["ephemeral"])
+
+    async def test_the_other_players_hand_comes_back_under_the_board(self) -> None:
+        hand = (await self.table.turn_button("hand", self.table.waiting)).view()
+        self.assertIsInstance(hand, HandView)
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.press(hand, "Show board")
+        self.assertNothingWentWrong(call)
+        self.assertEqual([kind for kind, _ in channel_requests(self.table, mark)], ["send", "delete"])
+        self.assertEqual([answer[0] for answer in call.answers],
+                         ["response.defer", "followup.send", "original.delete"])
+        self.assertIsInstance(call.view(), HandView)
+        kwargs = call.last("followup.send")[2]
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertTrue(kwargs["file"].filename.startswith("codex-hand-"))
+
+    async def test_a_board_at_the_foot_already_is_not_posted_again(self) -> None:
+        """Where the turn message is the channel's last message, the
+        channel is sent nothing: the hand menu alone comes again."""
+        self.table.game_channel.last_message_id = self.game.turn_message_id
+        _, view = await self.table.panel()
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.press(view, "Show board")
+        self.assertNothingWentWrong(call)
+        self.assertEqual(channel_requests(self.table, mark), [])
+        self.assertIsInstance(call.view(), TurnPanelView)
 
 
 class BusyGameTests(TurnTestCase):
@@ -1883,8 +1935,8 @@ class RefusedAbilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(refused), 2, [item.label for item in view.children])
         self.assertTrue(all(item.disabled for item in refused))
         self.assertFalse([item for item in view.children if (item.choice or ("",))[0] == "ability"])
-        self.assertEqual([item.label for item in view.children[-4:]],
-                         ["My deck", "Codex", "Undo...", "End main phase"])
+        self.assertEqual([item.label for item in view.children[-5:]],
+                         ["My deck", "Codex", "Show board", "Undo...", "End main phase"])
         # An exhausted card's ability is left off: the board shows it.
         match = self.table.match
         hero_in_play(match, 1, slug="vir_garbarean", level=5)
