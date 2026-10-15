@@ -337,7 +337,8 @@ TURN_COLORS: dict[str, TurnColors] = {
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 #: ARRIVED and DISABLED, on grey (the author, 2026-10-11): states, not
-#: anything a card of a colour put there.
+#: anything a card of a colour put there; LENT with them, a patroller
+#: lent into the zone it lies in (multiplayer, Rulebook p. 14).
 STATE_FILL = (104, 106, 112)     # #686a70
 #: A tag on a card -- a feather rune (step 11), a copy, a jail, a number,
 #: an oath (step 13), the buried, FUTURE -- is the colour of the card it
@@ -805,8 +806,8 @@ def plan_marks(column_right: int, column_top: int, ceiling: int, foot: int,
 def lay_states(canvas: Image.Image, card_left: int, ceiling: int, foot: int,
                states: Sequence[str], clear_of: Sequence[Box]) -> None:
     """
-    ARRIVED and DISABLED up a card's left edge from the foot of its art,
-    on the marks' rows, each in the lowest row clear of `clear_of` -- the
+    LENT, ARRIVED and DISABLED up a card's left edge from the foot of its
+    art, on the marks' rows, each in the lowest row clear of `clear_of` -- the
     marks, the rune chits and the damage chits -- and not above
     `ceiling` (the cost); with none free, the lowest left (the author,
     2026-10-12: "Skip draw/discard" lay over DISABLED).
@@ -827,7 +828,8 @@ def lay_states(canvas: Image.Image, card_left: int, ceiling: int, foot: int,
         row = free[0] if free else min(row for row in boxes
                                        if not any(overlaps(boxes[row], other) for other in placed))
         placed.append(boxes[row])
-    # The rows they found, lowest first, so ARRIVED stays under DISABLED.
+    # The rows they found, lowest first, so ARRIVED stays under DISABLED
+    # and LENT under both.
     for state, top in zip(reversed(states), sorted((box[1] for box in placed), reverse=True)):
         tag_at(draw, left, top, state, STATE_FILL, INK)
 
@@ -908,6 +910,11 @@ class Lying:
     time_runes: int = 0
     #: Disabled (step 12): a mark beside where the exhaust glyph goes.
     disabled: bool = False
+    #: Lent into another player's patrol zone at a free-for-all's lock
+    #: (Rulebook p. 14): a unit with `lent` set, a hero with `lent_to`
+    #: -- LENT beside ARRIVED and DISABLED, since the card lies in a
+    #: zone that is not its owner's, which the board says nowhere else.
+    lent: bool = False
     #: A card in the future (step 12): greyed, not yet in play.
     future: bool = False
     #: Which of its player's copies in play it is, "#2" on its top edge
@@ -1124,7 +1131,7 @@ def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog]
                  + effect_tags(card, cards, stats.auras if stats is not None else (),
                                stats.barred_by if stats is not None else None),
                  time_runes=card.time_runes,
-                 disabled=card.disabled, copy=copy,
+                 disabled=card.disabled, lent=card.lent, copy=copy,
                  stats=stats)
 
 
@@ -1139,6 +1146,7 @@ def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = Non
                  plus_runes=hero.plus_runes, minus_runes=hero.minus_runes,
                  arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
                  time_runes=hero.time_runes, disabled=hero.disabled,
+                 lent=hero.lent_to is not None,
                  named_runes=rune_counts(hero, cards),
                  marks=rune_marks(hero)
                  + effect_tags(hero, cards, stats.auras if stats is not None else ()),
@@ -1158,7 +1166,8 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     chit top left (a hero), its rune chits over its right edge a little
     below its middle, its damage chits on the foot of its art, Two
     Step's chit on a dance partner, ARRIVED on its art's foot the turn
-    it came, a copy's number on its top edge -- and, exhausted, the
+    it came and LENT while it patrols for another player, a copy's
+    number on its top edge -- and, exhausted, the
     whole of it turned on its side at full size, lying across the cell,
     with the exhaust glyph on the cell's top corner and its stats on
     the turned card's top right, both level with the table -- left of
@@ -1210,7 +1219,9 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     draw = ImageDraw.Draw(upright)
     for mark, colour, box in planned:
         tag_at(draw, box[2], box[1], mark, *label_colors(colour), leftward=True)
-    states = [state for state, on in (("DISABLED", lying.disabled), ("ARRIVED", lying.arrived)) if on]
+    # Lowest last: LENT on the foot, ARRIVED over it, DISABLED over that.
+    states = [state for state, on in (("DISABLED", lying.disabled), ("ARRIVED", lying.arrived),
+                                      ("LENT", lying.lent)) if on]
     lay_states(upright, side, margin + TAG_CEILING, foot, states, column)
     stats = stat_pill(lying.stats) if lying.stats is not None else None
     if stats is not None and not lying.exhausted:
@@ -1742,6 +1753,12 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     zone = command_zone([None if hero.in_play else hero for hero in heroes(player)], cards)
     body.alpha_composite(zone, (grid_left - OVERHANG, o - OVERHANG))
     holder_left = grid_left + command_zone_width(len(heroes(player))) + ZONE_GAP
+    # The zone as it stands, a hero another player lent into it included
+    # (`<owner seat>:hero:<slug>`, Rulebook p. 14): the player's own
+    # reading, `PlayerState.patroller`, leaves a lent hero out, and its
+    # owner's grid and slots do too, so this is the one place it is
+    # drawn (docs/design/codex.md, "The board" under Multiplayer).
+    patrolling = match.patrollers(seat)
     for slot in PATROL_SLOTS:
         # Each slot on its own holder, packed against the last.
         draw.rounded_rectangle(
@@ -1755,11 +1772,14 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
                              (card_left, card_top))
         body.alpha_composite(sized(board_piece("patrol_slots", f"{slot}_bonus.png"), BONUS),
                              (card_left, card_top + CARD[1] + BONUS_GAP))
-        ref = player.patroller(slot)
+        ref = patrolling.get(slot)
         if ref is None:
             continue
         if is_hero_ref(ref):
-            hero = player.hero_by_ref(ref)
+            # Either spelling of a hero's ref: the player's own, or one
+            # lent to them; its stats the engine's for a hero on this
+            # side (`controller_of` is the borrower while it is lent).
+            hero = match.hero_on(seat, ref)
             lying = hero_lying(hero, cards, shown(hero))
         else:
             instance_id = int(ref.split(":", 1)[1])
