@@ -188,11 +188,13 @@ class BrickThiefTests(unittest.TestCase):
         match.player(1).gold = 5
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
         apply(engine, game, match, PromptKind.TARGET, target="2:tech1")
-        # The one damaged building is the opponent's, so his own undamaged
-        # base is offered beside it -- the way not to mend theirs -- first.
-        offered = [row.key for row in asked(engine, game, match).options.targets]
-        self.assertEqual(offered, ["1:base", "2:base"])
-        apply(engine, game, match, PromptKind.TARGET, target="1:base")
+        # The one damaged building is the opponent's, so the repair is
+        # asked rather than taken, with Done -- "Repair nothing" -- for
+        # the undamaged building of his own the ruling lets him choose.
+        options = asked(engine, game, match).options
+        self.assertEqual([row.key for row in options.targets], ["2:base"])
+        self.assertTrue(options.done)
+        apply(engine, game, match, PromptKind.TARGET, "done")
         self.assertEqual(match.player(1).base_hp, 20)
         self.assertEqual(match.player(2).base_hp, 19)
         self.assertEqual(match.player(2).buildings["tech1"].hp, 4)
@@ -208,8 +210,9 @@ class BrickThiefTests(unittest.TestCase):
         match.player(1).gold = 5
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
         apply(engine, game, match, PromptKind.TARGET, target="2:base")
-        offered = [row.key for row in asked(engine, game, match).options.targets]
-        self.assertEqual(offered, ["1:tech1", "1:base", "2:tech1"])
+        options = asked(engine, game, match).options
+        self.assertEqual([row.key for row in options.targets], ["1:tech1", "1:base", "2:tech1"])
+        self.assertFalse(options.done, "a building of his own to mend: nothing to decline")
 
     def test_the_repair_with_nothing_damaged_is_skipped(self) -> None:
         """Nothing damaged but what he just hit: nothing is asked and

@@ -910,7 +910,10 @@ class TurnPanelView(PanelView):
         last = options.cancellable or options.done
         row = self.place(targets, 0, until=ROWS - 1 if last else ROWS)
         if options.done:
-            self.button("Done", discord.ButtonStyle.success, self.done_choosing, row=row)
+            # A repair's Done chooses nothing at all (`resolve.may_repair_nothing`).
+            repair = effects.EFFECTS[options.effect].parts[options.part].does == "repair"
+            self.button("Repair nothing" if repair else "Done", discord.ButtonStyle.success,
+                        self.done_choosing, row=row)
         if options.cancellable:
             self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_cast, row=row)
 

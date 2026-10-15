@@ -707,13 +707,17 @@ handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
   ("mandatory, own units and itself included").
 - **A repair offers what it can mend, your own first**
   (`RulesEngine._repair_candidates`; the author, 2026-10-15: "should
-  only offer valid repair targets"). Brick Thief's ruling makes an
-  undamaged building a legal choice that does nothing, and the one use
-  of that is not to mend an opponent's: so the damaged buildings alone
-  are offered, and one undamaged building of your own -- the base where
-  it can be -- joins them only where every damaged building is an
-  opponent's. Nothing damaged anywhere skips the part, said nothing
-  about, as any part with nothing to choose. The candidates are listed
+  only offer valid repair targets"). The damaged buildings alone are
+  offered. Brick Thief's ruling makes an undamaged building a legal
+  choice that does nothing, and the one use of that is not to mend an
+  opponent's: so where every damaged building offered is an opponent's,
+  the question offers **Done** too, labelled **Repair nothing** on the
+  panel (`resolve.may_repair_nothing`; the author, 2026-10-15: "it's
+  effectively the same and is a lot clearer to the player"), rather
+  than a building of your own -- and so a lone damaged opposing
+  building is asked about, never taken unasked (`least_picks`).
+  Nothing damaged anywhere skips the part, said nothing about, as any
+  part with nothing to choose. The candidates are listed
   **your side first** for a repair, where every other filter lists the
   opponent's first -- what a repair helps is yours, what a damage part
   hurts theirs. `RulesEngine.building_damaged` is the one reading of

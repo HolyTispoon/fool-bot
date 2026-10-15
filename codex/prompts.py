@@ -691,7 +691,7 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
         any(row.flagbearer for row in rows), cancellable(match),
-        offers_done(top, part), tuple(top.get("picks") or ()), shown,
+        offers_done(engine, match, top, part), tuple(top.get("picks") or ()), shown,
     )
 
 

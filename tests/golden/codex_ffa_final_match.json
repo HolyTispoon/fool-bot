@@ -729,17 +729,6 @@
       "turn": 11
     },
     {
-      "hp": 20,
-      "kind": "tied",
-      "loser": 1,
-      "seat": 3,
-      "seats": [
-        2,
-        3
-      ],
-      "turn": 11
-    },
-    {
       "kind": "patrolled",
       "seat": 3,
       "slots": {
@@ -755,154 +744,423 @@
     },
     {
       "kind": "turn_began",
-      "seat": 2,
+      "seat": 1,
       "turn": 12
+    },
+    {
+      "kind": "hired",
+      "seat": 1,
+      "slug": "wither",
+      "turn": 12
+    },
+    {
+      "cost": 2,
+      "kind": "played",
+      "seat": 1,
+      "slug": "brick_thief",
+      "turn": 12
+    },
+    {
+      "cost": 2,
+      "kind": "played",
+      "seat": 1,
+      "slug": "revolver_ocelot",
+      "turn": 12
+    },
+    {
+      "cost": 3,
+      "kind": "played",
+      "seat": 1,
+      "slug": "fruit_ninja",
+      "turn": 12
+    },
+    {
+      "kind": "patrolled",
+      "seat": 1,
+      "slots": {
+        "elite": "unit:19",
+        "scavenger": "unit:20",
+        "squad_leader": "unit:18"
+      },
+      "turn": 12
+    },
+    {
+      "kind": "turn_ended",
+      "seat": 1,
+      "turn": 12
+    },
+    {
+      "kind": "turn_began",
+      "seat": 2,
+      "turn": 13
     },
     {
       "kind": "hired",
       "seat": 2,
       "slug": "nimble_fencer",
-      "turn": 12
+      "turn": 13
     },
     {
       "cost": 2,
       "kind": "played",
       "seat": 2,
       "slug": "nimble_fencer",
-      "turn": 12
+      "turn": 13
     },
     {
       "attacker": "unit:14",
-      "defender": "tech1",
+      "defender": "unit:18",
       "kind": "attacked",
       "seat": 2,
-      "turn": 12
+      "turn": 13
     },
     {
-      "attacker": "unit:18",
-      "defender": "tech1",
+      "kind": "destroyed",
+      "owner": 2,
+      "seat": 2,
+      "slug": "timely_messenger",
+      "turn": 13
+    },
+    {
+      "attacker": "unit:21",
+      "defender": "unit:18",
       "kind": "attacked",
       "seat": 2,
-      "turn": 12
+      "turn": 13
     },
     {
-      "building": "tech1",
-      "kind": "building_destroyed",
+      "kind": "destroyed",
       "owner": 1,
       "seat": 2,
-      "turn": 12
+      "slug": "brick_thief",
+      "turn": 13
     },
     {
       "attacker": "hero:river_montoya",
-      "defender": "tech2",
+      "defender": "unit:19",
       "kind": "attacked",
       "seat": 2,
-      "turn": 12
+      "turn": 13
+    },
+    {
+      "kind": "destroyed",
+      "owner": 1,
+      "seat": 2,
+      "slug": "revolver_ocelot",
+      "turn": 13
+    },
+    {
+      "kind": "hero_died",
+      "owner": 2,
+      "seat": 2,
+      "slug": "river_montoya",
+      "turn": 13
     },
     {
       "kind": "patrolled",
       "seat": 2,
       "slots": {},
-      "turn": 12
+      "turn": 13
     },
     {
       "kind": "turn_ended",
       "seat": 2,
-      "turn": 12
+      "turn": 13
     },
     {
       "kind": "turn_began",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "kind": "hired",
       "seat": 3,
       "slug": "fruit_ninja",
-      "turn": 13
+      "turn": 14
     },
     {
       "building": "tech3",
       "cost": 5,
       "kind": "built",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "cost": 3,
       "kind": "played",
       "seat": 3,
       "slug": "iron_man",
-      "turn": 13
+      "turn": 14
     },
     {
       "attacker": "unit:7",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "attacker": "unit:8",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "attacker": "unit:13",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "attacker": "unit:15",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "attacker": "unit:16",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "attacker": "unit:17",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "attacker": "hero:troq_bashar",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
-      "turn": 13
+      "turn": 14
     },
     {
       "kind": "patrolled",
       "seat": 3,
       "slots": {
-        "squad_leader": "unit:19"
+        "squad_leader": "unit:22"
       },
-      "turn": 13
+      "turn": 14
     },
     {
       "kind": "turn_ended",
       "seat": 3,
-      "turn": 13
+      "turn": 14
+    },
+    {
+      "kind": "turn_began",
+      "seat": 1,
+      "turn": 15
+    },
+    {
+      "kind": "hired",
+      "seat": 1,
+      "slug": "helpful_turtle",
+      "turn": 15
+    },
+    {
+      "building": "tech3",
+      "cost": 5,
+      "kind": "built",
+      "seat": 1,
+      "turn": 15
+    },
+    {
+      "kind": "summoned",
+      "seat": 1,
+      "slug": "troq_bashar",
+      "turn": 15
+    },
+    {
+      "cost": 1,
+      "kind": "played",
+      "seat": 1,
+      "slug": "tenderfoot",
+      "turn": 15
+    },
+    {
+      "attacker": "unit:20",
+      "defender": "base",
+      "kind": "attacked",
+      "seat": 1,
+      "turn": 15
+    },
+    {
+      "kind": "patrolled",
+      "seat": 1,
+      "slots": {
+        "elite": "hero:troq_bashar",
+        "squad_leader": "unit:23"
+      },
+      "turn": 15
+    },
+    {
+      "kind": "turn_ended",
+      "seat": 1,
+      "turn": 15
+    },
+    {
+      "kind": "turn_began",
+      "seat": 2,
+      "turn": 16
+    },
+    {
+      "kind": "hired",
+      "seat": 2,
+      "slug": "starcrossed_starlet",
+      "turn": 16
+    },
+    {
+      "building": "tech3",
+      "cost": 5,
+      "kind": "built",
+      "seat": 2,
+      "turn": 16
+    },
+    {
+      "cost": 3,
+      "kind": "played",
+      "seat": 2,
+      "slug": "fruit_ninja",
+      "turn": 16
+    },
+    {
+      "attacker": "unit:21",
+      "defender": "unit:23",
+      "kind": "attacked",
+      "seat": 2,
+      "turn": 16
+    },
+    {
+      "kind": "destroyed",
+      "owner": 2,
+      "seat": 2,
+      "slug": "nimble_fencer",
+      "turn": 16
+    },
+    {
+      "kind": "patrolled",
+      "seat": 2,
+      "slots": {
+        "squad_leader": "unit:24"
+      },
+      "turn": 16
+    },
+    {
+      "kind": "turn_ended",
+      "seat": 2,
+      "turn": 16
+    },
+    {
+      "kind": "turn_began",
+      "seat": 3,
+      "turn": 17
+    },
+    {
+      "cost": 3,
+      "kind": "played",
+      "seat": 3,
+      "slug": "iron_man",
+      "turn": 17
+    },
+    {
+      "cost": 3,
+      "kind": "played",
+      "seat": 3,
+      "slug": "sneaky_pig",
+      "turn": 17
+    },
+    {
+      "kind": "levelled",
+      "level": 8,
+      "levels": 2,
+      "seat": 3,
+      "slug": "troq_bashar",
+      "turn": 17
+    },
+    {
+      "attacker": "unit:7",
+      "defender": "unit:23",
+      "kind": "attacked",
+      "seat": 3,
+      "turn": 17
+    },
+    {
+      "kind": "destroyed",
+      "owner": 1,
+      "seat": 3,
+      "slug": "tenderfoot",
+      "turn": 17
+    },
+    {
+      "kind": "destroyed",
+      "owner": 3,
+      "seat": 3,
+      "slug": "brick_thief",
+      "turn": 17
+    },
+    {
+      "attacker": "unit:8",
+      "defender": "hero:troq_bashar",
+      "kind": "attacked",
+      "seat": 3,
+      "turn": 17
+    },
+    {
+      "kind": "destroyed",
+      "owner": 3,
+      "seat": 3,
+      "slug": "older_brother",
+      "turn": 17
+    },
+    {
+      "attacker": "unit:13",
+      "defender": "hero:troq_bashar",
+      "kind": "attacked",
+      "seat": 3,
+      "turn": 17
+    },
+    {
+      "kind": "hero_died",
+      "owner": 1,
+      "seat": 3,
+      "slug": "troq_bashar",
+      "turn": 17
+    },
+    {
+      "kind": "destroyed",
+      "owner": 3,
+      "seat": 3,
+      "slug": "tenderfoot",
+      "turn": 17
+    },
+    {
+      "attacker": "unit:15",
+      "defender": "base",
+      "kind": "attacked",
+      "seat": 3,
+      "turn": 17
+    },
+    {
+      "attacker": "unit:16",
+      "defender": "base",
+      "kind": "attacked",
+      "seat": 3,
+      "turn": 17
     },
     {
       "hp": 20,
-      "kind": "tie_broken",
-      "loser": null,
+      "kind": "base_destroyed",
+      "loser": 1,
       "seat": 3,
-      "turn": 13,
+      "turn": 17,
       "winner": 3
     }
   ],
@@ -913,8 +1171,8 @@
       "action": {
         "arguments": {
           "picks": [
-            "backstabber",
-            "backstabber"
+            "maestro",
+            "maestro"
           ],
           "player": 2
         },
@@ -936,29 +1194,30 @@
     {
       "action": {
         "arguments": {
-          "slug": "fruit_ninja"
-        },
-        "choice": "hire",
-        "kind": "main_action"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
-          "building": "tech3"
-        },
-        "choice": "build",
-        "kind": "main_action"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
           "slug": "iron_man"
         },
         "choice": "play",
+        "kind": "main_action"
+      },
+      "outcomes": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "slug": "sneaky_pig"
+        },
+        "choice": "play",
+        "kind": "main_action"
+      },
+      "outcomes": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "hero": "troq_bashar",
+          "levels": 2
+        },
+        "choice": "level",
         "kind": "main_action"
       },
       "outcomes": []
@@ -976,8 +1235,8 @@
     {
       "action": {
         "arguments": {
-          "against": 2,
-          "defender": "base"
+          "against": 1,
+          "defender": "unit:23"
         },
         "choice": "",
         "kind": "choose_defender"
@@ -987,7 +1246,7 @@
     {
       "action": {
         "arguments": {
-          "target": "1:tech2"
+          "target": "1:tech1"
         },
         "choice": "",
         "kind": "target"
@@ -997,7 +1256,7 @@
     {
       "action": {
         "arguments": {
-          "target": "3:base"
+          "target": "1:base"
         },
         "choice": "",
         "kind": "target"
@@ -1017,8 +1276,8 @@
     {
       "action": {
         "arguments": {
-          "against": 2,
-          "defender": "base"
+          "against": 1,
+          "defender": "hero:troq_bashar"
         },
         "choice": "",
         "kind": "choose_defender"
@@ -1038,8 +1297,8 @@
     {
       "action": {
         "arguments": {
-          "against": 2,
-          "defender": "base"
+          "against": 1,
+          "defender": "hero:troq_bashar"
         },
         "choice": "",
         "kind": "choose_defender"
@@ -1059,7 +1318,7 @@
     {
       "action": {
         "arguments": {
-          "against": 2,
+          "against": 1,
           "defender": "base"
         },
         "choice": "",
@@ -1080,372 +1339,28 @@
     {
       "action": {
         "arguments": {
-          "against": 2,
+          "against": 1,
           "defender": "base"
         },
         "choice": "",
         "kind": "choose_defender"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
-          "attacker": "unit:17"
-        },
-        "choice": "attack",
-        "kind": "main_action"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
-          "against": 2,
-          "defender": "base"
-        },
-        "choice": "",
-        "kind": "choose_defender"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
-          "attacker": "hero:troq_bashar"
-        },
-        "choice": "attack",
-        "kind": "main_action"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
-          "against": 2,
-          "defender": "base"
-        },
-        "choice": "",
-        "kind": "choose_defender"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {},
-        "choice": "end_main",
-        "kind": "main_action"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
-          "assignment": {
-            "squad_leader": "unit:19"
-          }
-        },
-        "choice": "",
-        "kind": "patrol"
       },
       "outcomes": []
     }
   ],
   "lost_by_debt": null,
-  "next_instance_id": 20,
-  "phase": "tech",
+  "next_instance_id": 27,
+  "phase": "main",
   "players": [
     {
       "add_on": null,
-      "arrived_from_hand": false,
+      "arrived_from_hand": true,
       "base_hp": 0,
       "buildings": {
         "tech1": {
-          "destroyed": true,
-          "disabled": false,
-          "hp": 0,
-          "under_construction": false
-        },
-        "tech2": {
           "destroyed": false,
           "disabled": false,
           "hp": 1,
-          "under_construction": false
-        },
-        "tech3": null
-      },
-      "built_this_turn": true,
-      "codex": {
-        "eggship": 2,
-        "final_smash": 2,
-        "harvest_reaper": 2,
-        "hired_stomper": 2,
-        "intimidate": 2,
-        "iron_man": 0,
-        "regularsized_rhinoceros": 2,
-        "revolver_ocelot": 0,
-        "sneaky_pig": 2,
-        "the_boot": 2,
-        "trojan_duck": 2,
-        "wrecking_ball": 2
-      },
-      "constructed_once": true,
-      "debt": 0,
-      "deck": [
-        "tenderfoot"
-      ],
-      "deck_color": "neutral",
-      "discard": [
-        "helpful_turtle",
-        "older_brother",
-        "iron_man",
-        "iron_man",
-        "revolver_ocelot",
-        "timely_messenger"
-      ],
-      "discards_at_main_end": false,
-      "discards_untold": [],
-      "future": [],
-      "gold": 0,
-      "hand": [
-        "wither",
-        "revolver_ocelot",
-        "fruit_ninja",
-        "brick_thief"
-      ],
-      "heroes": [
-        {
-          "armor": 0,
-          "arrived_this_turn": false,
-          "attacked_this_turn": false,
-          "bands": {},
-          "damage": 0,
-          "disabled": false,
-          "exhausted": false,
-          "level": 1,
-          "max_level_since_turn_began": false,
-          "minus_runes": 0,
-          "modifiers": [],
-          "patrol_slot": null,
-          "plus_runes": 0,
-          "printed": null,
-          "runes": {},
-          "slug": "troq_bashar",
-          "summoning_runes": 2,
-          "time_runes": 0,
-          "trashed": [],
-          "zone": "command"
-        }
-      ],
-      "hired_this_turn": true,
-      "lasting": [],
-      "peace": false,
-      "play": [],
-      "played_from_hand": 0,
-      "promised": false,
-      "reshuffled_this_phase": false,
-      "seat": 1,
-      "silenced": false,
-      "skip_draw": false,
-      "specs": [
-        "bashing"
-      ],
-      "spells_played": 0,
-      "tech2_spec": null,
-      "tech_choice": [
-        "sneaky_pig",
-        "sneaky_pig"
-      ],
-      "tech_confirmed": false,
-      "tech_owed": true,
-      "teched": [
-        "iron_man",
-        "iron_man"
-      ],
-      "workers": 8
-    },
-    {
-      "add_on": null,
-      "arrived_from_hand": true,
-      "base_hp": 7,
-      "buildings": {
-        "tech1": {
-          "destroyed": false,
-          "disabled": false,
-          "hp": 5,
-          "under_construction": false
-        },
-        "tech2": {
-          "destroyed": false,
-          "disabled": false,
-          "hp": 5,
-          "under_construction": false
-        },
-        "tech3": null
-      },
-      "built_this_turn": false,
-      "codex": {
-        "appel_stomp": 2,
-        "backstabber": 2,
-        "blademaster": 2,
-        "cloud_sprite": 0,
-        "discord": 2,
-        "grounded_guide": 2,
-        "harmony": 2,
-        "leaping_lizard": 0,
-        "maestro": 2,
-        "nimble_fencer": 0,
-        "starcrossed_starlet": 0,
-        "two_step": 2
-      },
-      "constructed_once": true,
-      "debt": 0,
-      "deck": [
-        "fruit_ninja",
-        "leaping_lizard",
-        "spark",
-        "leaping_lizard",
-        "tenderfoot",
-        "cloud_sprite",
-        "older_brother",
-        "cloud_sprite",
-        "starcrossed_starlet"
-      ],
-      "deck_color": "neutral",
-      "discard": [],
-      "discards_at_main_end": false,
-      "discards_untold": [],
-      "future": [],
-      "gold": 9,
-      "hand": [
-        "starcrossed_starlet",
-        "wither"
-      ],
-      "heroes": [
-        {
-          "armor": 0,
-          "arrived_this_turn": false,
-          "attacked_this_turn": false,
-          "bands": {
-            "1": 1,
-            "3": 10,
-            "5": 13
-          },
-          "damage": 0,
-          "disabled": false,
-          "exhausted": true,
-          "level": 5,
-          "max_level_since_turn_began": true,
-          "minus_runes": 0,
-          "modifiers": [],
-          "patrol_slot": null,
-          "plus_runes": 0,
-          "printed": null,
-          "runes": {},
-          "slug": "river_montoya",
-          "summoning_runes": 0,
-          "time_runes": 0,
-          "trashed": [],
-          "zone": "play"
-        }
-      ],
-      "hired_this_turn": true,
-      "lasting": [],
-      "peace": false,
-      "play": [
-        {
-          "armor": 0,
-          "arrived_this_turn": false,
-          "attached": [],
-          "attached_hero": null,
-          "attacked_this_turn": false,
-          "buried": [],
-          "controller": 2,
-          "copy_of": null,
-          "damage": 0,
-          "disabled": false,
-          "exhausted": true,
-          "flipped": false,
-          "id": 14,
-          "jailed": null,
-          "made_by": null,
-          "minus_runes": 0,
-          "modifiers": [],
-          "number": null,
-          "oath": null,
-          "owner": 2,
-          "patrol_slot": null,
-          "plus_runes": 0,
-          "printed": null,
-          "returns_to": null,
-          "runes": {},
-          "sequence": 20,
-          "slug": "timely_messenger",
-          "time_runes": 0
-        },
-        {
-          "armor": 0,
-          "arrived_this_turn": true,
-          "attached": [],
-          "attached_hero": null,
-          "attacked_this_turn": false,
-          "buried": [],
-          "controller": 2,
-          "copy_of": null,
-          "damage": 0,
-          "disabled": false,
-          "exhausted": true,
-          "flipped": false,
-          "id": 18,
-          "jailed": null,
-          "made_by": null,
-          "minus_runes": 0,
-          "modifiers": [],
-          "number": null,
-          "oath": null,
-          "owner": 2,
-          "patrol_slot": null,
-          "plus_runes": 0,
-          "printed": null,
-          "returns_to": null,
-          "runes": {},
-          "sequence": 24,
-          "slug": "nimble_fencer",
-          "time_runes": 0
-        }
-      ],
-      "played_from_hand": 1,
-      "promised": false,
-      "reshuffled_this_phase": false,
-      "seat": 2,
-      "silenced": false,
-      "skip_draw": false,
-      "specs": [
-        "finesse"
-      ],
-      "spells_played": 0,
-      "tech2_spec": null,
-      "tech_choice": [
-        "backstabber",
-        "backstabber"
-      ],
-      "tech_confirmed": false,
-      "tech_owed": true,
-      "teched": [
-        "cloud_sprite",
-        "cloud_sprite"
-      ],
-      "workers": 9
-    },
-    {
-      "add_on": null,
-      "arrived_from_hand": true,
-      "base_hp": 20,
-      "buildings": {
-        "tech1": {
-          "destroyed": false,
-          "disabled": false,
-          "hp": 5,
           "under_construction": false
         },
         "tech2": {
@@ -1480,33 +1395,331 @@
       "debt": 0,
       "deck": [
         "sneaky_pig",
-        "revolver_ocelot"
+        "iron_man",
+        "revolver_ocelot",
+        "iron_man",
+        "timely_messenger"
       ],
       "deck_color": "neutral",
       "discard": [
+        "brick_thief",
+        "revolver_ocelot",
         "eggship",
-        "eggship"
+        "eggship",
+        "tenderfoot"
       ],
       "discards_at_main_end": false,
       "discards_untold": [],
       "future": [],
       "gold": 0,
       "hand": [
-        "sneaky_pig",
-        "iron_man"
+        "older_brother",
+        "sneaky_pig"
       ],
       "heroes": [
         {
           "armor": 0,
           "arrived_this_turn": false,
-          "attacked_this_turn": true,
-          "bands": {
-            "1": 3
-          },
-          "damage": 2,
+          "attacked_this_turn": false,
+          "bands": {},
+          "damage": 0,
+          "disabled": false,
+          "exhausted": false,
+          "level": 1,
+          "max_level_since_turn_began": false,
+          "minus_runes": 0,
+          "modifiers": [],
+          "patrol_slot": null,
+          "plus_runes": 0,
+          "printed": null,
+          "runes": {},
+          "slug": "troq_bashar",
+          "summoning_runes": 2,
+          "time_runes": 0,
+          "trashed": [],
+          "zone": "command"
+        }
+      ],
+      "hired_this_turn": true,
+      "lasting": [],
+      "peace": false,
+      "play": [
+        {
+          "armor": 0,
+          "arrived_this_turn": false,
+          "attached": [],
+          "attached_hero": null,
+          "attacked_this_turn": false,
+          "buried": [],
+          "controller": 1,
+          "copy_of": null,
+          "damage": 0,
           "disabled": false,
           "exhausted": true,
-          "level": 4,
+          "flipped": false,
+          "id": 20,
+          "jailed": null,
+          "made_by": null,
+          "minus_runes": 0,
+          "modifiers": [],
+          "number": null,
+          "oath": null,
+          "owner": 1,
+          "patrol_slot": null,
+          "plus_runes": 0,
+          "printed": null,
+          "returns_to": null,
+          "runes": {},
+          "sequence": 26,
+          "slug": "fruit_ninja",
+          "time_runes": 0
+        }
+      ],
+      "played_from_hand": 1,
+      "promised": false,
+      "reshuffled_this_phase": false,
+      "seat": 1,
+      "silenced": false,
+      "skip_draw": false,
+      "specs": [
+        "bashing"
+      ],
+      "spells_played": 0,
+      "tech2_spec": null,
+      "tech_choice": [
+        "hired_stomper",
+        "hired_stomper"
+      ],
+      "tech_confirmed": false,
+      "tech_owed": true,
+      "teched": [
+        "eggship",
+        "eggship"
+      ],
+      "workers": 10
+    },
+    {
+      "add_on": null,
+      "arrived_from_hand": true,
+      "base_hp": 2,
+      "buildings": {
+        "tech1": {
+          "destroyed": false,
+          "disabled": false,
+          "hp": 4,
+          "under_construction": false
+        },
+        "tech2": {
+          "destroyed": false,
+          "disabled": false,
+          "hp": 5,
+          "under_construction": false
+        },
+        "tech3": {
+          "destroyed": false,
+          "disabled": false,
+          "hp": 5,
+          "under_construction": false
+        }
+      },
+      "built_this_turn": true,
+      "codex": {
+        "appel_stomp": 2,
+        "backstabber": 0,
+        "blademaster": 2,
+        "cloud_sprite": 0,
+        "discord": 2,
+        "grounded_guide": 2,
+        "harmony": 2,
+        "leaping_lizard": 0,
+        "maestro": 2,
+        "nimble_fencer": 0,
+        "starcrossed_starlet": 0,
+        "two_step": 2
+      },
+      "constructed_once": true,
+      "debt": 0,
+      "deck": [
+        "cloud_sprite",
+        "tenderfoot",
+        "older_brother",
+        "spark",
+        "leaping_lizard",
+        "timely_messenger",
+        "wither",
+        "starcrossed_starlet"
+      ],
+      "deck_color": "neutral",
+      "discard": [
+        "backstabber",
+        "backstabber",
+        "nimble_fencer"
+      ],
+      "discards_at_main_end": false,
+      "discards_untold": [],
+      "future": [],
+      "gold": 11,
+      "hand": [
+        "leaping_lizard",
+        "cloud_sprite"
+      ],
+      "heroes": [
+        {
+          "armor": 0,
+          "arrived_this_turn": false,
+          "attacked_this_turn": false,
+          "bands": {},
+          "damage": 0,
+          "disabled": false,
+          "exhausted": false,
+          "level": 1,
+          "max_level_since_turn_began": false,
+          "minus_runes": 0,
+          "modifiers": [],
+          "patrol_slot": null,
+          "plus_runes": 0,
+          "printed": null,
+          "runes": {},
+          "slug": "river_montoya",
+          "summoning_runes": 1,
+          "time_runes": 0,
+          "trashed": [],
+          "zone": "command"
+        }
+      ],
+      "hired_this_turn": true,
+      "lasting": [],
+      "peace": false,
+      "play": [
+        {
+          "armor": 1,
+          "arrived_this_turn": true,
+          "attached": [],
+          "attached_hero": null,
+          "attacked_this_turn": false,
+          "buried": [],
+          "controller": 2,
+          "copy_of": null,
+          "damage": 0,
+          "disabled": false,
+          "exhausted": false,
+          "flipped": false,
+          "id": 24,
+          "jailed": null,
+          "made_by": null,
+          "minus_runes": 0,
+          "modifiers": [],
+          "number": null,
+          "oath": null,
+          "owner": 2,
+          "patrol_slot": "squad_leader",
+          "plus_runes": 0,
+          "printed": null,
+          "returns_to": null,
+          "runes": {},
+          "sequence": 32,
+          "slug": "fruit_ninja",
+          "time_runes": 0
+        }
+      ],
+      "played_from_hand": 1,
+      "promised": false,
+      "reshuffled_this_phase": false,
+      "seat": 2,
+      "silenced": false,
+      "skip_draw": false,
+      "specs": [
+        "finesse"
+      ],
+      "spells_played": 0,
+      "tech2_spec": null,
+      "tech_choice": [
+        "maestro",
+        "maestro"
+      ],
+      "tech_confirmed": false,
+      "tech_owed": true,
+      "teched": [
+        "backstabber",
+        "backstabber"
+      ],
+      "workers": 10
+    },
+    {
+      "add_on": null,
+      "arrived_from_hand": true,
+      "base_hp": 20,
+      "bounties": 1,
+      "buildings": {
+        "tech1": {
+          "destroyed": false,
+          "disabled": false,
+          "hp": 5,
+          "under_construction": false
+        },
+        "tech2": {
+          "destroyed": false,
+          "disabled": false,
+          "hp": 5,
+          "under_construction": false
+        },
+        "tech3": {
+          "destroyed": false,
+          "disabled": false,
+          "hp": 5,
+          "under_construction": false
+        }
+      },
+      "built_this_turn": false,
+      "codex": {
+        "eggship": 0,
+        "final_smash": 2,
+        "harvest_reaper": 2,
+        "hired_stomper": 0,
+        "intimidate": 2,
+        "iron_man": 0,
+        "regularsized_rhinoceros": 2,
+        "revolver_ocelot": 0,
+        "sneaky_pig": 0,
+        "the_boot": 2,
+        "trojan_duck": 2,
+        "wrecking_ball": 2
+      },
+      "constructed_once": true,
+      "debt": 0,
+      "deck": [
+        "sneaky_pig",
+        "revolver_ocelot"
+      ],
+      "deck_color": "neutral",
+      "discard": [
+        "eggship",
+        "eggship",
+        "hired_stomper",
+        "hired_stomper",
+        "brick_thief",
+        "older_brother",
+        "tenderfoot"
+      ],
+      "discards_at_main_end": false,
+      "discards_untold": [],
+      "future": [],
+      "gold": 3,
+      "hand": [],
+      "heroes": [
+        {
+          "armor": 0,
+          "arrived_this_turn": false,
+          "attacked_this_turn": false,
+          "bands": {
+            "1": 3,
+            "5": 28,
+            "8": 35
+          },
+          "damage": 0,
+          "disabled": false,
+          "exhausted": false,
+          "level": 8,
           "max_level_since_turn_began": false,
           "minus_runes": 0,
           "modifiers": [],
@@ -1521,100 +1734,10 @@
           "zone": "play"
         }
       ],
-      "hired_this_turn": true,
+      "hired_this_turn": false,
       "lasting": [],
       "peace": false,
       "play": [
-        {
-          "armor": 0,
-          "arrived_this_turn": false,
-          "attached": [],
-          "attached_hero": null,
-          "attacked_this_turn": true,
-          "buried": [],
-          "controller": 3,
-          "copy_of": null,
-          "damage": 0,
-          "disabled": false,
-          "exhausted": true,
-          "flipped": false,
-          "id": 7,
-          "jailed": null,
-          "made_by": null,
-          "minus_runes": 0,
-          "modifiers": [],
-          "number": null,
-          "oath": null,
-          "owner": 3,
-          "patrol_slot": null,
-          "plus_runes": 0,
-          "printed": null,
-          "returns_to": null,
-          "runes": {},
-          "sequence": 11,
-          "slug": "brick_thief",
-          "time_runes": 0
-        },
-        {
-          "armor": 0,
-          "arrived_this_turn": false,
-          "attached": [],
-          "attached_hero": null,
-          "attacked_this_turn": true,
-          "buried": [],
-          "controller": 3,
-          "copy_of": null,
-          "damage": 0,
-          "disabled": false,
-          "exhausted": true,
-          "flipped": false,
-          "id": 8,
-          "jailed": null,
-          "made_by": null,
-          "minus_runes": 0,
-          "modifiers": [],
-          "number": null,
-          "oath": null,
-          "owner": 3,
-          "patrol_slot": null,
-          "plus_runes": 0,
-          "printed": null,
-          "returns_to": null,
-          "runes": {},
-          "sequence": 12,
-          "slug": "older_brother",
-          "time_runes": 0
-        },
-        {
-          "armor": 0,
-          "arrived_this_turn": false,
-          "attached": [],
-          "attached_hero": null,
-          "attacked_this_turn": true,
-          "buried": [],
-          "controller": 3,
-          "copy_of": null,
-          "damage": 0,
-          "disabled": false,
-          "exhausted": true,
-          "flipped": false,
-          "id": 13,
-          "jailed": null,
-          "made_by": null,
-          "minus_runes": 0,
-          "modifiers": [],
-          "number": null,
-          "oath": null,
-          "owner": 3,
-          "patrol_slot": null,
-          "plus_runes": 0,
-          "printed": null,
-          "returns_to": null,
-          "runes": {},
-          "sequence": 18,
-          "slug": "tenderfoot",
-          "time_runes": 0
-        },
         {
           "armor": 0,
           "arrived_this_turn": false,
@@ -1680,13 +1803,13 @@
           "arrived_this_turn": false,
           "attached": [],
           "attached_hero": null,
-          "attacked_this_turn": true,
+          "attacked_this_turn": false,
           "buried": [],
           "controller": 3,
           "copy_of": null,
           "damage": 0,
           "disabled": false,
-          "exhausted": true,
+          "exhausted": false,
           "flipped": false,
           "id": 17,
           "jailed": null,
@@ -1707,6 +1830,36 @@
         },
         {
           "armor": 0,
+          "arrived_this_turn": false,
+          "attached": [],
+          "attached_hero": null,
+          "attacked_this_turn": false,
+          "buried": [],
+          "controller": 3,
+          "copy_of": null,
+          "damage": 0,
+          "disabled": false,
+          "exhausted": false,
+          "flipped": false,
+          "id": 22,
+          "jailed": null,
+          "made_by": null,
+          "minus_runes": 0,
+          "modifiers": [],
+          "number": null,
+          "oath": null,
+          "owner": 3,
+          "patrol_slot": null,
+          "plus_runes": 0,
+          "printed": null,
+          "returns_to": null,
+          "runes": {},
+          "sequence": 29,
+          "slug": "iron_man",
+          "time_runes": 0
+        },
+        {
+          "armor": 0,
           "arrived_this_turn": true,
           "attached": [],
           "attached_hero": null,
@@ -1718,7 +1871,7 @@
           "disabled": false,
           "exhausted": false,
           "flipped": false,
-          "id": 19,
+          "id": 25,
           "jailed": null,
           "made_by": null,
           "minus_runes": 0,
@@ -1726,17 +1879,54 @@
           "number": null,
           "oath": null,
           "owner": 3,
-          "patrol_slot": "squad_leader",
+          "patrol_slot": null,
           "plus_runes": 0,
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 25,
+          "sequence": 33,
           "slug": "iron_man",
+          "time_runes": 0
+        },
+        {
+          "armor": 0,
+          "arrived_this_turn": true,
+          "attached": [],
+          "attached_hero": null,
+          "attacked_this_turn": false,
+          "buried": [],
+          "controller": 3,
+          "copy_of": null,
+          "damage": 0,
+          "disabled": false,
+          "exhausted": false,
+          "flipped": false,
+          "id": 26,
+          "jailed": null,
+          "made_by": null,
+          "minus_runes": 0,
+          "modifiers": [
+            {
+              "from": "sneaky_pig",
+              "keyword": "Stealth",
+              "kind": "keyword",
+              "until": "end_of_turn"
+            }
+          ],
+          "number": null,
+          "oath": null,
+          "owner": 3,
+          "patrol_slot": null,
+          "plus_runes": 0,
+          "printed": null,
+          "returns_to": null,
+          "runes": {},
+          "sequence": 34,
+          "slug": "sneaky_pig",
           "time_runes": 0
         }
       ],
-      "played_from_hand": 1,
+      "played_from_hand": 2,
       "promised": false,
       "reshuffled_this_phase": false,
       "seat": 3,
@@ -1749,24 +1939,20 @@
       "tech2_spec": null,
       "tech_choice": null,
       "tech_confirmed": false,
-      "tech_owed": true,
+      "tech_owed": false,
       "teched": [
-        "eggship",
-        "eggship"
+        "hired_stomper",
+        "hired_stomper"
       ],
       "workers": 10
     }
   ],
   "resolving": [],
-  "sequence": 25,
-  "tied": [
-    2,
-    3
-  ],
-  "turn": 13,
+  "sequence": 35,
+  "turn": 17,
   "turn_snapshots": [
     {
-      "active": 3,
+      "active": 1,
       "attacking": null,
       "combat": null,
       "conceded": null,
@@ -2419,6 +2605,307 @@
           "kind": "turn_ended",
           "seat": 2,
           "turn": 10
+        },
+        {
+          "kind": "turn_began",
+          "seat": 3,
+          "turn": 11
+        },
+        {
+          "kind": "hired",
+          "seat": 3,
+          "slug": "helpful_turtle",
+          "turn": 11
+        },
+        {
+          "cost": 1,
+          "kind": "played",
+          "seat": 3,
+          "slug": "timely_messenger",
+          "turn": 11
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 3,
+          "slug": "revolver_ocelot",
+          "turn": 11
+        },
+        {
+          "cost": 3,
+          "kind": "played",
+          "seat": 3,
+          "slug": "granfalloon_flagbearer",
+          "turn": 11
+        },
+        {
+          "kind": "levelled",
+          "level": 4,
+          "levels": 1,
+          "seat": 3,
+          "slug": "troq_bashar",
+          "turn": 11
+        },
+        {
+          "attacker": "unit:7",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 11
+        },
+        {
+          "attacker": "unit:8",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 11
+        },
+        {
+          "attacker": "unit:13",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 11
+        },
+        {
+          "attacker": "unit:15",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 11
+        },
+        {
+          "attacker": "hero:troq_bashar",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 11
+        },
+        {
+          "kind": "patrolled",
+          "seat": 3,
+          "slots": {
+            "elite": "unit:17",
+            "squad_leader": "unit:16"
+          },
+          "turn": 11
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 3,
+          "turn": 11
+        },
+        {
+          "kind": "turn_began",
+          "seat": 1,
+          "turn": 12
+        },
+        {
+          "kind": "hired",
+          "seat": 1,
+          "slug": "wither",
+          "turn": 12
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 1,
+          "slug": "brick_thief",
+          "turn": 12
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 1,
+          "slug": "revolver_ocelot",
+          "turn": 12
+        },
+        {
+          "cost": 3,
+          "kind": "played",
+          "seat": 1,
+          "slug": "fruit_ninja",
+          "turn": 12
+        },
+        {
+          "kind": "patrolled",
+          "seat": 1,
+          "slots": {
+            "elite": "unit:19",
+            "scavenger": "unit:20",
+            "squad_leader": "unit:18"
+          },
+          "turn": 12
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 1,
+          "turn": 12
+        },
+        {
+          "kind": "turn_began",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "hired",
+          "seat": 2,
+          "slug": "nimble_fencer",
+          "turn": 13
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 2,
+          "slug": "nimble_fencer",
+          "turn": 13
+        },
+        {
+          "attacker": "unit:14",
+          "defender": "unit:18",
+          "kind": "attacked",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "destroyed",
+          "owner": 2,
+          "seat": 2,
+          "slug": "timely_messenger",
+          "turn": 13
+        },
+        {
+          "attacker": "unit:21",
+          "defender": "unit:18",
+          "kind": "attacked",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "destroyed",
+          "owner": 1,
+          "seat": 2,
+          "slug": "brick_thief",
+          "turn": 13
+        },
+        {
+          "attacker": "hero:river_montoya",
+          "defender": "unit:19",
+          "kind": "attacked",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "destroyed",
+          "owner": 1,
+          "seat": 2,
+          "slug": "revolver_ocelot",
+          "turn": 13
+        },
+        {
+          "kind": "hero_died",
+          "owner": 2,
+          "seat": 2,
+          "slug": "river_montoya",
+          "turn": 13
+        },
+        {
+          "kind": "patrolled",
+          "seat": 2,
+          "slots": {},
+          "turn": 13
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "turn_began",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "kind": "hired",
+          "seat": 3,
+          "slug": "fruit_ninja",
+          "turn": 14
+        },
+        {
+          "building": "tech3",
+          "cost": 5,
+          "kind": "built",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "cost": 3,
+          "kind": "played",
+          "seat": 3,
+          "slug": "iron_man",
+          "turn": 14
+        },
+        {
+          "attacker": "unit:7",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:8",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:13",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:15",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:16",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:17",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "hero:troq_bashar",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "kind": "patrolled",
+          "seat": 3,
+          "slots": {
+            "squad_leader": "unit:22"
+          },
+          "turn": 14
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 3,
+          "turn": 14
         }
       ],
       "extra_turns": [],
@@ -2428,10 +2915,10 @@
           "action": {
             "arguments": {
               "picks": [
-                "cloud_sprite",
-                "cloud_sprite"
+                "hired_stomper",
+                "hired_stomper"
               ],
-              "player": 2
+              "player": 3
             },
             "choice": "",
             "kind": "tech_choice"
@@ -2441,7 +2928,7 @@
         {
           "action": {
             "arguments": {
-              "player": 3
+              "player": 1
             },
             "choice": "confirm",
             "kind": "tech_confirm"
@@ -2461,7 +2948,27 @@
         {
           "action": {
             "arguments": {
-              "slug": "timely_messenger"
+              "building": "tech3"
+            },
+            "choice": "build",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "hero": "troq_bashar"
+            },
+            "choice": "summon",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "slug": "tenderfoot"
             },
             "choice": "play",
             "kind": "main_action"
@@ -2471,38 +2978,7 @@
         {
           "action": {
             "arguments": {
-              "slug": "revolver_ocelot"
-            },
-            "choice": "play",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "slug": "granfalloon_flagbearer"
-            },
-            "choice": "play",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "hero": "troq_bashar",
-              "levels": 1
-            },
-            "choice": "level",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "attacker": "unit:7"
+              "attacker": "unit:20"
             },
             "choice": "attack",
             "kind": "main_action"
@@ -2512,111 +2988,7 @@
         {
           "action": {
             "arguments": {
-              "against": 1,
-              "defender": "base"
-            },
-            "choice": "",
-            "kind": "choose_defender"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "target": "1:tech1"
-            },
-            "choice": "",
-            "kind": "target"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "target": "3:base"
-            },
-            "choice": "",
-            "kind": "target"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "attacker": "unit:8"
-            },
-            "choice": "attack",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "against": 1,
-              "defender": "base"
-            },
-            "choice": "",
-            "kind": "choose_defender"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "attacker": "unit:13"
-            },
-            "choice": "attack",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "against": 1,
-              "defender": "base"
-            },
-            "choice": "",
-            "kind": "choose_defender"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "attacker": "unit:15"
-            },
-            "choice": "attack",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "against": 1,
-              "defender": "base"
-            },
-            "choice": "",
-            "kind": "choose_defender"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "attacker": "hero:troq_bashar"
-            },
-            "choice": "attack",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "against": 1,
+              "against": 2,
               "defender": "base"
             },
             "choice": "",
@@ -2634,18 +3006,18 @@
         }
       ],
       "lost_by_debt": null,
-      "next_instance_id": 15,
+      "next_instance_id": 23,
       "phase": "ready",
       "players": [
         {
           "add_on": null,
-          "arrived_from_hand": false,
-          "base_hp": 7,
+          "arrived_from_hand": true,
+          "base_hp": 2,
           "buildings": {
             "tech1": {
               "destroyed": false,
               "disabled": false,
-              "hp": 3,
+              "hp": 2,
               "under_construction": false
             },
             "tech2": {
@@ -2656,7 +3028,7 @@
             },
             "tech3": null
           },
-          "built_this_turn": true,
+          "built_this_turn": false,
           "codex": {
             "eggship": 2,
             "final_smash": 2,
@@ -2666,7 +3038,7 @@
             "iron_man": 0,
             "regularsized_rhinoceros": 2,
             "revolver_ocelot": 0,
-            "sneaky_pig": 2,
+            "sneaky_pig": 0,
             "the_boot": 2,
             "trojan_duck": 2,
             "wrecking_ball": 2
@@ -2674,26 +3046,26 @@
           "constructed_once": true,
           "debt": 0,
           "deck": [
-            "tenderfoot"
+            "sneaky_pig",
+            "iron_man",
+            "revolver_ocelot",
+            "iron_man",
+            "timely_messenger",
+            "sneaky_pig",
+            "older_brother"
           ],
           "deck_color": "neutral",
           "discard": [
-            "helpful_turtle",
-            "older_brother",
-            "iron_man",
-            "iron_man",
-            "revolver_ocelot",
-            "timely_messenger"
+            "brick_thief",
+            "revolver_ocelot"
           ],
           "discards_at_main_end": false,
           "discards_untold": [],
           "future": [],
           "gold": 0,
           "hand": [
-            "wither",
-            "revolver_ocelot",
-            "fruit_ninja",
-            "brick_thief"
+            "tenderfoot",
+            "helpful_turtle"
           ],
           "heroes": [
             {
@@ -2713,122 +3085,10 @@
               "printed": null,
               "runes": {},
               "slug": "troq_bashar",
-              "summoning_runes": 2,
+              "summoning_runes": 1,
               "time_runes": 0,
               "trashed": [],
               "zone": "command"
-            }
-          ],
-          "hired_this_turn": true,
-          "lasting": [],
-          "peace": false,
-          "play": [],
-          "played_from_hand": 0,
-          "promised": false,
-          "reshuffled_this_phase": false,
-          "seat": 1,
-          "silenced": false,
-          "skip_draw": false,
-          "specs": [
-            "bashing"
-          ],
-          "spells_played": 0,
-          "tech2_spec": null,
-          "tech_choice": [
-            "sneaky_pig",
-            "sneaky_pig"
-          ],
-          "tech_confirmed": false,
-          "tech_owed": true,
-          "teched": [
-            "iron_man",
-            "iron_man"
-          ],
-          "workers": 8
-        },
-        {
-          "add_on": null,
-          "arrived_from_hand": true,
-          "base_hp": 20,
-          "buildings": {
-            "tech1": {
-              "destroyed": false,
-              "disabled": false,
-              "hp": 5,
-              "under_construction": false
-            },
-            "tech2": {
-              "destroyed": false,
-              "disabled": false,
-              "hp": 5,
-              "under_construction": false
-            },
-            "tech3": null
-          },
-          "built_this_turn": true,
-          "codex": {
-            "appel_stomp": 2,
-            "backstabber": 2,
-            "blademaster": 2,
-            "cloud_sprite": 2,
-            "discord": 2,
-            "grounded_guide": 2,
-            "harmony": 2,
-            "leaping_lizard": 0,
-            "maestro": 2,
-            "nimble_fencer": 0,
-            "starcrossed_starlet": 0,
-            "two_step": 2
-          },
-          "constructed_once": true,
-          "debt": 0,
-          "deck": [],
-          "deck_color": "neutral",
-          "discard": [
-            "starcrossed_starlet",
-            "starcrossed_starlet",
-            "spark",
-            "wither",
-            "older_brother",
-            "leaping_lizard",
-            "leaping_lizard",
-            "tenderfoot",
-            "fruit_ninja"
-          ],
-          "discards_at_main_end": false,
-          "discards_untold": [],
-          "future": [],
-          "gold": 4,
-          "hand": [
-            "nimble_fencer",
-            "nimble_fencer"
-          ],
-          "heroes": [
-            {
-              "armor": 0,
-              "arrived_this_turn": false,
-              "attacked_this_turn": true,
-              "bands": {
-                "1": 1,
-                "3": 10,
-                "5": 13
-              },
-              "damage": 0,
-              "disabled": false,
-              "exhausted": true,
-              "level": 5,
-              "max_level_since_turn_began": true,
-              "minus_runes": 0,
-              "modifiers": [],
-              "patrol_slot": null,
-              "plus_runes": 0,
-              "printed": null,
-              "runes": {},
-              "slug": "river_montoya",
-              "summoning_runes": 0,
-              "time_runes": 0,
-              "trashed": [],
-              "zone": "play"
             }
           ],
           "hired_this_turn": true,
@@ -2840,15 +3100,156 @@
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": true,
+              "attacked_this_turn": false,
               "buried": [],
-              "controller": 2,
+              "controller": 1,
               "copy_of": null,
               "damage": 0,
               "disabled": false,
+              "exhausted": false,
+              "flipped": false,
+              "id": 20,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 1,
+              "patrol_slot": "scavenger",
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 26,
+              "slug": "fruit_ninja",
+              "time_runes": 0
+            }
+          ],
+          "played_from_hand": 3,
+          "promised": false,
+          "reshuffled_this_phase": false,
+          "seat": 1,
+          "silenced": false,
+          "skip_draw": false,
+          "specs": [
+            "bashing"
+          ],
+          "spells_played": 0,
+          "tech2_spec": null,
+          "tech_choice": [
+            "eggship",
+            "eggship"
+          ],
+          "tech_confirmed": false,
+          "tech_owed": true,
+          "teched": [
+            "sneaky_pig",
+            "sneaky_pig"
+          ],
+          "workers": 9
+        },
+        {
+          "add_on": null,
+          "arrived_from_hand": true,
+          "base_hp": 5,
+          "bounties": 2,
+          "buildings": {
+            "tech1": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 4,
+              "under_construction": false
+            },
+            "tech2": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            },
+            "tech3": null
+          },
+          "built_this_turn": false,
+          "codex": {
+            "appel_stomp": 2,
+            "backstabber": 2,
+            "blademaster": 2,
+            "cloud_sprite": 0,
+            "discord": 2,
+            "grounded_guide": 2,
+            "harmony": 2,
+            "leaping_lizard": 0,
+            "maestro": 2,
+            "nimble_fencer": 0,
+            "starcrossed_starlet": 0,
+            "two_step": 2
+          },
+          "constructed_once": true,
+          "debt": 0,
+          "deck": [
+            "cloud_sprite",
+            "tenderfoot",
+            "older_brother",
+            "spark",
+            "leaping_lizard",
+            "timely_messenger",
+            "wither",
+            "starcrossed_starlet",
+            "cloud_sprite",
+            "leaping_lizard"
+          ],
+          "deck_color": "neutral",
+          "discard": [],
+          "discards_at_main_end": false,
+          "discards_untold": [],
+          "future": [],
+          "gold": 11,
+          "hand": [
+            "fruit_ninja",
+            "starcrossed_starlet"
+          ],
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attacked_this_turn": false,
+              "bands": {},
+              "damage": 0,
+              "disabled": false,
+              "exhausted": false,
+              "level": 1,
+              "max_level_since_turn_began": false,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "runes": {},
+              "slug": "river_montoya",
+              "summoning_runes": 2,
+              "time_runes": 0,
+              "trashed": [],
+              "zone": "command"
+            }
+          ],
+          "hired_this_turn": true,
+          "lasting": [],
+          "peace": false,
+          "play": [
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 2,
+              "copy_of": null,
+              "damage": 2,
+              "disabled": false,
               "exhausted": true,
               "flipped": false,
-              "id": 14,
+              "id": 21,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -2861,8 +3262,8 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 20,
-              "slug": "timely_messenger",
+              "sequence": 27,
+              "slug": "nimble_fencer",
               "time_runes": 0
             }
           ],
@@ -2877,14 +3278,17 @@
           ],
           "spells_played": 0,
           "tech2_spec": null,
-          "tech_choice": null,
+          "tech_choice": [
+            "backstabber",
+            "backstabber"
+          ],
           "tech_confirmed": false,
           "tech_owed": true,
           "teched": [
-            "leaping_lizard",
-            "leaping_lizard"
+            "cloud_sprite",
+            "cloud_sprite"
           ],
-          "workers": 8
+          "workers": 9
         },
         {
           "add_on": null,
@@ -2903,11 +3307,16 @@
               "hp": 5,
               "under_construction": false
             },
-            "tech3": null
+            "tech3": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            }
           },
           "built_this_turn": true,
           "codex": {
-            "eggship": 2,
+            "eggship": 0,
             "final_smash": 2,
             "harvest_reaper": 2,
             "hired_stomper": 2,
@@ -2915,43 +3324,43 @@
             "iron_man": 0,
             "regularsized_rhinoceros": 2,
             "revolver_ocelot": 0,
-            "sneaky_pig": 2,
+            "sneaky_pig": 0,
             "the_boot": 2,
             "trojan_duck": 2,
             "wrecking_ball": 2
           },
           "constructed_once": true,
           "debt": 0,
-          "deck": [],
+          "deck": [
+            "sneaky_pig",
+            "revolver_ocelot"
+          ],
           "deck_color": "neutral",
           "discard": [
-            "iron_man",
-            "iron_man",
-            "fruit_ninja",
-            "revolver_ocelot"
+            "eggship",
+            "eggship"
           ],
           "discards_at_main_end": false,
           "discards_untold": [],
           "future": [],
           "gold": 0,
           "hand": [
-            "granfalloon_flagbearer",
-            "timely_messenger",
-            "revolver_ocelot",
-            "helpful_turtle"
+            "sneaky_pig",
+            "iron_man"
           ],
           "heroes": [
             {
               "armor": 0,
               "arrived_this_turn": false,
-              "attacked_this_turn": false,
+              "attacked_this_turn": true,
               "bands": {
-                "1": 3
+                "1": 3,
+                "5": 28
               },
-              "damage": 2,
+              "damage": 0,
               "disabled": false,
               "exhausted": true,
-              "level": 3,
+              "level": 6,
               "max_level_since_turn_began": false,
               "minus_runes": 0,
               "modifiers": [],
@@ -2975,7 +3384,7 @@
               "arrived_this_turn": false,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": false,
+              "attacked_this_turn": true,
               "buried": [],
               "controller": 3,
               "copy_of": null,
@@ -3005,7 +3414,7 @@
               "arrived_this_turn": false,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": false,
+              "attacked_this_turn": true,
               "buried": [],
               "controller": 3,
               "copy_of": null,
@@ -3031,7 +3440,127 @@
               "time_runes": 0
             },
             {
-              "armor": 1,
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": true,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 13,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 18,
+              "slug": "tenderfoot",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": true,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 15,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 21,
+              "slug": "timely_messenger",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": true,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 16,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 22,
+              "slug": "revolver_ocelot",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": true,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 17,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 23,
+              "slug": "granfalloon_flagbearer",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -3043,7 +3572,7 @@
               "disabled": false,
               "exhausted": false,
               "flipped": false,
-              "id": 13,
+              "id": 22,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -3056,8 +3585,8 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 18,
-              "slug": "tenderfoot",
+              "sequence": 29,
+              "slug": "iron_man",
               "time_runes": 0
             }
           ],
@@ -3072,22 +3601,19 @@
           ],
           "spells_played": 0,
           "tech2_spec": null,
-          "tech_choice": [
-            "sneaky_pig",
-            "sneaky_pig"
-          ],
+          "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": true,
           "teched": [
-            "iron_man",
-            "iron_man"
+            "eggship",
+            "eggship"
           ],
-          "workers": 8
+          "workers": 10
         }
       ],
       "resolving": [],
-      "sequence": 20,
-      "turn": 11,
+      "sequence": 29,
+      "turn": 15,
       "variant": "free_for_all",
       "winner": null
     },
@@ -3822,17 +4348,6 @@
           "turn": 11
         },
         {
-          "hp": 20,
-          "kind": "tied",
-          "loser": 1,
-          "seat": 3,
-          "seats": [
-            2,
-            3
-          ],
-          "turn": 11
-        },
-        {
           "kind": "patrolled",
           "seat": 3,
           "slots": {
@@ -3845,6 +4360,270 @@
           "kind": "turn_ended",
           "seat": 3,
           "turn": 11
+        },
+        {
+          "kind": "turn_began",
+          "seat": 1,
+          "turn": 12
+        },
+        {
+          "kind": "hired",
+          "seat": 1,
+          "slug": "wither",
+          "turn": 12
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 1,
+          "slug": "brick_thief",
+          "turn": 12
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 1,
+          "slug": "revolver_ocelot",
+          "turn": 12
+        },
+        {
+          "cost": 3,
+          "kind": "played",
+          "seat": 1,
+          "slug": "fruit_ninja",
+          "turn": 12
+        },
+        {
+          "kind": "patrolled",
+          "seat": 1,
+          "slots": {
+            "elite": "unit:19",
+            "scavenger": "unit:20",
+            "squad_leader": "unit:18"
+          },
+          "turn": 12
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 1,
+          "turn": 12
+        },
+        {
+          "kind": "turn_began",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "hired",
+          "seat": 2,
+          "slug": "nimble_fencer",
+          "turn": 13
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 2,
+          "slug": "nimble_fencer",
+          "turn": 13
+        },
+        {
+          "attacker": "unit:14",
+          "defender": "unit:18",
+          "kind": "attacked",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "destroyed",
+          "owner": 2,
+          "seat": 2,
+          "slug": "timely_messenger",
+          "turn": 13
+        },
+        {
+          "attacker": "unit:21",
+          "defender": "unit:18",
+          "kind": "attacked",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "destroyed",
+          "owner": 1,
+          "seat": 2,
+          "slug": "brick_thief",
+          "turn": 13
+        },
+        {
+          "attacker": "hero:river_montoya",
+          "defender": "unit:19",
+          "kind": "attacked",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "destroyed",
+          "owner": 1,
+          "seat": 2,
+          "slug": "revolver_ocelot",
+          "turn": 13
+        },
+        {
+          "kind": "hero_died",
+          "owner": 2,
+          "seat": 2,
+          "slug": "river_montoya",
+          "turn": 13
+        },
+        {
+          "kind": "patrolled",
+          "seat": 2,
+          "slots": {},
+          "turn": 13
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 2,
+          "turn": 13
+        },
+        {
+          "kind": "turn_began",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "kind": "hired",
+          "seat": 3,
+          "slug": "fruit_ninja",
+          "turn": 14
+        },
+        {
+          "building": "tech3",
+          "cost": 5,
+          "kind": "built",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "cost": 3,
+          "kind": "played",
+          "seat": 3,
+          "slug": "iron_man",
+          "turn": 14
+        },
+        {
+          "attacker": "unit:7",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:8",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:13",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:15",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:16",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:17",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "hero:troq_bashar",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "kind": "patrolled",
+          "seat": 3,
+          "slots": {
+            "squad_leader": "unit:22"
+          },
+          "turn": 14
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "kind": "turn_began",
+          "seat": 1,
+          "turn": 15
+        },
+        {
+          "kind": "hired",
+          "seat": 1,
+          "slug": "helpful_turtle",
+          "turn": 15
+        },
+        {
+          "building": "tech3",
+          "cost": 5,
+          "kind": "built",
+          "seat": 1,
+          "turn": 15
+        },
+        {
+          "kind": "summoned",
+          "seat": 1,
+          "slug": "troq_bashar",
+          "turn": 15
+        },
+        {
+          "cost": 1,
+          "kind": "played",
+          "seat": 1,
+          "slug": "tenderfoot",
+          "turn": 15
+        },
+        {
+          "attacker": "unit:20",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 1,
+          "turn": 15
+        },
+        {
+          "kind": "patrolled",
+          "seat": 1,
+          "slots": {
+            "elite": "hero:troq_bashar",
+            "squad_leader": "unit:23"
+          },
+          "turn": 15
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 1,
+          "turn": 15
         }
       ],
       "extra_turns": [],
@@ -3854,10 +4633,10 @@
           "action": {
             "arguments": {
               "picks": [
-                "eggship",
-                "eggship"
+                "hired_stomper",
+                "hired_stomper"
               ],
-              "player": 3
+              "player": 1
             },
             "choice": "",
             "kind": "tech_choice"
@@ -3877,7 +4656,7 @@
         {
           "action": {
             "arguments": {
-              "slug": "nimble_fencer"
+              "slug": "starcrossed_starlet"
             },
             "choice": "hire",
             "kind": "main_action"
@@ -3887,7 +4666,17 @@
         {
           "action": {
             "arguments": {
-              "slug": "nimble_fencer"
+              "building": "tech3"
+            },
+            "choice": "build",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "slug": "fruit_ninja"
             },
             "choice": "play",
             "kind": "main_action"
@@ -3897,7 +4686,7 @@
         {
           "action": {
             "arguments": {
-              "attacker": "unit:14"
+              "attacker": "unit:21"
             },
             "choice": "attack",
             "kind": "main_action"
@@ -3908,49 +4697,7 @@
           "action": {
             "arguments": {
               "against": 1,
-              "defender": "tech1"
-            },
-            "choice": "",
-            "kind": "choose_defender"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "attacker": "unit:18"
-            },
-            "choice": "attack",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "against": 1,
-              "defender": "tech1"
-            },
-            "choice": "",
-            "kind": "choose_defender"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "attacker": "hero:river_montoya"
-            },
-            "choice": "attack",
-            "kind": "main_action"
-          },
-          "outcomes": []
-        },
-        {
-          "action": {
-            "arguments": {
-              "against": 1,
-              "defender": "tech2"
+              "defender": "unit:23"
             },
             "choice": "",
             "kind": "choose_defender"
@@ -3967,13 +4714,13 @@
         }
       ],
       "lost_by_debt": null,
-      "next_instance_id": 18,
+      "next_instance_id": 24,
       "phase": "ready",
       "players": [
         {
           "add_on": null,
-          "arrived_from_hand": false,
-          "base_hp": 0,
+          "arrived_from_hand": true,
+          "base_hp": 2,
           "buildings": {
             "tech1": {
               "destroyed": false,
@@ -3987,11 +4734,16 @@
               "hp": 5,
               "under_construction": false
             },
-            "tech3": null
+            "tech3": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            }
           },
           "built_this_turn": true,
           "codex": {
-            "eggship": 2,
+            "eggship": 0,
             "final_smash": 2,
             "harvest_reaper": 2,
             "hired_stomper": 2,
@@ -3999,7 +4751,7 @@
             "iron_man": 0,
             "regularsized_rhinoceros": 2,
             "revolver_ocelot": 0,
-            "sneaky_pig": 2,
+            "sneaky_pig": 0,
             "the_boot": 2,
             "trojan_duck": 2,
             "wrecking_ball": 2
@@ -4007,26 +4759,196 @@
           "constructed_once": true,
           "debt": 0,
           "deck": [
-            "tenderfoot"
+            "sneaky_pig",
+            "iron_man",
+            "revolver_ocelot",
+            "iron_man",
+            "timely_messenger"
           ],
           "deck_color": "neutral",
           "discard": [
-            "helpful_turtle",
-            "older_brother",
-            "iron_man",
-            "iron_man",
+            "brick_thief",
             "revolver_ocelot",
-            "timely_messenger"
+            "eggship",
+            "eggship"
           ],
           "discards_at_main_end": false,
           "discards_untold": [],
           "future": [],
           "gold": 0,
           "hand": [
+            "older_brother",
+            "sneaky_pig"
+          ],
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attacked_this_turn": false,
+              "bands": {
+                "1": 30
+              },
+              "damage": 0,
+              "disabled": false,
+              "exhausted": false,
+              "level": 1,
+              "max_level_since_turn_began": false,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": "elite",
+              "plus_runes": 0,
+              "printed": null,
+              "runes": {},
+              "slug": "troq_bashar",
+              "summoning_runes": 0,
+              "time_runes": 0,
+              "trashed": [],
+              "zone": "play"
+            }
+          ],
+          "hired_this_turn": true,
+          "lasting": [],
+          "peace": false,
+          "play": [
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": true,
+              "buried": [],
+              "controller": 1,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 20,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 1,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 26,
+              "slug": "fruit_ninja",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 1,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": false,
+              "flipped": false,
+              "id": 23,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 1,
+              "patrol_slot": "squad_leader",
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 31,
+              "slug": "tenderfoot",
+              "time_runes": 0
+            }
+          ],
+          "played_from_hand": 1,
+          "promised": false,
+          "reshuffled_this_phase": false,
+          "seat": 1,
+          "silenced": false,
+          "skip_draw": false,
+          "specs": [
+            "bashing"
+          ],
+          "spells_played": 0,
+          "tech2_spec": null,
+          "tech_choice": null,
+          "tech_confirmed": false,
+          "tech_owed": true,
+          "teched": [
+            "eggship",
+            "eggship"
+          ],
+          "workers": 10
+        },
+        {
+          "add_on": null,
+          "arrived_from_hand": true,
+          "base_hp": 2,
+          "bounties": 2,
+          "buildings": {
+            "tech1": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 4,
+              "under_construction": false
+            },
+            "tech2": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            },
+            "tech3": null
+          },
+          "built_this_turn": false,
+          "codex": {
+            "appel_stomp": 2,
+            "backstabber": 2,
+            "blademaster": 2,
+            "cloud_sprite": 0,
+            "discord": 2,
+            "grounded_guide": 2,
+            "harmony": 2,
+            "leaping_lizard": 0,
+            "maestro": 2,
+            "nimble_fencer": 0,
+            "starcrossed_starlet": 0,
+            "two_step": 2
+          },
+          "constructed_once": true,
+          "debt": 0,
+          "deck": [
+            "cloud_sprite",
+            "tenderfoot",
+            "older_brother",
+            "spark",
+            "leaping_lizard",
+            "timely_messenger",
             "wither",
-            "revolver_ocelot",
+            "starcrossed_starlet",
+            "cloud_sprite",
+            "leaping_lizard"
+          ],
+          "deck_color": "neutral",
+          "discard": [],
+          "discards_at_main_end": false,
+          "discards_untold": [],
+          "future": [],
+          "gold": 11,
+          "hand": [
             "fruit_ninja",
-            "brick_thief"
+            "starcrossed_starlet"
           ],
           "heroes": [
             {
@@ -4045,123 +4967,11 @@
               "plus_runes": 0,
               "printed": null,
               "runes": {},
-              "slug": "troq_bashar",
+              "slug": "river_montoya",
               "summoning_runes": 2,
               "time_runes": 0,
               "trashed": [],
               "zone": "command"
-            }
-          ],
-          "hired_this_turn": true,
-          "lasting": [],
-          "peace": false,
-          "play": [],
-          "played_from_hand": 0,
-          "promised": false,
-          "reshuffled_this_phase": false,
-          "seat": 1,
-          "silenced": false,
-          "skip_draw": false,
-          "specs": [
-            "bashing"
-          ],
-          "spells_played": 0,
-          "tech2_spec": null,
-          "tech_choice": [
-            "sneaky_pig",
-            "sneaky_pig"
-          ],
-          "tech_confirmed": false,
-          "tech_owed": true,
-          "teched": [
-            "iron_man",
-            "iron_man"
-          ],
-          "workers": 8
-        },
-        {
-          "add_on": null,
-          "arrived_from_hand": true,
-          "base_hp": 20,
-          "buildings": {
-            "tech1": {
-              "destroyed": false,
-              "disabled": false,
-              "hp": 5,
-              "under_construction": false
-            },
-            "tech2": {
-              "destroyed": false,
-              "disabled": false,
-              "hp": 5,
-              "under_construction": false
-            },
-            "tech3": null
-          },
-          "built_this_turn": true,
-          "codex": {
-            "appel_stomp": 2,
-            "backstabber": 2,
-            "blademaster": 2,
-            "cloud_sprite": 2,
-            "discord": 2,
-            "grounded_guide": 2,
-            "harmony": 2,
-            "leaping_lizard": 0,
-            "maestro": 2,
-            "nimble_fencer": 0,
-            "starcrossed_starlet": 0,
-            "two_step": 2
-          },
-          "constructed_once": true,
-          "debt": 0,
-          "deck": [],
-          "deck_color": "neutral",
-          "discard": [
-            "starcrossed_starlet",
-            "starcrossed_starlet",
-            "spark",
-            "wither",
-            "older_brother",
-            "leaping_lizard",
-            "leaping_lizard",
-            "tenderfoot",
-            "fruit_ninja"
-          ],
-          "discards_at_main_end": false,
-          "discards_untold": [],
-          "future": [],
-          "gold": 4,
-          "hand": [
-            "nimble_fencer",
-            "nimble_fencer"
-          ],
-          "heroes": [
-            {
-              "armor": 0,
-              "arrived_this_turn": false,
-              "attacked_this_turn": false,
-              "bands": {
-                "1": 1,
-                "3": 10,
-                "5": 13
-              },
-              "damage": 0,
-              "disabled": false,
-              "exhausted": true,
-              "level": 5,
-              "max_level_since_turn_began": true,
-              "minus_runes": 0,
-              "modifiers": [],
-              "patrol_slot": null,
-              "plus_runes": 0,
-              "printed": null,
-              "runes": {},
-              "slug": "river_montoya",
-              "summoning_runes": 0,
-              "time_runes": 0,
-              "trashed": [],
-              "zone": "play"
             }
           ],
           "hired_this_turn": true,
@@ -4177,11 +4987,11 @@
               "buried": [],
               "controller": 2,
               "copy_of": null,
-              "damage": 0,
+              "damage": 2,
               "disabled": false,
               "exhausted": true,
               "flipped": false,
-              "id": 14,
+              "id": 21,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -4194,8 +5004,8 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 20,
-              "slug": "timely_messenger",
+              "sequence": 27,
+              "slug": "nimble_fencer",
               "time_runes": 0
             }
           ],
@@ -4211,16 +5021,16 @@
           "spells_played": 0,
           "tech2_spec": null,
           "tech_choice": [
-            "cloud_sprite",
-            "cloud_sprite"
+            "backstabber",
+            "backstabber"
           ],
           "tech_confirmed": false,
           "tech_owed": true,
           "teched": [
-            "leaping_lizard",
-            "leaping_lizard"
+            "cloud_sprite",
+            "cloud_sprite"
           ],
-          "workers": 8
+          "workers": 9
         },
         {
           "add_on": null,
@@ -4239,11 +5049,16 @@
               "hp": 5,
               "under_construction": false
             },
-            "tech3": null
+            "tech3": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            }
           },
-          "built_this_turn": false,
+          "built_this_turn": true,
           "codex": {
-            "eggship": 2,
+            "eggship": 0,
             "final_smash": 2,
             "harvest_reaper": 2,
             "hired_stomper": 2,
@@ -4260,32 +5075,34 @@
           "debt": 0,
           "deck": [
             "sneaky_pig",
-            "revolver_ocelot",
-            "iron_man",
-            "sneaky_pig"
+            "revolver_ocelot"
           ],
           "deck_color": "neutral",
-          "discard": [],
+          "discard": [
+            "eggship",
+            "eggship"
+          ],
           "discards_at_main_end": false,
           "discards_untold": [],
           "future": [],
           "gold": 0,
           "hand": [
-            "iron_man",
-            "fruit_ninja"
+            "sneaky_pig",
+            "iron_man"
           ],
           "heroes": [
             {
               "armor": 0,
               "arrived_this_turn": false,
-              "attacked_this_turn": true,
+              "attacked_this_turn": false,
               "bands": {
-                "1": 3
+                "1": 3,
+                "5": 28
               },
-              "damage": 2,
+              "damage": 0,
               "disabled": false,
               "exhausted": true,
-              "level": 4,
+              "level": 6,
               "max_level_since_turn_began": false,
               "minus_runes": 0,
               "modifiers": [],
@@ -4309,7 +5126,7 @@
               "arrived_this_turn": false,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": true,
+              "attacked_this_turn": false,
               "buried": [],
               "controller": 3,
               "copy_of": null,
@@ -4339,7 +5156,7 @@
               "arrived_this_turn": false,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": true,
+              "attacked_this_turn": false,
               "buried": [],
               "controller": 3,
               "copy_of": null,
@@ -4369,7 +5186,7 @@
               "arrived_this_turn": false,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": true,
+              "attacked_this_turn": false,
               "buried": [],
               "controller": 3,
               "copy_of": null,
@@ -4396,10 +5213,10 @@
             },
             {
               "armor": 0,
-              "arrived_this_turn": true,
+              "arrived_this_turn": false,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": true,
+              "attacked_this_turn": false,
               "buried": [],
               "controller": 3,
               "copy_of": null,
@@ -4426,6 +5243,66 @@
             },
             {
               "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 16,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 22,
+              "slug": "revolver_ocelot",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 17,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 23,
+              "slug": "granfalloon_flagbearer",
+              "time_runes": 0
+            },
+            {
+              "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -4437,7 +5314,7 @@
               "disabled": false,
               "exhausted": false,
               "flipped": false,
-              "id": 16,
+              "id": 22,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -4450,42 +5327,12 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 22,
-              "slug": "revolver_ocelot",
-              "time_runes": 0
-            },
-            {
-              "armor": 0,
-              "arrived_this_turn": true,
-              "attached": [],
-              "attached_hero": null,
-              "attacked_this_turn": false,
-              "buried": [],
-              "controller": 3,
-              "copy_of": null,
-              "damage": 0,
-              "disabled": false,
-              "exhausted": false,
-              "flipped": false,
-              "id": 17,
-              "jailed": null,
-              "made_by": null,
-              "minus_runes": 0,
-              "modifiers": [],
-              "number": null,
-              "oath": null,
-              "owner": 3,
-              "patrol_slot": "elite",
-              "plus_runes": 0,
-              "printed": null,
-              "returns_to": null,
-              "runes": {},
-              "sequence": 23,
-              "slug": "granfalloon_flagbearer",
+              "sequence": 29,
+              "slug": "iron_man",
               "time_runes": 0
             }
           ],
-          "played_from_hand": 3,
+          "played_from_hand": 1,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 3,
@@ -4496,26 +5343,22 @@
           ],
           "spells_played": 0,
           "tech2_spec": null,
-          "tech_choice": null,
+          "tech_choice": [
+            "hired_stomper",
+            "hired_stomper"
+          ],
           "tech_confirmed": false,
           "tech_owed": true,
           "teched": [
-            "sneaky_pig",
-            "sneaky_pig"
+            "eggship",
+            "eggship"
           ],
-          "workers": 9
+          "workers": 10
         }
       ],
-      "playoff": [
-        3
-      ],
       "resolving": [],
-      "sequence": 23,
-      "tied": [
-        2,
-        3
-      ],
-      "turn": 12,
+      "sequence": 31,
+      "turn": 16,
       "variant": "free_for_all",
       "winner": null
     },
@@ -5250,17 +6093,6 @@
           "turn": 11
         },
         {
-          "hp": 20,
-          "kind": "tied",
-          "loser": 1,
-          "seat": 3,
-          "seats": [
-            2,
-            3
-          ],
-          "turn": 11
-        },
-        {
           "kind": "patrolled",
           "seat": 3,
           "slots": {
@@ -5276,90 +6108,354 @@
         },
         {
           "kind": "turn_began",
-          "seat": 2,
+          "seat": 1,
           "turn": 12
+        },
+        {
+          "kind": "hired",
+          "seat": 1,
+          "slug": "wither",
+          "turn": 12
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 1,
+          "slug": "brick_thief",
+          "turn": 12
+        },
+        {
+          "cost": 2,
+          "kind": "played",
+          "seat": 1,
+          "slug": "revolver_ocelot",
+          "turn": 12
+        },
+        {
+          "cost": 3,
+          "kind": "played",
+          "seat": 1,
+          "slug": "fruit_ninja",
+          "turn": 12
+        },
+        {
+          "kind": "patrolled",
+          "seat": 1,
+          "slots": {
+            "elite": "unit:19",
+            "scavenger": "unit:20",
+            "squad_leader": "unit:18"
+          },
+          "turn": 12
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 1,
+          "turn": 12
+        },
+        {
+          "kind": "turn_began",
+          "seat": 2,
+          "turn": 13
         },
         {
           "kind": "hired",
           "seat": 2,
           "slug": "nimble_fencer",
-          "turn": 12
+          "turn": 13
         },
         {
           "cost": 2,
           "kind": "played",
           "seat": 2,
           "slug": "nimble_fencer",
-          "turn": 12
+          "turn": 13
         },
         {
           "attacker": "unit:14",
-          "defender": "tech1",
+          "defender": "unit:18",
           "kind": "attacked",
           "seat": 2,
-          "turn": 12
+          "turn": 13
         },
         {
-          "attacker": "unit:18",
-          "defender": "tech1",
+          "kind": "destroyed",
+          "owner": 2,
+          "seat": 2,
+          "slug": "timely_messenger",
+          "turn": 13
+        },
+        {
+          "attacker": "unit:21",
+          "defender": "unit:18",
           "kind": "attacked",
           "seat": 2,
-          "turn": 12
+          "turn": 13
         },
         {
-          "building": "tech1",
-          "kind": "building_destroyed",
+          "kind": "destroyed",
           "owner": 1,
           "seat": 2,
-          "turn": 12
+          "slug": "brick_thief",
+          "turn": 13
         },
         {
           "attacker": "hero:river_montoya",
-          "defender": "tech2",
+          "defender": "unit:19",
           "kind": "attacked",
           "seat": 2,
-          "turn": 12
+          "turn": 13
+        },
+        {
+          "kind": "destroyed",
+          "owner": 1,
+          "seat": 2,
+          "slug": "revolver_ocelot",
+          "turn": 13
+        },
+        {
+          "kind": "hero_died",
+          "owner": 2,
+          "seat": 2,
+          "slug": "river_montoya",
+          "turn": 13
         },
         {
           "kind": "patrolled",
           "seat": 2,
           "slots": {},
-          "turn": 12
+          "turn": 13
         },
         {
           "kind": "turn_ended",
           "seat": 2,
-          "turn": 12
+          "turn": 13
+        },
+        {
+          "kind": "turn_began",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "kind": "hired",
+          "seat": 3,
+          "slug": "fruit_ninja",
+          "turn": 14
+        },
+        {
+          "building": "tech3",
+          "cost": 5,
+          "kind": "built",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "cost": 3,
+          "kind": "played",
+          "seat": 3,
+          "slug": "iron_man",
+          "turn": 14
+        },
+        {
+          "attacker": "unit:7",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:8",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:13",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:15",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:16",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "unit:17",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "attacker": "hero:troq_bashar",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "kind": "patrolled",
+          "seat": 3,
+          "slots": {
+            "squad_leader": "unit:22"
+          },
+          "turn": 14
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 3,
+          "turn": 14
+        },
+        {
+          "kind": "turn_began",
+          "seat": 1,
+          "turn": 15
+        },
+        {
+          "kind": "hired",
+          "seat": 1,
+          "slug": "helpful_turtle",
+          "turn": 15
+        },
+        {
+          "building": "tech3",
+          "cost": 5,
+          "kind": "built",
+          "seat": 1,
+          "turn": 15
+        },
+        {
+          "kind": "summoned",
+          "seat": 1,
+          "slug": "troq_bashar",
+          "turn": 15
+        },
+        {
+          "cost": 1,
+          "kind": "played",
+          "seat": 1,
+          "slug": "tenderfoot",
+          "turn": 15
+        },
+        {
+          "attacker": "unit:20",
+          "defender": "base",
+          "kind": "attacked",
+          "seat": 1,
+          "turn": 15
+        },
+        {
+          "kind": "patrolled",
+          "seat": 1,
+          "slots": {
+            "elite": "hero:troq_bashar",
+            "squad_leader": "unit:23"
+          },
+          "turn": 15
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 1,
+          "turn": 15
+        },
+        {
+          "kind": "turn_began",
+          "seat": 2,
+          "turn": 16
+        },
+        {
+          "kind": "hired",
+          "seat": 2,
+          "slug": "starcrossed_starlet",
+          "turn": 16
+        },
+        {
+          "building": "tech3",
+          "cost": 5,
+          "kind": "built",
+          "seat": 2,
+          "turn": 16
+        },
+        {
+          "cost": 3,
+          "kind": "played",
+          "seat": 2,
+          "slug": "fruit_ninja",
+          "turn": 16
+        },
+        {
+          "attacker": "unit:21",
+          "defender": "unit:23",
+          "kind": "attacked",
+          "seat": 2,
+          "turn": 16
+        },
+        {
+          "kind": "destroyed",
+          "owner": 2,
+          "seat": 2,
+          "slug": "nimble_fencer",
+          "turn": 16
+        },
+        {
+          "kind": "patrolled",
+          "seat": 2,
+          "slots": {
+            "squad_leader": "unit:24"
+          },
+          "turn": 16
+        },
+        {
+          "kind": "turn_ended",
+          "seat": 2,
+          "turn": 16
         }
       ],
       "extra_turns": [],
       "first": 2,
       "lost_by_debt": null,
-      "next_instance_id": 19,
+      "next_instance_id": 25,
       "phase": "ready",
       "players": [
         {
           "add_on": null,
-          "arrived_from_hand": false,
-          "base_hp": 0,
+          "arrived_from_hand": true,
+          "base_hp": 2,
           "buildings": {
             "tech1": {
-              "destroyed": true,
-              "disabled": false,
-              "hp": 0,
-              "under_construction": false
-            },
-            "tech2": {
               "destroyed": false,
               "disabled": false,
               "hp": 2,
               "under_construction": false
             },
-            "tech3": null
+            "tech2": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            },
+            "tech3": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            }
           },
           "built_this_turn": true,
           "codex": {
-            "eggship": 2,
+            "eggship": 0,
             "final_smash": 2,
             "harvest_reaper": 2,
             "hired_stomper": 2,
@@ -5367,7 +6463,7 @@
             "iron_man": 0,
             "regularsized_rhinoceros": 2,
             "revolver_ocelot": 0,
-            "sneaky_pig": 2,
+            "sneaky_pig": 0,
             "the_boot": 2,
             "trojan_duck": 2,
             "wrecking_ball": 2
@@ -5375,26 +6471,205 @@
           "constructed_once": true,
           "debt": 0,
           "deck": [
-            "tenderfoot"
+            "sneaky_pig",
+            "iron_man",
+            "revolver_ocelot",
+            "iron_man",
+            "timely_messenger"
           ],
           "deck_color": "neutral",
           "discard": [
-            "helpful_turtle",
-            "older_brother",
-            "iron_man",
-            "iron_man",
+            "brick_thief",
             "revolver_ocelot",
-            "timely_messenger"
+            "eggship",
+            "eggship"
           ],
           "discards_at_main_end": false,
           "discards_untold": [],
           "future": [],
           "gold": 0,
           "hand": [
+            "older_brother",
+            "sneaky_pig"
+          ],
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attacked_this_turn": false,
+              "bands": {
+                "1": 30
+              },
+              "damage": 0,
+              "disabled": false,
+              "exhausted": false,
+              "level": 1,
+              "max_level_since_turn_began": false,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": "elite",
+              "plus_runes": 0,
+              "printed": null,
+              "runes": {},
+              "slug": "troq_bashar",
+              "summoning_runes": 0,
+              "time_runes": 0,
+              "trashed": [],
+              "zone": "play"
+            }
+          ],
+          "hired_this_turn": true,
+          "lasting": [],
+          "peace": false,
+          "play": [
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 1,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 20,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 1,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 26,
+              "slug": "fruit_ninja",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 1,
+              "copy_of": null,
+              "damage": 1,
+              "disabled": false,
+              "exhausted": false,
+              "flipped": false,
+              "id": 23,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 1,
+              "patrol_slot": "squad_leader",
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 31,
+              "slug": "tenderfoot",
+              "time_runes": 0
+            }
+          ],
+          "played_from_hand": 1,
+          "promised": false,
+          "reshuffled_this_phase": false,
+          "seat": 1,
+          "silenced": false,
+          "skip_draw": false,
+          "specs": [
+            "bashing"
+          ],
+          "spells_played": 0,
+          "tech2_spec": null,
+          "tech_choice": [
+            "hired_stomper",
+            "hired_stomper"
+          ],
+          "tech_confirmed": false,
+          "tech_owed": true,
+          "teched": [
+            "eggship",
+            "eggship"
+          ],
+          "workers": 10
+        },
+        {
+          "add_on": null,
+          "arrived_from_hand": true,
+          "base_hp": 2,
+          "buildings": {
+            "tech1": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 4,
+              "under_construction": false
+            },
+            "tech2": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            },
+            "tech3": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            }
+          },
+          "built_this_turn": true,
+          "codex": {
+            "appel_stomp": 2,
+            "backstabber": 0,
+            "blademaster": 2,
+            "cloud_sprite": 0,
+            "discord": 2,
+            "grounded_guide": 2,
+            "harmony": 2,
+            "leaping_lizard": 0,
+            "maestro": 2,
+            "nimble_fencer": 0,
+            "starcrossed_starlet": 0,
+            "two_step": 2
+          },
+          "constructed_once": true,
+          "debt": 0,
+          "deck": [
+            "cloud_sprite",
+            "tenderfoot",
+            "older_brother",
+            "spark",
+            "leaping_lizard",
+            "timely_messenger",
             "wither",
-            "revolver_ocelot",
-            "fruit_ninja",
-            "brick_thief"
+            "starcrossed_starlet"
+          ],
+          "deck_color": "neutral",
+          "discard": [
+            "backstabber",
+            "backstabber",
+            "nimble_fencer"
+          ],
+          "discards_at_main_end": false,
+          "discards_untold": [],
+          "future": [],
+          "gold": 11,
+          "hand": [
+            "leaping_lizard",
+            "cloud_sprite"
           ],
           "heroes": [
             {
@@ -5413,8 +6688,8 @@
               "plus_runes": 0,
               "printed": null,
               "runes": {},
-              "slug": "troq_bashar",
-              "summoning_runes": 2,
+              "slug": "river_montoya",
+              "summoning_runes": 1,
               "time_runes": 0,
               "trashed": [],
               "zone": "command"
@@ -5423,163 +6698,21 @@
           "hired_this_turn": true,
           "lasting": [],
           "peace": false,
-          "play": [],
-          "played_from_hand": 0,
-          "promised": false,
-          "reshuffled_this_phase": false,
-          "seat": 1,
-          "silenced": false,
-          "skip_draw": false,
-          "specs": [
-            "bashing"
-          ],
-          "spells_played": 0,
-          "tech2_spec": null,
-          "tech_choice": [
-            "sneaky_pig",
-            "sneaky_pig"
-          ],
-          "tech_confirmed": false,
-          "tech_owed": true,
-          "teched": [
-            "iron_man",
-            "iron_man"
-          ],
-          "workers": 8
-        },
-        {
-          "add_on": null,
-          "arrived_from_hand": true,
-          "base_hp": 20,
-          "buildings": {
-            "tech1": {
-              "destroyed": false,
-              "disabled": false,
-              "hp": 5,
-              "under_construction": false
-            },
-            "tech2": {
-              "destroyed": false,
-              "disabled": false,
-              "hp": 5,
-              "under_construction": false
-            },
-            "tech3": null
-          },
-          "built_this_turn": false,
-          "codex": {
-            "appel_stomp": 2,
-            "backstabber": 2,
-            "blademaster": 2,
-            "cloud_sprite": 0,
-            "discord": 2,
-            "grounded_guide": 2,
-            "harmony": 2,
-            "leaping_lizard": 0,
-            "maestro": 2,
-            "nimble_fencer": 0,
-            "starcrossed_starlet": 0,
-            "two_step": 2
-          },
-          "constructed_once": true,
-          "debt": 0,
-          "deck": [
-            "fruit_ninja",
-            "leaping_lizard",
-            "spark",
-            "leaping_lizard",
-            "tenderfoot",
-            "cloud_sprite",
-            "older_brother",
-            "cloud_sprite",
-            "starcrossed_starlet"
-          ],
-          "deck_color": "neutral",
-          "discard": [],
-          "discards_at_main_end": false,
-          "discards_untold": [],
-          "future": [],
-          "gold": 9,
-          "hand": [
-            "starcrossed_starlet",
-            "wither"
-          ],
-          "heroes": [
-            {
-              "armor": 0,
-              "arrived_this_turn": false,
-              "attacked_this_turn": true,
-              "bands": {
-                "1": 1,
-                "3": 10,
-                "5": 13
-              },
-              "damage": 0,
-              "disabled": false,
-              "exhausted": true,
-              "level": 5,
-              "max_level_since_turn_began": true,
-              "minus_runes": 0,
-              "modifiers": [],
-              "patrol_slot": null,
-              "plus_runes": 0,
-              "printed": null,
-              "runes": {},
-              "slug": "river_montoya",
-              "summoning_runes": 0,
-              "time_runes": 0,
-              "trashed": [],
-              "zone": "play"
-            }
-          ],
-          "hired_this_turn": true,
-          "lasting": [],
-          "peace": false,
           "play": [
-            {
-              "armor": 0,
-              "arrived_this_turn": false,
-              "attached": [],
-              "attached_hero": null,
-              "attacked_this_turn": true,
-              "buried": [],
-              "controller": 2,
-              "copy_of": null,
-              "damage": 0,
-              "disabled": false,
-              "exhausted": true,
-              "flipped": false,
-              "id": 14,
-              "jailed": null,
-              "made_by": null,
-              "minus_runes": 0,
-              "modifiers": [],
-              "number": null,
-              "oath": null,
-              "owner": 2,
-              "patrol_slot": null,
-              "plus_runes": 0,
-              "printed": null,
-              "returns_to": null,
-              "runes": {},
-              "sequence": 20,
-              "slug": "timely_messenger",
-              "time_runes": 0
-            },
             {
               "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": true,
+              "attacked_this_turn": false,
               "buried": [],
               "controller": 2,
               "copy_of": null,
               "damage": 0,
               "disabled": false,
-              "exhausted": true,
+              "exhausted": false,
               "flipped": false,
-              "id": 18,
+              "id": 24,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -5587,13 +6720,13 @@
               "number": null,
               "oath": null,
               "owner": 2,
-              "patrol_slot": null,
+              "patrol_slot": "squad_leader",
               "plus_runes": 0,
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 24,
-              "slug": "nimble_fencer",
+              "sequence": 32,
+              "slug": "fruit_ninja",
               "time_runes": 0
             }
           ],
@@ -5612,10 +6745,10 @@
           "tech_confirmed": false,
           "tech_owed": true,
           "teched": [
-            "cloud_sprite",
-            "cloud_sprite"
+            "backstabber",
+            "backstabber"
           ],
-          "workers": 9
+          "workers": 10
         },
         {
           "add_on": null,
@@ -5634,11 +6767,16 @@
               "hp": 5,
               "under_construction": false
             },
-            "tech3": null
+            "tech3": {
+              "destroyed": false,
+              "disabled": false,
+              "hp": 5,
+              "under_construction": false
+            }
           },
-          "built_this_turn": false,
+          "built_this_turn": true,
           "codex": {
-            "eggship": 2,
+            "eggship": 0,
             "final_smash": 2,
             "harvest_reaper": 2,
             "hired_stomper": 2,
@@ -5655,19 +6793,20 @@
           "debt": 0,
           "deck": [
             "sneaky_pig",
-            "revolver_ocelot",
-            "iron_man",
-            "sneaky_pig"
+            "revolver_ocelot"
           ],
           "deck_color": "neutral",
-          "discard": [],
+          "discard": [
+            "eggship",
+            "eggship"
+          ],
           "discards_at_main_end": false,
           "discards_untold": [],
           "future": [],
           "gold": 0,
           "hand": [
-            "iron_man",
-            "fruit_ninja"
+            "sneaky_pig",
+            "iron_man"
           ],
           "heroes": [
             {
@@ -5675,12 +6814,13 @@
               "arrived_this_turn": false,
               "attacked_this_turn": false,
               "bands": {
-                "1": 3
+                "1": 3,
+                "5": 28
               },
-              "damage": 2,
+              "damage": 0,
               "disabled": false,
               "exhausted": true,
-              "level": 4,
+              "level": 6,
               "max_level_since_turn_began": false,
               "minus_runes": 0,
               "modifiers": [],
@@ -5791,7 +6931,7 @@
             },
             {
               "armor": 0,
-              "arrived_this_turn": true,
+              "arrived_this_turn": false,
               "attached": [],
               "attached_hero": null,
               "attacked_this_turn": false,
@@ -5820,6 +6960,66 @@
               "time_runes": 0
             },
             {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 16,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 22,
+              "slug": "revolver_ocelot",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": true,
+              "flipped": false,
+              "id": 17,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 23,
+              "slug": "granfalloon_flagbearer",
+              "time_runes": 0
+            },
+            {
               "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
@@ -5832,7 +7032,7 @@
               "disabled": false,
               "exhausted": false,
               "flipped": false,
-              "id": 16,
+              "id": 22,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -5845,42 +7045,12 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 22,
-              "slug": "revolver_ocelot",
-              "time_runes": 0
-            },
-            {
-              "armor": 0,
-              "arrived_this_turn": true,
-              "attached": [],
-              "attached_hero": null,
-              "attacked_this_turn": false,
-              "buried": [],
-              "controller": 3,
-              "copy_of": null,
-              "damage": 0,
-              "disabled": false,
-              "exhausted": false,
-              "flipped": false,
-              "id": 17,
-              "jailed": null,
-              "made_by": null,
-              "minus_runes": 0,
-              "modifiers": [],
-              "number": null,
-              "oath": null,
-              "owner": 3,
-              "patrol_slot": "elite",
-              "plus_runes": 0,
-              "printed": null,
-              "returns_to": null,
-              "runes": {},
-              "sequence": 23,
-              "slug": "granfalloon_flagbearer",
+              "sequence": 29,
+              "slug": "iron_man",
               "time_runes": 0
             }
           ],
-          "played_from_hand": 3,
+          "played_from_hand": 1,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 3,
@@ -5892,25 +7062,21 @@
           "spells_played": 0,
           "tech2_spec": null,
           "tech_choice": [
-            "eggship",
-            "eggship"
+            "hired_stomper",
+            "hired_stomper"
           ],
           "tech_confirmed": false,
           "tech_owed": true,
           "teched": [
-            "sneaky_pig",
-            "sneaky_pig"
+            "eggship",
+            "eggship"
           ],
-          "workers": 9
+          "workers": 10
         }
       ],
       "resolving": [],
-      "sequence": 24,
-      "tied": [
-        2,
-        3
-      ],
-      "turn": 13,
+      "sequence": 32,
+      "turn": 17,
       "variant": "free_for_all",
       "winner": null
     }

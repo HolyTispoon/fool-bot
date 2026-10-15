@@ -3499,20 +3499,13 @@ class RulesEngine:
         damaged ones, the repairer's side first** -- a repair helps whoever
         owns the building, so the menu leads with what the player most
         likely wants, where a damage part leads with the opponent's.
-
-        An undamaged building is a legal choice and nothing happens to it
-        (Brick Thief's ruling, 2016-03-03), and the one reason to make it
-        is not to repair an opponent's: so one undamaged building of the
-        repairer's own -- the base where it can be -- is offered only
-        where every damaged building is an opponent's. Nothing damaged
-        anywhere leaves nothing, and the part is skipped.
+        Nothing damaged anywhere leaves nothing, and the part is skipped.
+        An undamaged building, a legal choice that does nothing (Brick
+        Thief's ruling), is offered as **Repair nothing** instead
+        (`codex.flow.resolve.may_repair_nothing`).
         """
         foes = self.opponents(match, seat)
         damaged = [row for row in found if self.building_damaged(match, *row)]
-        if damaged and all(side in foes for side, _ in damaged):
-            spare = [row for row in found if row[0] == seat and row not in damaged]
-            spare.sort(key=lambda row: row[1] != "base")
-            damaged += spare[:1]
         return sorted(damaged, key=lambda row: row[0] in foes)
 
     def _private_candidates(self, match: MatchState, seat: int, choose: str,

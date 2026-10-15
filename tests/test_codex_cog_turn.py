@@ -1323,6 +1323,25 @@ class EffectPanelTests(TurnTestCase):
         self.assertEqual([item.style for item in view.children if getattr(item, "choice", None)],
                          [discord.ButtonStyle.primary, discord.ButtonStyle.danger])
 
+    async def test_a_repairs_done_is_repair_nothing(self) -> None:
+        """A repair that may choose nothing says so on its button; any
+        other part's is **Done**."""
+        from codex.engine import TargetRow
+        from codex.prompts import PendingPrompt, TargetOptions
+
+        match, seat, other = self.stage()
+        cog, game_id = self.table.cog, self.game.game_id
+        rows = (TargetRow(f"{other}:base", other, "base"),)
+
+        def labels(effect, part):
+            options = TargetOptions(seat, effect, "unit:1", part, "", rows, done=True)
+            view = TurnPanelView(cog, game_id, PendingPrompt(PromptKind.TARGET, "", seat, options), match)
+            return [item.label for item in view.children]
+
+        self.assertIn("Repair nothing", labels("brick_thief", 1))
+        self.assertNotIn("Done", labels("brick_thief", 1))
+        self.assertIn("Done", labels("brick_thief", 0))
+
     async def test_appel_stomp_and_the_upkeep_are_buttons(self) -> None:
         match, seat, _ = self.stage()
         match.resolving = [{"kind": "appel_top", "seat": seat}]

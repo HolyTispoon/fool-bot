@@ -743,9 +743,9 @@
 {player:2}, {card:brick_thief}: repair 1 damage from another building.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 114: TARGET '' {"target": "2:base"}
+=== action 114: TARGET '' {"target": "1:base"}
 --- narration
-{player:2}'s base has no damage to repair.
+{card:brick_thief} repairs 1 damage on {player:1}'s base, now at 15/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:7} and 10 workers.
 --- standing TECH_CHOICE (player 1)
@@ -1443,7 +1443,7 @@
 === action 220: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {card:timely_messenger} attacks {player:1}'s base.
-{card:timely_messenger} deals 1 to {player:1}'s base, now at 13/20.
+{card:timely_messenger} deals 1 to {player:1}'s base, now at 14/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:17} and 10 workers.
 --- standing TECH_CHOICE (player 1)
@@ -1553,7 +1553,7 @@
 === action 237: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {card:timely_messenger} attacks {player:1}'s base.
-{card:timely_messenger} deals 1 to {player:1}'s base, now at 12/20.
+{card:timely_messenger} deals 1 to {player:1}'s base, now at 13/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:12} and 10 workers.
 --- standing TECH_CHOICE (player 1)

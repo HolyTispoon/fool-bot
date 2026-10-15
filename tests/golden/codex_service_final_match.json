@@ -1731,7 +1731,7 @@
     {
       "add_on": null,
       "arrived_from_hand": true,
-      "base_hp": 12,
+      "base_hp": 13,
       "buildings": {
         "tech1": {
           "destroyed": false,
@@ -3671,7 +3671,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 12,
+          "base_hp": 13,
           "buildings": {
             "tech1": {
               "destroyed": false,
@@ -5654,7 +5654,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 12,
+          "base_hp": 13,
           "buildings": {
             "tech1": {
               "destroyed": false,
@@ -7619,7 +7619,7 @@
         {
           "add_on": null,
           "arrived_from_hand": true,
-          "base_hp": 12,
+          "base_hp": 13,
           "buildings": {
             "tech1": {
               "destroyed": false,
