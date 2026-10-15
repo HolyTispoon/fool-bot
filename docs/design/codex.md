@@ -1812,7 +1812,9 @@ else the bot shows is ephemeral.
     on the first build, which kept it the viewer's way up there), and
     level with the table on an exhausted card, on the turned card's
     top right, over its cost (the author again: drawn on the card, it
-    lay on its side with it); a copy's number, which is matched to a button, still reads
+    lay on its side with it) -- on a hero, just left of its level chit,
+    which the quarter turn carries to that same corner (the author,
+    2026-10-15: the pill covered the level); a copy's number, which is matched to a button, still reads
     upright, and moves left of centre on a standing card to sit
     between the cost and the pill. Only units and heroes on the field
     carry one: not a hero in the command zone, a building card, an
@@ -2202,7 +2204,7 @@ rest of the deck in the deck's order. A tech choice not yet in the
 discard pile is not listed, there or anywhere in it (the author, 2026-10-09). The button is on the turn
 message, beside **My hand**, for either player whoever's turn it is
 (the author, 2026-10-09: "include it in the public message"); under the
-other player's hand (`HandView`, its one button); after the hand's
+other player's hand (`HandView`, beside **Codex** and **Show board**); after the hand's
 buttons on the main-phase panel; and beside **Save tech** on the picker
 and on the confirmation. Each press is **a message
 of its own** (`send_deck`), not an edit of what it was pressed on, so
@@ -2374,25 +2376,39 @@ too, asked with `gate` for the two kinds a turn may open on
   card's own words ("Sacrifice Harmony: stop the music"), disabled with
   its reason where it may not be used now, unless its card is exhausted
   or arrived this turn -- and always last, in this order, **My deck**,
-  **Codex**, **Undo...** and **End main phase** (the author, 2026-10-09;
-  **Codex** 2026-10-10: "need to have the codex button in my hand's
-  menu"), which `place`'s `last` never crowds out: a board's button
+  **Codex**, **Show board**, **Undo...** and **End main phase** (the
+  author, 2026-10-09; **Codex** 2026-10-10: "need to have the codex
+  button in my hand's menu"; **Show board** 2026-10-15, "The resume
+  path"), which `place`'s `last` never crowds out: a board's button
   gives up its place to them first. **Codex** answers as the turn
   message's does, in a message of its own beside the panel
   (`Codex.send_codex`), and so do the **Codex** under the other
   player's hand (`HandView`) and under the tech gate's. **Hire worker** and every **Build** are green and **Attack...**
   red, beside **End main phase**'s red (the author, 2026-10-09), so the
   panel's three kinds of spending read apart at a glance; the rest
-  stay blurple or grey. **Level up** buys one
-  level a click (the author, 2026-10-09): one button per hero, pressed again for the next level, rather than a
-  menu of counts. **Attack...** turns the panel into what may attack,
+  stay blurple or grey. **Level up...** opens the
+  levels the hero may reach (the author, 2026-10-15): the panel turns
+  into a button per level from the next one up to the card's maximum,
+  each with what it costs -- "Level 4 (2 gold)", ": new band" where the
+  level starts one and ": max level" on the last, off the card -- those
+  the gold does not reach greyed out and disabled (the author,
+  2026-10-15: what the next band would cost is worth seeing before it
+  is affordable), and **Back**, and the one click buys every
+  level up to it in a single action (`levels`). Opening it spends nothing
+  public, like **Attack...**. A hero one level short of their max skips
+  it (the author, 2026-10-15): the picker would hold that one level and
+  nothing greyed out beyond it, so the hero's button is **Level up
+  Jaina to max level (1 gold)** and buys it at once. It was a level a click before (2026-10-09),
+  which made a player reaching a band press once per level, each press
+  a write to the turn message; `HeroOption.level`, the hero's level
+  now, is what the buttons count from. **Attack...** turns the panel into what may attack,
   one button each as `ref_label` names it ("Older Brother 2/2"), and
   **Back**; the attacker's button asks the defender next, in the same
   panel, and opening the mode spends nothing public, like Hire's and
   Undo's. What does not fit the five rows is left out, the groups
   placed first having the earlier claim -- in practice rarely: the hand
   is cut at ten distinct cards, and the board's row loses what passes
-  two -- the last four take the rest of it -- where the hand needs a
+  two -- the last five take the rest of it -- where the hand needs a
   second row
   (`test_the_main_phase_is_rows_of_buttons`,
   `test_a_big_hand_leaves_the_boards_row`). Every button that answers
@@ -2851,6 +2867,29 @@ actions for the active player, the open tech picker for the other.
 channel has pushed it up (the author, 2026-10-12): with no restart
 behind it there is no step owed and the turn's lines are still known,
 so all it does beyond the post is the ping and the fresh panel.
+
+**Show board** does the same from the hand menu, with no command to
+type (the author, 2026-10-15: "Codex hand menu should have a show
+board button that reposts the board and also a new hand menu below").
+It is under the other player's hand (`HandView`, and so under a
+dragon seat's `WaitingView`), under the tech gate (`TechGateView`) and
+among the main-phase panel's last buttons, and `Codex.show_board`
+answers all three: the click deferred, the turn message posted again
+at the foot of the channel through `post_turn_message(replace=True)`
+-- the old one deleted, **nobody pinged**, since the clicker asked for
+it and the turn's ping was spent when it opened -- then the hand menu
+**My hand** would answer the clicker with (`send_hand_menu`: the panel
+for the active player, the hand for the other) sent afresh as the
+click's follow-up, so it sits under the board, and the menu pressed
+deleted through the click's webhook, so one stands. It runs no owed
+step, as `/codex resume` does: a hand menu is only up while the
+process that sent it is, so there is none to run. **Where the turn
+message is the channel's last message already** (`last_message_id`,
+read off the cache, no request), it is not posted again -- a post and
+a delete of the channel's bucket for nothing (rate-limits.md) -- and
+the hand menu alone comes again. Like `/codex resume`'s, a repost
+after a restart, before this process has seen the turn's lines,
+carries the heading alone.
 
 ## The end of a game
 
@@ -3416,9 +3455,13 @@ change readings, not 66 sites.
   the levels to every in-play hero of every opponent of the dead hero's
   controller (the controller, not the owner, for a lent hero:
   Rulebook p. 11); the frame lists the seats when there are several.
-  A hero already at its maximum level is still offered, as today:
-  whether the choice should skip such a hero is a question for the
-  author, since the duel's transcript would change.
+  **A hero already at its maximum level is not offered them** (the
+  author, 2026-10-15: "they can't gain any more level at max"):
+  `RulesEngine.takes_kill_levels` is the one reading, asked by
+  `board.destroy` and by `LevelGainOptions`, so where one hero can still
+  gain it gains them unasked, and where none can nobody does. The duel's
+  golden did not change; the free-for-all's and the dragon's were
+  re-recorded, since each offered a maxed hero once.
 - **The cogs ask the record and the engine.** The channel's name joins
   every seat's name with `-vs-`, `/codex games` lists every seat, and
   the buttons that need "the other side" ask the engine

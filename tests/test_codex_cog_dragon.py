@@ -164,7 +164,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_other_team_sees_its_hand_and_its_teammates(self) -> None:
         foe, mate = self.foes
         call = await self.table.turn_button("hand", self.who(foe))
-        self.assertEqual(labels(call.view()), ["My deck", "Codex"])
+        self.assertEqual(labels(call.view()), ["My deck", "Codex", "Show board"])
         _, args, kwargs = call.last()
         self.assertEqual(len(kwargs["files"]), 2)
         self.assertIn(f"{self.game.seat_name(mate)}'s hand:", args[0])
