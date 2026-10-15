@@ -2363,10 +2363,12 @@ too, asked with `gate` for the two kinds a turn may open on
   panel's three kinds of spending read apart at a glance; the rest
   stay blurple or grey. **Level up...** opens the
   levels the hero may reach (the author, 2026-10-15): the panel turns
-  into a button per level from the next one up to as many as the gold
-  and the card's maximum allow, each with what it costs -- "Level 4 (2
-  gold)", ": new band" where the level starts one and ": max level" on
-  the last, off the card -- and **Back**, and the one click buys every
+  into a button per level from the next one up to the card's maximum,
+  each with what it costs -- "Level 4 (2 gold)", ": new band" where the
+  level starts one and ": max level" on the last, off the card -- those
+  the gold does not reach greyed out and disabled (the author,
+  2026-10-15: what the next band would cost is worth seeing before it
+  is affordable), and **Back**, and the one click buys every
   level up to it in a single action (`levels`). Opening it spends nothing
   public, like **Attack...**. It was a level a click before (2026-10-09),
   which made a player reaching a band press once per level, each press

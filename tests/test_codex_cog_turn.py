@@ -465,9 +465,10 @@ class PanelTests(TurnTestCase):
         self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
 
     async def test_level_up_opens_the_levels_to_choose_from(self) -> None:
-        """**Level up...** opens the levels the hero may reach, a button
-        each with its cost, and one click on a level buys every level up
-        to it (the author, 2026-10-15)."""
+        """**Level up...** opens every level up to the hero's last, a
+        button each with its cost and those the gold does not reach
+        greyed out, and one click on a level buys every level up to it
+        (the author, 2026-10-15)."""
         match = self.table.match
         seat = match.active
         hero_in_play(match, seat)
@@ -480,11 +481,15 @@ class PanelTests(TurnTestCase):
         self.assertEqual(self.table.match.player(seat).hero.level, 1)
         self.assertIn("to which level", opened.last()[2]["content"])
         picker = opened.view()
+        card = self.table.cog.engine.catalog.heroes[slug]
         levels = [item for item in picker.children if (item.choice or ("",))[0] == "level"]
         self.assertEqual([item.choice for item in levels],
-                         [("level", slug, 1), ("level", slug, 2), ("level", slug, 3)])
-        for item, (level, cost) in zip(levels, [(2, 1), (3, 2), (4, 3)]):
-            self.assertTrue(item.label.startswith(f"Level {level} ({cost} gold)"), item.label)
+                         [("level", slug, n) for n in range(1, card.max_level)])
+        for item in levels:
+            n = item.choice[2]
+            self.assertTrue(item.label.startswith(f"Level {1 + n} ({n} gold)"), item.label)
+            # Three gold buys three levels; the rest are there, greyed out.
+            self.assertEqual(item.disabled, n > 3, item.label)
         back = (await self.table.press(picker, "Back")).view()
         self.assertEqual(back.mode, "actions")
         call = await self.table.press(picker, ("level", slug, 2))

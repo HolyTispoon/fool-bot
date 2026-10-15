@@ -630,26 +630,31 @@ class TurnPanelView(PanelView):
         await self.show(interaction, view, self.cog.panel_caption(game, self.prompt, view.caption()))
 
     def build_level(self, options) -> None:
-        """A button per level the hero may reach -- the next one up to
-        `max_levels` above where it stands -- each with what it costs, a
-        level that starts a band or is the hero's last saying so off the
-        card; **Back** on a row of its own."""
+        """A button per level up to the hero's last, each with what it
+        costs -- those up to `max_levels` above where it stands to be
+        bought, the ones past them that the gold does not reach there,
+        greyed out (the author, 2026-10-15) -- a level that starts a band
+        or is the hero's last saying so off the card; **Back** on a row of
+        its own."""
         hero = self.hero_row()
         row = 0
         if hero is not None and hero.action == "level" and not hero.why_not:
             card = self.cog.engine.catalog.heroes[hero.slug]
             bands = {band.min_level for band in card.bands}
             buttons = []
-            for levels in range(1, hero.max_levels + 1):
+            for levels in range(1, card.max_level - hero.level + 1):
                 level = hero.level + levels
                 label = f"Level {level} ({levels * hero.cost} gold)"
                 if level == card.max_level:
                     label += ": max level"
                 elif level in bands:
                     label += ": new band"
+                affordable = levels <= hero.max_levels
                 buttons.append(self.make_button(
-                    label, discord.ButtonStyle.primary,
-                    self._answer(self.level, hero.slug, levels), choice=("level", hero.slug, levels),
+                    label,
+                    discord.ButtonStyle.primary if affordable else discord.ButtonStyle.secondary,
+                    self._answer(self.level, hero.slug, levels) if affordable else None,
+                    disabled=not affordable, choice=("level", hero.slug, levels),
                 ))
             row = self.place(buttons, 0, until=ROWS - 1)
         self.button("Back", discord.ButtonStyle.secondary, self.back, row=row)
