@@ -41,7 +41,7 @@ import discord
 
 from codex import effects, history
 from codex.engine import ARRIVED, EXHAUSTED, TECH_BUILDINGS, building_name
-from codex.formatting import deck_name, ref_label
+from codex.formatting import deck_name, ref_label, team_name
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name, seat_label
 from cogs.codex_views.base import SafeView, acknowledge, edit_clicked, kept_pictures, send_ephemeral
@@ -69,10 +69,22 @@ def _cut(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
-#: The undo to the previous turn's button: it asks the player whose
-#: turn is unwound -- a duel's opponent.
+#: The undo to the previous turn's button: it asks whoever's turn is
+#: unwound -- a duel's opponent, a free-for-all's seat before, a
+#: two-headed dragon's other team (decision 15).
 PREVIOUS_TURN_LABEL = "To the start of the previous turn (asks your opponent)"
 PREVIOUS_TURN_LABEL_TABLE = "To the start of the previous turn (asks the player before you)"
+PREVIOUS_TURN_LABEL_DRAGON = "To the start of the previous turn (asks the other team)"
+
+
+def previous_turn_label(variant: str) -> str:
+    """The undo to the previous turn's label for `variant`, the record's
+    or the match's."""
+    if variant == "duel":
+        return PREVIOUS_TURN_LABEL
+    if variant == "two_headed_dragon":
+        return PREVIOUS_TURN_LABEL_DRAGON
+    return PREVIOUS_TURN_LABEL_TABLE
 
 #: What the fine undo's menu asks.
 UNDO_MENU = "To before an action of this turn..."
@@ -953,11 +965,21 @@ class TurnPanelView(PanelView):
     # -- The questions an effect asks -----------------------------------------
 
     def target_label(self, row) -> str:
-        """A target in the menu: whose, what, and what it costs -- its
-        resist -- or why it is forced (the flagbearer)."""
+        """A target in the menu: whose -- yours, or its seat's player by
+        name, an opponent's or a teammate's alike, since "their" says
+        nothing at a table of several (in a test game, whose seats are
+        one person's, the side's team, as `side_label` names it) --
+        what, and what it costs -- its resist -- or why it is forced
+        (the flagbearer)."""
         if row.ref.startswith(("hand:", "codex:", "discard:", "deck:")):
             return self.label(row.ref, row.seat)
-        whose = "Your" if row.seat == self.seat else "Their"
+        game = self.cog.games.get(self.game_id)
+        if row.seat == self.seat:
+            whose = "Your"
+        elif game is not None and game.test_game:
+            whose = f"{team_name(self.match.player(row.seat).specs)}'s"
+        else:
+            whose = f"{seat_label(game, row.seat)}'s"
         label = f"{whose} {self.label(row.ref, row.seat)}"
         if row.resist:
             label += f" -- resist: pay {row.resist} gold"
@@ -1167,7 +1189,7 @@ class TurnPanelView(PanelView):
             self.button("To the start of my turn", discord.ButtonStyle.danger,
                         self.undo_turn_start, row=row)
         if history.PREVIOUS_TURN in targets:
-            self.button(PREVIOUS_TURN_LABEL if self.match.variant == "duel" else PREVIOUS_TURN_LABEL_TABLE,
+            self.button(previous_turn_label(self.match.variant),
                         discord.ButtonStyle.danger, self.undo_previous_turn, row=row)
         if not targets:
             self.button("Nothing to undo", discord.ButtonStyle.secondary, None, row=row, disabled=True)
@@ -1236,14 +1258,13 @@ class UndoView(SafeView):
         if self.points_menu is not None:
             self.add_item(self.points_menu)
         game = cog.games.get(game_id)
-        table = game is not None and game.variant != "duel"
         if end_of_turn:
             button = discord.ui.Button(label=END_OF_TURN, style=discord.ButtonStyle.danger)
             button.callback = self.undo_end_of_turn
             self.add_item(button)
         for label, target, callback in (
             ("To the start of my turn", history.TURN_START, self.undo_turn_start),
-            (PREVIOUS_TURN_LABEL_TABLE if table else PREVIOUS_TURN_LABEL,
+            (previous_turn_label(game.variant if game is not None else "duel"),
              history.PREVIOUS_TURN, self.undo_previous_turn),
         ):
             if target in targets:
@@ -1354,11 +1375,15 @@ class UndoConfirmView(SafeView):
         # The opponent's seat first: in a test game one person holds both,
         # and agrees with themselves.
         seat = next((one for one in self.agreeing if one in seats), seats[0] if seats else None)
+        # Whose agreement it is: the duel's opponent, the other team's
+        # two -- or, across an extra turn one seat took alone, that seat,
+        # named as a free-for-all's is.
+        team = match.dragons and len(self.agreeing) > 1
         if seat == self.asker or (match.dragons and seat is not None and seat not in self.agreeing
                                   and seat in self.cog.engine.turn_seats(match)):
             await send_ephemeral(
                 interaction,
-                ("Your opponent" if match.variant == "duel" else "The other team" if match.dragons
+                ("Your opponent" if match.variant == "duel" else "The other team" if team
                  else "The player whose turn it was")
                 + " has to agree to this: it undoes their turn too.",
             )
@@ -1367,7 +1392,7 @@ class UndoConfirmView(SafeView):
             await send_ephemeral(
                 interaction,
                 ("Only the opponent" if match.variant == "duel" else "Only the other team's players"
-                 if match.dragons else "Only the player whose turn it was")
+                 if team else "Only the player whose turn it was")
                 + ", or a helper with Manage Channels, can agree to this.",
             )
             return

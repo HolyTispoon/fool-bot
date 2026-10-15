@@ -52,10 +52,10 @@ from cogs.codex_views.turn import UndoView, opponent_started
 
 LOGGER = logging.getLogger(__name__)
 
-NOT_YOUR_TABLE = "This table is not yours: only its two players have a hand and a codex here."
+NOT_YOUR_TABLE = "This table is not yours: only its players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
-    "In a test game each side chooses its tech when its own turn begins, from "
-    "**Tech** or **My hand** -- nothing is chosen during the other side's turn."
+    "In a test game each seat chooses its tech when its own turn begins, from "
+    "**Tech** or **My hand** -- nothing is chosen during another seat's turn."
 )
 
 
@@ -220,10 +220,10 @@ class TurnMessageView(SafeView):
             # test game the one person holds both seats.
             seat, targets, points = owner, {}, ()
         elif (match.winner is None and any(
-                one in mine for one in self.cog.engine.dragon_of(
-                    match, self.cog.service.previous_turn_owner(game.game_id) or 0))):
-            # They ended the turn before, and the other player has
-            # acted since: its end is no longer theirs to take back.
+                one in mine for one in self.cog.service.previous_turn_owners(game.game_id))):
+            # They ended the turn before -- their own, or their team's --
+            # and the other player has acted since: its end is no longer
+            # theirs to take back.
             await send_ephemeral(interaction, opponent_started(game, match))
             return
         else:

@@ -153,10 +153,9 @@ class EndingMixin:
             await send_ephemeral(interaction, NOT_PLAYING_HERE)
             return
         match = self.service.load(game)
+        # A clicker holding no seat is refused in the model's words, as a
+        # free-for-all's player is: who may concede is the model's to say.
         seat = game.seat_for(interaction.user.id, match.active)
-        if seat is None:
-            await send_ephemeral(interaction, "Only the game's two players can concede, each their own side.")
-            return
         try:
             self.service.check_concession(game.game_id, seat)
         except RuleRefusal as refused:

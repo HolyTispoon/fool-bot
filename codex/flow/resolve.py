@@ -1425,9 +1425,15 @@ def _stampede(engine, match, top, part, target, result) -> None:
     for card in match.player(seat).play:
         if engine.catalog.cards[card.slug].is_unit:
             board.grant_armor(card, effects.STAMPEDE_BONUS)
+    # The base named where the opponents share one -- the duel's, a
+    # dragon's other team's; at a free-for-all the excess goes to the
+    # base of whichever opponent the unit attacks (`combat`).
+    foes = engine.opponents(match, seat)
+    where = (f"{base_owner(match, foes[0])}'s base" if _one_base(match, foes)
+             else "the base of the opponent they attack")
     result.narration.append(
         f"{top['by']}: {tokens.player(seat)}'s units get +3 ATK and +3 armor this turn, "
-        "their excess combat damage to the opposing base."
+        f"their excess combat damage to {where}."
     )
 
 

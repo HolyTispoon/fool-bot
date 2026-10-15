@@ -181,10 +181,11 @@ def base_floor(match: MatchState, seat: int, by: Optional[int]) -> Optional[int]
     return max(floors) if floors else None
 
 
-def refuse_concession(match: MatchState, seat: int) -> None:
+def refuse_concession(match: MatchState, seat: Optional[int]) -> None:
     """Raise `RuleRefusal` where `seat` may not concede `match` -- a seat
-    the game has not, a game already over, or a free-for-all, which has
-    none (the author, 2026-10-11, docs/codex-multiplayer.md decision 5)."""
+    the game has not (`None`, somebody holding no seat), a game already
+    over, or a free-for-all, which has none (the author, 2026-10-11,
+    docs/codex-multiplayer.md decision 5)."""
     if seat not in seats.seat_numbers(match):
         raise RuleRefusal("Only a player of the game can concede it.")
     if match.winner is not None:
@@ -829,9 +830,11 @@ def _dothram(engine: "RulesEngine", match: MatchState, card, result: StepResult)
     totals = {player.seat: engine.total_atk(match, player.seat) for player in match.players}
     ahead = max(totals, key=totals.get)
     if any(totals[seat] >= totals[ahead] for seat in totals if seat != ahead):
+        # The card's own words, right at a table of any size: each
+        # player's total named, since a bare list is seat order.
         result.narration.append(
-            f"{tokens.card(card.slug)} stays: no player has more total ATK than the other "
-            f"({' and '.join(str(totals[number]) for number in totals)})."
+            f"{tokens.card(card.slug)} stays: no player has more total ATK than each other player "
+            f"({', '.join(f'{tokens.player(number)} {totals[number]}' for number in totals)})."
         )
         return
     if ahead == card.controller:

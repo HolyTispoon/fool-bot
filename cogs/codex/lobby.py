@@ -101,8 +101,9 @@ class LobbyMixin:
                     "order -- to change team, leave and sit again: " + each)
         head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- {kind}.")
         if game.test_game:
-            head += (" A **test game**: one person may take both seats and play both sides."
-                     if not dragon else " A **test game**: one person may take all four seats.")
+            head += (" A **test game**: one person may take both seats and play both sides." if duel
+                     else " A **test game**: one person may take all four seats." if dragon
+                     else " A **test game**: one person may take every seat and play them all.")
         lines = [head.strip()]
         if game.mode == "basic" and game.status is GameStatus.LOBBY:
             lines.append(self.basic_matchups_line())
@@ -164,7 +165,7 @@ class LobbyMixin:
         )
 
     @app_commands.command(name="create_game", description="Open a Codex lobby: in a channel of its own, else a thread, else here.")
-    @app_commands.describe(test_game="A test game: you may take both seats and play both sides")
+    @app_commands.describe(test_game="A test game: you may take every seat and play them all")
     async def lobby(self, interaction: discord.Interaction, test_game: bool = False) -> None:
         """
         Open the game's place and post the lobby in it: the game is

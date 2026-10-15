@@ -1461,7 +1461,8 @@ class EffectPanelTests(TurnTestCase):
 
     async def test_an_opponents_target_is_red_and_your_own_blurple(self) -> None:
         """Whose a target is reads from its colour: the opponent's red,
-        your own blurple -- on a part's buttons and on divided damage's."""
+        your own blurple -- on a part's buttons and on divided damage's --
+        and from its label: yours, or its player's by name."""
         from codex.engine import TargetRow
         from codex.prompts import DivideOptions, PendingPrompt, TargetOptions
 
@@ -1472,7 +1473,7 @@ class EffectPanelTests(TurnTestCase):
         view = TurnPanelView(cog, game_id, PendingPrompt(PromptKind.TARGET, "", seat, options), match)
         styles = {item.label: item.style for item in view.children if getattr(item, "choice", None)}
         self.assertEqual(styles, {"Your base": discord.ButtonStyle.primary,
-                                  "Their base": discord.ButtonStyle.danger})
+                                  f"{self.game.seat_name(other)}'s base": discord.ButtonStyle.danger})
         options = DivideOptions(seat, "brick_thief", "unit:1", 2,
                                 ((f"{seat}:base", 1), (f"{other}:base", 1)))
         view = TurnPanelView(cog, game_id, PendingPrompt(PromptKind.DIVIDE_DAMAGE, "", seat, options), match)
@@ -1544,6 +1545,24 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
     async def lock(self, view):
         ended = await self.table.press(view, "End main phase", who=self.table.basher)
         return await self.table.press(ended.view(), "Lock patrol", who=self.table.basher)
+
+    async def test_a_target_of_the_other_side_is_named_by_its_team(self) -> None:
+        """Both seats are the one person's, so the other side's thing
+        carries its team's name rather than theirs."""
+        from codex.engine import TargetRow
+        from codex.formatting import team_name
+        from codex.prompts import TargetOptions
+
+        match = self.table.match
+        seat = match.active
+        other = self.table.cog.engine.sole_opponent(match, seat)
+        rows = (TargetRow(f"{seat}:base", seat, "base"), TargetRow(f"{other}:base", other, "base"))
+        options = TargetOptions(seat, "brick_thief", "unit:1", 1, "repair", rows)
+        view = TurnPanelView(self.table.cog, self.game.game_id,
+                             PendingPrompt(PromptKind.TARGET, "", seat, options), match)
+        labels = [item.label for item in view.children if getattr(item, "choice", None)]
+        self.assertEqual(labels, ["Your base", f"{team_name(match.player(other).specs)}'s base"])
+        self.assertNotIn("basher", labels[1])
 
     async def test_one_person_plays_both_sides_from_the_panel(self) -> None:
         """A test game seats one person in both seats, and its tech is

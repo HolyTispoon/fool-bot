@@ -377,18 +377,44 @@ def previous_turn_owner(match: MatchState) -> Optional[int]:
     return None if index is None else match.turn_snapshots[index].get("active")
 
 
+def previous_turn_solo(match: MatchState) -> Optional[int]:
+    """The seat whose extra turn, alone, the one before this was --
+    Double Time's in a two-headed dragon (`MatchState.solo`, "you means
+    you", Rulebook p. 13) -- off its snapshot; `None` for a team's turn,
+    a duel's or a free-for-all's, or where the snapshot is not kept."""
+    index = _snapshot_index(match, match.turn - 1)
+    return None if index is None else match.turn_snapshots[index].get("solo")
+
+
+def previous_turn_owners(match: MatchState) -> tuple[int, ...]:
+    """
+    Everyone whose turn the one before this was, as `turn_seats` read it
+    then: the one seat whose extra turn it was, else in a two-headed
+    dragon both players of the team that took it, else its one player --
+    `()` where the snapshot is not kept. Who takes its end back, and who
+    agrees to an undo to its start.
+    """
+    owner = previous_turn_owner(match)
+    if owner is None:
+        return ()
+    solo = previous_turn_solo(match)
+    if solo is not None:
+        return (solo,)
+    return seats.dragon_of(match, owner)
+
+
 def end_of_turn_owners(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> tuple[int, ...]:
     """
     Whose it is to take the end of the turn before this one back
     (`end_of_turn_owner`): the seat whose turn it was, and in a
     two-headed dragon both players of the team that took it, either of
-    whom may (docs/codex-multiplayer.md, decision 15) -- none where it
-    is closed.
+    whom may (docs/codex-multiplayer.md, decision 15) -- but a seat's
+    extra turn alone is that seat's to take back, as it was that seat's
+    to play (`previous_turn_owners`) -- none where it is closed.
     """
-    owner = end_of_turn_owner(engine, game, match)
-    if owner is None:
+    if end_of_turn_owner(engine, game, match) is None:
         return ()
-    return seats.dragon_of(match, owner)
+    return previous_turn_owners(match)
 
 
 def end_of_turn_owner(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Optional[int]:

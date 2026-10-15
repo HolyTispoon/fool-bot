@@ -355,6 +355,14 @@ class EndOfTurnUndoTests(unittest.TestCase):
         apply(self.engine, self.game, self.match, PromptKind.PATROL, arguments={"assignment": {}})
         self.assertEqual((self.match.turn, self.match.active), (4, 2))
 
+    def test_the_turn_before_was_its_one_players(self) -> None:
+        """A duel's previous turn is one seat's, and no seat's extra turn
+        alone: what a dragon's readings fall back to."""
+        self.assertEqual(history.previous_turn_owner(self.match), 1)
+        self.assertIsNone(history.previous_turn_solo(self.match))
+        self.assertEqual(history.previous_turn_owners(self.match), (1,))
+        self.assertEqual(history.end_of_turn_owners(self.engine, self.game, self.match), (1,))
+
     def test_the_ended_turns_journal_is_kept_on_its_snapshot(self) -> None:
         snapshots = self.match.turn_snapshots
         self.assertEqual([s["turn"] for s in snapshots], [2, 3, 4])

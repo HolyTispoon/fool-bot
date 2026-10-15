@@ -613,7 +613,11 @@ class OpponentCardTests(unittest.TestCase):
         -- a plural: every opponent."""
         engine, game, match = self.table()
         self.cast(engine, game, match, "reputable_newsman")
-        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.CHOOSE_NUMBER)
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.CHOOSE_NUMBER)
+        # The ask says so too, at a duel and a table alike.
+        self.assertTrue(prompt.ask.endswith("-- opponents can't play spells or upgrades of that cost."), prompt.ask)
+        self.assertNotIn("your opponent", prompt.ask)
         run = apply(engine, game, match, Action(PromptKind.CHOOSE_NUMBER, arguments={"number": 2}))
         self.assertIn("Opponents can't play spells or upgrades that cost 2", said(run))
         for seat in (2, 3):
@@ -624,6 +628,34 @@ class OpponentCardTests(unittest.TestCase):
                 match.active = seat
                 rows = {row.slug: row for row in engine.playable(match.player(seat), match)}
                 self.assertFalse(rows["discord"].allowed)
+
+    def test_dothram_names_each_players_total_where_nobody_is_ahead(self) -> None:
+        """"If a player has more total ATK than each other player" -- the
+        line that says nobody is names every player's total, since "the
+        other" is nobody at a table of three."""
+        engine, game, match = self.table()
+        put(match, 2, "dothram_horselord")  # 6 ATK
+        for seat in (1, 3):
+            put(match, seat, "iron_man")
+            put(match, seat, "iron_man")  # 3 + 3
+        self.assertEqual([engine.total_atk(match, seat) for seat in (1, 2, 3)], [6, 6, 6])
+        heard = end_turn(engine, game, match)  # seat 2's upkeep
+        self.assertIn(
+            f"{tokens.card('dothram_horselord')} stays: no player has more total ATK than each "
+            f"other player ({tokens.player(1)} 6, {tokens.player(2)} 6, {tokens.player(3)} 6).",
+            heard,
+        )
+
+    def test_stampede_at_a_table_sends_the_excess_to_the_base_attacked(self) -> None:
+        """Where the opponents hold several bases, the line says the one
+        the excess goes to is whichever the unit attacks."""
+        from test_codex_card_rulings import at_max
+
+        engine, game, match = self.table(teams=(("growth",), ("finesse",), ("bashing",)))
+        at_max(engine, match, 1)
+        run = self.cast(engine, game, match, "stampede", gold=6)
+        self.assertIn("their excess combat damage to the base of the opponent they attack.", said(run))
+        self.assertNotIn("opposing base", said(run))
 
     def test_the_flagbearer_of_any_opponent_must_be_targeted(self) -> None:
         engine, game, match = self.table()
