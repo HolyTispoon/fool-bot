@@ -2175,34 +2175,48 @@ being trashed when it leaves), and a spell of theirs being cast -- an
 effect frame's `spell`, or Appel Stomp waiting on its place. A tech
 choice joins it at the ready phase, when the picks reach the discard
 pile, and not before; a hired card is trashed and so gone. It is
-pictured by `render_deck` as one picture of three parts **side by
-side, each in a frame headed with its name** -- "Hand", "Discard pile"
-and "Rest of deck" (the draw pile and what is in play) -- left to
-right, a frame starting a new row only where it would make the picture
-wider than eight cards (`DECK_COLUMNS`), and every frame in a row
-stretched to the row's height so the edges line up (the author,
-2026-10-10: "one image but with the frames around separating the
-different parts"; the day before, the parts were stacked as bands with
-the rest unframed, each starting a new row, which read as three
-pictures). Each part is in the deck's order -- the starting cards first
+pictured by `render_deck` as one picture of four parts, **each in a
+frame headed with its name** -- "Hand", "In play" (the owner's cards on
+either side and a spell of theirs being cast), "Discard pile" and
+"Deck" (the draw pile) -- in that order (the author, 2026-10-10: "one
+image but with the frames around separating the different parts";
+2026-10-15: "Should show what's in play as a zone. Then 'rest of deck'
+can be 'deck'", where in play had been folded into a "Rest of deck"
+with the draw pile). **The frames are packed to fill the rows**
+(`deck_layout`; the author, 2026-10-15: "should fill the rows"): the
+first reading put each frame on a row of its own wherever two would
+pass eight cards (`DECK_COLUMNS`), so a hand of two sat alone beside an
+empty width. Now every way of cutting the frames, in order, into rows
+is tried -- four frames are eight ways -- each row as few lines of
+cards tall as lets its frames, each in as few columns as fit its cards,
+total eight columns or fewer; the shortest picture is taken, then the
+one with the fewest empty card places, then the one whose frames wrap
+least, which is what lays a hand of five in a row of its own rather
+than two columns tall beside the discard pile. A frame of two cards
+always lies them side by side, whatever its row's height (the author,
+2026-10-15: "a 2 card frame has to include the cards horizontally"),
+the first reading having stacked a hand of two into one column beside
+a two-line discard pile. A row narrower than the
+widest has its last frame stretched to the picture's edge, so the
+right edges line up. Each part is in the deck's order -- the starting cards first
 and then each tech level -- and shows each card once with its copies
 there on its badge, so a card with one copy in the hand and another in
 the draw pile shows in both (the author, 2026-10-09: "I want the cards
 in hand to appear together. A second copy of the same card would show
 up again outside of the box"; "also show which cards in the discard").
 The hand's frame is drawn in the neutral white the words are and the
-other two in the quiet grey, not gold: the author asked for no gold
+other three in the quiet grey, not gold: the author asked for no gold
 there, gold being the tech picker's mark (its first day, the deck was
 the codex grid with the hand's copies framed in gold on each card,
 which left a hand's cards scattered through the deck). The split is
-the engine's, `OwnDeck.held`, `discarded` and `elsewhere` beside the
+the engine's, `OwnDeck.held`, `played`, `discarded` and `pile` beside the
 whole `cards`, so the view computes nothing; `render_deck` shares one card
 tile with `render_codex` (`codex_tile`), whose output the extraction
 left byte-identical. Its caption is the total alone, "Total cards in
 deck: 13." (the author, 2026-10-09: "cut down on text"), where it
 first counted every place in words; the picture says where the cards
 are, and the draw pile's order is never shown, its cards being in the
-rest of the deck in the deck's order. A tech choice not yet in the
+"Deck" frame in the deck's order. A tech choice not yet in the
 discard pile is not listed, there or anywhere in it (the author, 2026-10-09). The button is on the turn
 message, beside **My hand**, for either player whoever's turn it is
 (the author, 2026-10-09: "include it in the public message"); under the
