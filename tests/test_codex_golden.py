@@ -20,9 +20,10 @@ frontend draws one. So:
 
     FOOLBOT_UPDATE_GOLDEN=1 python3 -m unittest tests.test_codex_golden
 
-rewrites the two files. The policy is `test_codex_driver_full_game.choose`,
-which reads `PendingPrompt.options` and nothing else, so what is pinned is
-what a frontend that reads only the result can reach. `GOLDEN_SEED` is the
+rewrites the two files. The policy is `test_codex_driver_full_game.choose`
+(through `answer`), which reads `PendingPrompt.options` and nothing else,
+so what is pinned is what a frontend that reads only the result can
+reach. `GOLDEN_SEED` is the
 full-game test's seed, on which the game ends on a destroyed base well
 inside the bound.
 
@@ -41,9 +42,9 @@ import unittest
 from codex import tokens
 from codex.engine import RulesEngine
 from codex.game import CodexGame
-from codex.prompts import Action, PromptKind
+from codex.prompts import PromptKind
 from gamesaves.codex.service import GameResult, GameService
-from test_codex_driver_full_game import SEED, TURN_LIMIT, choose
+from test_codex_driver_full_game import SEED, TURN_LIMIT, answer, numbered_seats
 from test_golden_transcript import GOLDEN_DIR, UPDATING, golden_diff, render_final_match
 
 TRANSCRIPT_FILE = GOLDEN_DIR / "codex_service_transcript.txt"
@@ -103,8 +104,8 @@ def record_playthrough(seed: int = GOLDEN_SEED, players=None, dragon=None) -> tu
     if dragon is not None:
         game = CodexGame("codex-golden-dragon", 1, variant="two_headed_dragon")
         games[game.game_id] = game
-        for number, spec in enumerate(dragon, start=1):
-            service.take_seat(game.game_id, 100 * number + number, f"player{number}", spec)
+        for user_id, name, spec in numbered_seats(dragon):
+            service.take_seat(game.game_id, user_id, name, spec)
     else:
         game = service.create_game(guild_id=1, game_number=1)
         if players is None:
@@ -112,8 +113,8 @@ def record_playthrough(seed: int = GOLDEN_SEED, players=None, dragon=None) -> tu
             service.take_seat(game.game_id, 202, "fencer", "finesse")
         else:
             service.set_variant(game.game_id, "free_for_all")
-            for number, spec in enumerate(players, start=1):
-                service.take_seat(game.game_id, 100 * number + number, f"player{number}", spec)
+            for user_id, name, spec in numbered_seats(players):
+                service.take_seat(game.game_id, user_id, name, spec)
     lines = ["=== start"]
     result = service.start(game.game_id)
     lines.extend(describe(result))
@@ -138,10 +139,7 @@ def record_playthrough(seed: int = GOLDEN_SEED, players=None, dragon=None) -> tu
             if match.player(prompt.asked_player).tech_choice is None
         ]
         prompt = unpicked[0] if unpicked else waiting
-        action = choose(engine, match, prompt)
-        if match.dragons:
-            action = Action(action.kind, action.choice,
-                            {**action.arguments, "player": prompt.asked_player})
+        action = answer(engine, match, prompt)
         lines.append(action_line(step + 1, action))
         result = service.apply_action(game.game_id, action)
         assert not result.refused, f"{action} refused: {result.refusal}"

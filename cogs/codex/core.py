@@ -32,7 +32,7 @@ from codex.formatting import turn_heading
 from codex.game import CodexGame, GameStatus
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompts
 from codex.render import preload_pictures, render_codex, render_hand
-from cogs.codex_helpers import CodexTokens
+from cogs.codex_helpers import CodexTokens, seat_label
 from cogs.codex_views import (
     ERROR_RECOVERY_ADVICE,
     LobbyView,
@@ -242,7 +242,7 @@ class CoreMixin:
 
     def seat_names(self, game: CodexGame) -> dict[int, str]:
         return {
-            seat: game.seat_name(seat) or f"Player {seat}"
+            seat: seat_label(game, seat)
             for seat in range(1, game.seat_count + 1)
         }
 

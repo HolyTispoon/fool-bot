@@ -30,6 +30,8 @@ from cogs.codex_helpers import (
     codex_archive_category,
     codex_games_category,
     is_game_helper,
+    seat_label,
+    seat_labels,
 )
 from cogs.codex_views import ConcedeConfirmView, LobbyView, TeamConcedeView, edit_clicked, send_ephemeral
 from cogs.game_auth import send_new_prompt
@@ -163,8 +165,7 @@ class EndingMixin:
         if match.dragons:
             # The team's concession, which the teammate agrees to in
             # public after this click (decision 15).
-            rivals = self.engine.opponents(match, seat)
-            winners = " and ".join(game.seat_name(other) or f"Player {other}" for other in rivals)
+            winners = seat_labels(game, self.engine.opponents(match, seat))
             mate = self.mate_name(game, self.engine.teammate(match, seat))
             await interaction.response.send_message(
                 f"Concede the game for your team? {mate} is asked to agree; then {winners} win, "
@@ -174,7 +175,7 @@ class EndingMixin:
             )
             return
         other = self.engine.sole_opponent(match, seat)
-        winner = game.seat_name(other) or f"Player {other}"
+        winner = seat_label(game, other)
         side = f" {team_name(match.player(seat).specs)}'s side of" if game.test_game else ""
         await interaction.response.send_message(
             f"Concede{side} the game? {winner} wins, and it cannot be undone.",
@@ -222,9 +223,8 @@ class EndingMixin:
             content=f"{name} has been asked to agree to the concession.", view=None,
         )
         mate_id = game.seat_user_id(mate)
-        asker = game.seat_name(seat) or f"Player {seat}"
-        winners = " and ".join(game.seat_name(other) or f"Player {other}"
-                               for other in self.engine.opponents(match, seat))
+        asker = seat_label(game, seat)
+        winners = seat_labels(game, self.engine.opponents(match, seat))
         mention = f"<@{mate_id}>" if mate_id else name
         await send_new_prompt(
             interaction,

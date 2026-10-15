@@ -27,7 +27,9 @@ from cogs.codex_helpers import (
     channel_name,
     codex_games_category,
     elapsed_ms,
+    mention_ids,
     pictures_size,
+    seat_label,
 )
 from cogs.codex_views import (
     CodexBrowser,
@@ -283,8 +285,7 @@ class PresentationMixin:
         text = self.turn_text(game, match)
         # The players whose turn it is: a dragon's two teammates, whom the
         # heading names and the post pings both (decision 13).
-        pinged = list(dict.fromkeys(
-            one for one in (game.seat_user_id(seat) for seat in self.engine.turn_seats(match)) if one))
+        pinged = mention_ids(game, self.engine.turn_seats(match))
         state = self.boards.state(game.game_id)
         async with state.lock:
             started = time.perf_counter()
@@ -382,7 +383,7 @@ class PresentationMixin:
         if mate is None or match.winner is not None or not tech_is_owed(match, mate):
             return
         picks = self.engine.tech_picks_of(match, seat, mate)
-        name = game.seat_name(mate) or f"Player {mate}"
+        name = seat_label(game, mate)
         if picks is None:
             await send_answer(interaction, f"{name} has not chosen their tech yet. Only you can see this.",
                               ephemeral=True)

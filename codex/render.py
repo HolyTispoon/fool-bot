@@ -2021,27 +2021,25 @@ def compose_board(match: MatchState, layout: str = "stacked",
     def name(seat: int) -> str:
         return names.get(seat) or f"Player {seat}"
 
-    label = divider_label(match, name(match.active))
+    def panels(row, turned: bool = False) -> list[Image.Image]:
+        return _even_panels(match, row, name, cards, building_hp, stats, turned)
+
+    # Whose turn the divider names: the active player, or both of a
+    # dragon's teammates, or the one seat taking an extra turn.
+    label = divider_label(match, " and ".join(name(seat) for seat in seats.turn_seats(match)))
 
     if match.dragons:
-        return _compose_dragon(match, layout, name, cards, building_hp, near, stats)
-    if len(match.players) > 2:
+        return _compose_dragon(match, layout, panels, label, near)
+    if match.variant == "free_for_all":
         if layout == "side_by_side":
-            return _compose_rows(match, name, cards, building_hp, label, near, stats)
-        return _compose_table(match, name, cards, building_hp, label, near, stats)
+            return _compose_rows(match, panels, label, near)
+        return _compose_table(match, panels, label, near)
     if layout == "side_by_side":
         first = match.first
-        second = seats.sole_opponent(match, first)
-        natural = [render_panel(match, seat, name(seat), cards, building_hp, stats=stats)
-                   for seat in (first, second)]
-        height = max(panel.height for panel in natural)
-        left, right = (render_panel(match, seat, name(seat), cards, building_hp, height=height,
-                                    stats=stats)
-                       if panel.height < height else panel
-                       for seat, panel in zip((first, second), natural))
-        board = Image.new("RGBA", (left.width + DIVIDER_WIDTH + right.width, height), GROUND)
+        left, right = panels((first, seats.sole_opponent(match, first)))
+        board = Image.new("RGBA", (left.width + DIVIDER_WIDTH + right.width, left.height), GROUND)
         board.alpha_composite(left, (0, 0))
-        board.alpha_composite(vertical_divider(height, label), (left.width, 0))
+        board.alpha_composite(vertical_divider(left.height, label), (left.width, 0))
         board.alpha_composite(right, (left.width + DIVIDER_WIDTH, 0))
         return board
 
@@ -2050,13 +2048,8 @@ def compose_board(match: MatchState, layout: str = "stacked",
         far_seat, near_seat = seats.sole_opponent(match, near), near
     far = render_panel(match, far_seat, name(far_seat), cards, building_hp,
                        turned=layout != "stacked_upright", stats=stats)
-    near = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats)
-    width = max(far.width, near.width)
-    board = Image.new("RGBA", (width, far.height + DIVIDER_HEIGHT + near.height), GROUND)
-    board.alpha_composite(far, ((width - far.width) // 2, 0))
-    board.alpha_composite(horizontal_divider(width, label), (0, far.height))
-    board.alpha_composite(near, ((width - near.width) // 2, far.height + DIVIDER_HEIGHT))
-    return board
+    bottom = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats)
+    return _stack([far], bottom, label)
 
 
 #: The rule between two opponents' panels on a table of several: quieter
@@ -2065,40 +2058,74 @@ def compose_board(match: MatchState, layout: str = "stacked",
 TABLE_GAP = px(14)
 
 
-def _compose_table(match: MatchState, name, cards: CardCatalog, building_hp: dict,
-                   label: str, near: Optional[int], stats: Optional[StatsOf]) -> Image.Image:
-    """
-    A free-for-all's board, stacked only (decision 14, a proposal the
-    author looks at -- worksheet question 2): the seat looked from (the
-    active player's) at the bottom under the turn's divider, and every
-    other seat above it **upright**, in turn order with the next to play
-    nearest -- a table of five has no "across", so no panel is turned.
-    """
-    near_seat = match.active if near is None else near
-    others = seats.turn_order(match, near_seat, inclusive=False)[:-1]
-    panels = [render_panel(match, seat, name(seat), cards, building_hp, stats=stats)
-              for seat in reversed(others)]
-    bottom = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats)
-    width = max(panel.width for panel in (*panels, bottom))
-    height = (sum(panel.height for panel in panels) + TABLE_GAP * (len(panels) - 1)
+def _even_panels(match: MatchState, row, name, cards: CardCatalog, building_hp: dict,
+                 stats: Optional[StatsOf], turned: bool = False) -> list[Image.Image]:
+    """The panels of `row`'s seats drawn side by side at one height, the
+    tallest's: a shorter one is drawn again at that height, so a row of
+    panels lines up -- the duel's side by side, a free-for-all's rows of
+    two, a dragon's teams."""
+    natural = [render_panel(match, seat, name(seat), cards, building_hp, turned=turned, stats=stats)
+               for seat in row]
+    height = max(panel.height for panel in natural)
+    return [panel if panel.height == height
+            else render_panel(match, seat, name(seat), cards, building_hp, turned=turned,
+                              height=height, stats=stats)
+            for seat, panel in zip(row, natural)]
+
+
+def _pair_strip(panels: Sequence[Image.Image], column: int) -> Image.Image:
+    """One or two panels of one height as a strip two `column`s wide, a
+    quiet rule between them; a lone panel centred."""
+    height = panels[0].height
+    width = 2 * column + TABLE_GAP
+    strip = Image.new("RGBA", (width, height), GROUND)
+    if len(panels) == 1:
+        strip.alpha_composite(panels[0], ((width - panels[0].width) // 2, 0))
+        return strip
+    strip.alpha_composite(panels[0], (0, 0))
+    middle = column + TABLE_GAP // 2
+    ImageDraw.Draw(strip).line((middle, 0, middle, height), fill=QUIET, width=px(1))
+    strip.alpha_composite(panels[1], (column + TABLE_GAP, 0))
+    return strip
+
+
+def _stack(above: Sequence[Image.Image], bottom: Image.Image, label: str,
+           centre: Optional[float] = None) -> Image.Image:
+    """`above` stacked top to bottom, a quiet rule between each two, over
+    the turn's divider and `bottom` -- each centred on the board, the
+    pill at `centre` (`horizontal_divider`)."""
+    width = max(part.width for part in (*above, bottom))
+    height = (sum(part.height for part in above) + TABLE_GAP * (len(above) - 1)
               + DIVIDER_HEIGHT + bottom.height)
     board = Image.new("RGBA", (width, height), GROUND)
     draw = ImageDraw.Draw(board)
     top = 0
-    for index, panel in enumerate(panels):
+    for index, part in enumerate(above):
         if index:
             middle = top - TABLE_GAP // 2
             draw.line((0, middle, width, middle), fill=QUIET, width=px(1))
-        board.alpha_composite(panel, ((width - panel.width) // 2, top))
-        top += panel.height + TABLE_GAP
+        board.alpha_composite(part, ((width - part.width) // 2, top))
+        top += part.height + TABLE_GAP
     top -= TABLE_GAP
-    board.alpha_composite(horizontal_divider(width, label), (0, top))
+    board.alpha_composite(horizontal_divider(width, label, centre), (0, top))
     board.alpha_composite(bottom, ((width - bottom.width) // 2, top + DIVIDER_HEIGHT))
     return board
 
 
-def _compose_rows(match: MatchState, name, cards: CardCatalog, building_hp: dict,
-                  label: str, near: Optional[int], stats: Optional[StatsOf]) -> Image.Image:
+def _compose_table(match: MatchState, panels, label: str, near: Optional[int]) -> Image.Image:
+    """
+    A free-for-all's board stacked (decision 14): the seat looked from
+    (the active player's) at the bottom under the turn's divider, and
+    every other seat above it **upright**, in turn order with the next to
+    play nearest -- a table of five has no "across", so no panel is
+    turned.
+    """
+    near_seat = match.active if near is None else near
+    others = seats.turn_order(match, near_seat, inclusive=False)[:-1]
+    return _stack([panels((seat,))[0] for seat in reversed(others)], panels((near_seat,))[0], label)
+
+
+def _compose_rows(match: MatchState, panels, label: str, near: Optional[int]) -> Image.Image:
     """
     A free-for-all's board side by side: rows of two panels, every one
     upright (the author, 2026-10-14). Seats go in turn order from the seat
@@ -2110,48 +2137,16 @@ def _compose_rows(match: MatchState, name, cards: CardCatalog, building_hp: dict
     """
     near_seat = match.active if near is None else near
     order = seats.turn_order(match, near_seat)
-    rows = [order[at:at + 2] for at in range(0, len(order), 2)]
-    natural = {seat: render_panel(match, seat, name(seat), cards, building_hp, stats=stats)
-               for seat in order}
-    panel_width = max(panel.width for panel in natural.values())
-    width = 2 * panel_width + TABLE_GAP
-    drawn = []
-    for row in rows:
-        height = max(natural[seat].height for seat in row)
-        strip = Image.new("RGBA", (width, height), GROUND)
-        panels = [natural[seat] if natural[seat].height == height
-                  else render_panel(match, seat, name(seat), cards, building_hp, height=height, stats=stats)
-                  for seat in row]
-        if len(panels) == 1:
-            strip.alpha_composite(panels[0], ((width - panels[0].width) // 2, 0))
-        else:
-            strip.alpha_composite(panels[0], (0, 0))
-            middle = panel_width + TABLE_GAP // 2
-            ImageDraw.Draw(strip).line((middle, 0, middle, height), fill=QUIET, width=px(1))
-            strip.alpha_composite(panels[1], (panel_width + TABLE_GAP, 0))
-        drawn.append(strip)
-    bottom, above = drawn[0], list(reversed(drawn[1:]))
-    height = (sum(strip.height for strip in above) + TABLE_GAP * (len(above) - 1)
-              + DIVIDER_HEIGHT + bottom.height)
-    board = Image.new("RGBA", (width, height), GROUND)
-    draw = ImageDraw.Draw(board)
-    top = 0
-    for index, strip in enumerate(above):
-        if index:
-            middle = top - TABLE_GAP // 2
-            draw.line((0, middle, width, middle), fill=QUIET, width=px(1))
-        board.alpha_composite(strip, (0, top))
-        top += strip.height + TABLE_GAP
-    top -= TABLE_GAP
+    rows = [panels(order[at:at + 2]) for at in range(0, len(order), 2)]
+    column = max(panel.width for row in rows for panel in row)
+    drawn = [_pair_strip(row, column) for row in rows]
     # The pill over the active player's own panel, the bottom row's left
     # (the author, 2026-10-14).
-    board.alpha_composite(horizontal_divider(width, label, centre=panel_width / 2), (0, top))
-    board.alpha_composite(bottom, (0, top + DIVIDER_HEIGHT))
-    return board
+    return _stack(list(reversed(drawn[1:])), drawn[0], label, centre=column / 2)
 
 
-def _compose_dragon(match: MatchState, layout: str, name, cards: CardCatalog, building_hp: dict,
-                    near: Optional[int], stats: Optional[StatsOf]) -> Image.Image:
+def _compose_dragon(match: MatchState, layout: str, panels, label: str,
+                    near: Optional[int]) -> Image.Image:
     """
     A two-headed dragon's board, **two rows of two** (the author,
     2026-10-14; decision 14): the team looked from -- the acting team's,
@@ -2167,33 +2162,17 @@ def _compose_dragon(match: MatchState, layout: str, name, cards: CardCatalog, bu
     extra turn.
     """
     near_seat = match.active if near is None else near
-    near_team = seats.dragon_of(match, near_seat)
-    far_team = next(tuple(pair) for pair in match.dragons if near_seat not in pair)
     turned = layout == "stacked"
 
-    def row(team, turn: bool) -> tuple[Image.Image, int]:
-        natural = [render_panel(match, seat, name(seat), cards, building_hp, turned=turn, stats=stats)
-                   for seat in team]
-        height = max(panel.height for panel in natural)
-        panels = [panel if panel.height == height
-                  else render_panel(match, seat, name(seat), cards, building_hp, turned=turn,
-                                    height=height, stats=stats)
-                  for seat, panel in zip(team, natural)]
+    def row(team, turn: bool) -> Image.Image:
+        drawn = panels(team, turn)
         if turn:
             # The row turned whole: the head across from the near head.
-            panels.reverse()
-        width = max(panel.width for panel in panels)
-        strip = Image.new("RGBA", (2 * width + TABLE_GAP, height), GROUND)
-        strip.alpha_composite(panels[0], (0, 0))
-        middle = width + TABLE_GAP // 2
-        ImageDraw.Draw(strip).line((middle, 0, middle, height), fill=QUIET, width=px(1))
-        strip.alpha_composite(panels[1], (width + TABLE_GAP, 0))
-        return strip, width
+            drawn.reverse()
+        return _pair_strip(drawn, max(panel.width for panel in drawn))
 
-    far, _ = row(far_team, turned)
-    bottom, panel_width = row(near_team, False)
-    taking = seats.turn_seats(match)
-    label = divider_label(match, " and ".join(name(seat) for seat in taking))
+    far = row(seats.other_team(match, near_seat), turned)
+    bottom = row(seats.dragon_of(match, near_seat), False)
     width = max(far.width, bottom.width)
     board = Image.new("RGBA", (width, far.height + DIVIDER_HEIGHT + bottom.height), GROUND)
     board.alpha_composite(far, (0, 0))

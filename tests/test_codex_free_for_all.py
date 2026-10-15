@@ -47,12 +47,15 @@ def said(run) -> str:
     return "\n".join(line for line in lines if line)
 
 
-def end_turn(engine, game, match) -> str:
-    """The active player ends their main phase, locks no patrollers, and
-    the turn runs on to the next player's main phase -- the tech choice
-    each player owes settled with no picks, as staging. What was said."""
+def lock(engine, game, match, assignment=None, lent=None) -> str:
+    """The active player ends their main phase and locks `assignment`
+    and `lent`; the turn runs on to the next main phase, the tech each
+    player owes settled with no picks, as staging. What was said."""
     heard = [said(apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main")))]
-    heard.append(said(apply(engine, game, match, Action(PromptKind.PATROL, arguments={"assignment": {}}))))
+    arguments = {"assignment": assignment or {}}
+    if lent is not None:
+        arguments["lent"] = lent
+    heard.append(said(apply(engine, game, match, Action(PromptKind.PATROL, arguments=arguments))))
     while match.winner is None:
         for player in match.players:
             player.tech_owed = False
@@ -63,14 +66,27 @@ def end_turn(engine, game, match) -> str:
     return "\n".join(heard)
 
 
-def attack_base(engine, game, match, against: int) -> str:
-    """The active player's Iron Man attacks `against`'s base."""
-    unit = put(match, match.active, "iron_man")
-    heard = [said(apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": unit.ref})))]
+def end_turn(engine, game, match) -> str:
+    """The active player ends their main phase, locks no patrollers, and
+    the turn runs on to the next player's main phase. What was said."""
+    return lock(engine, game, match)
+
+
+def attack(engine, game, match, attacker, defender, against):
+    """`attacker` (a ref) attacks `defender` of `against`, through the
+    driver. What was said."""
+    heard = [said(apply(engine, game, match, Action(
+        PromptKind.MAIN_ACTION, "attack", {"attacker": attacker}))),
+    ]
     heard.append(said(apply(engine, game, match, Action(
-        PromptKind.CHOOSE_DEFENDER, arguments={"defender": "base", "against": against},
+        PromptKind.CHOOSE_DEFENDER, arguments={"defender": defender, "against": against},
     ))))
     return "\n".join(heard)
+
+
+def attack_base(engine, game, match, against: int) -> str:
+    """The active player's Iron Man attacks `against`'s base."""
+    return attack(engine, game, match, put(match, match.active, "iron_man").ref, "base", against)
 
 
 class VariantTests(unittest.TestCase):

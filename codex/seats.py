@@ -40,6 +40,12 @@ def teammate(match: "MatchState", seat: int) -> Optional[int]:
     return others[0] if others else None
 
 
+def other_team(match: "MatchState", seat: int) -> tuple[int, ...]:
+    """A dragon's team that `seat` is not on, its head first, as the deal
+    pairs it (Rulebook p. 13). Asked of a dragon alone."""
+    return next(tuple(pair) for pair in match.dragons if seat not in pair)
+
+
 def opponents(match: "MatchState", seat: int) -> tuple[int, ...]:
     """Every seat that is `seat`'s opponent, in seat order -- the one
     other seat of a duel, and in a dragon the other team's two: a
@@ -112,10 +118,8 @@ def next_seat(match: "MatchState") -> int:
         return match.extra_turns[0]
     if match.dragons:
         # The other team's head (Rulebook p. 13).
-        theirs = next(pair for pair in match.dragons if match.active not in pair)
-        return theirs[0]
-    seats = seat_numbers(match)
-    return seats[(seats.index(match.active) + 1) % len(seats)]
+        return other_team(match, match.active)[0]
+    return turn_order(match, match.active, inclusive=False)[0]
 
 
 @contextmanager

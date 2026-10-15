@@ -18,7 +18,7 @@ from codex.engine import RulesEngine, target_key
 from codex.flow import StepResult, board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
-from test_codex_free_for_all import apply, end_turn, free_for_all, said
+from test_codex_free_for_all import apply, attack, end_turn, free_for_all, lock, said
 from codex_positions import begin, hand, hero_in_play, new_game, put
 
 
@@ -87,18 +87,6 @@ class RepairTests(unittest.TestCase):
         refusal = refused_by(engine, game, match, Action(PromptKind.MAIN_ACTION, "repair"))
         self.assertIn("free-for-all", refusal.reason)
         self.assertEqual(match.base_of(1), 15)
-
-
-def attack(engine, game, match, attacker, defender, against):
-    """`attacker` (a ref) attacks `defender` of `against`, through the
-    driver. What was said."""
-    heard = [said(apply(engine, game, match, Action(
-        PromptKind.MAIN_ACTION, "attack", {"attacker": attacker}))),
-    ]
-    heard.append(said(apply(engine, game, match, Action(
-        PromptKind.CHOOSE_DEFENDER, arguments={"defender": defender, "against": against},
-    ))))
-    return "\n".join(heard)
 
 
 class FreeGoldTests(unittest.TestCase):
@@ -245,27 +233,6 @@ class FreeGoldTests(unittest.TestCase):
         self.assertEqual(MatchState.from_dict(saved).player(1).bounties, 2)
         del saved["players"][0]["bounties"]
         self.assertEqual(MatchState.from_dict(saved).player(1).bounties, 0)
-
-
-def lock(engine, game, match, assignment=None, lent=None) -> str:
-    """The active player ends their main phase and locks `assignment`
-    and `lent`; the turn runs on to the next main phase, the tech each
-    player owes settled with no picks. What was said."""
-    heard = [said(apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main")))]
-    arguments = {"assignment": assignment or {}}
-    if lent is not None:
-        arguments["lent"] = lent
-    heard.append(said(apply(engine, game, match, Action(PromptKind.PATROL, arguments=arguments))))
-    while match.winner is None:
-        for player in match.players:
-            player.tech_owed = False
-        from codex.prompts import owed_step
-
-        owed = owed_step(engine, game, match)
-        if owed is None:
-            break
-        heard.append(said(driver.advance(engine, game, match, StepResult(next=owed))))
-    return "\n".join(heard)
 
 
 def patrol_prompt(engine, game, match):

@@ -29,6 +29,7 @@ from codex.flow.driver import STALE_CLICK
 from codex.game import GameStatus
 from codex.prompts import PendingPrompt, PromptKind
 from codex_cog_fakes import Table, find_select
+from codex_cog_fakes import labels as buttons
 from codex_positions import hero_in_play, put
 from cogs.codex.core import TURN_LOG_HEADING
 from cogs.codex_helpers import card_name
@@ -72,10 +73,6 @@ def edited(table: Table, message_id: int) -> list[tuple[str, int]]:
 
 def playable(view) -> list[str]:
     return [row.slug for row in view.prompt.options.playable if row.allowed]
-
-
-def buttons(view) -> list[str]:
-    return [item.label for item in view.children if isinstance(item, discord.ui.Button)]
 
 
 def menus(view) -> list[discord.ui.Select]:

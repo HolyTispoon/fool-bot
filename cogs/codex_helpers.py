@@ -102,6 +102,23 @@ def channel_name(game: "CodexGame") -> str:
     return f"{prefix}-{suffix}"[:CHANNEL_NAME_MAX_LENGTH].rstrip("-")
 
 
+def seat_label(game: "Optional[CodexGame]", seat: int) -> str:
+    """A seat as a line the cog composes names it: its player's name off
+    the record, else "Player n" (docs/design/codex.md, "Multiplayer")."""
+    return (game.seat_name(seat) if game is not None else None) or f"Player {seat}"
+
+
+def seat_labels(game: "CodexGame", seats) -> str:
+    """Several seats named together -- a dragon's team, "ann and bo"."""
+    return " and ".join(seat_label(game, seat) for seat in seats)
+
+
+def mention_ids(game: "CodexGame", seats) -> list[int]:
+    """The seated users of `seats` to ping, each once, in seat order --
+    one person holds several seats in a test game."""
+    return list(dict.fromkeys(one for one in (game.seat_user_id(seat) for seat in seats) if one))
+
+
 async def codex_games_category(guild):
     return await get_or_create_category(
         guild, CODEX_GAMES_CATEGORY_NAME, "Create the category for Codex games.",

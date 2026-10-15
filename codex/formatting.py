@@ -181,13 +181,26 @@ def team_name(specs) -> str:
     return deck_name(specs)
 
 
+def side_names(side) -> str:
+    """A side's players, as a line names them: `{player:1}`, or a
+    dragon's team, "{player:1} and {player:2}" (docs/design/codex.md,
+    "Multiplayer")."""
+    return " and ".join(tokens.player(seat) for seat in side)
+
+
+def side_verb(side, one: str, several: str) -> str:
+    """The verb a side takes: "wins" for one player, "win" for a dragon's
+    two."""
+    return several if len(side) > 1 else one
+
+
 def base_owner(match, seat: int) -> str:
     """Whose base a line names: the seat, and in a two-headed dragon both
     players of its team, "{player:1} and {player:2}" -- the base is theirs
     together (Rulebook p. 13), however the attack or the effect named it."""
     from codex import seats
 
-    return " and ".join(tokens.player(one) for one in seats.dragon_of(match, seat))
+    return side_names(seats.dragon_of(match, seat))
 
 
 def turn_heading(match) -> str:
