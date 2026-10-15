@@ -2370,7 +2370,10 @@ too, asked with `gate` for the two kinds a turn may open on
   2026-10-15: what the next band would cost is worth seeing before it
   is affordable), and **Back**, and the one click buys every
   level up to it in a single action (`levels`). Opening it spends nothing
-  public, like **Attack...**. It was a level a click before (2026-10-09),
+  public, like **Attack...**. A hero one level short of their max skips
+  it (the author, 2026-10-15): the picker would hold that one level and
+  nothing greyed out beyond it, so the hero's button is **Level up
+  Jaina to max level (1 gold)** and buys it at once. It was a level a click before (2026-10-09),
   which made a player reaching a band press once per level, each press
   a write to the turn message; `HeroOption.level`, the hero's level
   now, is what the buttons count from. **Attack...** turns the panel into what may attack,

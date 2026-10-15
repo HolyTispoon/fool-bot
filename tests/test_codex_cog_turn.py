@@ -498,6 +498,26 @@ class PanelTests(TurnTestCase):
         self.assertEqual(self.table.match.player(seat).gold, 1)
         self.assertEqual(call.view().mode, "actions")
 
+    async def test_one_level_short_of_the_max_levels_at_once(self) -> None:
+        """A hero one level short of their max skips the picker: the hero's
+        button buys the last level (the author, 2026-10-15)."""
+        match = self.table.match
+        seat = match.active
+        slug = match.player(seat).heroes[0].slug
+        last = self.table.cog.engine.catalog.heroes[slug].max_level
+        hero_in_play(match, seat, level=last - 1)
+        match.player(seat).gold = 3
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertFalse([item for item in view.children
+                          if (item.choice or ("",))[0] == "open_level"])
+        button = next(item for item in view.children if item.choice == ("level", slug, 1))
+        self.assertEqual(button.label, f"Level up {card_name(slug)} to max level (1 gold)")
+        call = await self.table.press(view, ("level", slug, 1))
+        self.assertNothingWentWrong(call)
+        self.assertEqual(self.table.match.player(seat).hero.level, last)
+        self.assertEqual(self.table.match.player(seat).gold, 2)
+
     async def test_a_level_that_starts_a_band_says_so(self) -> None:
         """The level picker marks the level that starts a band, and the
         hero's last, off the card."""

@@ -454,9 +454,11 @@ class TurnPanelView(PanelView):
 
     def hero_button(self, hero) -> PanelButton:
         """**Summon Jaina (2 gold)**, or **Level up Jaina...**, which opens
-        the levels she may reach (the author, 2026-10-15; a level a click
-        before) -- disabled with its reason where the engine says no: the
-        hero limit, the runes, the gold, the maximum."""
+        the levels up to her last (the author, 2026-10-15; a level a click
+        before) -- or, one level short of it, **Level up Jaina to max
+        level (1 gold)**, which buys it at once, the picker having nothing
+        else to show -- disabled with its reason where the engine says no:
+        the hero limit, the runes, the gold, the maximum."""
         name = card_name(hero.slug)
         if hero.action == "summon":
             return self.make_button(
@@ -466,6 +468,12 @@ class TurnPanelView(PanelView):
                 disabled=bool(hero.why_not), choice=("summon", hero.slug),
             )
         if hero.action == "level" and not hero.why_not and hero.max_levels:
+            if self.cog.engine.catalog.heroes[hero.slug].max_level - hero.level == 1:
+                return self.make_button(
+                    f"Level up {name} to max level ({hero.cost} gold)",
+                    discord.ButtonStyle.primary, self._answer(self.level, hero.slug, 1),
+                    choice=("level", hero.slug, 1),
+                )
             return self.make_button(
                 f"Level up {name}...", discord.ButtonStyle.primary,
                 self._answer(self.open_level, hero.slug), choice=("open_level", hero.slug),
