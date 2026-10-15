@@ -1354,7 +1354,9 @@ def _kidnap(engine, match, top, part, target, result) -> None:
     seat = top["seat"]
     card = board.body_of(match, *target)
     named = _thing(match, target)
-    before = card.controller
+    # Back to whoever had it -- its owner for a lent card, whose loan the
+    # kidnapping ends (`board.home_seat`).
+    before = board.home_seat(card)
     if not board.gain_control(match, card, seat):
         return
     card.returns_to = before
@@ -3144,7 +3146,7 @@ def _finish(engine: "RulesEngine", match: MatchState, top: dict, result: StepRes
             # the spell leaves play (`board.settle`).
             host_card = board.body_of(match, side, ref)
             if host_card is not None:
-                before = host_card.controller
+                before = board.home_seat(host_card)
                 if board.gain_control(match, host_card, seat):
                     host_card.modifiers.append({"kind": "mind_controlled", "before": before, "until": None})
                     result.narration.append(

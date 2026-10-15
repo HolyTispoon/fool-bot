@@ -3708,6 +3708,52 @@ on.
 - **Taking the end of a turn back takes the lending back**: the undo
   replays to the last point before the lock, and the lock is journaled
   only where a choice is asked before the next turn begins.
+- **A sidelined lent hero goes home.** A hero's loan is its slot: it
+  never stands in the borrower's play zone, only in the slot
+  `lent_to` and `patrol_slot` name, and `validate` holds a lent hero to
+  patrolling. So `board.sideline` -- every sideline's one door: Appel
+  Stomp's and Calypso Vystari's `sideline` part, the Grappling Hook's,
+  Boot Camp's, a disable's, Oathkeeper's, Entangling Vines' -- clears
+  `lent_to` with the slot, which is exactly what `return_lent` does to a
+  hero: the owner's again, in play, nothing else changed, no trigger.
+  Put there rather than in `resolve._sideline` because the reading is
+  what sidelining *is* for a lent hero, not what one card does, and a
+  second sideline site would otherwise leave a hero lent to nobody's
+  zone, which no click could load (the review of 2026-10-15). The line
+  names it where it now stands -- "sidelines {player:3}'s
+  {hero:troq_bashar}", the owner -- because `board.named` reads a lent
+  ref whose hero is no longer lent to that seat on its owner's side, as a
+  lent hero is always named where it stands. A sidelined lent **unit**
+  stays in the borrower's play zone, theirs until their upkeep
+  (Rulebook p. 14, "you get it back during that player's upkeep"): it
+  has a place on their side to stand, and the rulebook's moment of
+  return is the upkeep.
+- **A control change ends a loan.** `board.gain_control` clears `lent`
+  with the slot: a card Ogre Recruiter takes from its borrower is the
+  taker's, not borrowed -- the borrower's upkeep used to send a stolen
+  card "home" and undo the steal -- and one its owner takes back is
+  simply theirs, where `lent` left standing read as "lent to its own
+  owner" and the save would not load. `board.home_seat` is the one
+  reading of the seat a card answers to beyond its controller -- its
+  owner while lent, its controller otherwise -- for who a dying lent
+  card pays and for **where a card taken for a while goes back to**:
+  Kidnapping's `returns_to` and Mind Control's `before` are the home
+  seat, so a lent card kidnapped or mind-controlled goes back to its
+  owner, not to the borrower, since the taking ended the loan and the
+  borrower would otherwise keep for good a card they only borrowed, and
+  nothing in the save remembers a loan across a taking (the save format
+  may not grow for it).
+- **The borrower's zone is read with its lent heroes.**
+  `RulesEngine._hero_refs_of(match, seat)` is the one reading of the
+  heroes on a side as that side names them: their own in play and the
+  heroes lent into their zone, as `match.patrollers` spells them.
+  `_things_in_play` (and so `_standing`, `holder_of` and the tower's
+  candidates) and Wight's "unstoppable when attacking heroes" read it,
+  so a flier or an unstoppable attacker facing a zone whose only
+  patroller is a lent hero is offered the hero beside the base, as any
+  patroller it may take is, where before the hero was on nobody's list
+  -- `player.play` and the owner's `heroes_in_play` -- and only a
+  blocking patroller was offered.
 
 ### The dragon: the teams, the one base, the two prompts
 

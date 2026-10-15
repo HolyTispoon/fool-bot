@@ -521,5 +521,150 @@ class LentHeroTests(unittest.TestCase):
         self.assertNotIn(self.ref, self.engine.patrol_candidates(self.match))
 
 
+class LoanEndsTests(unittest.TestCase):
+    """What ends a loan before the borrower's upkeep (the review of
+    2026-10-15, docs/design/codex.md, "Lending is a control change"): a
+    lent hero sidelined goes home to its owner, a control change ends the
+    loan, and the borrower's zone is read with the heroes lent into it.
+    Turn order is 3, 1, 2 as in `LendingTests`: seat 3 (Bashing, Troq)
+    lends at its lock and seat 1 (Finesse, River) acts on the lent card
+    in seat 2's zone."""
+
+    def setUp(self) -> None:
+        self.engine, self.game, self.match = free_for_all(
+            teams=(("finesse",), ("bashing",), ("bashing",)), first=3)
+
+    def lend_hero(self, slot: str = "elite"):
+        hero_in_play(self.match, 3, level=3)
+        hero = self.match.player(3).heroes[0]
+        self.match.turn_snapshots[-1] = history.position(self.match)
+        lock(self.engine, self.game, self.match, lent={"2": {slot: f"hero:{hero.slug}"}})
+        self.assertEqual(self.match.active, 1)
+        return hero
+
+    def lend_unit(self, slot: str = "technician"):
+        card = put(self.match, 3, "tenderfoot")
+        self.match.turn_snapshots[-1] = history.position(self.match)
+        lock(self.engine, self.game, self.match, lent={"2": {slot: card.ref}})
+        self.assertEqual(self.match.active, 1)
+        return card
+
+    def target(self, seat: int, ref: str) -> str:
+        """Answer the standing target prompt with `ref` on `seat`'s side,
+        which it must offer -- or nothing, where the effect took its sole
+        candidate without asking. What was said."""
+        prompt = pending_prompt(self.engine, self.game, self.match)
+        if prompt.kind is not PromptKind.TARGET:
+            return ""
+        key = target_key(seat, ref)
+        self.assertIn(key, [row.key for row in prompt.options.rows])
+        return said(apply(self.engine, self.game, self.match, Action(
+            PromptKind.TARGET, arguments={"target": key})))
+
+    def saved_validates(self) -> None:
+        """A click loads and validates the save, so a position that fails
+        here is one nobody can click on again."""
+        MatchState.from_dict(self.match.to_dict()).validate(self.engine.catalog)
+
+    def test_a_sidelined_lent_hero_goes_home_to_its_owner(self) -> None:
+        """Appel Stomp (River at max level) sidelines the hero seat 3 lent
+        seat 2: out of the zone and home, the owner's again, nothing else
+        changed, named on its owner's side -- and the save still loads."""
+        hero = self.lend_hero()
+        lent_ref = f"3:hero:{hero.slug}"
+        hero_in_play(self.match, 1, level=5)
+        self.match.player(1).heroes[0].max_level_since_turn_began = True
+        hand(self.match, 1, "appel_stomp")
+        self.match.player(1).gold = 5
+        heard = said(apply(self.engine, self.game, self.match, Action(
+            PromptKind.MAIN_ACTION, "play", {"slug": "appel_stomp"})))
+        heard += "\n" + self.target(2, lent_ref)
+        self.assertEqual((hero.zone, hero.lent_to, hero.patrol_slot, hero.level), ("play", None, None, 3))
+        self.assertIn(hero, self.match.player(3).heroes_in_play)
+        self.assertEqual(self.match.controller_of(hero), 3)
+        self.assertEqual(self.match.patrollers(2), {})
+        self.assertEqual(self.match.patrollers(3), {})
+        self.assertIn(f"sidelines {{player:3}}'s {{hero:{hero.slug}}}.", heard)
+        self.assertNotIn("{player:2}'s {hero:", heard)
+        self.assertNotIn("arrives", heard)
+        self.saved_validates()
+
+    def test_a_control_change_ends_the_loan(self) -> None:
+        """Seat 1's Ogre Recruiter survives an attack on seat 3's base and
+        takes the Tenderfoot seat 3 lent seat 2: the thief's for good,
+        not borrowed, so nobody's upkeep sends it home."""
+        card = self.lend_unit()
+        ogre = put(self.match, 1, "ogre_recruiter")
+        heard = attack(self.engine, self.game, self.match, ogre.ref, "base", 3)
+        heard += "\n" + self.target(2, card.ref)
+        self.assertIn(f"{{player:1}} gains control of {{player:2}}'s {{card:tenderfoot}}.", heard)
+        self.assertEqual((card.controller, card.owner, card.lent, card.patrol_slot), (1, 3, False, None))
+        self.assertIn(card, self.match.player(1).play)
+        self.saved_validates()
+        heard = "\n".join(end_turn(self.engine, self.game, self.match) for _ in range(3))
+        self.assertEqual(self.match.active, 1)
+        self.assertNotIn("goes home", heard)
+        self.assertIn(card, self.match.player(1).play)
+        self.assertEqual((card.controller, card.lent), (1, False))
+
+    def test_the_owner_taking_a_lent_card_back_ends_the_loan(self) -> None:
+        """Seat 3's own Ogre Recruiter takes back the Tenderfoot seat 3
+        lent seat 2: theirs again and not lent, so the save still loads."""
+        card = put(self.match, 3, "tenderfoot")
+        board.lend(self.match, 3, card.ref, 2, "technician")
+        self.assertEqual(self.match.active, 3)
+        ogre = put(self.match, 3, "ogre_recruiter")
+        attack(self.engine, self.game, self.match, ogre.ref, "base", 1)
+        self.target(2, card.ref)
+        self.assertEqual((card.controller, card.owner, card.lent), (3, 3, False))
+        self.assertIn(card, self.match.player(3).play)
+        self.assertNotIn(card, self.match.player(2).play)
+        self.saved_validates()
+
+    def test_a_kidnapped_lent_card_goes_back_to_its_owner(self) -> None:
+        """Kidnapping a lent card ends its loan too, so at the end of the
+        turn it goes back to its owner, not the borrower -- who would
+        otherwise keep for good a card they only borrowed."""
+        self.engine, self.game, self.match = free_for_all(
+            teams=(("blood",), ("bashing",), ("bashing",)), first=3)
+        card = self.lend_unit()
+        hero_in_play(self.match, 1)
+        hand(self.match, 1, "kidnapping")
+        self.match.player(1).gold = 5
+        heard = said(apply(self.engine, self.game, self.match, Action(
+            PromptKind.MAIN_ACTION, "play", {"slug": "kidnapping"})))
+        heard += "\n" + self.target(2, card.ref)
+        self.assertIn("kidnaps {player:2}'s {card:tenderfoot}", heard)
+        self.assertEqual((card.controller, card.lent, card.returns_to), (1, False, 3))
+        heard = end_turn(self.engine, self.game, self.match)
+        self.assertIn("{card:tenderfoot} goes back to {player:3}.", heard)
+        self.assertEqual(self.match.active, 2)
+        self.assertEqual((card.controller, card.owner, card.lent), (3, 3, False))
+        self.assertIn(card, self.match.player(3).play)
+        self.assertNotIn(card, self.match.player(2).play)
+        self.saved_validates()
+
+    def test_a_lent_hero_is_a_defender_where_the_zone_does_not_block(self) -> None:
+        """Seat 1's Cloud Sprite flies over seat 2's zone, whose only
+        patroller is the hero seat 3 lent: the hero is offered beside the
+        base, as any patroller the attacker may take is, and the engine
+        knows whose side it stands on."""
+        hero = self.lend_hero(slot="squad_leader")
+        lent_ref = f"3:hero:{hero.slug}"
+        self.assertEqual(self.engine.holder_of(self.match, lent_ref, (2, 3)), 2)
+        self.assertIn(lent_ref, self.engine.legal_defenders(self.match, put(self.match, 1, "iron_man").ref, against=2))
+        sprite = put(self.match, 1, "cloud_sprite")
+        apply(self.engine, self.game, self.match, Action(
+            PromptKind.MAIN_ACTION, "attack", {"attacker": sprite.ref}))
+        prompt = pending_prompt(self.engine, self.game, self.match)
+        offered = list(zip(prompt.options.defenders, prompt.options.seats))
+        self.assertIn((lent_ref, 2), offered)
+        self.assertIn(("base", 2), offered)
+        heard = said(apply(self.engine, self.game, self.match, Action(
+            PromptKind.CHOOSE_DEFENDER, arguments={"defender": lent_ref, "against": 2})))
+        self.assertGreater(hero.damage, 0)
+        self.assertIn(f"{{player:2}}'s {{hero:{hero.slug}}}", heard)
+
+
 if __name__ == "__main__":
     unittest.main()

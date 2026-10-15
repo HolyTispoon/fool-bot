@@ -22,7 +22,8 @@ from typing import TYPE_CHECKING, Iterable, Optional
 from codex import effects, seats, tokens
 from codex.formatting import base_owner
 from codex.components import (
-    TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref, lent_hero_ref,
+    HERO_PREFIX, TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref,
+    lent_hero_ref, split_lent_ref,
 )
 from codex.engine import (
     BUILDING_DESTROYED_DAMAGE,
@@ -56,6 +57,13 @@ def named(match: MatchState, seat: int, ref: str, *, whose: bool = True) -> str:
         hero = match.hero_on(seat, ref)
         if hero is not None:
             return f"{owner}{tokens.hero(hero.slug)}"
+        home, plain = split_lent_ref(ref)
+        if home is not None and match.player(home).hero_by_ref(plain) is not None:
+            # A hero lent into `seat`'s zone that has gone home since the
+            # ref was taken (`sideline`): named where it stands now, on
+            # its owner's side, as a lent hero is named where it stands.
+            prefix = f"{tokens.player(home)}'s " if whose else ""
+            return f"{prefix}{tokens.hero(plain[len(HERO_PREFIX):])}"
     instance_id = unit_ref(ref)
     if instance_id is not None:
         card = player.instance(instance_id)
@@ -372,7 +380,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
     leave_play(engine, match, card, "died")
     match.record_event("destroyed", slug=card.slug, owner=card.owner)
     # A lent card pays its owner, not the borrower (Rulebook p. 14).
-    paid = card.owner if card.lent else card.controller
+    paid = home_seat(card)
     if card.patrol_slot == "scavenger":
         gained = gain_gold(match, paid, SCAVENGER_GOLD)
         line += f" As scavenger, it gives {tokens.player(paid)} {tokens.gold(gained)}."
@@ -1085,6 +1093,11 @@ def gain_control(match: MatchState, card: CardInstance, seat: int) -> bool:
         return False
     match.player(card.controller).play.remove(card)
     card.controller = seat
+    # A control change ends a loan: a card taken from its borrower is the
+    # taker's, not borrowed, so no upkeep sends it home -- and one its
+    # owner takes back is simply theirs (docs/design/codex.md, "Lending
+    # is a control change").
+    card.lent = False
     card.patrol_slot = None
     card.armor = 0
     card.arrived_this_turn = True
@@ -1092,6 +1105,15 @@ def gain_control(match: MatchState, card: CardInstance, seat: int) -> bool:
     match.record_event("gained_control", slug=card.slug, by=seat)
     lasting_armor(match, card)
     return True
+
+
+def home_seat(card: CardInstance) -> int:
+    """The seat a card answers to beyond its controller: its owner while
+    it is lent, its controller otherwise (Rulebook p. 14) -- who a lent
+    card pays when it dies, and who a card taken for a while (Kidnapping,
+    Mind Control) goes back to, since the taking ended the loan
+    (`gain_control`) and the borrower has no claim left."""
+    return card.owner if card.lent else card.controller
 
 
 def lend(match: MatchState, owner: int, ref: str, borrower: int, slot: str) -> None:
@@ -1163,9 +1185,19 @@ def give_back(match: MatchState, card: CardInstance, result: StepResult) -> None
 
 
 def sideline(body) -> None:
-    """Out of the patrol zone, and with it the squad leader's armor."""
+    """Out of the patrol zone, and with it the squad leader's armor -- and,
+    for a hero lent into that zone, home to its owner: a hero's loan is
+    its slot in the borrower's zone (`lend`, `MatchState.patrollers`),
+    the one place on the borrower's side it can stand, so out of the
+    zone it is its owner's again, as `return_lent` sends it -- nothing
+    else on it changed, no trigger, named where it stands now (`named`).
+    Every sideline comes here, so Appel Stomp's, Calypso Vystari's, the
+    Grappling Hook's, a disable's and Oathkeeper's read alike
+    (docs/design/codex.md, "Lending is a control change")."""
     body.patrol_slot = None
     body.armor = 0
+    if isinstance(body, HeroState):
+        body.lent_to = None
 
 
 # -- Time, the future, indestructible and disable (step 12) --------------------
@@ -1834,6 +1866,6 @@ def _sacrifice_due(engine: "RulesEngine", match: MatchState) -> Optional[tuple[C
 __all__ = [
     "LEVEL_GAIN", "body_of", "building_hp", "building_max_hp", "damage_building", "destroy",
     "gain_kill_levels", "level_gain_owed",
-    "gain_control", "is_building", "leave_play", "named", "raise_level",
+    "gain_control", "home_seat", "is_building", "leave_play", "named", "raise_level",
     "repair_building", "sacrifice", "settle", "sideline", "still_there", "take_damage",
 ]
