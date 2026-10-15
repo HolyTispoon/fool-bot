@@ -2145,9 +2145,11 @@ Decision 4's shape, tried for the first time in step 3: **My hand** on
 the turn message answers the clicker alone, ephemerally -- their hand
 pictured by `render_hand` (each card's own art, numbered, its printed
 cost left in view and, where a reduction or a surcharge changes it,
-"now 2" beside it in a small pill -- a coin over the printed one read as
-the printed cost, so River's discount looked missing (the author,
-2026-10-15) -- greyed where it may not be played, which is the engine's
+the change beside it in a small pill, "−1" on green or "+1" on red, never
+the coin's gold -- a coin over the printed one read as the printed cost,
+so River's discount looked missing, and the pill was first "now 2" in
+gold until the author asked for the difference in another colour (the
+author, 2026-10-15) -- greyed where it may not be played, which is the engine's
 `hand_rows`) under its count alone; the discard pile was
 listed beside it as text until the author found it read as the hand
 (2026-10-11: "Don't list my discard pile"), and **My deck** shows it
@@ -2374,8 +2376,8 @@ too, asked with `gate` for the two kinds a turn may open on
   opened from **My hand** is drawn as an answer to the turn message,
   and keeps that strip through every edit.
 - **Its picture is the hand**, numbered, greyed where it may not be
-  played, each card's printed cost and what it costs now beside it
-  where the two differ -- `render_hand` over
+  played, each card's printed cost and by how much it is changed
+  beside it where it is -- `render_hand` over
   `MainActionOptions.hand`, a field the prompt grew for it so the
   picture and the buttons read one list. **A target's picture is a
   side of the board, not the hand** (the author, 2026-10-09: the hand
