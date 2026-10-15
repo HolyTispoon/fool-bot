@@ -3061,8 +3061,25 @@ of heroes makes no distinction the rules do not.
 The lobby is rebuilt from the record on every change
 (`cogs/codex_views/lobby.py`): its first row **Basic game** / **Standard
 game** -- either seated player's, a helper's, or anyone's while nobody
-sits -- **Leave** and **Start** (and a rematch's **Keep heroes**). Under
-it, by the mode:
+sits -- **Leave** and **Start** (and a rematch's **Keep heroes**).
+
+**A lobby opens on the standard game** (the author, 2026-10-15:
+`LOBBY_MODE` in `cogs/codex/lobby.py`, which `/codex create_game` hands
+to `GameService.create_game`). The service's own default and the
+record's stay "basic", since a save older than step 10 is a basic game
+and the tests and the golden stage one; which game a new lobby offers
+first is the frontend's choice, not a rule. **While the lobby is on the
+basic game its text carries a warning** naming the two matchups the
+basic game is recommended for (`BASIC_MATCHUPS`, the author,
+2026-10-15): Bashing against Finesse, the neutral pair the bot was built
+from, and Fire against Feral -- Jaina against Calamandra, the Core
+Set's own first game (Rulebook p. 3). It is a line in the lobby rather
+than a message of its own, so it costs no request: the mode click
+already edits the lobby through its own response, and everybody
+choosing a hero sees it, not only whoever clicked. The menu still
+offers every hero; the warning recommends and refuses nothing.
+
+Under the first row, by the mode:
 
 - **The basic game: a menu of the landed heroes**, one pick, which
   seats the clicker with that hero. A menu because twenty heroes, when

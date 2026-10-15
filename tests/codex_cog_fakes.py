@@ -319,17 +319,16 @@ class Table:
     async def started(self, teams=(("bashing",), ("finesse",))):
         """The real lobby -- opened in the game's own channel -- two seats,
         Start: the opening position. `teams` are the two seats' heroes, as
-        specs; three each plays a standard game, chosen with the lobby's
-        **Standard game** first, then a colour's deck button or **Mixed
-        colors** (`pick_team`) -- the first hero's colour the deck."""
+        specs; three each plays the standard game the lobby opens on, a
+        colour's deck button or **Mixed colors** (`pick_team`) -- the
+        first hero's colour the deck -- and one the basic game, chosen
+        with the lobby's **Basic game** first."""
         call = self.interaction(self.basher, self.lobby_channel)
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
         lobby = LobbyView(self.cog, game.game_id)
-        if len(teams[0]) == 3:
-            click = self.interaction(self.basher)
-            await next(item for item in lobby.children
-                       if ":mode_standard:" in item.custom_id).callback(click)
+        if len(teams[0]) == 1:
+            await self.choose_mode(game, "basic")
             lobby = LobbyView(self.cog, game.game_id)
         pick = self.pick_team if len(teams[0]) == 3 else self.pick_heroes
         await pick(lobby, self.basher, *teams[0])
@@ -348,6 +347,7 @@ class Table:
         lobby = LobbyView(self.cog, game.game_id)
         await next(item for item in lobby.children
                    if ":variant_free_for_all:" in item.custom_id).callback(self.interaction(self.basher))
+        await self.choose_mode(game, "basic")
         names = ("basher", "fencer", "dee", "eli", "fay")
         for seat, spec in enumerate(specs, start=1):
             who = self.players.setdefault(seat, user(100 * seat + seat, names[seat - 1]))
@@ -357,6 +357,13 @@ class Table:
                    if ":start:" in item.custom_id).callback(click)
         self.game = game
         return game
+
+    async def choose_mode(self, game, mode: str) -> None:
+        """The lobby's **Basic game** or **Standard game**, clicked while
+        nobody sits."""
+        lobby = LobbyView(self.cog, game.game_id)
+        await next(item for item in lobby.children
+                   if f":mode_{mode}:" in item.custom_id).callback(self.interaction(self.basher))
 
     async def pick_heroes(self, lobby, who, *specs: str, menu: str = "heroes") -> FakeInteraction:
         """The lobby's hero menu -- `menu` is "heroes1" or "heroes2" for a

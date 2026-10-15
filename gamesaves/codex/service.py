@@ -43,7 +43,7 @@ from codex.components import MatchState
 from codex.engine import RulesEngine
 from codex.flow import driver, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
-from codex.game import CodexGame, GameStatus, RuleRefusal
+from codex.game import MODES, CodexGame, GameStatus, RuleRefusal
 from codex.prompts import (
     PendingPrompt, pending, pending_prompt, pending_prompts, standing_prompts, tech_stands,
 )
@@ -279,8 +279,12 @@ class GameService:
         channel_id: Optional[int] = None,
         game_number: Optional[int] = None,
         test_game: bool = False,
+        mode: str = "basic",
     ) -> CodexGame:
-        """A new lobby, with nobody seated, saved."""
+        """A new lobby, with nobody seated, saved: the basic game or the
+        standard one (`MODES`), which the lobby may change until Start."""
+        if mode not in MODES:
+            raise ValueError(f"A Codex game is basic or standard, not {mode}.")
         if game_number is None:
             game_number = self.next_game_number(guild_id)
         game = CodexGame(
@@ -289,6 +293,7 @@ class GameService:
             guild_id=guild_id,
             channel_id=channel_id,
             test_game=test_game,
+            mode=mode,
         )
         self.games[game.game_id] = game
         self.save()

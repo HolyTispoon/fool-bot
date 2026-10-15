@@ -31,6 +31,15 @@ LOBBY_OPENED = {
              "played in this channel."),
 }
 
+#: The mode a lobby opens on: the standard game, the game the rulebook
+#: calls the game (the author, 2026-10-15). **Basic game** is a click away.
+LOBBY_MODE = "standard"
+
+#: The two matchups recommended for the basic game, as specs (the
+#: author, 2026-10-15): the neutral pair the bot started from, and the
+#: Core Set's own first game (Rulebook p. 3).
+BASIC_MATCHUPS = (("bashing", "finesse"), ("fire", "feral"))
+
 class LobbyMixin:
     def lobby_text(self, game: CodexGame) -> str:
         """The lobby's text: the game, who sits where with which heroes
@@ -84,10 +93,26 @@ class LobbyMixin:
         head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- {kind}.")
         if game.test_game:
             head += " A **test game**: one person may take both seats and play both sides."
-        lines = [head.strip(), *rows]
+        lines = [head.strip()]
+        if game.mode == "basic" and game.status is GameStatus.LOBBY:
+            lines.append(self.basic_matchups_line())
+        lines.extend(rows)
         if game.rematch_specs or (game.rematch_of and game.variant != "duel"):
             lines.append(self.rematch_line(game))
         return "\n".join([*lines, waiting])
+
+    @staticmethod
+    def basic_matchups_line() -> str:
+        """The warning a basic game's lobby carries: which matchups it
+        is recommended for, each hero by name and spec."""
+        cards = catalog()
+
+        def hero(spec: str) -> str:
+            found = cards.hero_for(spec)
+            return f"**{found.name}** ({found.spec})"
+
+        pairs = ", or ".join(f"{hero(one)} against {hero(other)}" for one, other in BASIC_MATCHUPS)
+        return f"\u26a0\ufe0f The basic game is recommended for two matchups: {pairs}."
 
     async def refresh_lobby(self, game: CodexGame) -> None:
         """The lobby edited to show a change made from somewhere else --
@@ -143,7 +168,9 @@ class LobbyMixin:
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         await self.tokens.refresh()
-        game = self.service.create_game(guild_id=interaction.guild.id, test_game=test_game)
+        game = self.service.create_game(
+            guild_id=interaction.guild.id, test_game=test_game, mode=LOBBY_MODE,
+        )
         try:
             place, venue, message = await self.open_game_place(interaction, game)
         except ValueError as error:
