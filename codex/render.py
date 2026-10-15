@@ -2252,12 +2252,27 @@ HAND_CARD = (231, 315)
 CODEX_CARD = (176, 240)
 
 
-def cost_badge(picture: Image.Image, cost: int, size: int) -> None:
-    """A card's cost after reductions, on a gold coin at its corner."""
+#: Where a hand card's printed cost coin ends and its middle sits, at
+#: `HAND_CARD`'s size: what a cost that differs is written beside.
+HAND_COST_RIGHT, HAND_COST_MIDDLE = 58, 38
+
+
+def cost_note(picture: Image.Image, printed: int, cost: int) -> None:
+    """What a hand card costs now, beside its printed cost and in a small
+    font, where the two differ -- River's discount, a wrong colour's
+    surcharge. The printed coin stays in view (the author, 2026-10-15:
+    a coin over it read as the printed cost, so a discount looked
+    missing)."""
+    if cost == printed:
+        return
     draw = ImageDraw.Draw(picture)
-    draw.ellipse((6, 6, 6 + size, 6 + size), fill=GOLD, outline=SHADOW, width=3)
-    draw.text((6 + size // 2, 6 + size // 2), str(cost), font=font(size * 2 // 3),
-              fill=SHADOW, anchor="mm")
+    text = f"now {cost}"
+    face = font(19)
+    left, top, right, bottom = draw.textbbox((0, 0), text, font=face, anchor="lm")
+    x = HAND_COST_RIGHT + 8
+    draw.rounded_rectangle((x - 6, HAND_COST_MIDDLE + top - 4, x + right + 6, HAND_COST_MIDDLE + bottom + 4),
+                           radius=8, fill=SHADOW, outline=GOLD, width=2)
+    draw.text((x, HAND_COST_MIDDLE), text, font=face, fill=GOLD, anchor="lm")
 
 
 def scaled_card(slug: str, size: tuple[int, int], cards: CardCatalog) -> Image.Image:
@@ -2281,7 +2296,8 @@ def render_hand(cards_in_hand: Sequence[str], playable: Sequence[bool],
                 costs: Sequence[int], cards: Optional[CardCatalog] = None) -> bytes:
     """
     A hand as WebP bytes: the cards' own pictures in a row, numbered,
-    each with its cost after reductions, greyed where it may not be
+    each with its printed cost and, where `costs` differs, what it costs
+    now beside it (`cost_note`), greyed where it may not be
     played -- the picture **My hand** and the panel attach. The same hand
     asked again is the bytes already drawn (`RENDERED_KEPT`).
     """
@@ -2308,7 +2324,7 @@ def _render_hand(cards_in_hand: tuple[str, ...], playable: tuple[bool, ...],
         top = gap + row * (HAND_CARD[1] + label + gap)
         text_centred(draw, (left + HAND_CARD[0] // 2, top + label // 2), str(index + 1), 34)
         picture = scaled_card(slug, HAND_CARD, cards)
-        cost_badge(picture, costs[index], 62)
+        cost_note(picture, cards.cards[slug].cost or 0, costs[index])
         if not playable[index]:
             picture = faint(picture)
         canvas.alpha_composite(picture, (left, top + label))
