@@ -1677,11 +1677,15 @@ else the bot shows is ephemeral.
     its damage chits on the foot of its art (`ART_FOOT`), clear of the
     ATK and HP the card prints, which a chit over the stats hid (the
     author, 2026-10-09), its rune chits hanging over its right edge a
-    little below its middle (`RUNE_CENTRE`), Two Step's
-    chit on a dance partner and ARRIVED the turn it came, on the
-    foot of its art against the left edge, opposite the damage chits
-    (the author, 2026-10-10: it sat over the card's text, 44 above its
-    foot).
+    little below its middle (`RUNE_CENTRE`), Two Step's chit on a
+    dance partner just left of the stats pill, centred on its line and
+    drawn as one picture with it (`beside_pill`, `PARTNER_CHIT`), so it
+    follows the pill onto an exhausted card's turned corner and a
+    copy's number stays between it and the cost (the author,
+    2026-10-15: it stood at the card's foot, bottom left), and ARRIVED
+    the turn it came, on the foot of its art against the left edge,
+    opposite the damage chits (the author, 2026-10-10: it sat over the
+    card's text, 44 above its foot).
   - **A named rune -- blood, growth, corpse, focus, a feather -- is a
     swirl chit in its colour with its count**, top right under the
     stats pill (`rune_chit`, `NAMED_RUNE`), never a word (the author,

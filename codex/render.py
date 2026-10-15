@@ -208,6 +208,11 @@ STAT_SIZE = px(25)
 #: higher up, and a tad smaller, than the first build's 46 inside the
 #: corner).
 STAT_OVERHANG = px(10)
+#: Two Step's chit on a dance partner, this far across, just left of the
+#: stats pill and centred on its line (the author, 2026-10-15: it stood
+#: at the card's foot, bottom left), and the gap between the two.
+PARTNER_CHIT = px(42)
+PARTNER_GAP = px(3)
 #: The rune chits hang over the card's right edge by this, centred this
 #: far down it -- a little below the card's middle, on the end of its
 #: name's banner, clear of the stats above and of the damage chits that
@@ -726,6 +731,19 @@ def armor_shield(armor: int, height: int) -> Image.Image:
     return shield
 
 
+def beside_pill(pill: Image.Image, chit: Image.Image) -> Image.Image:
+    """`chit` at `PARTNER_CHIT` just left of the stats `pill`, centred on
+    its line, as one picture: placed where the pill alone would be, the
+    pill stands where it did and the chit beside it. Taller than the
+    pill by the chit's overhang, `(height - STAT_HEIGHT) // 2` above it."""
+    piece = by_width(chit, PARTNER_CHIT)
+    height = max(piece.height, pill.height)
+    whole = Image.new("RGBA", (piece.width + PARTNER_GAP + pill.width, height), (0, 0, 0, 0))
+    whole.alpha_composite(piece, (0, (height - piece.height) // 2))
+    whole.alpha_composite(pill, (piece.width + PARTNER_GAP, (height - pill.height) // 2))
+    return whole
+
+
 def stat_pill(stats: "Stats") -> Image.Image:
     """A unit's or a hero's ATK and HP as they stand, on one pill in two
     halves -- ATK on the card's black, HP on its red, either on its own
@@ -1165,7 +1183,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     art at `CARD`, its ATK and HP as they stand top right, a level
     chit top left (a hero), its rune chits over its right edge a little
     below its middle, its damage chits on the foot of its art, Two
-    Step's chit on a dance partner, ARRIVED on its art's foot the turn
+    Step's chit on a dance partner just left of its stats, ARRIVED on its art's foot the turn
     it came and LENT while it patrols for another player, a copy's
     number on its top edge -- and, exhausted, the
     whole of it turned on its side at full size, lying across the cell,
@@ -1192,9 +1210,15 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if runes:
         lay_row(upright, runes, px(50), (right + RUNE_HANG, margin + RUNE_CENTRE - px(25)),
                 leftward=True)
-    if lying.partnered:
+    stats = stat_pill(lying.stats) if lying.stats is not None else None
+    if lying.partnered and stats is not None:
+        stats = beside_pill(stats, board_piece("chits", "two_step.png"))
+    elif lying.partnered:
         lay_row(upright, [board_piece("chits", "two_step.png")], px(50),
                 (side - px(8), bottom + px(8)), upward=True)
+    # How far the pill's picture rises above the pill: a partner's chit
+    # is taller than the pill it stands beside.
+    stats_rise = (stats.height - STAT_HEIGHT) // 2 if stats is not None else 0
     # Every rune in one column under the stats pill, its tags under it
     # (the author, 2026-10-11): the time runes first -- a purple card's,
     # in its colour -- then the named runes; FUTURE under the time runes.
@@ -1223,10 +1247,9 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     states = [state for state, on in (("DISABLED", lying.disabled), ("ARRIVED", lying.arrived),
                                       ("LENT", lying.lent)) if on]
     lay_states(upright, side, margin + TAG_CEILING, foot, states, column)
-    stats = stat_pill(lying.stats) if lying.stats is not None else None
     if stats is not None and not lying.exhausted:
         upright.alpha_composite(stats, (right + STAT_OVERHANG - stats.width,
-                                        margin - STAT_OVERHANG))
+                                        margin - STAT_OVERHANG - stats_rise))
 
     tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
     if not lying.exhausted:
@@ -1244,7 +1267,8 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         stats_right = left + margin + CARD[1] + STAT_OVERHANG
         if level_box is not None:
             stats_right = min(stats_right, left + upright.height - level_box[3] - px(4))
-        tile.alpha_composite(stats, (stats_right - stats.width, card_top - STAT_OVERHANG))
+        tile.alpha_composite(stats, (stats_right - stats.width,
+                                     card_top - STAT_OVERHANG - stats_rise))
     copy_centre = left + laid.width // 2
     if stats is not None and not lying.exhausted:
         # A standing card's top edge holds the cost top left and the
