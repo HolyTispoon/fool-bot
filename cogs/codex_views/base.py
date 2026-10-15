@@ -128,8 +128,14 @@ _CLICK_LOCK: contextvars.ContextVar[Optional[asyncio.Lock]] = contextvars.Contex
     "codex_click_lock", default=None,
 )
 
-#: The redraws waiting, held so the event loop does not lose them.
-_REDRAWS: set[asyncio.Task] = set()
+#: The one redraw waiting on each ephemeral message, by the message's
+#: id -- **the record of what the message carries**: while it waits,
+#: nothing has been written to the message since its picture went up,
+#: because every write that changes an ephemeral message's pictures is
+#: `edit_clicked`'s or `send_answer`'s, and each drops the redraw
+#: waiting on the message it writes. Held here, too, so the event loop
+#: does not lose the task.
+_PENDING: dict[int, asyncio.Task] = {}
 
 
 def _resource(callback) -> Optional[discord.Message]:
@@ -147,50 +153,57 @@ def _uploads(fields: dict) -> bool:
 def redraw_pictures(interaction: discord.Interaction, message: Optional[discord.Message],
                     fields: dict, *, followup: bool = False) -> None:
     """
-    After `message` went up with `fields`: where it is ephemeral and
-    uploaded a picture, edit it again `PICTURE_REDRAW_DELAY` later with
-    the attachments it carries and nothing else, so Discord's apps draw
-    it again and load the picture (`PICTURE_REDRAW_DELAY`). `followup`:
-    the message is a follow-up of the click rather than its original.
-    Never raises, and never waits: the redraw is a task of its own.
+    After `message` was written with `fields`. The redraw waiting on it,
+    if any, is dropped: what this write put up is the message's now, and
+    a write that keeps the picture is itself a redraw. Where the message
+    is ephemeral and this write uploaded a picture, it is edited again
+    `PICTURE_REDRAW_DELAY` later with the attachments it carries and
+    nothing else, so Discord's apps draw it again and load the picture.
+    `followup`: the message is a follow-up of the click rather than its
+    original. Never waits: the redraw is a task of its own.
     """
+    message_id = getattr(message, "id", None)
+    if message_id is None:
+        return
+    waiting = _PENDING.pop(message_id, None)
+    if waiting is not None:
+        waiting.cancel()
     # `is True`: a test's Mock message is truthy everywhere.
     ephemeral = getattr(getattr(message, "flags", None), "ephemeral", None)
     if ephemeral is not True or not _uploads(fields):
         return
     task = asyncio.create_task(_redraw(interaction, message, followup, _CLICK_LOCK.get()))
-    _REDRAWS.add(task)
-    task.add_done_callback(_REDRAWS.discard)
+    _PENDING[message_id] = task
+
+    def forget(done: asyncio.Task) -> None:
+        if _PENDING.get(message_id) is done:
+            del _PENDING[message_id]
+
+    task.add_done_callback(forget)
 
 
 async def _redraw(interaction: discord.Interaction, message: discord.Message,
                   followup: bool, lock: Optional[asyncio.Lock]) -> None:
     """
-    The redraw itself, under the game's lock where a click scheduled it:
-    the message read back, and edited with its attachments only where
-    they are still the ones it went up with -- a click since has drawn
-    it already, and its pictures are not ours to put back.
+    The redraw itself: one edit, with the attachments `message` went up
+    with, under the game's lock where a click scheduled it -- so no click
+    can write the message between the redraw's turn coming and its edit
+    landing, and put up a picture the edit would take back. A write
+    since cancels it (`redraw_pictures`). Anything that goes wrong is a
+    console warning: the picture is shown or it is not.
     """
     await asyncio.sleep(PICTURE_REDRAW_DELAY)
-    sent = [attachment.id for attachment in message.attachments]
     try:
         async with lock if lock is not None else contextlib.nullcontext():
             if followup:
-                now = await interaction.followup.fetch_message(message.id)
+                await interaction.followup.edit_message(message.id, attachments=message.attachments)
             else:
-                # discord.py keeps the original message it last saw and
-                # answers with it; what is wanted is Discord's own now.
-                interaction._original_response = None
-                now = await interaction.original_response()
-            if [attachment.id for attachment in now.attachments] != sent:
-                return
-            if followup:
-                await interaction.followup.edit_message(message.id, attachments=now.attachments)
-            else:
-                await interaction.edit_original_response(attachments=now.attachments)
-    except discord.HTTPException as error:
-        # Gone, or the click's token expired: nothing to draw again.
-        LOGGER.warning("Could not redraw an ephemeral picture: %s", error)
+                await interaction.edit_original_response(attachments=message.attachments)
+    except discord.NotFound:
+        # Gone since, or the click's token expired: nothing to draw.
+        pass
+    except Exception as error:  # noqa: BLE001 -- a redraw is best effort
+        LOGGER.warning("Could not redraw an ephemeral picture: %r", error)
 
 
 async def send_ephemeral(interaction: discord.Interaction, message: str) -> None:
