@@ -489,13 +489,13 @@ def main() -> None:
     render_all(engine, four, FFA_NAMES, args.out, "ffa-4", ("stacked", "side_by_side"))
     # The panel's own pictures after the lend: the borrower's side, with
     # the lent unit as its elite and the lent hero as its technician,
-    # both marked LENT, and the lender's, which draws neither --
-    # **Attack...** and a target prompt picture one side alone
-    # (`render_side`).
+    # both tagged with the lender's name, and the lender's, which draws
+    # neither -- **Attack...** and a target prompt picture one side
+    # alone (`render_side`).
     three = staged_free_for_all(engine, 3)
     for seat in (2, 3):
         write(args.out / f"ffa-3-side-{seat}.webp", render_side(
-            three, seat, FFA_NAMES[seat], engine.catalog, engine.board_reading))
+            three, seat, FFA_NAMES[seat], engine.catalog, engine.board_reading, FFA_NAMES))
     # A two-headed dragon: two rows of two, the far team facing or the same
     # way up (Swap view), seen from either team's turn.
     dragon = staged_dragon(engine)

@@ -1719,9 +1719,9 @@ else the bot shows is ephemeral.
   - **ARRIVED and DISABLED are grey tags of the same size as every
     other** (`STATE_FILL`), stacked at the foot of the art against the
     left edge -- states rather than anything a card of a colour put
-    there, so neither carries a colour. LENT joined them on 2026-10-15,
-    under both: a patroller lent into the zone it lies in
-    (multiplayer, "The board").
+    there, so neither carries a colour. A lent patroller's tag joined
+    them on 2026-10-15, under both: "Lent from bo", the zone it lies
+    in not its owner's (multiplayer, "The board").
   - **Every tag is one height, its words centred on their capitals**
     (`pill`), and **the tags stand on one grid of rows** (`lay_tags`),
     the lowest on the art's foot: the marks down the right edge, the
@@ -3995,9 +3995,9 @@ free-for-all stacked alone.
   `scripts/render_codex_sample.py` draws three, four and five players
   both ways (`ffa-*`, three and five also from seat 2) and a dragon both
   ways and from the other team (`dragon-*`).
-- **A lent patroller is drawn in the borrower's slot, marked LENT, and
-  nowhere else** (2026-10-15, after the panel step found a lent hero in
-  no picture). `render_body` reads a zone through
+- **A lent patroller is drawn in the borrower's slot, tagged with its
+  lender's name, and nowhere else** (2026-10-15, after the panel step
+  found a lent hero in no picture). `render_body` reads a zone through
   `MatchState.patrollers(seat)` -- the one reading that carries a hero
   another player lent into it, `<owner seat>:hero:<slug>` -- and
   resolves either spelling of a hero's ref through `hero_on(seat, ref)`;
@@ -4011,19 +4011,32 @@ free-for-all stacked alone.
   `PlayerState.patroller`), which leave a lent hero out -- so the
   owner's panel with the hero lent is the panel with the hero in its
   own slot, pixel for pixel outside that slot's tile, which
-  `tests/test_codex_render.py` holds. **LENT is a state tag** in the
+  `tests/test_codex_render.py` holds. **The tag is "Lent from bo"**,
+  the lender's name as the nameplate spells it, a state tag in the
   grey of ARRIVED and DISABLED (`lay_states`, the lowest of the three,
   on the foot of the art), on a lent unit as much as a lent hero
   (`CardInstance.lent`, `HeroState.lent_to`): a lent unit sits in the
   borrower's play zone and was drawn as theirs unmarked, and whose it
   is matters when it dies (it pays its owner) and at the borrower's
-  upkeep (it goes home), so the two are marked alike. "<owner>'s" was
-  the other tag considered and not taken: a name is the frontend's and
-  `render_body` holds none, and the hero's own art and the owner's
-  empty command zone say whose it is. Every sample picture was hashed
-  before and after: the duel's, the dragon's and the standard game's
-  are byte-identical, and so is the lender's own side; only the
-  free-for-all's changed.
+  upkeep (it goes home), so the two are marked alike. The first cut
+  said LENT alone, and the author asked for the name (2026-10-15):
+  LENT says the card is not the borrower's, not whose, and on a table
+  of five the hero's art and the owner's empty command zone are a
+  slower way to tell; the possessive "BO'S" came next, and the author
+  asked for the sentence instead, which also keeps the name's own
+  spelling rather than shouting it. A name is the frontend's, so
+  `render_board`'s and `render_side`'s `names` are handed down through
+  `render_panel` to `render_body` and `grid_cells` (the cog's
+  `side_file` passes its `seat_names`; a lent unit sidelined off its
+  slot waits in the borrower's grid for the upkeep, so the grid reads
+  them too), the owner read off the ref (`split_lent_ref`) or the card
+  (`owner`); a caller that gives no names gets "Lent" (`lent_tag`). A
+  Discord name runs to 32 characters, so the name is cut with an
+  ellipsis to `LENT_TAG_WIDTH`, the card's width inside `lay_states`'
+  margin.
+  Every sample picture was hashed before and after: the duel's, the
+  dragon's and the standard game's are byte-identical, and so is the
+  lender's own side; only the free-for-all's changed.
 
 ### On Discord: the turn message and the panels
 
