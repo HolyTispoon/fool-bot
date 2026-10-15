@@ -1793,5 +1793,5 @@
 {hero:troq_bashar} deals 4 to {player:2}'s base.
 **{player:2}'s base is destroyed. {player:1} wins!**
 --- prompt GAME_OVER (player None)
-{player:1} wins: the opposing base is destroyed.
+{player:1} wins!
 --- board changed

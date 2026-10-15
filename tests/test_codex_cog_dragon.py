@@ -428,7 +428,7 @@ class EndTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(self.game.status, GameStatus.FINISHED)
         self.assertEqual(
             result.prompt.ask,
-            f"{{player:{winners[0]}}} and {{player:{winners[1]}}} win: the other team's base is destroyed.",
+            f"{{player:{winners[0]}}} and {{player:{winners[1]}}} win!",
         )
         line = self.table.game_channel.texts[self.game.final_message_id]
         for seat in winners:

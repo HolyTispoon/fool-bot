@@ -904,24 +904,22 @@ def tech_stands(game: "Optional[CodexGame]") -> bool:
 
 def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.winner is not None:
+        # The winner alone, "{player:1} wins!" -- a destroyed base is on
+        # the final board beside it, so only an ending the board does not
+        # show says how (the author, 2026-10-15).
+        how = ""
         if match.conceded is not None:
-            how = f"{tokens.player(match.conceded)} conceded."
+            how = f" {tokens.player(match.conceded)} conceded."
             if match.dragons:
-                how = f"{tokens.player(match.conceded)}'s team conceded."
+                how = f" {tokens.player(match.conceded)}'s team conceded."
         elif match.lost_by_debt is not None:
-            how = f"{tokens.player(match.lost_by_debt)} could not pay their debt."
+            how = f" {tokens.player(match.lost_by_debt)} could not pay their debt."
         elif match.variant == "free_for_all":
             return PendingPrompt(PromptKind.GAME_OVER, _free_for_all_over(match))
-        elif match.dragons:
-            # The team is named, as the rulebook names it (Rulebook p. 13;
-            # docs/codex-multiplayer.md, question 1 and step 6).
-            how = "the other team's base is destroyed."
-        else:
-            how = "the opposing base is destroyed."
         from codex import seats
 
         wins = side_verb(seats.dragon_of(match, match.winner), "wins", "win")
-        return PendingPrompt(PromptKind.GAME_OVER, f"{base_owner(match, match.winner)} {wins}: {how}")
+        return PendingPrompt(PromptKind.GAME_OVER, f"{base_owner(match, match.winner)} {wins}!{how}")
     seat = match.active
     if match.resolving:
         # An effect under way asks before anything else does: a target,

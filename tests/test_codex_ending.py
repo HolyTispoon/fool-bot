@@ -53,7 +53,7 @@ class ConcedeModelTests(unittest.TestCase):
         self.assertEqual((match.winner, match.conceded), (1, 2))
         self.assertEqual(result.narration, ["**{player:2} concedes. {player:1} wins!**"])
         self.assertIs(result.next.kind, PromptKind.GAME_OVER)
-        self.assertEqual(result.next.ask, "{player:1} wins: {player:2} conceded.")
+        self.assertEqual(result.next.ask, "{player:1} wins! {player:2} conceded.")
         self.assertEqual(result.next.options.conceded, 2)
         self.assertEqual(match.events[-1]["kind"], "conceded")
 
@@ -87,7 +87,7 @@ class ConcedeModelTests(unittest.TestCase):
         match = service.load(game)
         turn.damage_base(match, 2, 20, turn.StepResult())
         prompt = pending_prompt(engine, game, match)
-        self.assertEqual(prompt.ask, "{player:1} wins: the opposing base is destroyed.")
+        self.assertEqual(prompt.ask, "{player:1} wins!")
         self.assertIsNone(prompt.options.conceded)
 
 

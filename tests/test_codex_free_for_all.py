@@ -299,7 +299,7 @@ class EndingTests(unittest.TestCase):
         match.set_base(2, 1)
         attack_base(engine, game, match, 2)
         prompt = pending_prompt(engine, game, match)
-        self.assertEqual(prompt.ask, f"{tokens.player(1)} wins: the opposing base is destroyed.")
+        self.assertEqual(prompt.ask, f"{tokens.player(1)} wins!")
         self.assertEqual(prompt.options.winners, (1,))
 
     def tie(self, teams=THREE):

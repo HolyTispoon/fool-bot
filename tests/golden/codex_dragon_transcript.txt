@@ -3732,5 +3732,5 @@
 {card:eggship} deals 4 to {player:3} and {player:4}'s base.
 **{player:3} and {player:4}'s base is destroyed. {player:1} and {player:2} win!**
 --- prompt GAME_OVER (player None)
-{player:1} and {player:2} win: the other team's base is destroyed.
+{player:1} and {player:2} win!
 --- board changed
