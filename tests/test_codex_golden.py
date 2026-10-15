@@ -187,7 +187,7 @@ class CodexGoldenTests(unittest.TestCase):
         self.assertIsNotNone(self.final_match["winner"])
         self.assertIsNone(self.final_match["conceded"])
         self.assertIn("--- prompt GAME_OVER", self.transcript)
-        self.assertIn("the opposing base is destroyed.", self.transcript)
+        self.assertIn("{player:1} wins!", self.transcript)
 
     def test_the_voice_is_the_models(self) -> None:
         """What the service says carries tokens and no Discord: no

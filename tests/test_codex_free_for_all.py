@@ -286,8 +286,7 @@ class EndingTests(unittest.TestCase):
         prompt = pending_prompt(engine, game, match)
         self.assertIs(prompt.kind, PromptKind.GAME_OVER)
         self.assertEqual(
-            prompt.ask,
-            f"{tokens.player(3)} wins with 14 base HP: {tokens.player(2)}'s base is destroyed.",
+            prompt.ask, f"{tokens.player(3)} wins!",
         )
         self.assertEqual(prompt.options.winners, (3,))
         self.assertEqual(prompt.options.base_hp, ((1, 12), (2, 0), (3, 14)))
@@ -299,7 +298,7 @@ class EndingTests(unittest.TestCase):
         match.set_base(2, 1)
         attack_base(engine, game, match, 2)
         prompt = pending_prompt(engine, game, match)
-        self.assertEqual(prompt.ask, f"{tokens.player(1)} wins: the opposing base is destroyed.")
+        self.assertEqual(prompt.ask, f"{tokens.player(1)} wins!")
         self.assertEqual(prompt.options.winners, (1,))
 
     def tie(self, teams=THREE):
@@ -343,8 +342,7 @@ class EndingTests(unittest.TestCase):
         self.assertEqual(match.winner, 3)
         self.assertIn(f"{tokens.player(3)} wins with 14 base HP: the tie is broken.", heard)
         self.assertEqual(
-            pending_prompt(engine, game, match).ask,
-            f"{tokens.player(3)} wins with 14 base HP: the tie is broken.",
+            pending_prompt(engine, game, match).ask, f"{tokens.player(3)} wins!",
         )
 
     def test_a_tie_still_held_plays_off_again(self) -> None:
@@ -421,8 +419,7 @@ class DebtTests(unittest.TestCase):
         self.assertEqual(match.winner, 3)
         self.assertIsNone(match.lost_by_debt)
         self.assertEqual(
-            pending_prompt(engine, game, match).ask,
-            f"{tokens.player(3)} wins with 15 base HP: {tokens.player(2)}'s base is destroyed.",
+            pending_prompt(engine, game, match).ask, f"{tokens.player(3)} wins!",
         )
 
     def test_a_debt_unpaid_with_a_tie(self) -> None:

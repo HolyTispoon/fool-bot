@@ -2946,8 +2946,11 @@ way and nothing is written from it.
   (`codex.flow.turn.concede`). A concession is the model's: the seat
   conceding loses, the other wins, `MatchState.conceded` remembers who
   gave up -- a saved field step 8 added, `None` in an older save -- and
-  the match waits on `GAME_OVER`, whose ask says which way it ended
-  ("{player:1} wins: {player:2} conceded."). Either seat may concede,
+  the match waits on `GAME_OVER`, whose ask is the winner alone,
+  "{player:1} wins!", however the game ended -- the turn's lines have
+  said how -- posted as a heading under the final board (the author,
+  2026-10-15). Either
+  seat may concede,
   whoever's turn it is; refused once the game is over.
 - **A concession is not an action the journal records.** It answers no
   prompt -- it is open to both players at any moment -- so it is a door
@@ -3790,10 +3793,9 @@ on.
   `MatchState.winner` is the winning team's head and `conceded` the
   conceding team's, `GameOverOptions.winners` both players, and the
   lines name both (`formatting.side_names` and `side_verb`: "{player:1}
-  and {player:2} win!"). The finished game's ask names the team as the
-  rulebook does -- "the other team's base is destroyed." -- where it said
-  "the opposing base" until step 6, the one line the dragon's golden was
-  re-recorded for. A teammate who cannot pay Promise of Payment's debt
+  and {player:2} win!"), and the finished game's ask is the same words
+  -- a destroyed base is on the final board, so it says no more (the
+  author, 2026-10-15). A teammate who cannot pay Promise of Payment's debt
   loses for the team (question 17).
 
 ### Attacking a dragon

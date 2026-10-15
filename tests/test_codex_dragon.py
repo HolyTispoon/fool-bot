@@ -429,7 +429,7 @@ class EndingTests(unittest.TestCase):
         self.assertEqual((match.winner, match.conceded), (1, 3))
         over = pending(engine, game, match)
         self.assertEqual(over.options.winners, (1, 2))
-        self.assertIn("{player:3}'s team conceded", over.ask)
+        self.assertEqual(over.ask, "{player:1} and {player:2} win!")
 
     def test_a_teammate_who_cannot_pay_a_debt_loses_it_for_the_team(self) -> None:
         from codex.flow import turn

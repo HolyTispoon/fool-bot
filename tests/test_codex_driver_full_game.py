@@ -520,7 +520,7 @@ class CodexFreeForAllGameTests(unittest.TestCase):
         self.assertEqual(match.base_of(match.winner), max(match.base_of(seat) for seat in among))
         prompt = pending_prompt(engine, game, match)
         self.assertIs(prompt.kind, PromptKind.GAME_OVER)
-        self.assertIn(f"wins with {match.base_of(match.winner)} base HP", prompt.ask)
+        self.assertEqual(prompt.ask, f"{tokens.player(match.winner)} wins!")
         self.assertEqual(standing_prompts(engine, match, game), ())
 
     def test_three_players_to_a_winner(self) -> None:

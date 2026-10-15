@@ -621,7 +621,7 @@ class TurnsMixin:
         The game is over -- a base fell, or a player conceded: the turn
         message's last edit, without its buttons, pinned as every
         finished turn is, and **a public line naming the winner with the
-        final board** -- rendered once, uploaded twice -- with **Rematch**
+        final board** -- a heading, so it reads as the game's end -- -- rendered once, uploaded twice -- with **Rematch**
         under it (`RematchView`), whose message the record keeps so a
         restart re-arms it. Then the channel is moved to Codex Archive
         and left as it is (`archive_channel`): nothing is exported from
@@ -638,7 +638,7 @@ class TurnsMixin:
         line = result.prompt.ask if result.prompt is not None else ""
         try:
             message = await channel.send(
-                self.render_text(f"**{line}**", game) if line else None,
+                self.render_text(f"# {line}", game) if line else None,
                 file=self.match_file_from_png(game, png),
                 view=RematchView(self, game.game_id),
                 allowed_mentions=discord.AllowedMentions.none(),
