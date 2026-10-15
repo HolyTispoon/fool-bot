@@ -37,6 +37,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from codex.components import AddOnState, BuildingState, MatchState  # noqa: E402
 from codex.engine import RulesEngine  # noqa: E402
+from codex.flow import board  # noqa: E402
 from codex.game import BOARD_LAYOUTS  # noqa: E402
 from codex.render import render_board, render_codex, render_hand, render_side  # noqa: E402
 from gamesaves.codex.storage import load_games  # noqa: E402
@@ -320,7 +321,10 @@ def set_table(match: MatchState) -> None:
 def staged_free_for_all(engine: RulesEngine, count: int) -> MatchState:
     """A free-for-all of `count` in its fourth round: every seat with
     something in play, the Mercenaries of the third and later players
-    arrived, bases at different HP -- seat 1's turn."""
+    arrived, bases at different HP -- seat 1's turn, with seat 3's lock
+    just before it having lent seat 2 a unit as elite and its hero as
+    technician (Rulebook p. 14; docs/design/codex.md, "Lending is a
+    control change"), so the board after a lend can be looked at."""
     match = engine.new_match(FFA_SPECS[:count], first=1, variant="free_for_all")
     match.turn, match.phase = 4 * count + 1, "main"
 
@@ -343,7 +347,13 @@ def staged_free_for_all(engine: RulesEngine, count: int) -> MatchState:
     put(2, "tenderfoot", patrol="lookout")
     match.player(2).hero.zone = "play"
     put(3, "older_brother", patrol="squad_leader")
-    put(3, "brick_thief")
+    lent = put(3, "brick_thief")
+    match.player(3).hero.zone, match.player(3).hero.level = "play", 2
+    # Lent at seat 3's lock, as the model lends (`board.lend`): the unit
+    # into seat 2's play zone as theirs, the hero on seat 3's list with
+    # `lent_to` -- home again at seat 2's upkeep.
+    board.lend(match, 3, lent.ref, 2, "elite")
+    board.lend(match, 3, f"hero:{match.player(3).hero.slug}", 2, "technician")
     if count >= 4:
         put(4, "tiger_cub", patrol="squad_leader")
         match.player(4).hero.zone = "play"
@@ -477,6 +487,13 @@ def main() -> None:
         render_all(engine, table, FFA_NAMES, args.out, f"ffa-{count}-seat-2", ("stacked", "side_by_side"))
     four = staged_free_for_all(engine, 4)
     render_all(engine, four, FFA_NAMES, args.out, "ffa-4", ("stacked", "side_by_side"))
+    # The panel's own pictures after the lend: the borrower's side, with
+    # the lent unit as its elite, and the lender's -- **Attack...** and
+    # a target prompt picture one side alone (`render_side`).
+    three = staged_free_for_all(engine, 3)
+    for seat in (2, 3):
+        write(args.out / f"ffa-3-side-{seat}.webp", render_side(
+            three, seat, FFA_NAMES[seat], engine.catalog, engine.board_reading))
     # A two-headed dragon: two rows of two, the far team facing or the same
     # way up (Swap view), seen from either team's turn.
     dragon = staged_dragon(engine)
