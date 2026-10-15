@@ -306,8 +306,11 @@ class TurnsMixin:
                 self.engine.board_reading,
             )
             return picture_file(webp, "codex-sides")
+        # Every seat's name goes down too: a patroller lent into this
+        # side is tagged with its lender's.
         webp = await asyncio.to_thread(
             render_side, match, seat, names[seat], self.engine.catalog, self.engine.board_reading,
+            names,
         )
         return picture_file(webp, "codex-side")
 
