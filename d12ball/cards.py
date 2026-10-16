@@ -797,6 +797,8 @@ def strip_geometry(
     maneuver: ManeuverDefinition,
     top: float,
     height: float,
+    moves: Optional[Sequence[Move]] = None,
+    legend_room: float = STRIP_LEGEND_ROOM,
 ) -> StripGeometry:
     """
     Where the strip and its captions go for this maneuver's panel.
@@ -808,7 +810,7 @@ def strip_geometry(
     the panel, since how tall it is varies a lot and a fixed anchor
     leaves one card or the other with a band of empty panel.
     """
-    moves = STRIP_MOVES[maneuver.key]
+    moves = STRIP_MOVES[maneuver.key] if moves is None else moves
     strip_spaces, ball_space = STRIP_GEOMETRY[maneuver.tier]
     left = MARGIN + 18
     right = CARD_WIDTH - MARGIN - 18
@@ -843,8 +845,8 @@ def strip_geometry(
     # legend when there is none: the panel grows instead
     # (`strip_panel_height`).
     strip_top = (
-        top + STRIP_LEGEND_ROOM
-        + max(0.0, ((height - STRIP_LEGEND_ROOM - 8) - block) / 2)
+        top + legend_room
+        + max(0.0, ((height - legend_room - 8) - block) / 2)
         - ink_above
     )
 
@@ -1145,21 +1147,67 @@ def draw_strip_ball_space(pen: Pen, geo: StripGeometry, standing: str) -> None:
     pen.circle((ball_x, ball_y - 19), 12, outline=STRIP_SPACE_COLOR, width=2)
 
 
-def draw_strip_legend(pen: Pen, geo: StripGeometry, top: float) -> None:
+def draw_strip_legend(
+    pen: Pen,
+    geo: StripGeometry,
+    top: float,
+    size: int = STRIP_LEGEND_SIZE,
+    offset: float = 16,
+) -> None:
     pen.text(
-        (geo.right, top + 16),
+        (geo.right, top + offset),
         f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
-        font(STRIP_LEGEND_SIZE),
+        font(size),
         MUTED,
         anchor="ra",
     )
     pen.text(
-        (geo.left, top + 16),
+        (geo.left, top + offset),
         "H handler   C challenger",
-        font(STRIP_LEGEND_SIZE),
+        font(size),
         MUTED,
         anchor="la",
     )
+
+
+def strip_moves(
+    maneuver: ManeuverDefinition, roles: bool = True,
+) -> tuple[Move, ...]:
+    """A maneuver's strip moves, without its role moves where `roles`
+    is False -- the two-headed card's (`ROLE_MOVE_LABELS`)."""
+    moves = STRIP_MOVES[maneuver.key]
+    if roles:
+        return moves
+    return tuple(
+        move for move in moves if move.label not in ROLE_MOVE_LABELS
+    )
+
+
+def strip_block_height(
+    maneuver: ManeuverDefinition,
+    roles: bool = True,
+    legend_room: float = STRIP_LEGEND_ROOM,
+) -> float:
+    """
+    How tall a strip panel has to be to hold this maneuver's diagram
+    with its legend and captions: the least height `strip_geometry`
+    lays it out in without running past the panel's foot. The printed
+    card sizes its panel by `strip_panel_height`, a tier's tallest; a
+    two-headed half sizes its own to this.
+    """
+    geo = strip_geometry(
+        maneuver, 0.0, 0.0, strip_moves(maneuver, roles), legend_room,
+    )
+    rows = sorted({move.caption_row for move in strip_moves(maneuver, roles)})
+    lines = sum(
+        max(
+            len(move.label.split("\n"))
+            for move in strip_moves(maneuver, roles)
+            if move.caption_row == row
+        )
+        for row in rows
+    )
+    return geo.strip_top + geo.strip_height + lines * geo.caption_line + 12 + 8
 
 
 def draw_strip(
@@ -1168,6 +1216,8 @@ def draw_strip(
     top: float,
     height: float,
     roles: bool = True,
+    legend_room: float = STRIP_LEGEND_ROOM,
+    legend_size: int = STRIP_LEGEND_SIZE,
 ) -> None:
     """
     The seven-space board with the maneuver drawn on it: who moves,
@@ -1188,25 +1238,27 @@ def draw_strip(
         outline=PANEL_EDGE,
         width=2,
     )
-    moves = STRIP_MOVES[maneuver.key]
+    moves = strip_moves(maneuver, roles)
     standing, landings = STRIP_ACTORS[maneuver.key]
-    geo = strip_geometry(maneuver, top, height)
     if not roles:
-        moves = tuple(
-            move for move in moves if move.label not in ROLE_MOVE_LABELS
-        )
         reached = {move.offset for move in moves}
         landings = {
             offset: actor for offset, actor in landings.items()
             if offset in reached
         }
+    geo = strip_geometry(
+        maneuver, top, height, moves, legend_room=legend_room,
+    )
 
     draw_strip_spaces(pen, geo)
     for move in moves:
         draw_strip_arc(pen, geo, move, SIDE_COLORS[move.side])
     draw_strip_landings(pen, geo, moves, landings)
     draw_strip_ball_space(pen, geo, standing)
-    draw_strip_legend(pen, geo, top)
+    draw_strip_legend(
+        pen, geo, top, legend_size,
+        16 if legend_room == STRIP_LEGEND_ROOM else 10,
+    )
 
 
 def matchup_rank_groups(
@@ -1389,10 +1441,17 @@ def draw_card_header(
     maneuver: ManeuverDefinition,
     is_offense: bool,
     color: str,
+    header_height: float = CARD_HEADER_HEIGHT,
+    badge_radius: float = 46,
+    corner_inset: float = 0,
 ) -> None:
     """
     The band across the top of a face: the rank badge, and the name
-    centred in the room beside it.
+    centred in the room beside it. `header_height`, `badge_radius` and
+    `corner_inset` are the printed card's unless a shorter face asks --
+    a two-headed card's half (`render_two_headed_half`), whose header
+    sits higher in the card's rounded corners and so draws its badge
+    and its time chip further in.
 
     **A gambit's header also carries which basic maneuver it is the
     advanced version of, in words, under its own name.** The matchup
@@ -1406,16 +1465,20 @@ def draw_card_header(
     # Header: the rank badge and the name, in a band whose top corners
     # follow the card's own.
     header_top = FRAME
-    header_height = CARD_HEADER_HEIGHT
     pen.rect_in_card(
         (FRAME, header_top, CARD_WIDTH - FRAME, header_top + header_height),
         color,
     )
 
     rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
-    badge_center = (FRAME + 82, header_top + header_height / 2)
-    pen.circle(badge_center, 46, fill=CARD_FACE)
-    pen.text(badge_center, rank_label, rank_font(38), color, anchor="mm")
+    badge_center = (
+        FRAME + 82 + corner_inset, header_top + header_height / 2,
+    )
+    pen.circle(badge_center, badge_radius, fill=CARD_FACE)
+    pen.text(
+        badge_center, rank_label, rank_font(round(badge_radius * 38 / 46)),
+        color, anchor="mm",
+    )
 
     # **No corner label** (the author, 2026-09-28). The corner read
     # "BASIC MANEUVER" or "ADVANCED MANEUVER"; an advanced card's
@@ -1433,7 +1496,7 @@ def draw_card_header(
     time_font = font(HEADER_TIME_SIZE, bold=True)
     time_text = f"TIME · {time_cost(maneuver)}"
     width = pen.text_size(time_text, time_font)[0] + 28
-    center_x = CARD_WIDTH - FRAME - 74
+    center_x = CARD_WIDTH - FRAME - 74 - corner_inset
     center_y = header_top + header_height / 2
     pen.rect(
         (
@@ -2680,7 +2743,7 @@ TWO_HEADED_EDGE = "#8c9aa6"
 #: The shared band across the middle of a two-headed card: one row of
 #: ranks for the half above it and the same row turned for the half
 #: below, each this tall.
-TWO_HEADED_BAND_ROW = 78
+TWO_HEADED_BAND_ROW = 70
 
 #: How much of a card the cream covers where its coach cannot play it
 #: this maneuver -- an advanced card of the other side, in the hand but
@@ -2707,6 +2770,76 @@ def two_headed_ranks(
     return tuple(group_rank for group_rank, _ in groups)
 
 
+#: A two-headed half's own sizes: everything the printed card's top
+#: carries, set to fit half the card at full width rather than drawn at
+#: the printed size and shrunk (the author, 2026-10-16, asking why the
+#: halves were narrower than the card).
+TWO_HEADED_HEADER = 84
+TWO_HEADED_BADGE = 32
+TWO_HEADED_LEGEND_ROOM = 40
+TWO_HEADED_LEGEND_SIZE = 20
+TWO_HEADED_GAP = 10
+#: How much further in a half's badge and time chip sit than the printed
+#: card's: its header is the top 84 pixels of a corner 106 round.
+TWO_HEADED_CORNER_INSET = 18
+
+
+def two_headed_half_height() -> int:
+    """The height a two-headed card gives each half: the card less its
+    shared band, split in two."""
+    return (CARD_HEIGHT - TWO_HEADED_BAND_ROW * 2) // 2
+
+
+_TWO_HEADED_EFFECT_SIZES: dict[tuple, int] = {}
+
+
+def two_headed_effect_size(pen: Pen, catalog: ManeuverCatalog) -> int:
+    """
+    **One effect size for all six halves**, the largest at which every
+    basic maneuver's sentence fits under its own diagram in a half --
+    as `basic_effect_layout` sets one size for the six printed cards,
+    so the nine two-headed cards read as one set.
+    """
+    basics = [
+        maneuver
+        for side in ("offense", "defense")
+        for maneuver in catalog.for_tier(side, MANEUVER_TIER_BASIC)
+    ]
+    key = tuple((maneuver.key, maneuver.effect) for maneuver in basics)
+    if key in _TWO_HEADED_EFFECT_SIZES:
+        return _TWO_HEADED_EFFECT_SIZES[key]
+    width = CARD_WIDTH - MARGIN * 2 - 20
+    size = EFFECT_MIN_SIZE
+    for candidate in range(EFFECT_MAX_SIZE, EFFECT_MIN_SIZE - 1, -1):
+        face = font(candidate)
+        step = line_height(pen, face)
+        if all(
+            two_headed_effect_top(maneuver)
+            + step * len(pen.wrapped(maneuver.effect, face, width))
+            + TWO_HEADED_GAP
+            <= two_headed_half_height()
+            for maneuver in basics
+        ):
+            size = candidate
+            break
+    _TWO_HEADED_EFFECT_SIZES[key] = size
+    return size
+
+
+def two_headed_strip_top() -> float:
+    return FRAME + TWO_HEADED_HEADER + TWO_HEADED_GAP
+
+
+def two_headed_effect_top(maneuver: ManeuverDefinition) -> float:
+    """Where a half's effect sentence starts: under its own diagram,
+    which is as tall as that diagram needs (`strip_block_height`)."""
+    return (
+        two_headed_strip_top()
+        + strip_block_height(maneuver, False, TWO_HEADED_LEGEND_ROOM)
+        + TWO_HEADED_GAP
+    )
+
+
 def render_two_headed_half(
     catalog: ManeuverCatalog,
     players: PlayerCatalog,
@@ -2714,32 +2847,46 @@ def render_two_headed_half(
     is_offense: bool,
 ) -> Image.Image:
     """
-    One half of a two-headed card, upright: the printed card's header,
-    its strip diagram and its effect sentence -- **and nothing about
-    roles or matchups** (the author, 2026-10-16). The role abilities
-    belong to the three-card game's face; the matchups are the card's
-    shared band (`render_two_headed_card`). Cropped to what it draws,
-    full card width.
+    One half of a two-headed card, upright and **full width**: the
+    printed card's header, its strip diagram and its effect sentence --
+    **and nothing about roles or matchups** (the author, 2026-10-16).
+    The role abilities belong to the three-card game's face, and the
+    strip drops the role moves (`draw_strip(roles=False)`); the
+    matchups are the card's shared band (`render_two_headed_card`).
+
+    Drawn to fit half the card rather than drawn at the printed size and
+    shrunk, which made the halves narrower than the card: a shorter
+    header (`TWO_HEADED_HEADER`), a diagram panel as tall as its own
+    diagram, and the effect at one size for all six
+    (`two_headed_effect_size`). Drawn on a whole card's canvas, so the
+    header follows the card's rounded corners, and cut to the half.
     """
     color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
     pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
-    draw_card_header(pen, catalog, maneuver, is_offense, color)
-    _, strip_top, _, strip_bottom = strip_panel_box(catalog, maneuver)
+    draw_card_header(
+        pen, catalog, maneuver, is_offense, color,
+        header_height=TWO_HEADED_HEADER, badge_radius=TWO_HEADED_BADGE,
+        corner_inset=TWO_HEADED_CORNER_INSET,
+    )
+    strip_top = two_headed_strip_top()
     draw_strip(
-        pen, maneuver, strip_top, strip_bottom - strip_top, roles=False,
+        pen, maneuver, strip_top,
+        strip_block_height(maneuver, False, TWO_HEADED_LEGEND_ROOM),
+        roles=False,
+        legend_room=TWO_HEADED_LEGEND_ROOM,
+        legend_size=TWO_HEADED_LEGEND_SIZE,
     )
 
-    effect_font = font(basic_effect_layout(pen, catalog, players).size)
+    effect_font = font(two_headed_effect_size(pen, catalog))
     step = line_height(pen, effect_font)
-    y = strip_bottom + EFFECT_TOP_PAD * 2
+    y = two_headed_effect_top(maneuver)
     for line in pen.wrapped(
         maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20,
     ):
         pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
         y += step
-    bottom = y + EFFECT_TOP_PAD
     return pen.finish(False, CARD_FACE).crop(
-        (0, 0, CARD_WIDTH, round(bottom)),
+        (0, 0, CARD_WIDTH, two_headed_half_height()),
     )
 
 
@@ -2754,13 +2901,13 @@ def render_two_headed_band(
     width = CARD_WIDTH - MARGIN * 2
     pen = Pen((width, TWO_HEADED_BAND_ROW), CARD_FACE)
     column = width / 3
-    label_font = font(20, bold=True)
-    value_font = rank_font(MATCHUP_RANK_SIZE)
+    label_font = font(18, bold=True)
+    value_font = rank_font(30)
     for index, (label, value) in enumerate(zip(
         ("BEATS", "TIES", "LOSES TO"), two_headed_ranks(catalog, rank),
     )):
         centre = column * index + column / 2
-        pen.text((centre, 8), label, label_font, MUTED, anchor="ma")
+        pen.text((centre, 6), label, label_font, MUTED, anchor="ma")
         pen.text(
             (centre, TWO_HEADED_BAND_ROW - 6), f"R{value}", value_font,
             INK, anchor="md",
@@ -2801,32 +2948,20 @@ def render_two_headed_card(
         for side in ("offense", "defense")
     }
     other = "defense" if upright == "offense" else "offense"
-    band_height = TWO_HEADED_BAND_ROW * 2
-    half_height = (CARD_HEIGHT - band_height) // 2
+    half_height = two_headed_half_height()
 
     card = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
     band = render_two_headed_band(catalog, rank)
-    for index, side in enumerate((upright, other)):
-        half = render_two_headed_half(
-            catalog, players, faces[side], side == "offense",
-        )
-        if half.height > half_height:
-            scale = half_height / half.height
-            half = half.resize(
-                (round(half.width * scale), half_height),
-                Image.Resampling.LANCZOS,
-            )
-        row = band
-        if index == 1:
-            half = half.rotate(180)
-            row = band.rotate(180)
-        x = (CARD_WIDTH - half.width) // 2
-        if index == 0:
-            card.paste(half, (x, 0))
-            card.paste(row, (MARGIN, half_height))
-        else:
-            card.paste(row, (MARGIN, half_height + TWO_HEADED_BAND_ROW))
-            card.paste(half, (x, CARD_HEIGHT - half.height))
+    top = render_two_headed_half(
+        catalog, players, faces[upright], upright == "offense",
+    )
+    bottom = render_two_headed_half(
+        catalog, players, faces[other], other == "offense",
+    ).rotate(180)
+    card.paste(top, (0, 0))
+    card.paste(band, (MARGIN, half_height))
+    card.paste(band.rotate(180), (MARGIN, half_height + TWO_HEADED_BAND_ROW))
+    card.paste(bottom, (0, CARD_HEIGHT - bottom.height))
     draw = ImageDraw.Draw(card)
     for y in (half_height, CARD_HEIGHT - half_height):
         draw.line(

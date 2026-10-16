@@ -86,7 +86,14 @@ pressing the public button again sends a fresh one.
 
 **A two-headed card is its own face, built from the printed card's parts**
 (`render_two_headed_card`, the author, 2026-10-16). Each half is the printed card's header,
-strip diagram and effect sentence (`render_two_headed_half`), and **nothing about roles**: no
+strip diagram and effect sentence (`render_two_headed_half`), **drawn at full width into half
+the card** rather than drawn at the printed size and shrunk -- which made every half narrower
+than the card, the author asked why -- so its header is shorter (`TWO_HEADED_HEADER`, with the
+badge and time chip moved in off the rounded corner), its diagram panel is as tall as its own
+diagram (`strip_block_height`) and its effect is one size for all six
+(`two_headed_effect_size`). The printed card's header and strip take those as parameters whose
+defaults are the printed card's, so the 1.0 faces and hands are byte-identical (hashed before
+and after). And **nothing about roles**: no
 ability box, and the strip drawn with `draw_strip(roles=False)`, which drops the role's dashed
 moves (`ROLE_MOVE_LABELS`) and the tokens they land. **The matchups are one band across the
 middle, by rank** (`render_two_headed_band`, "BEATS R3 / TIES R1 / LOSES TO R2"), because a
