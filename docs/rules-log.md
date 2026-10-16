@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-07.
+**As of:** 2026-10-16.
 
 ## Where the rules come from
 
@@ -154,6 +154,28 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-16 -- author, D12 Ball 2.0: a deck of fifteen maneuver cards and a hand of four
+
+**A second edition, beside the first.** The author: *"each player now has a deck of 15
+maneuver cards: 3 copies of basic maneuver cards that are two-headed -- that is, they can be
+turned around upside down. top half is offensive and bottom half is defensive maneuver of the
+same rank. 9 cards are 3 each of the 3 ranks of basic maneuver. in addition, each deck has 6
+advanced maneuvers. players draw hands of 4 cards each turn and play from their hand. when you
+draw the last card of your deck, you shuffle your discard to make a new deck. keep d12ball 1.0
+as is."* The rules are [rules-2.0.md](rules-2.0.md), not the living rules, which stay 1.0's.
+Asked the same day, the author answered:
+
+- **The hand refills**: a coach keeps their hand and draws one after each card played, back up
+  to four (rules-2.0 3.1) -- chosen over a fresh four every turn.
+- **No coin** (2.2): an advanced card in the hand is played like any other, and succeeds or
+  fails on rank; played against no challenge it resolves as its basic counterpart (2.3).
+- **The edition is a setting beside the mode** -- every mode keeps its own abilities and plays
+  with the deck.
+- **The hand is secret** and the deck and discard counts are public (1.2).
+- Read from the six advanced cards and the four-card hand: the six are the three offensive and
+  three defensive advanced maneuvers, one each, which is what guarantees a hand always holds a
+  playable card (2.1).
 
 ### 2026-10-07 -- sheet and author, Merge costs 1 exhaust, declared per Ooze before the roll
 
