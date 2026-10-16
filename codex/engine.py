@@ -306,12 +306,20 @@ class DetectOption:
     #: Whether this player has a finished tower at all -- whether the
     #: action is theirs to be offered, disabled or not.
     tower: bool = False
+    #: The seat each of `candidates` is on, in the same order: a hero's ref
+    #: is its slug, so in a mirror game two opponents' copies of one hero
+    #: are two candidates with one ref (`DefenderOptions.seats` does the
+    #: same). On the wire only where there is more than one such seat.
+    seats: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             "allowed": self.allowed, "candidates": list(self.candidates),
             "why_not": self.why_not, "tower": self.tower,
         }
+        if len(set(self.seats)) > 1:
+            data["seats"] = list(self.seats)
+        return data
 
 
 @dataclass(frozen=True)
@@ -2317,7 +2325,8 @@ class RulesEngine:
             return "stealth"
         return ""
 
-    def detected_by(self, match: MatchState, watcher: int, ref: str) -> bool:
+    def detected_by(self, match: MatchState, watcher: int, ref: str,
+                    side: Optional[int] = None) -> bool:
         """
         Whether `watcher`'s detector sees what `ref` names: their tower
         has detected that card this turn, and a detection lasts the rest
@@ -2329,7 +2338,11 @@ class RulesEngine:
         2016-03-14) -- so a hidden attacker cannot sneak past a tower that
         has not detected yet, and the attack spends the detection
         (`tower_detects`). On its owner's own turn a tower sees only what
-        it has detected, which is the `detect` action's to name.
+        it has detected, which is the `detect` action's to name. `side`
+        is the seat whose `ref` it is: a detection names its seat too
+        (`AddOnState.detected_seat`), so a mirror game's other copy of a
+        hero stays hidden; one from an older save, with no seat, matches
+        the ref alone.
         """
         if self.has_detector(match, watcher):
             return True
@@ -2337,7 +2350,7 @@ class RulesEngine:
         if found is None:
             return False
         tower = found[1]
-        if tower.detected == ref:
+        if tower.detected == ref and (side is None or tower.detected_seat in (None, side)):
             return True
         return tower.detected is None and watcher not in self.turn_seats(match)
 
@@ -2374,7 +2387,8 @@ class RulesEngine:
         found = self.team_tower(match, other)
         if found is None:
             return ()
-        if not self.hidden(match, match.active, attacker) or self.detected_by(match, other, attacker):
+        if not self.hidden(match, match.active, attacker) or self.detected_by(
+                match, other, attacker, match.active):
             return (found[0],)
         return ()
 
@@ -2408,17 +2422,19 @@ class RulesEngine:
             return DetectOption(why_not="you have no finished tower")
         if tower.detected is not None:
             return DetectOption(why_not="your tower has detected this turn", tower=True)
-        candidates = []
+        found_on: list[tuple[int, str]] = []
         # Every opponent's: on its owner's turn the tower reveals one
-        # thing (Rulebook p. 4), whoever's it is.
+        # thing (Rulebook p. 4), whoever's it is -- by seat and ref, since
+        # a mirror game's two copies of one hero share a ref.
         for other in self.opponents(match, seat):
             for ref in self._things_in_play(match, other):
-                if (self.hidden(match, other, ref) and not self.detected_by(match, seat, ref)
-                        and ref not in candidates):
-                    candidates.append(ref)
-        if not candidates:
+                if (self.hidden(match, other, ref) and not self.detected_by(match, seat, ref, other)
+                        and (other, ref) not in found_on):
+                    found_on.append((other, ref))
+        if not found_on:
             return DetectOption(why_not="nothing of theirs is hidden", tower=True)
-        return DetectOption(True, tuple(candidates), tower=True)
+        return DetectOption(True, tuple(ref for _, ref in found_on), tower=True,
+                            seats=tuple(other for other, _ in found_on))
 
     # -- Combat ---------------------------------------------------------------
 
@@ -2486,7 +2502,7 @@ class RulesEngine:
         if (
             self.has_keyword(body, "Invisible", match)
             and body.patrol_slot is None
-            and not self.detected_by(match, seat, target)
+            and not self.detected_by(match, seat, target, other)
         ):
             return False
         if self.has_keyword(body, "Flying", match):
@@ -2559,7 +2575,7 @@ class RulesEngine:
         if self.has_keyword(body, "Unstoppable", match):
             return "unstoppable"
         hidden = self.hidden(match, seat, attacker)
-        if hidden and not self.detected_by(match, other, attacker):
+        if hidden and not self.detected_by(match, other, attacker, seat):
             return hidden
         return ""
 
@@ -2794,7 +2810,7 @@ class RulesEngine:
         if not isinstance(body, CardInstance) or body.slug not in effects.STEALTH_ATTACKING_UNITS:
             return False
         other = self.defending_seat(match, against)
-        return not self.detected_by(match, other, attacker)
+        return not self.detected_by(match, other, attacker, match.active)
 
     def _unstoppable_to_buildings(self, match: MatchState, attacker: str) -> str:
         """`"base"` for Colossus, `"buildings"` for Traffic Director, or
@@ -3698,7 +3714,7 @@ class RulesEngine:
         if body is None:
             return True
         if self.has_keyword(body, "Invisible", match):
-            return self.detected_by(match, seat, ref) and seat in self.turn_seats(match)
+            return self.detected_by(match, seat, ref, side) and seat in self.turn_seats(match)
         return True
 
     def target_rows(self, match: MatchState, seat: int, part, *, taken: Sequence[str] = (),

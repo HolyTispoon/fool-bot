@@ -610,22 +610,31 @@ def cancel_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState) -
     return StepResult(next=pending(engine, game, match))
 
 
-def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: str) -> StepResult:
+def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: str,
+           against: Optional[int] = None) -> StepResult:
     """
     The tower's detection, on its owner's own turn (UMR p. 9): one
     opposing stealth or invisible card named, visible for the rest of the
     turn (Sirlin, 2016-03-14) -- so it may be attacked and, from step 6,
-    targeted. Once a turn.
+    targeted. Once a turn. `against` names whose card it is, needed only
+    where the ref is on more than one side: a mirror game's two copies of
+    one hero (`DetectOption.seats`).
     """
     seat = match.active
     option = engine.detect_option(match)
     if not option.allowed:
         raise RuleRefusal(f"Your tower can't detect: {option.why_not}.", cite="UMR p. 9")
-    if card not in option.candidates:
+    matching = [on for on, ref in zip(option.seats, option.candidates)
+                if ref == card and against in (None, on)]
+    if not matching:
         raise RuleRefusal("That is not one of their hidden cards.", cite="UMR p. 9")
-    other = engine.holder_of(match, card, engine.opponents(match, seat))
+    if len(matching) > 1:
+        raise RuleRefusal("Choose whose card the tower detects: that card is on more than one side.",
+                          cite="UMR p. 9")
+    other = matching[0]
     body = engine.body(match, other, card)
-    engine.team_tower(match, seat)[1].detected = card
+    tower = engine.team_tower(match, seat)[1]
+    tower.detected, tower.detected_seat = card, other
     match.record_event("detected", card=card, by=seat)
     named = tokens.hero(body.slug) if is_hero_ref(card) else tokens.card(body.slug)
     return _done(engine, game, match, [

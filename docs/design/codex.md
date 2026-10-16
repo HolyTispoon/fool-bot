@@ -610,7 +610,16 @@ always.
   included. On its owner's own turn the detection is an action instead
   (`detect`, offered in `MainActionOptions.detect`), naming one hidden
   card of the opponent's for the rest of the turn. Both are once a turn,
-  and `begin_turn` makes it new again.
+  and `begin_turn` makes it new again. **A detection names a seat as
+  well as a ref** (2026-10-16): a hero's ref is its slug, so in a mirror
+  game at a table two opponents' copies of one hero share it, and were
+  one candidate that, detected, showed both. `DetectOption.seats` gives
+  each candidate's seat (on the wire only where there are several), the
+  action takes `against` and refuses an ambiguous ref without it, as the
+  levels' recipient does, and the tower keeps `detected_seat` beside
+  `detected` -- written only while set, so a save from before matches
+  the ref alone, as it did. `detected_by` takes the side the thing is
+  on; every caller knows it.
 - **The damage lands in two batches** (`codex.flow.combat._resolve`):
   swift strike's first, then everything else, with deaths taken between
   them, so a card destroyed by swift strike deals nothing back and two
@@ -1217,7 +1226,8 @@ match as its saved dict, as D12 Ball's record does; its file,
 - **Step 5 added four**, each with its fallback, since the save format is
   the contract: `attacked_this_turn` on a card and a hero (readiness
   attacks once a turn), `detected` on the add-on (what the tower has
-  detected this turn), and `combat` on the match -- the attack standing
+  detected this turn; `detected_seat` beside it since 2026-10-16, written
+  only while set), and `combat` on the match -- the attack standing
   half-resolved while a choice inside it is asked, so a restart between
   two clicks asks the same question.
 - **Step 6 added four more**, each with its fallback: `plus_runes`,
@@ -3822,6 +3832,37 @@ on.
   patroller it may take is, where before the hero was on nobody's list
   -- `player.play` and the owner's `heroes_in_play` -- and only a
   blocking patroller was offered.
+- **A lent hero is its controller's to every effect that says so**
+  (2026-10-16, after the review of 2026-10-15).
+  `MatchState.heroes_controlled(seat)` is the one reading of the heroes a
+  seat controls -- its own in play and not lent out (`hero:<slug>`),
+  then those lent into its zone (`<owner seat>:hero:<slug>`) -- and
+  `_hero_refs_of` reads it. What "you have", "your", "that opponent
+  controls" and "each opposing" read is on it: Inverse Power Ninja's
+  count, a hero's band grants (Midori's, Calamandra's, Drakk's), Stalking
+  Tiger's Feral hero, the target lists that take any side's heroes (any
+  unit or hero, a time rune, runes, a flier, Boot Camp's), Dothram's total
+  ATK, Plague Lord, Molting Firebird, Death and Decay, Banefire Golem,
+  channeling's "the correct hero", Orpal's, and the dead hero's levels
+  and their prompt (`board.destroy`, `_level_options`, the answer through
+  `hero_on`). What reads every unit and hero in play -- Wandering Mimic,
+  Bloodlust -- reads `heroes_on_table`, so a lent hero is on its owner's
+  list there; Maximum Anarchy and Spreading Plague build their rows
+  through `heroes_controlled`, so a lent hero is named as its side names
+  it. What is the owner's stays on `heroes_in_play` and the hero list:
+  the hero limit, summoning, the command zone, healing and the upkeep's
+  own effects, and every effect of the seat's own turn, which a lent-in
+  hero never meets, since it goes home first thing in the borrower's
+  upkeep. **The levels of a hero that dies may go to a hero lent to an
+  opponent** of its controller, that opponent's to give, the same
+  reading question 18 took for the dead hero (built so; the PR asks).
+  Grants such as Training Grounds and Hero's Monument were already
+  worked out per hero through `seat_of`. A lent hero keeps the **Final
+  Showdown** its owner attached to it: the spell stays in its caster's
+  play, `<owner>:hero:<slug>`, which `_hero_profile` reads for a lent
+  hero beside the controller's play. And a lent hero's button names it:
+  `formatting.ref_label` resolves either spelling (`hero_on`), where it
+  had printed the bare `3:hero:troq_bashar`.
 - **On Discord a loan is a destination in the patrol view** (the panel
   step, 2026-10-15; `PatrolView`). Where the options carry `zones`,
   each opponent's open slots follow the owner's five in the slot menu --
@@ -4252,13 +4293,6 @@ with its own condition.
 
 ### Not yet, and still open
 
-- **The tower's own-turn detection names a ref**, so in a mirror game
-  two of one hero hidden at once are one candidate.
-- **An effect that names "your heroes" does not see a hero lent to its
-  controller** (`heroes_in_play` is the owner's reading there); units,
-  which sit in the borrower's play zone, are seen by every effect. (The
-  board draws a lent hero in the borrower's slot since 2026-10-15 --
-  "The board", above.)
 - **A dragon panel made stale by the teammate's click** is refreshed
   only by its own player's next click, as decision 13 says; nothing
   pushes it.

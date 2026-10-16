@@ -793,6 +793,16 @@ class LentHeroIsItsControllersTests(unittest.TestCase):
         self.assertEqual(hero.zone, "command")
         self.assertIsNone(hero.lent_to)
 
+    def test_a_lent_heros_button_names_it_on_its_borrowers_side(self) -> None:
+        """A row or button for the lent hero -- a target, a defender, the
+        levels' recipient -- reads its name off either spelling."""
+        from codex.formatting import ref_label
+
+        engine, game, match = self.table()
+        hero = self.lend(match)
+        label = ref_label(engine, match, 2, f"3:hero:{hero.slug}")
+        self.assertTrue(label.startswith(engine.catalog.name(hero.slug)), label)
+
     def test_a_lent_hero_keeps_the_final_showdown_on_it(self) -> None:
         """Final Showdown stays in its caster's play, attached to the hero:
         lent, the hero keeps its +3/+3 rather than reading the borrower's

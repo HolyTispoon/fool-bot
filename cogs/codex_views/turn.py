@@ -568,6 +568,20 @@ class TurnPanelView(PanelView):
             for ref in items
         ] or [self.make_button(empty, discord.ButtonStyle.secondary, None, disabled=True)]
 
+    def choices_on(self, items, seats, label, callback, kind: str, empty: str) -> list:
+        """`choices` where each ref is on a seat of its own -- `seats`,
+        one per ref, the options' parallel tuple: labelled `label(ref, seat)`, answering
+        `callback(interaction, ref, seat)` -- the seat sent only where the
+        options named several, as a mirror game's two copies of one hero
+        share a ref."""
+        several = len(set(seats)) > 1
+        return [
+            self.make_button(label(ref, seat), discord.ButtonStyle.primary,
+                             self._answer(callback, ref, seat if several else None),
+                             choice=(kind, ref))
+            for ref, seat in zip(items, seats)
+        ] or [self.make_button(empty, discord.ButtonStyle.secondary, None, disabled=True)]
+
     def _answer(self, callback, *args):
         async def run(interaction: discord.Interaction) -> None:
             await callback(interaction, *args)
@@ -895,17 +909,23 @@ class TurnPanelView(PanelView):
     def build_detect(self, options) -> None:
         """What the tower may detect, a button each as the engine offers
         it (UMR p. 9), and **Back**."""
+        detect = options.detect
         engine, others = self.cog.engine, self.cog.engine.opponents(self.match, self.seat)
-        candidates = self.choices(
-            options.detect.candidates,
-            lambda ref: self.label(ref, engine.holder_of(self.match, ref, others)), self.detect,
+        # Each candidate on its own side (`DetectOption.seats`): a mirror
+        # game's two copies of one hero share a ref.
+        seats = detect.seats or tuple(engine.holder_of(self.match, ref, others)
+                                      for ref in detect.candidates)
+        candidates = self.choices_on(
+            detect.candidates, seats, lambda ref, seat: self.label(ref, seat), self.detect,
             "detect", "Nothing of theirs is hidden",
         )
         row = self.place(candidates, 0, until=ROWS - 1)
         self.button("Back", discord.ButtonStyle.secondary, self.back, row=row)
 
-    async def detect(self, interaction: discord.Interaction, ref: str) -> None:
-        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "detect", {"card": ref}))
+    async def detect(self, interaction: discord.Interaction, ref: str,
+                     against: int | None = None) -> None:
+        arguments = {"card": ref} if against is None else {"card": ref, "against": against}
+        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "detect", arguments))
 
     async def back(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)
@@ -1195,13 +1215,18 @@ class TurnPanelView(PanelView):
     def build_level_gain(self, options) -> None:
         """Which hero gains the kill's two levels, a button each (UMR
         p. 10)."""
-        self.place(self.choices(
-            options.heroes, lambda ref: self.label(ref, options.owner), self.level_gain,
+        # Each hero on its own side: the dead hero's controller may have
+        # several opponents, and a hero lent to one is named there.
+        seats = options.seats or (options.owner,) * len(options.heroes)
+        self.place(self.choices_on(
+            options.heroes, seats, lambda ref, seat: self.label(ref, seat), self.level_gain,
             "level_gain", "No hero is in play",
         ), 0)
 
-    async def level_gain(self, interaction: discord.Interaction, ref: str) -> None:
-        await self.act(interaction, Action(PromptKind.LEVEL_GAIN, "", {"hero": ref}))
+    async def level_gain(self, interaction: discord.Interaction, ref: str,
+                         seat: int | None = None) -> None:
+        arguments = {"hero": ref} if seat is None else {"hero": ref, "seat": seat}
+        await self.act(interaction, Action(PromptKind.LEVEL_GAIN, "", arguments))
 
     # -- Undo ----------------------------------------------------------------
 

@@ -210,7 +210,8 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         # patrol zone (Sirlin, 2016-03-14).
         watcher = engine.detecting_tower(match, attacker)
         if watcher is not None:
-            engine.tower(match.player(watcher)).detected = attacker
+            tower = engine.tower(match.player(watcher))
+            tower.detected, tower.detected_seat = attacker, match.active
             result.narration.append(
                 f"{tokens.player(watcher)}'s tower detects "
                 f"{hitting.named(whose=False)}."

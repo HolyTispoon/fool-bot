@@ -267,6 +267,11 @@ class AddOnState:
     #: `hero:<slug>` ref -- or `None` while its once-a-turn detection is
     #: unused (UMR p. 9). Emptied when each turn begins.
     detected: Optional[str] = None
+    #: Whose side the card `detected` names is on: a hero's ref is its
+    #: slug, so in a mirror game two players' copies of one hero share it
+    #: (the review of 2026-10-15). `None` in a save from before, where the
+    #: ref alone is matched, as it was; written only while set.
+    detected_seat: Optional[int] = None
     #: A tech lab's spec (UMR p. 9): chosen as it is built where a tech
     #: II's spec is chosen, and with the tech II's otherwise (the
     #: tech_lab ruling). `None` for every other add-on, for a lab still
@@ -283,6 +288,7 @@ ADD_ON_SAVED_FIELDS = (
     SavedField("hp", default=0),
     SavedField("under_construction", default=False),
     SavedField("detected"),
+    SavedField("detected_seat"),
     SavedField("spec"),
 )
 
@@ -420,6 +426,7 @@ INSTANCE_SAVED_FIELDS = (
 #: always was).
 _CARD_WRITTEN_WHEN_SET = {"lent": False}
 _HERO_WRITTEN_WHEN_SET = {"lent_to": None}
+_ADD_ON_WRITTEN_WHEN_SET = {"detected_seat": None}
 
 
 def _write_buildings(buildings: dict) -> dict:
@@ -442,7 +449,9 @@ def _no_buildings() -> dict:
 
 
 def _write_add_on(add_on: Optional[AddOnState]) -> Optional[dict]:
-    return None if add_on is None else _save(add_on, ADD_ON_SAVED_FIELDS)
+    if add_on is None:
+        return None
+    return _unset_dropped(_save(add_on, ADD_ON_SAVED_FIELDS), _ADD_ON_WRITTEN_WHEN_SET)
 
 
 def _read_add_on(data: Optional[dict]) -> Optional[AddOnState]:
