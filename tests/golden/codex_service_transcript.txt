@@ -197,8 +197,8 @@
 --- board changed
 === action 31: MAIN_ACTION 'play' {"slug": "spark"}
 --- narration
-{player:1} casts {card:spark} for {gold:1}.
-{card:spark} deals 0 to {player:2}'s {card:older_brother} (armor takes 1). {gold:3} left.
+{player:1} casts {card:spark} for {gold:1}. {gold:3} left.
+{card:spark} deals 0 to {player:2}'s {card:older_brother} (armor takes 1).
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -276,8 +276,8 @@
 --- board changed
 === action 43: MAIN_ACTION 'play' {"slug": "spark"}
 --- narration
-{player:2} casts {card:spark} for {gold:1}.
-{card:spark} deals 0 to {player:1}'s {card:helpful_turtle} (armor takes 1). {gold:4} left.
+{player:2} casts {card:spark} for {gold:1}. {gold:4} left.
+{card:spark} deals 0 to {player:1}'s {card:helpful_turtle} (armor takes 1).
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -791,17 +791,17 @@
 --- board changed
 === action 121: MAIN_ACTION 'play' {"slug": "spark"}
 --- narration
-{player:1} casts {card:spark} for {gold:1}.
-{player:1} pays {gold:1} for its resist.
-{card:spark} deals 0 to {player:2}'s {card:brick_thief} (armor takes 1). {gold:8} left.
+{player:1} casts {card:spark} for {gold:1}. {gold:9} left.
+{player:1} pays {gold:1} for resist to target {player:2}'s {card:brick_thief} with {card:spark}. {gold:8} left.
+{card:spark} deals 0 to {player:2}'s {card:brick_thief} (armor takes 1).
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 122: MAIN_ACTION 'play' {"slug": "sneaky_pig"}
 --- narration
-{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3.
-{card:sneaky_pig} has stealth this turn. {gold:5} left.
+{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3. {gold:5} left.
+{card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -1319,8 +1319,8 @@
 --- board changed
 === action 201: MAIN_ACTION 'play' {"slug": "sneaky_pig"}
 --- narration
-{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3.
-{card:sneaky_pig} has stealth this turn. {gold:14} left.
+{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3. {gold:14} left.
+{card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -1533,8 +1533,8 @@
 --- board changed
 === action 234: MAIN_ACTION 'play' {"slug": "spark"}
 --- narration
-{player:2} casts {card:spark} for {gold:1}.
-{card:spark} deals 0 to {player:1}'s {card:eggship} (armor takes 1). {gold:16} left.
+{player:2} casts {card:spark} for {gold:1}. {gold:16} left.
+{card:spark} deals 0 to {player:1}'s {card:eggship} (armor takes 1).
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)

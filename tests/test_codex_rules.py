@@ -116,16 +116,24 @@ class EconomyTests(unittest.TestCase):
         run = driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
         self.assertNotIn("left.", " ".join(run.result.narration))
 
-    def test_another_seat_that_pays_is_named(self) -> None:
-        """Gold that leaves a seat other than the one acting is said
-        with that seat's name."""
+    def test_resist_is_said_with_its_target_its_spell_and_what_is_left(self) -> None:
+        """Gold paid for resist is a line of its own: what it targets, with
+        what, and the gold left (the author, 2026-10-16: "resist for spells
+        needs to be spelled out")."""
         engine, game, match = main_phase()
-        match.player(2).gold = 3
-        result = StepResult(narration=["Something takes gold."])
-        before = {player.seat: player.gold for player in match.players}
-        match.player(2).gold = 2
-        driver._say_gold_left(match, before, result)
-        self.assertEqual(result.narration, ["Something takes gold. {player:2} has {gold:2} left."])
+        hero_in_play(match, 1, patrol="elite")
+        thief = put(match, 2, "brick_thief", patrol="elite")
+        hand(match, 1, "spark")
+        match.player(1).gold = 4
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "spark"}))
+        run = driver.apply(engine, game, match,
+                           Action(PromptKind.TARGET, arguments={"target": f"2:{thief.ref}"}))
+        self.assertNotIsInstance(run, driver.Refusal)
+        self.assertIn(
+            "{player:1} pays {gold:1} for resist to target {player:2}'s {card:brick_thief} "
+            "with {card:spark}. {gold:2} left.",
+            run.result.narration,
+        )
 
 
 class OwnDeckTests(unittest.TestCase):

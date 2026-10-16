@@ -69,6 +69,31 @@ def gain_gold(match: MatchState, seat: int, amount: int) -> int:
     return player.gold - before
 
 
+# Every line that moves a player's gold says why, and where it now stands:
+# "{gold:3} left" where it went down, "now {gold:5}" where it went up (the
+# author, 2026-10-16) -- docs/design/codex.md, "What the narration may say".
+
+
+def gold_left(match: MatchState, seat: int, spent: int) -> str:
+    """" {gold:3} left." -- a sentence of its own, after the one that
+    spent `spent`; empty where that was 0, so a line paying nothing says
+    no more."""
+    return f" {tokens.gold(match.player(seat).gold)} left." if spent > 0 else ""
+
+
+def gold_now(match: MatchState, seat: int) -> str:
+    """"now {gold:5}" -- the total after a gain, on the gain's own clause."""
+    return f"now {tokens.gold(match.player(seat).gold)}"
+
+
+def stolen(match: MatchState, seat: int, other: int) -> str:
+    """Where a steal leaves both sides: "now {gold:5}; {player:2} has
+    {gold:1} left" -- the thief's after the gain, the robbed seat's after
+    the loss."""
+    return (f"{gold_now(match, seat)}; {tokens.player(other)} has "
+            f"{tokens.gold(match.player(other).gold)} left")
+
+
 def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
                 by: Optional[int] = None) -> None:
     """Damage onto `seat`'s base; at 0 it is destroyed and the game ends
@@ -660,7 +685,7 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
         gained = gain_gold(match, seat, owls)
         result.narration.append(
             f"{tokens.player(seat)} gains {tokens.gold(gained)} from "
-            f"{tokens.card('gemscout_owl')}."
+            f"{tokens.card('gemscout_owl')}: {gold_now(match, seat)}."
         )
     elif kind == "galina":
         green = sum(
@@ -670,7 +695,7 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
         gained = gain_gold(match, seat, green // 2)
         result.narration.append(
             f"{tokens.player(seat)} gains {tokens.gold(gained)} from "
-            f"{tokens.card('galina_glimmer')}: {green} green units."
+            f"{tokens.card('galina_glimmer')}, for {green} green units: {gold_now(match, seat)}."
         )
     elif kind == "octopus":
         card = player.instance(int(ident))
@@ -792,8 +817,8 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
     if player.gold >= owed:
         player.gold -= owed
         result.narration.append(
-            f"{tokens.player(seat)} pays {tokens.gold(owed)} for {tokens.card('promise_of_payment')}: "
-            f"now {tokens.gold(player.gold)}."
+            f"{tokens.player(seat)} pays the {tokens.gold(owed)} owed for "
+            f"{tokens.card('promise_of_payment')}.{gold_left(match, seat, owed)}"
         )
         return
     if match.winner is not None:

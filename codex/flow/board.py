@@ -37,7 +37,7 @@ from codex.engine import (
     unit_ref,
 )
 from codex.flow.result import StepResult
-from codex.flow.turn import damage_base, draw_cards, gain_gold
+from codex.flow.turn import damage_base, draw_cards, gain_gold, gold_now
 
 if TYPE_CHECKING:
     from codex.engine import RulesEngine
@@ -390,7 +390,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
     paid = home_seat(card)
     if card.patrol_slot == "scavenger":
         gained = gain_gold(match, paid, SCAVENGER_GOLD)
-        line += f" As scavenger, it gives {tokens.player(paid)} {tokens.gold(gained)}."
+        line += f" As scavenger, it gives {tokens.player(paid)} {tokens.gold(gained)}: {gold_now(match, paid)}."
     elif card.patrol_slot == "technician":
         drawn = draw_cards(engine, match, paid, TECHNICIAN_CARDS, result)
         if drawn:
@@ -400,7 +400,8 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
         paid = gain_gold(match, match.active, min(BOUNTY, BOUNTIES_A_TURN - active.bounties))
         if paid:
             active.bounties += paid
-            line += f" {tokens.player(match.active)} collects {tokens.gold(paid)}."
+            line += (f" {tokens.player(match.active)} collects a bounty of {tokens.gold(paid)}: "
+                     f"{gold_now(match, match.active)}.")
     result.narration.append(line)
 
 
@@ -856,7 +857,7 @@ def _pay_insurance(engine: "RulesEngine", match: MatchState, seat: int, card: Ca
     if result is not None:
         result.narration.append(
             f"{tokens.card('insurance_agent')} pays out on {tokens.card(card.slug)}: {tokens.player(seat)} "
-            f"gains {tokens.gold(gained)}" + (" and draws a card." if drawn else ".")
+            f"gains {tokens.gold(gained)}, {gold_now(match, seat)}" + (", and draws a card." if drawn else ".")
         )
 
 
@@ -1685,7 +1686,8 @@ def kill_bonus(engine: "RulesEngine", match: MatchState, seat: int, killer: Opti
         if bonus == "gold":
             gained = gain_gold(match, seat, 1)
             result.narration.append(
-                f"{tokens.hero(slug)} killed a scavenger: {tokens.player(seat)} gets {tokens.gold(gained)}."
+                f"{tokens.hero(slug)} killed a scavenger: {tokens.player(seat)} gets {tokens.gold(gained)}, "
+                f"{gold_now(match, seat)}."
             )
         elif bonus == "card":
             if draw_cards(engine, match, seat, 1, result):

@@ -1344,22 +1344,36 @@ cancel, which rebuild the turn from its snapshot, bring it back with
 the rest. Discards the player chooses themselves --
 Calamandra's, a cost, Desperation's hand -- are not told: they know.
 
-**Gold says where it now stands too.** The upkeep's line ends on the
-total ("collects {gold:5} from 5 workers: now {gold:5}"), and so does
-Promise of Payment's debt paid out of it. **After every answer that
-costs a seat gold, the answer's last line ends on what that seat has
-left** -- "plays {card:tenderfoot} for {gold:1}: 1/2. {gold:3} left." --
-the acting seat unnamed, since its own line just named it, any other
-seat by name ("{player:2} has {gold:2} left."). It is said once, in
-`codex.flow.driver._say_gold_left`, from each seat's gold before and
-after the answer, rather than in each sentence that spends: there are
-over a dozen ways to pay (a card, a hire, a build, a level, resist, a
-toll, a repair, an effect that takes gold), and a sentence that forgot
-would be silent about it. The follow-on steps -- the upkeep, the draw,
-the tech -- spend nothing of a player's choosing, so the answer is the
-whole of where a choice costs gold. The main phase's ask is the seat's
-name and no more ("{player:1}'s main phase."): the gold is on the line
-above it (the author, 2026-10-16).
+**Every line that moves a player's gold says why, and where it now
+stands: "{gold:3} left" where it went down, "now {gold:5}" where it went
+up** (the author, 2026-10-16). A spend ends on its own sentence --
+"{player:1} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:3} left." --
+and a gain on its own clause -- "collects {gold:5} from 5 workers: now
+{gold:5}", "gains {gold:1} from {card:gemscout_owl}: now {gold:4}", "collects
+a bounty of {gold:1}: now {gold:2}". A steal says both sides: "steals
+{gold:1} from {player:2}: now {gold:4}; {player:2} has {gold:0} left". The
+reason is never left to be inferred: resist is its own line naming what is
+targeted and with what ("pays {gold:1} for resist to target {player:2}'s
+{card:brick_thief} with {card:spark}. {gold:2} left." -- the author:
+"resist for spells needs to be spelled out"), a repair says its price,
+and Promise of Payment's debt says it is the debt. A line paying 0 says
+no total (`gold_left` is empty for it), as a move that costs nothing says
+nothing.
+
+The wording is three helpers in `codex/flow/turn.py` -- `gold_left`,
+`gold_now`, `stolen` -- called by each sentence that moves gold, since
+the total belongs on the sentence that says why. A first version said
+the total once, in the driver, on the end of an answer's last line,
+which could not miss a spend but put the total on whatever line came
+last ("{card:sneaky_pig} has stealth this turn. {gold:6} left.") and
+said nothing for a gain at the upkeep. What it guarded against -- a way
+of paying that forgets to say so -- is held instead by
+`tests/test_codex_driver_full_game.py`: `play` asserts, for every action
+of every whole game it plays (the duel, the standard games, each colour
+pair, the free-for-alls, the dragons), that a seat whose gold changed
+has its new total said as "left" or "now". The main phase's ask is the
+seat's name and no more ("{player:1}'s main phase."): the gold is on the
+lines above it.
 
 **A line that damages a building or the base says where it now stands,
 out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's

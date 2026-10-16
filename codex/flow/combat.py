@@ -38,6 +38,7 @@ from codex.components import CardInstance, HeroState, MatchState, is_hero_ref
 from codex.engine import SPARKSHOT_DAMAGE, TOWER_DAMAGE, parse_target, unit_ref
 from codex.flow import board, resolve
 from codex.flow.result import StepResult
+from codex.flow.turn import gold_left, stolen
 from codex.game import RuleRefusal
 from codex.prompts import pending
 
@@ -186,6 +187,7 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         match.player(seat).gold -= toll
         result.narration.append(
             f"{tokens.player(seat)} pays {tokens.gold(toll)} to attack {_fighter(match, other, defender).named()}."
+            + gold_left(match, seat, toll)
         )
     if state is None:
         match.combat = {
@@ -754,7 +756,8 @@ def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, 
         match.player(seat).lasting.append({"kind": "looked_hand", "until": "end_of_turn", "seat": other})
         result.narration.append(
             f"{tokens.card(slug)} looks at {tokens.player(other)}'s hand"
-            + (f" and steals {tokens.gold(taken)}." if taken else "; they have no gold to steal.")
+            + (f" and steals {tokens.gold(taken)} for {tokens.player(seat)}: {stolen(match, seat, other)}." if taken
+               else "; they have no gold to steal.")
         )
     if slug in effects.BASE_ON_BUILDING_KILL and match.winner is None:
         gone = standing - _standing(engine, match, other)
@@ -816,7 +819,7 @@ def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
             if taken:
                 result.narration.append(
                     f"{tokens.card(slug)} killed a patroller: {tokens.player(seat)} steals "
-                    f"{tokens.gold(taken)} from {tokens.player(other)}."
+                    f"{tokens.gold(taken)} from {tokens.player(other)}: {stolen(match, seat, other)}."
                 )
         if hitting.hero is not None:
             board.kill_bonus(engine, match, seat, hitting.hero.slug, slot, result)

@@ -200,7 +200,7 @@
 --- narration
 {card:timely_messenger} attacks {player:1}'s {card:mercenary}.
 {card:timely_messenger} deals 1; {player:1}'s {card:mercenary} deals 1.
-{player:1}'s {card:mercenary} is destroyed. {player:2} collects {gold:1}.
+{player:1}'s {card:mercenary} is destroyed. {player:2} collects a bounty of {gold:1}: now {gold:1}.
 {player:2}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
@@ -224,7 +224,7 @@
 --- narration
 {hero:river_montoya} attacks {player:1}'s {card:tenderfoot}.
 {hero:river_montoya} deals 2; {player:1}'s {card:tenderfoot} deals 2.
-{player:1}'s {card:tenderfoot} is destroyed. {player:2} collects {gold:1}.
+{player:1}'s {card:tenderfoot} is destroyed. {player:2} collects a bounty of {gold:1}: now {gold:1}.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -506,7 +506,7 @@
 --- narration
 {card:tenderfoot} attacks {player:1}'s {card:helpful_turtle}.
 {card:tenderfoot} deals 1.
-{player:1}'s {card:helpful_turtle} is destroyed. {player:2} collects {gold:1}.
+{player:1}'s {card:helpful_turtle} is destroyed. {player:2} collects a bounty of {gold:1}: now {gold:1}.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -521,7 +521,7 @@
 --- narration
 {card:older_brother} attacks {player:1}'s {card:older_brother}.
 {card:older_brother} deals 2; {player:1}'s {card:older_brother} deals 3.
-{player:1}'s {card:older_brother} is destroyed. {player:2} collects {gold:1}.
+{player:1}'s {card:older_brother} is destroyed. {player:2} collects a bounty of {gold:1}: now {gold:2}.
 {player:2}'s {card:older_brother} is destroyed.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.

@@ -35,7 +35,7 @@ from codex.engine import (
 from codex.flow import board, resolve
 from codex.flow.board import raise_level
 from codex.flow.result import FollowOn, FollowOnStep, StepResult
-from codex.flow.turn import damage_base, draw_cards
+from codex.flow.turn import damage_base, draw_cards, gold_left
 from codex.game import RuleRefusal
 from codex.prompts import pending
 
@@ -72,7 +72,7 @@ def hire_worker(engine: "RulesEngine", game: "CodexGame", match: MatchState, slu
     match.record_event("hired", slug=slug)
     return _done(engine, game, match, [
         f"{tokens.player(seat)} hires a worker for {tokens.gold(option.cost)}: "
-        f"{player.workers} workers."
+        f"{player.workers} workers.{gold_left(match, seat, option.cost)}"
     ])
 
 
@@ -89,7 +89,8 @@ def repair_base(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> 
     match.set_base(seat, match.base_of(seat) + 1)
     match.record_event("repaired")
     return _done(engine, game, match, [
-        f"{tokens.player(seat)} repairs the base: {match.base_of(seat)} HP."
+        f"{tokens.player(seat)} repairs the base for {tokens.gold(option.cost)}: "
+        f"{match.base_of(seat)} HP.{gold_left(match, seat, option.cost)}"
     ])
 
 
@@ -129,7 +130,8 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     atk, hp = engine.hero_stats(hero)
     result = StepResult(board_changed=True, narration=[
         f"{tokens.player(seat)} summons {tokens.hero(hero.slug)} for "
-        f"{tokens.gold(option.cost)}: level 1, {atk}/{hp}.{_vanilla_note(engine, hero.slug)}"
+        f"{tokens.gold(option.cost)}: level 1, {atk}/{hp}.{gold_left(match, seat, option.cost)}"
+        f"{_vanilla_note(engine, hero.slug)}"
     ])
     board.hero_arrives(engine, match, seat, hero)
     return resolve.carry_on(engine, game, match, result)
@@ -162,6 +164,7 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
         f"for {tokens.gold(levels * LEVEL_COST)}"
     )
     line += f": a new band, {atk}/{hp} and healed." if reached else "."
+    line += gold_left(match, seat, levels * LEVEL_COST)
     result = StepResult(board_changed=True, narration=[line])
     board.max_level_reached(engine, match, seat, hero, result)
     return resolve.carry_on(engine, game, match, result)
@@ -246,6 +249,8 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
     note = _vanilla_note(engine, slug)
     if where != "hand":
         note += f" (from their {where})"
+    # What is left goes before the note, straight after the line that paid.
+    note = gold_left(match, seat, cost) + note
     if engine.forecast(slug):
         # Forecast X: played from the hand, paid and its requirements met
         # now, into the future with X time runes -- not in play (UMR
@@ -446,7 +451,7 @@ def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str,
     if not said:
         # A cost the effect's own parts pay -- Calamandra's discards.
         said.append(f"uses {by}")
-    return f"{tokens.player(seat)} " + " and ".join(said) + "."
+    return f"{tokens.player(seat)} " + " and ".join(said) + "." + gold_left(match, seat, cost.gold)
 
 
 def _check_spec(spec: Optional[str], choices, what: str) -> Optional[str]:
@@ -539,6 +544,7 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
         line += "; it is finished at once."
     else:
         line += "; it is finished at the end of the turn."
+    line += gold_left(match, seat, option.cost)
     if building in ADD_ONS:
         line += _vanilla_note(engine, building)
     result = _done(engine, game, match, [line])

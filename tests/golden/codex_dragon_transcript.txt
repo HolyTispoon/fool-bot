@@ -523,8 +523,8 @@
 --- board changed
 === action 60: TARGET '' {"player": 1, "target": "3:unit:5"}
 --- narration
-{player:1} pays {gold:1} for its resist.
-{card:spark} deals 0 to {player:3}'s {card:brick_thief} (armor takes 1). {gold:2} left.
+{player:1} pays {gold:1} for resist to target {player:3}'s {card:brick_thief} with {card:spark}. {gold:2} left.
+{card:spark} deals 0 to {player:3}'s {card:brick_thief} (armor takes 1).
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2305,8 +2305,8 @@
 --- board changed
 === action 263: MAIN_ACTION 'play' {"player": 3, "slug": "sneaky_pig"}
 --- narration
-{player:3} plays {card:sneaky_pig} for {gold:3}: 3/3.
-{card:sneaky_pig} has stealth this turn. {gold:6} left.
+{player:3} plays {card:sneaky_pig} for {gold:3}: 3/3. {gold:6} left.
+{card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3225,8 +3225,8 @@
 --- board changed
 === action 369: MAIN_ACTION 'play' {"player": 1, "slug": "sneaky_pig"}
 --- narration
-{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3.
-{card:sneaky_pig} has stealth this turn. {gold:10} left.
+{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3. {gold:10} left.
+{card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3637,8 +3637,8 @@
 --- board changed
 === action 417: MAIN_ACTION 'play' {"player": 1, "slug": "sneaky_pig"}
 --- narration
-{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3.
-{card:sneaky_pig} has stealth this turn. {gold:13} left.
+{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3. {gold:13} left.
+{card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
