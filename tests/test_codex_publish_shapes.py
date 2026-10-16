@@ -15,7 +15,7 @@ from unittest import mock
 
 from codex import tokens
 from codex.formatting import turn_heading
-from codex.game import GameStatus
+from codex.game import CodexGame, GameStatus
 from codex_positions import new_game
 from cogs.codex_publish import keys, record, shapes
 from cogs.codex_publish.record import PublishedGame, PublishRecord
@@ -102,6 +102,20 @@ class ListShapesTests(unittest.TestCase):
         entry = shapes.index_entry(game, match)
         self.assertEqual([seat["seat"] for seat in entry["seats"]], [1, 2, 3])
         self.assertEqual(entry["sides"], [[1], [2], [3]])
+
+    def test_only_a_started_game_is_on_the_site(self):
+        _, game, _ = staged()
+        self.assertTrue(shapes.on_site(game))
+        game.status = GameStatus.FINISHED
+        self.assertTrue(shapes.on_site(game))
+        game.status = GameStatus.ABANDONED
+        self.assertTrue(shapes.on_site(game))
+
+    def test_a_lobby_is_not_on_the_site_even_once_abandoned(self):
+        lobby = CodexGame(GAME_ID, 2)
+        self.assertFalse(shapes.on_site(lobby))
+        lobby.abandon()
+        self.assertFalse(shapes.on_site(lobby))
 
     def test_the_lists_are_newest_first(self):
         listed = shapes.index([

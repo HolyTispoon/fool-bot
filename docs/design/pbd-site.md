@@ -72,6 +72,11 @@ builds each of them; nothing else spells one.
   both teammates'. A list entry also carries `sides` -- a dragon's two
   teams, every other game's seats one a side -- so the page can say "ann
   and bo against cy and di" without knowing the variants.
+- **Only a game that started is on the site** (`shapes.on_site`; the
+  author, 2026-10-16). A lobby is not listed, and a game abandoned in its
+  lobby was never on the site, so it is not archived: it has no board and
+  no turn to show, and an archive of lobbies nobody played would bury the
+  games that were. A game abandoned after its Start is archived.
 - **`winner` is a list of seats, or `null`**: one seat, a dragon's two
   (`seats.dragon_of`), and `null` for an abandoned game.
 - **`history.json` is an object, not a bare list**, so it carries its

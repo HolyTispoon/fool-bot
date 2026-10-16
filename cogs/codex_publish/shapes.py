@@ -2,6 +2,7 @@
 What the publisher writes into the bucket, as the dicts dumped to JSON
 (docs/pbd-site.md, "The bucket's layout"; docs/design/pbd-site.md):
 
+- `on_site` -- whether a game is on the site at all: only once started;
 - `index_entry` -- a game in `index.json`, the games being played;
 - `archive_entry` -- a game in `archive.json`, the finished and
   abandoned, the same fields and the winner;
@@ -22,6 +23,7 @@ from typing import TYPE_CHECKING, Iterable, Optional
 
 from codex import seats
 from codex.formatting import team_name
+from codex.game import GameStatus
 from cogs.codex_helpers import seat_label
 from cogs.codex_publish import keys
 from cogs.codex_publish.record import PublishedGame
@@ -30,6 +32,16 @@ from cogs.codex_publish.segments import segments
 if TYPE_CHECKING:
     from codex.components import MatchState
     from codex.game import CodexGame
+
+
+def on_site(game: "CodexGame") -> bool:
+    """
+    Whether `game` is on the site: **only once it has started** (the
+    author, 2026-10-16). A lobby is not listed, and a game abandoned in
+    its lobby -- which never dealt a match -- is never archived; a game
+    abandoned after its Start is.
+    """
+    return game.status is not GameStatus.LOBBY and game.match_state is not None
 
 
 def _seats(game: "CodexGame", match: "Optional[MatchState]") -> list[dict]:
