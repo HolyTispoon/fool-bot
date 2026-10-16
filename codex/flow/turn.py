@@ -792,7 +792,8 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
     if player.gold >= owed:
         player.gold -= owed
         result.narration.append(
-            f"{tokens.player(seat)} pays {tokens.gold(owed)} for {tokens.card('promise_of_payment')}."
+            f"{tokens.player(seat)} pays {tokens.gold(owed)} for {tokens.card('promise_of_payment')}: "
+            f"now {tokens.gold(player.gold)}."
         )
         return
     if match.winner is not None:

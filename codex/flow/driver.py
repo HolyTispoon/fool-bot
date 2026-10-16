@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Union
 
-from codex import history, seats
+from codex import history, seats, tokens
 from codex.components import MatchState
 from codex.flow import actions, board, combat, resolve, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
@@ -636,12 +636,35 @@ def answer(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             match.active = found.asked_player
     if action.kind not in SEATED_KINDS:
         arguments.pop("player", None)
+    gold = {player.seat: player.gold for player in match.players}
     try:
         result = ANSWERS[action.kind](engine, game, match, found, action.choice, **arguments)
     except RuleRefusal as refused:
         match.active = before
         return Refusal(str(refused), waiting_on=found, cite=refused.cite)
+    _say_gold_left(match, gold, result)
     return Answered(result=result, action=action)
+
+
+def _say_gold_left(match: MatchState, before: Mapping[int, int], result: StepResult) -> None:
+    """
+    After an answer that cost a seat gold, what that seat has left -- "{gold:3}
+    left." on the end of the answer's last line -- said once here rather
+    than in each sentence that spends, so no way of paying is missed (the
+    author, 2026-10-16). The seat that acted is not named again, since
+    its own line just named it; any other seat that paid is.
+    """
+    for player in match.players:
+        if player.gold >= before.get(player.seat, player.gold):
+            continue
+        if player.seat == match.active and result.narration:
+            left = f"{tokens.gold(player.gold)} left."
+        else:
+            left = f"{tokens.player(player.seat)} has {tokens.gold(player.gold)} left."
+        if result.narration:
+            result.narration[-1] += " " + left
+        else:
+            result.narration.append(left)
 
 
 def settle_active(match: MatchState) -> None:

@@ -104,6 +104,29 @@ class EconomyTests(unittest.TestCase):
                              Action(PromptKind.MAIN_ACTION, "hire", {"slug": "tenderfoot"}))
         self.assertIsInstance(again, driver.Refusal)
 
+    def test_an_action_that_spends_gold_says_what_is_left(self) -> None:
+        """The gold left after every action that spends it, on the end of
+        the action's last line (the author, 2026-10-16); an action that
+        spends nothing says nothing of gold."""
+        engine, game, match = main_phase()
+        hand(match, 1, "tenderfoot")
+        run = driver.apply(engine, game, match,
+                           Action(PromptKind.MAIN_ACTION, "play", {"slug": "tenderfoot"}))
+        self.assertTrue(run.result.narration[-1].endswith(" {gold:3} left."))
+        run = driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
+        self.assertNotIn("left.", " ".join(run.result.narration))
+
+    def test_another_seat_that_pays_is_named(self) -> None:
+        """Gold that leaves a seat other than the one acting is said
+        with that seat's name."""
+        engine, game, match = main_phase()
+        match.player(2).gold = 3
+        result = StepResult(narration=["Something takes gold."])
+        before = {player.seat: player.gold for player in match.players}
+        match.player(2).gold = 2
+        driver._say_gold_left(match, before, result)
+        self.assertEqual(result.narration, ["Something takes gold. {player:2} has {gold:2} left."])
+
 
 class OwnDeckTests(unittest.TestCase):
     """`own_deck`: every card a player owns, wherever it is -- the

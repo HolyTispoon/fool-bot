@@ -9,7 +9,7 @@
 --- board changed
 === action 1: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:3} hires a worker for {gold:1}: 5 workers.
+{player:3} hires a worker for {gold:1}: 5 workers. {gold:3} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -17,7 +17,7 @@
 --- board changed
 === action 2: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:4} hires a worker for {gold:1}: 5 workers.
+{player:4} hires a worker for {gold:1}: 5 workers. {gold:3} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -25,7 +25,7 @@
 --- board changed
 === action 3: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 3}
 --- narration
-{player:3} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
+{player:3} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -33,7 +33,7 @@
 --- board changed
 === action 4: MAIN_ACTION 'summon' {"hero": "river_montoya", "player": 4}
 --- narration
-{player:4} summons {hero:river_montoya} for {gold:2}: level 1, 2/3.
+{player:4} summons {hero:river_montoya} for {gold:2}: level 1, 2/3. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -41,7 +41,7 @@
 --- board changed
 === action 5: MAIN_ACTION 'play' {"player": 3, "slug": "tenderfoot"}
 --- narration
-{player:3} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:3} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -49,7 +49,7 @@
 --- board changed
 === action 6: MAIN_ACTION 'play' {"player": 4, "slug": "tenderfoot"}
 --- narration
-{player:4} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:4} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -99,7 +99,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 13: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:1} hires a worker for {gold:1}: 6 workers.
+{player:1} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -109,7 +109,7 @@
 --- board changed
 === action 14: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:2} hires a worker for {gold:1}: 6 workers.
+{player:2} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -119,7 +119,7 @@
 --- board changed
 === action 15: MAIN_ACTION 'build' {"building": "tech1", "player": 1}
 --- narration
-{player:1} builds a Tech I building for {gold:1}; it is finished at the end of the turn.
+{player:1} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -129,7 +129,7 @@
 --- board changed
 === action 16: MAIN_ACTION 'build' {"building": "tech1", "player": 2}
 --- narration
-{player:2} builds a Tech I building for {gold:1}; it is finished at the end of the turn.
+{player:2} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -139,7 +139,7 @@
 --- board changed
 === action 17: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 1}
 --- narration
-{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
+{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -149,7 +149,7 @@
 --- board changed
 === action 18: MAIN_ACTION 'summon' {"hero": "river_montoya", "player": 2}
 --- narration
-{player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3.
+{player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -159,7 +159,7 @@
 --- board changed
 === action 19: MAIN_ACTION 'play' {"player": 1, "slug": "tenderfoot"}
 --- narration
-{player:1} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:1} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -169,7 +169,7 @@
 --- board changed
 === action 20: MAIN_ACTION 'play' {"player": 2, "slug": "tenderfoot"}
 --- narration
-{player:2} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:2} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -246,7 +246,7 @@
 --- board changed
 === action 29: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:3} hires a worker for {gold:1}: 6 workers.
+{player:3} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -256,7 +256,7 @@
 --- board changed
 === action 30: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:4} hires a worker for {gold:1}: 6 workers.
+{player:4} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -266,7 +266,7 @@
 --- board changed
 === action 31: MAIN_ACTION 'build' {"building": "tech1", "player": 3}
 --- narration
-{player:3} builds a Tech I building for {gold:1}; it is finished at the end of the turn.
+{player:3} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -276,7 +276,7 @@
 --- board changed
 === action 32: MAIN_ACTION 'build' {"building": "tech1", "player": 4}
 --- narration
-{player:4} builds a Tech I building for {gold:1}; it is finished at the end of the turn.
+{player:4} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -286,7 +286,7 @@
 --- board changed
 === action 33: MAIN_ACTION 'play' {"player": 3, "slug": "brick_thief"}
 --- narration
-{player:3} plays {card:brick_thief} for {gold:2}: 2/1.
+{player:3} plays {card:brick_thief} for {gold:2}: 2/1. {gold:1} left.
 --- prompt TARGET (player 3)
 {player:3}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 1)
@@ -304,7 +304,7 @@
 --- board changed
 === action 35: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1, "player": 3}
 --- narration
-{player:3} levels {hero:troq_bashar} to 2 for {gold:1}.
+{player:3} levels {hero:troq_bashar} to 2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -314,7 +314,7 @@
 --- board changed
 === action 36: MAIN_ACTION 'play' {"player": 4, "slug": "brick_thief"}
 --- narration
-{player:4} plays {card:brick_thief} for {gold:2}: 2/1.
+{player:4} plays {card:brick_thief} for {gold:2}: 2/1. {gold:1} left.
 --- prompt TARGET (player 4)
 {player:4}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 1)
@@ -332,7 +332,7 @@
 --- board changed
 === action 38: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 1, "player": 4}
 --- narration
-{player:4} levels {hero:river_montoya} to 2 for {gold:1}.
+{player:4} levels {hero:river_montoya} to 2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -475,7 +475,7 @@
 --- board changed
 === action 55: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:1} hires a worker for {gold:1}: 7 workers.
+{player:1} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -485,7 +485,7 @@
 --- board changed
 === action 56: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:2} hires a worker for {gold:1}: 7 workers.
+{player:2} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -495,7 +495,7 @@
 --- board changed
 === action 57: MAIN_ACTION 'play' {"player": 1, "slug": "timely_messenger"}
 --- narration
-{player:1} plays {card:timely_messenger} for {gold:1}: 1/1.
+{player:1} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -505,7 +505,7 @@
 --- board changed
 === action 58: MAIN_ACTION 'play' {"player": 2, "slug": "timely_messenger"}
 --- narration
-{player:2} plays {card:timely_messenger} for {gold:1}: 1/1.
+{player:2} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -515,7 +515,7 @@
 --- board changed
 === action 59: MAIN_ACTION 'play' {"player": 1, "slug": "spark"}
 --- narration
-{player:1} casts {card:spark} for {gold:1}.
+{player:1} casts {card:spark} for {gold:1}. {gold:3} left.
 --- prompt TARGET (player 1)
 {player:1}, {card:spark}: deal 1 damage to a patroller.
 --- standing TECH_CHOICE (player 3)
@@ -524,7 +524,7 @@
 === action 60: TARGET '' {"player": 1, "target": "3:unit:5"}
 --- narration
 {player:1} pays {gold:1} for its resist.
-{card:spark} deals 0 to {player:3}'s {card:brick_thief} (armor takes 1).
+{card:spark} deals 0 to {player:3}'s {card:brick_thief} (armor takes 1). {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -534,7 +534,7 @@
 --- board changed
 === action 61: MAIN_ACTION 'play' {"player": 1, "slug": "helpful_turtle"}
 --- narration
-{player:1} plays {card:helpful_turtle} for {gold:2}: 1/2.
+{player:1} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -544,7 +544,7 @@
 --- board changed
 === action 62: MAIN_ACTION 'play' {"player": 2, "slug": "older_brother"}
 --- narration
-{player:2} plays {card:older_brother} for {gold:2}: 2/2.
+{player:2} plays {card:older_brother} for {gold:2}: 2/2. {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -596,7 +596,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 68: MAIN_ACTION 'play' {"player": 2, "slug": "wither"}
 --- narration
-{player:2} casts {card:wither} for {gold:2}.
+{player:2} casts {card:wither} for {gold:2}. {gold:0} left.
 --- prompt TARGET (player 2)
 {player:2}, {card:wither}: put a -1/-1 rune on a unit or hero.
 --- standing TECH_CHOICE (player 3)
@@ -705,7 +705,7 @@
 --- board changed
 === action 81: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:3} hires a worker for {gold:1}: 7 workers.
+{player:3} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -715,7 +715,7 @@
 --- board changed
 === action 82: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:4} hires a worker for {gold:1}: 7 workers.
+{player:4} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -725,7 +725,7 @@
 --- board changed
 === action 83: MAIN_ACTION 'play' {"player": 3, "slug": "timely_messenger"}
 --- narration
-{player:3} plays {card:timely_messenger} for {gold:1}: 1/1.
+{player:3} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -735,7 +735,7 @@
 --- board changed
 === action 84: MAIN_ACTION 'play' {"player": 4, "slug": "timely_messenger"}
 --- narration
-{player:4} plays {card:timely_messenger} for {gold:1}: 1/1.
+{player:4} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -745,7 +745,7 @@
 --- board changed
 === action 85: MAIN_ACTION 'play' {"player": 3, "slug": "helpful_turtle"}
 --- narration
-{player:3} plays {card:helpful_turtle} for {gold:2}: 1/2.
+{player:3} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -755,7 +755,7 @@
 --- board changed
 === action 86: MAIN_ACTION 'play' {"player": 4, "slug": "nimble_fencer"}
 --- narration
-{player:4} plays {card:nimble_fencer} for {gold:2}: 2/3.
+{player:4} plays {card:nimble_fencer} for {gold:2}: 2/3. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -765,7 +765,7 @@
 --- board changed
 === action 87: MAIN_ACTION 'play' {"player": 3, "slug": "older_brother"}
 --- narration
-{player:3} plays {card:older_brother} for {gold:2}: 2/2.
+{player:3} plays {card:older_brother} for {gold:2}: 2/2. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -775,7 +775,7 @@
 --- board changed
 === action 88: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 2, "player": 4}
 --- narration
-{player:4} levels {hero:river_montoya} to 4 for {gold:2}: a new band, 2/4 and healed.
+{player:4} levels {hero:river_montoya} to 4 for {gold:2}: a new band, 2/4 and healed. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -951,7 +951,7 @@
 --- board changed
 === action 109: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:1} hires a worker for {gold:1}: 8 workers.
+{player:1} hires a worker for {gold:1}: 8 workers. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -961,7 +961,7 @@
 --- board changed
 === action 110: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:2} hires a worker for {gold:1}: 8 workers.
+{player:2} hires a worker for {gold:1}: 8 workers. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -971,7 +971,7 @@
 --- board changed
 === action 111: MAIN_ACTION 'build' {"building": "tech2", "player": 1}
 --- narration
-{player:1} builds a Tech II building for {gold:4}; it is finished at the end of the turn.
+{player:1} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -981,7 +981,7 @@
 --- board changed
 === action 112: MAIN_ACTION 'build' {"building": "tech2", "player": 2}
 --- narration
-{player:2} builds a Tech II building for {gold:4}; it is finished at the end of the turn.
+{player:2} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -991,7 +991,7 @@
 --- board changed
 === action 113: MAIN_ACTION 'play' {"player": 1, "slug": "tenderfoot"}
 --- narration
-{player:1} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:1} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1001,7 +1001,7 @@
 --- board changed
 === action 114: MAIN_ACTION 'play' {"player": 2, "slug": "wither"}
 --- narration
-{player:2} casts {card:wither} for {gold:2}.
+{player:2} casts {card:wither} for {gold:2}. {gold:0} left.
 --- prompt TARGET (player 2)
 {player:2}, {card:wither}: put a -1/-1 rune on a unit or hero.
 --- standing TECH_CHOICE (player 3)
@@ -1059,7 +1059,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 121: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1, "player": 1}
 --- narration
-{player:1} levels {hero:troq_bashar} to 2 for {gold:1}.
+{player:1} levels {hero:troq_bashar} to 2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt PATROL (player 2)
@@ -1151,7 +1151,7 @@
 --- board changed
 === action 132: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:4} hires a worker for {gold:1}: 8 workers.
+{player:4} hires a worker for {gold:1}: 8 workers. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1161,7 +1161,7 @@
 --- board changed
 === action 133: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:3} hires a worker for {gold:1}: 8 workers.
+{player:3} hires a worker for {gold:1}: 8 workers. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1171,7 +1171,7 @@
 --- board changed
 === action 134: MAIN_ACTION 'build' {"building": "tech2", "player": 4}
 --- narration
-{player:4} builds a Tech II building for {gold:4}; it is finished at the end of the turn.
+{player:4} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1181,7 +1181,7 @@
 --- board changed
 === action 135: MAIN_ACTION 'build' {"building": "tech2", "player": 3}
 --- narration
-{player:3} builds a Tech II building for {gold:4}; it is finished at the end of the turn.
+{player:3} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1191,7 +1191,7 @@
 --- board changed
 === action 136: MAIN_ACTION 'play' {"player": 4, "slug": "helpful_turtle"}
 --- narration
-{player:4} plays {card:helpful_turtle} for {gold:2}: 1/2.
+{player:4} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1201,7 +1201,7 @@
 --- board changed
 === action 137: MAIN_ACTION 'play' {"player": 3, "slug": "revolver_ocelot"}
 --- narration
-{player:3} plays {card:revolver_ocelot} for {gold:2}: 3/3.
+{player:3} plays {card:revolver_ocelot} for {gold:2}: 3/3. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1329,7 +1329,7 @@
 --- board changed
 === action 152: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:2} hires a worker for {gold:1}: 9 workers.
+{player:2} hires a worker for {gold:1}: 9 workers. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1339,7 +1339,7 @@
 --- board changed
 === action 153: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:1} hires a worker for {gold:1}: 9 workers.
+{player:1} hires a worker for {gold:1}: 9 workers. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1349,7 +1349,7 @@
 --- board changed
 === action 154: MAIN_ACTION 'play' {"player": 2, "slug": "tenderfoot"}
 --- narration
-{player:2} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:2} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1359,7 +1359,7 @@
 --- board changed
 === action 155: MAIN_ACTION 'play' {"player": 1, "slug": "revolver_ocelot"}
 --- narration
-{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3.
+{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3. {gold:5} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1369,7 +1369,7 @@
 --- board changed
 === action 156: MAIN_ACTION 'play' {"player": 2, "slug": "nimble_fencer"}
 --- narration
-{player:2} plays {card:nimble_fencer} for {gold:2}: 2/3.
+{player:2} plays {card:nimble_fencer} for {gold:2}: 2/3. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1386,7 +1386,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 158: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 4, "player": 2}
 --- narration
-{player:2} levels {hero:river_montoya} to 5 for {gold:4}: a new band, 3/4 and healed.
+{player:2} levels {hero:river_montoya} to 5 for {gold:4}: a new band, 3/4 and healed. {gold:0} left.
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: your main phase ends.
 --- prompt MAIN_ACTION (player 2)
@@ -1513,7 +1513,7 @@
 --- board changed
 === action 174: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:4} hires a worker for {gold:1}: 9 workers.
+{player:4} hires a worker for {gold:1}: 9 workers. {gold:7} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1523,7 +1523,7 @@
 --- board changed
 === action 175: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:3} hires a worker for {gold:1}: 9 workers.
+{player:3} hires a worker for {gold:1}: 9 workers. {gold:7} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1533,7 +1533,7 @@
 --- board changed
 === action 176: MAIN_ACTION 'play' {"player": 4, "slug": "tenderfoot"}
 --- narration
-{player:4} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:4} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1543,7 +1543,7 @@
 --- board changed
 === action 177: MAIN_ACTION 'play' {"player": 3, "slug": "tenderfoot"}
 --- narration
-{player:3} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:3} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1553,7 +1553,7 @@
 --- board changed
 === action 178: MAIN_ACTION 'play' {"player": 4, "slug": "brick_thief"}
 --- narration
-{player:4} plays {card:brick_thief} for {gold:2}: 2/1.
+{player:4} plays {card:brick_thief} for {gold:2}: 2/1. {gold:4} left.
 --- prompt TARGET (player 4)
 {player:4}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 1)
@@ -1579,7 +1579,7 @@
 --- board changed
 === action 181: MAIN_ACTION 'play' {"player": 3, "slug": "wither"}
 --- narration
-{player:3} casts {card:wither} for {gold:2}.
+{player:3} casts {card:wither} for {gold:2}. {gold:4} left.
 --- prompt TARGET (player 3)
 {player:3}, {card:wither}: put a -1/-1 rune on a unit or hero.
 --- standing TECH_CHOICE (player 1)
@@ -1597,7 +1597,7 @@
 --- board changed
 === action 183: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 4, "player": 3}
 --- narration
-{player:3} levels {hero:troq_bashar} to 8 for {gold:4}: a new band, 4/5 and healed.
+{player:3} levels {hero:troq_bashar} to 8 for {gold:4}: a new band, 4/5 and healed. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1607,7 +1607,7 @@
 --- board changed
 === action 184: MAIN_ACTION 'play' {"player": 4, "slug": "starcrossed_starlet"}
 --- narration
-{player:4} plays {card:starcrossed_starlet} for {gold:2}: 3/2.
+{player:4} plays {card:starcrossed_starlet} for {gold:2}: 3/2. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1642,7 +1642,7 @@
 --- standing TECH_CHOICE (player 2)
 === action 188: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 1, "player": 4}
 --- narration
-{player:4} levels {hero:river_montoya} to 5 for {gold:1}: a new band, 3/4 and healed.
+{player:4} levels {hero:river_montoya} to 5 for {gold:1}: a new band, 3/4 and healed. {gold:1} left.
 --- prompt PATROL (player 3)
 {player:3}, lock your patrollers: your main phase ends.
 --- prompt MAIN_ACTION (player 4)
@@ -1723,7 +1723,7 @@
 --- board changed
 === action 198: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:2} hires a worker for {gold:1}: 10 workers.
+{player:2} hires a worker for {gold:1}: 10 workers. {gold:8} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1733,7 +1733,7 @@
 --- board changed
 === action 199: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:1} hires a worker for {gold:1}: 10 workers.
+{player:1} hires a worker for {gold:1}: 10 workers. {gold:13} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1743,7 +1743,7 @@
 --- board changed
 === action 200: MAIN_ACTION 'build' {"building": "tech3", "player": 2}
 --- narration
-{player:2} builds a Tech III building for {gold:5}; it is finished at the end of the turn.
+{player:2} builds a Tech III building for {gold:5}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1753,7 +1753,7 @@
 --- board changed
 === action 201: MAIN_ACTION 'build' {"building": "tech3", "player": 1}
 --- narration
-{player:1} builds a Tech III building for {gold:5}; it is finished at the end of the turn.
+{player:1} builds a Tech III building for {gold:5}; it is finished at the end of the turn. {gold:8} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1763,7 +1763,7 @@
 --- board changed
 === action 202: MAIN_ACTION 'play' {"player": 2, "slug": "granfalloon_flagbearer"}
 --- narration
-{player:2} plays {card:granfalloon_flagbearer} for {gold:2}: 2/2.
+{player:2} plays {card:granfalloon_flagbearer} for {gold:2}: 2/2. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1773,7 +1773,7 @@
 --- board changed
 === action 203: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 1}
 --- narration
-{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
+{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1807,7 +1807,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 207: MAIN_ACTION 'play' {"player": 1, "slug": "revolver_ocelot"}
 --- narration
-{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3.
+{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt PATROL (player 2)
@@ -1825,7 +1825,7 @@
 --- board changed
 === action 209: MAIN_ACTION 'play' {"player": 1, "slug": "fruit_ninja"}
 --- narration
-{player:1} plays {card:fruit_ninja} for {gold:3}: 2/2.
+{player:1} plays {card:fruit_ninja} for {gold:3}: 2/2. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 3)
@@ -1833,7 +1833,7 @@
 --- board changed
 === action 210: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1, "player": 1}
 --- narration
-{player:1} levels {hero:troq_bashar} to 2 for {gold:1}.
+{player:1} levels {hero:troq_bashar} to 2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 3)
@@ -1892,7 +1892,7 @@
 --- board changed
 === action 217: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:3} hires a worker for {gold:1}: 10 workers.
+{player:3} hires a worker for {gold:1}: 10 workers. {gold:8} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1902,7 +1902,7 @@
 --- board changed
 === action 218: MAIN_ACTION 'hire' (hidden)
 --- narration
-{player:4} hires a worker for {gold:1}: 10 workers.
+{player:4} hires a worker for {gold:1}: 10 workers. {gold:9} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1912,7 +1912,7 @@
 --- board changed
 === action 219: MAIN_ACTION 'build' {"building": "tech3", "player": 3}
 --- narration
-{player:3} builds a Tech III building for {gold:5}; it is finished at the end of the turn.
+{player:3} builds a Tech III building for {gold:5}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1922,7 +1922,7 @@
 --- board changed
 === action 220: MAIN_ACTION 'build' {"building": "tech3", "player": 4}
 --- narration
-{player:4} builds a Tech III building for {gold:5}; it is finished at the end of the turn.
+{player:4} builds a Tech III building for {gold:5}; it is finished at the end of the turn. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1932,7 +1932,7 @@
 --- board changed
 === action 221: MAIN_ACTION 'play' {"player": 3, "slug": "brick_thief"}
 --- narration
-{player:3} plays {card:brick_thief} for {gold:2}: 2/1.
+{player:3} plays {card:brick_thief} for {gold:2}: 2/1. {gold:1} left.
 --- prompt TARGET (player 3)
 {player:3}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 1)
@@ -1958,7 +1958,7 @@
 --- board changed
 === action 224: MAIN_ACTION 'play' {"player": 4, "slug": "granfalloon_flagbearer"}
 --- narration
-{player:4} plays {card:granfalloon_flagbearer} for {gold:2}: 2/2.
+{player:4} plays {card:granfalloon_flagbearer} for {gold:2}: 2/2. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2153,7 +2153,7 @@
 --- board changed
 === action 246: MAIN_ACTION 'play' {"player": 2, "slug": "leaping_lizard"}
 --- narration
-{player:2} plays {card:leaping_lizard} for {gold:1}: 3/5.
+{player:2} plays {card:leaping_lizard} for {gold:1}: 3/5. {gold:10} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2163,7 +2163,7 @@
 --- board changed
 === action 247: MAIN_ACTION 'play' {"player": 1, "slug": "helpful_turtle"}
 --- narration
-{player:1} plays {card:helpful_turtle} for {gold:2}: 1/2.
+{player:1} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:8} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2173,7 +2173,7 @@
 --- board changed
 === action 248: MAIN_ACTION 'play' {"player": 2, "slug": "nimble_fencer"}
 --- narration
-{player:2} plays {card:nimble_fencer} for {gold:2}: 2/3.
+{player:2} plays {card:nimble_fencer} for {gold:2}: 2/3. {gold:8} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2285,7 +2285,7 @@
 --- board changed
 === action 261: MAIN_ACTION 'play' {"player": 3, "slug": "helpful_turtle"}
 --- narration
-{player:3} plays {card:helpful_turtle} for {gold:2}: 1/2.
+{player:3} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:9} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2295,7 +2295,7 @@
 --- board changed
 === action 262: MAIN_ACTION 'play' {"player": 4, "slug": "helpful_turtle"}
 --- narration
-{player:4} plays {card:helpful_turtle} for {gold:1}: 1/2.
+{player:4} plays {card:helpful_turtle} for {gold:1}: 1/2. {gold:11} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2306,7 +2306,7 @@
 === action 263: MAIN_ACTION 'play' {"player": 3, "slug": "sneaky_pig"}
 --- narration
 {player:3} plays {card:sneaky_pig} for {gold:3}: 3/3.
-{card:sneaky_pig} has stealth this turn.
+{card:sneaky_pig} has stealth this turn. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2316,7 +2316,7 @@
 --- board changed
 === action 264: MAIN_ACTION 'play' {"player": 4, "slug": "leaping_lizard"}
 --- narration
-{player:4} plays {card:leaping_lizard} for {gold:1}: 3/5.
+{player:4} plays {card:leaping_lizard} for {gold:1}: 3/5. {gold:10} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2426,7 +2426,7 @@
 --- board changed
 === action 277: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 1}
 --- narration
-{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
+{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:16} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2436,7 +2436,7 @@
 --- board changed
 === action 278: MAIN_ACTION 'play' {"player": 2, "slug": "tenderfoot"}
 --- narration
-{player:2} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:2} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:17} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2446,7 +2446,7 @@
 --- board changed
 === action 279: MAIN_ACTION 'play' {"player": 1, "slug": "brick_thief"}
 --- narration
-{player:1} plays {card:brick_thief} for {gold:2}: 2/1.
+{player:1} plays {card:brick_thief} for {gold:2}: 2/1. {gold:14} left.
 --- prompt TARGET (player 1)
 {player:1}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 3)
@@ -2472,7 +2472,7 @@
 --- board changed
 === action 282: MAIN_ACTION 'play' {"player": 2, "slug": "starcrossed_starlet"}
 --- narration
-{player:2} plays {card:starcrossed_starlet} for {gold:2}: 3/2.
+{player:2} plays {card:starcrossed_starlet} for {gold:2}: 3/2. {gold:15} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2482,7 +2482,7 @@
 --- board changed
 === action 283: MAIN_ACTION 'play' {"player": 1, "slug": "iron_man"}
 --- narration
-{player:1} plays {card:iron_man} for {gold:3}: 3/4.
+{player:1} plays {card:iron_man} for {gold:3}: 3/4. {gold:11} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2533,7 +2533,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 289: MAIN_ACTION 'play' {"player": 1, "slug": "eggship"}
 --- narration
-{player:1} plays {card:eggship} for {gold:4}: 4/3.
+{player:1} plays {card:eggship} for {gold:4}: 4/3. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt PATROL (player 2)
@@ -2551,7 +2551,7 @@
 --- board changed
 === action 291: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7, "player": 1}
 --- narration
-{player:1} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed.
+{player:1} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 3)
@@ -2609,7 +2609,7 @@
 --- board changed
 === action 298: MAIN_ACTION 'play' {"player": 4, "slug": "leaping_lizard"}
 --- narration
-{player:4} plays {card:leaping_lizard} for {gold:1}: 3/5.
+{player:4} plays {card:leaping_lizard} for {gold:1}: 3/5. {gold:19} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2619,7 +2619,7 @@
 --- board changed
 === action 299: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 3}
 --- narration
-{player:3} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
+{player:3} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:14} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2629,7 +2629,7 @@
 --- board changed
 === action 300: MAIN_ACTION 'play' {"player": 4, "slug": "starcrossed_starlet"}
 --- narration
-{player:4} plays {card:starcrossed_starlet} for {gold:2}: 3/2.
+{player:4} plays {card:starcrossed_starlet} for {gold:2}: 3/2. {gold:17} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2639,7 +2639,7 @@
 --- board changed
 === action 301: MAIN_ACTION 'play' {"player": 3, "slug": "timely_messenger"}
 --- narration
-{player:3} plays {card:timely_messenger} for {gold:1}: 1/1.
+{player:3} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:13} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2707,7 +2707,7 @@
 --- standing TECH_CHOICE (player 2)
 === action 309: MAIN_ACTION 'play' {"player": 3, "slug": "iron_man"}
 --- narration
-{player:3} plays {card:iron_man} for {gold:3}: 3/4.
+{player:3} plays {card:iron_man} for {gold:3}: 3/4. {gold:10} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt PATROL (player 4)
@@ -2725,7 +2725,7 @@
 --- board changed
 === action 311: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7, "player": 3}
 --- narration
-{player:3} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed.
+{player:3} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed. {gold:3} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -2814,7 +2814,7 @@
 --- board changed
 === action 322: MAIN_ACTION 'summon' {"hero": "river_montoya", "player": 2}
 --- narration
-{player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3.
+{player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2824,7 +2824,7 @@
 --- board changed
 === action 323: MAIN_ACTION 'play' {"player": 1, "slug": "revolver_ocelot"}
 --- narration
-{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3.
+{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3. {gold:8} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2834,7 +2834,7 @@
 --- board changed
 === action 324: MAIN_ACTION 'play' {"player": 2, "slug": "starcrossed_starlet"}
 --- narration
-{player:2} plays {card:starcrossed_starlet} for {gold:2}: 3/2.
+{player:2} plays {card:starcrossed_starlet} for {gold:2}: 3/2. {gold:16} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2844,7 +2844,7 @@
 --- board changed
 === action 325: MAIN_ACTION 'play' {"player": 1, "slug": "eggship"}
 --- narration
-{player:1} plays {card:eggship} for {gold:4}: 4/3.
+{player:1} plays {card:eggship} for {gold:4}: 4/3. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2854,7 +2854,7 @@
 --- board changed
 === action 326: MAIN_ACTION 'play' {"player": 2, "slug": "fruit_ninja"}
 --- narration
-{player:2} plays {card:fruit_ninja} for {gold:3}: 2/2.
+{player:2} plays {card:fruit_ninja} for {gold:3}: 2/2. {gold:13} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2904,7 +2904,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 332: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 4, "player": 2}
 --- narration
-{player:2} levels {hero:river_montoya} to 5 for {gold:4}: a new band, 3/4 and healed.
+{player:2} levels {hero:river_montoya} to 5 for {gold:4}: a new band, 3/4 and healed. {gold:9} left.
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: your main phase ends.
 --- prompt MAIN_ACTION (player 2)
@@ -3011,7 +3011,7 @@
 --- board changed
 === action 345: MAIN_ACTION 'play' {"player": 3, "slug": "older_brother"}
 --- narration
-{player:3} plays {card:older_brother} for {gold:2}: 2/2.
+{player:3} plays {card:older_brother} for {gold:2}: 2/2. {gold:11} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3021,7 +3021,7 @@
 --- board changed
 === action 346: MAIN_ACTION 'play' {"player": 4, "slug": "cloud_sprite"}
 --- narration
-{player:4} plays {card:cloud_sprite} for {gold:2}: 3/2.
+{player:4} plays {card:cloud_sprite} for {gold:2}: 3/2. {gold:18} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3031,7 +3031,7 @@
 --- board changed
 === action 347: MAIN_ACTION 'play' {"player": 3, "slug": "iron_man"}
 --- narration
-{player:3} plays {card:iron_man} for {gold:3}: 3/4.
+{player:3} plays {card:iron_man} for {gold:3}: 3/4. {gold:8} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3205,7 +3205,7 @@
 --- board changed
 === action 367: MAIN_ACTION 'play' {"player": 1, "slug": "tenderfoot"}
 --- narration
-{player:1} plays {card:tenderfoot} for {gold:1}: 1/2.
+{player:1} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:13} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3215,7 +3215,7 @@
 --- board changed
 === action 368: MAIN_ACTION 'play' {"player": 2, "slug": "older_brother"}
 --- narration
-{player:2} plays {card:older_brother} for {gold:1}: 2/2.
+{player:2} plays {card:older_brother} for {gold:1}: 2/2. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3226,7 +3226,7 @@
 === action 369: MAIN_ACTION 'play' {"player": 1, "slug": "sneaky_pig"}
 --- narration
 {player:1} plays {card:sneaky_pig} for {gold:3}: 3/3.
-{card:sneaky_pig} has stealth this turn.
+{card:sneaky_pig} has stealth this turn. {gold:10} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3417,7 +3417,7 @@
 --- board changed
 === action 392: MAIN_ACTION 'play' {"player": 4, "slug": "cloud_sprite"}
 --- narration
-{player:4} plays {card:cloud_sprite} for {gold:2}: 3/2.
+{player:4} plays {card:cloud_sprite} for {gold:2}: 3/2. {gold:18} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3427,7 +3427,7 @@
 --- board changed
 === action 393: MAIN_ACTION 'play' {"player": 3, "slug": "hired_stomper"}
 --- narration
-{player:3} plays {card:hired_stomper} for {gold:4}: 4/3.
+{player:3} plays {card:hired_stomper} for {gold:4}: 4/3. {gold:14} left.
 --- prompt TARGET (player 3)
 {player:3}, {card:hired_stomper}: deal 3 damage to a unit.
 --- standing TECH_CHOICE (player 1)
@@ -3446,7 +3446,7 @@
 --- board changed
 === action 395: MAIN_ACTION 'play' {"player": 3, "slug": "regularsized_rhinoceros"}
 --- narration
-{player:3} plays {card:regularsized_rhinoceros} for {gold:4}: 5/6.
+{player:3} plays {card:regularsized_rhinoceros} for {gold:4}: 5/6. {gold:10} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3456,7 +3456,7 @@
 --- board changed
 === action 396: MAIN_ACTION 'play' {"player": 4, "slug": "nimble_fencer"}
 --- narration
-{player:4} plays {card:nimble_fencer} for {gold:2}: 2/3.
+{player:4} plays {card:nimble_fencer} for {gold:2}: 2/3. {gold:16} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3599,7 +3599,7 @@
 --- board changed
 === action 413: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 1}
 --- narration
-{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
+{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3609,7 +3609,7 @@
 --- board changed
 === action 414: MAIN_ACTION 'play' {"player": 2, "slug": "leaping_lizard"}
 --- narration
-{player:2} plays {card:leaping_lizard} for {gold:1}: 3/5.
+{player:2} plays {card:leaping_lizard} for {gold:1}: 3/5. {gold:19} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3619,7 +3619,7 @@
 --- board changed
 === action 415: MAIN_ACTION 'play' {"player": 1, "slug": "wither"}
 --- narration
-{player:1} casts {card:wither} for {gold:2}.
+{player:1} casts {card:wither} for {gold:2}. {gold:16} left.
 --- prompt TARGET (player 1)
 {player:1}, {card:wither}: put a -1/-1 rune on a unit or hero.
 --- standing TECH_CHOICE (player 3)
@@ -3638,7 +3638,7 @@
 === action 417: MAIN_ACTION 'play' {"player": 1, "slug": "sneaky_pig"}
 --- narration
 {player:1} plays {card:sneaky_pig} for {gold:3}: 3/3.
-{card:sneaky_pig} has stealth this turn.
+{card:sneaky_pig} has stealth this turn. {gold:13} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3648,7 +3648,7 @@
 --- board changed
 === action 418: MAIN_ACTION 'play' {"player": 2, "slug": "cloud_sprite"}
 --- narration
-{player:2} plays {card:cloud_sprite} for {gold:2}: 3/2.
+{player:2} plays {card:cloud_sprite} for {gold:2}: 3/2. {gold:17} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3658,7 +3658,7 @@
 --- board changed
 === action 419: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7, "player": 1}
 --- narration
-{player:1} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed.
+{player:1} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)

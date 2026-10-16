@@ -52,7 +52,7 @@ class RepairTests(unittest.TestCase):
         match.set_base(1, 15)
         match.active_player.gold = 7
         first = said(apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "repair")))
-        self.assertEqual(first, "{player:1} repairs the base: 16 HP.")
+        self.assertEqual(first, "{player:1} repairs the base: 16 HP. {gold:4} left.")
         apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "repair"))
         self.assertEqual((match.base_of(1), match.active_player.gold), (17, 1))
         self.assertFalse(main_options(engine, game, match).repair.allowed)

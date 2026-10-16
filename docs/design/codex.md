@@ -1344,6 +1344,23 @@ cancel, which rebuild the turn from its snapshot, bring it back with
 the rest. Discards the player chooses themselves --
 Calamandra's, a cost, Desperation's hand -- are not told: they know.
 
+**Gold says where it now stands too.** The upkeep's line ends on the
+total ("collects {gold:5} from 5 workers: now {gold:5}"), and so does
+Promise of Payment's debt paid out of it. **After every answer that
+costs a seat gold, the answer's last line ends on what that seat has
+left** -- "plays {card:tenderfoot} for {gold:1}: 1/2. {gold:3} left." --
+the acting seat unnamed, since its own line just named it, any other
+seat by name ("{player:2} has {gold:2} left."). It is said once, in
+`codex.flow.driver._say_gold_left`, from each seat's gold before and
+after the answer, rather than in each sentence that spends: there are
+over a dozen ways to pay (a card, a hire, a build, a level, resist, a
+toll, a repair, an effect that takes gold), and a sentence that forgot
+would be silent about it. The follow-on steps -- the upkeep, the draw,
+the tech -- spend nothing of a player's choosing, so the answer is the
+whole of where a choice costs gold. The main phase's ask is the seat's
+name and no more ("{player:1}'s main phase."): the gold is on the line
+above it (the author, 2026-10-16).
+
 **A line that damages a building or the base says where it now stands,
 out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's
 or Stampede's excess, a spell's, a trigger's or an ability's damage, a
