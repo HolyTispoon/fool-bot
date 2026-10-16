@@ -33,6 +33,8 @@ from codex.game import CodexGame, GameStatus
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompts
 from codex.render import preload_pictures, render_codex, render_hand
 from cogs.codex_helpers import CodexTokens, seat_label
+from cogs.codex_publish.config import store_from_env
+from cogs.codex_publish.publisher import Publisher
 from cogs.codex_views import (
     ERROR_RECOVERY_ADVICE,
     LobbyView,
@@ -149,6 +151,9 @@ class CoreMixin:
         #: The pictures read into memory as the bot starts (`cog_load`),
         #: off the event loop; cancelled by `cog_unload`.
         self.preloading: Optional[asyncio.Task] = None
+        #: The Codex games on the web (docs/design/pbd-site.md): built in
+        #: `cog_load` where `CODEX_PUBLISH_*` is set, `None` elsewhere.
+        self.publisher: Optional[Publisher] = None
         self.restore_saved_views()
 
     # -- Startup ---------------------------------------------------------
@@ -195,6 +200,12 @@ class CoreMixin:
     async def cog_load(self) -> None:
         await self.tokens.refresh()
         self.preloading = asyncio.create_task(self.preload_pictures())
+        store = store_from_env()
+        if store is not None:
+            self.publisher = Publisher(self, store)
+            # A task, since the views are re-armed already (`__init__`)
+            # and a click may come before it is done.
+            self.publisher.start()
 
     async def preload_pictures(self) -> None:
         """
@@ -220,6 +231,8 @@ class CoreMixin:
         self.boards.shutdown()
         if self.preloading is not None:
             self.preloading.cancel()
+        if self.publisher is not None:
+            await self.publisher.close()
 
     async def cog_app_command_error(self, interaction: discord.Interaction,
                                     error: app_commands.AppCommandError) -> None:
@@ -427,3 +440,5 @@ class CoreMixin:
         heads[match.turn] = list(self.turn_lines.get(game.game_id, []))
         for turn in sorted(heads)[:-3]:
             del heads[turn]
+        if self.publisher is not None:
+            self.publisher.head_noted(game, match)

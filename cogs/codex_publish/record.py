@@ -48,6 +48,9 @@ class PublishedGame:
     - `turn`, `heading`, `lines`: the current turn -- its number, its
       heading and its lines so far, the model's words with their tokens
       intact (`codex.formatting.turn_heading`, `Codex.turn_lines`).
+    - `head`: the current turn's first lines, as the cog's
+      `turn_heads` keeps them -- what an undo to the turn's start puts
+      back, which a restart takes from the cog and not from here.
     - `history`: one dict per finished turn -- `turn`, `heading`,
       `lines`, `board` -- a dict rather than a tuple, so a later
       per-action history adds a field (docs/pbd-site.md, decision 5).
@@ -63,6 +66,7 @@ class PublishedGame:
     turn: Optional[int] = None
     heading: Optional[str] = None
     lines: list[str] = field(default_factory=list)
+    head: list[str] = field(default_factory=list)
     history: list[dict] = field(default_factory=list)
     board: Optional[str] = None
     uploaded: list[str] = field(default_factory=list)
@@ -75,6 +79,7 @@ class PublishedGame:
             "turn": self.turn,
             "heading": self.heading,
             "lines": list(self.lines),
+            "head": list(self.head),
             "history": [dict(entry) for entry in self.history],
             "board": self.board,
             "uploaded": list(self.uploaded),
@@ -103,6 +108,7 @@ class PublishedGame:
             turn=optional("turn", int),
             heading=optional("heading", str),
             lines=listed("lines", str),
+            head=listed("head", str),
             history=[dict(entry) for entry in listed("history", dict)],
             board=optional("board", str),
             uploaded=listed("uploaded", str),

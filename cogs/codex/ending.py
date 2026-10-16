@@ -290,6 +290,7 @@ class EndingMixin:
                 await interaction.followup.send(str(refused), ephemeral=True)
                 return
             channel = interaction.channel or self.bot.get_channel(game.channel_id)
+            png = None
             if was_playing and game.turn_message_id is not None:
                 match = self.service.load(game)
                 png = await self.render_match_png(game, match)
@@ -302,6 +303,10 @@ class EndingMixin:
                     )
                 except discord.HTTPException as error:
                     LOGGER.warning("Could not close the lobby of Codex game %s: %s", game.game_id, error)
+            if self.publisher is not None and was_playing:
+                # Into the archive, before the turn's lines are forgotten;
+                # a lobby was never on the site (`shapes.on_site`).
+                self.publisher.game_over(game, board=png)
             self.turn_lines.pop(game.game_id, None)
             self.turn_heads.pop(game.game_id, None)
             self.boards_drawn.pop(game.game_id, None)
@@ -457,6 +462,8 @@ class EndingMixin:
             self.turn_heads.pop(game_id, None)
             self.boards_drawn.pop(game_id, None)
         self.service.drop_games(dropped)
+        if self.publisher is not None:
+            self.publisher.dropped(dropped)
         report = (
             f"Deleted {deleted} Codex channel(s) and {threads} thread(s), "
             f"and dropped {len(dropped)} game(s). "

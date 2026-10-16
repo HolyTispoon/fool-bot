@@ -138,6 +138,14 @@ class PublishQueue:
         if self._lists_task is None:
             self._lists_task = asyncio.create_task(self._run_lists())
 
+    async def put_file(self, key: str, body: bytes) -> bool:
+        """A file that is no game's -- a glyph's picture -- put now,
+        unless this process has put the same bytes under its key
+        already. False where the put failed."""
+        if self._closed:
+            return False
+        return await self._put_changed(key, body)
+
     async def drain(self) -> None:
         """Wait until nothing is waiting to be sent or in flight."""
         while True:
@@ -208,9 +216,9 @@ class PublishQueue:
                 if not await self._put(key, board):
                     return False
                 uploaded.append(key)
-            if not await self._put_json(keys.history_key(game_id), history):
+            if not await self._put_changed(keys.history_key(game_id), history):
                 return False
-            if not await self._put_json(keys.live_key(game_id), live):
+            if not await self._put_changed(keys.live_key(game_id), live):
                 return False
             # What a change made in the meantime names is kept too: its
             # send is next, and would only put it back.
@@ -246,8 +254,8 @@ class PublishQueue:
             while self._lists_changed and not self._closed:
                 self._lists_changed = False
                 index, archive = self.lists()
-                await self._put_json(keys.INDEX_KEY, encode(index))
-                await self._put_json(keys.ARCHIVE_KEY, encode(archive))
+                await self._put_changed(keys.INDEX_KEY, encode(index))
+                await self._put_changed(keys.ARCHIVE_KEY, encode(archive))
         except Exception:  # pragma: no cover - the queue's own bug
             LOGGER.exception("Publishing the Codex games' lists failed.")
         finally:
@@ -273,7 +281,9 @@ class PublishQueue:
 
     # -- The calls, and the run of failures --------------------------------
 
-    async def _put_json(self, key: str, body: bytes) -> bool:
+    async def _put_changed(self, key: str, body: bytes) -> bool:
+        """Put `body` unless this process last put the same bytes under
+        `key`."""
         digest = hashlib.sha256(body).hexdigest()
         if self._sent.get(key) == digest:
             return True
