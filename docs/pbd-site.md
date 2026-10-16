@@ -64,7 +64,8 @@ Taken with the author on 2026-10-16.
    from there.** R2 is Cloudflare's file storage, its version of Amazon
    S3, on the account `d12ball.com` and `propheticfools.com` are already
    on (the author: no account on another service). It is a public bucket
-   on a subdomain of its own, `pbd.propheticfools.com`; the page at
+   on a subdomain of its own, `pbd.propheticfools.com` (the author,
+   2026-10-16); the page at
    `propheticfools.com/pbd/codex` fetches JSON from it, with a CORS rule
    allowing the studio's origin, and shows its images.
    - **Not the tunnel.** Cloudflare Tunnel routes by hostname, not by
