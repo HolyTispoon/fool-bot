@@ -285,11 +285,10 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
             # Building Inspector's "first building each turn" (step 13).
             player.built_this_turn = True
         board.arrive(engine, match, match.new_instance(slug, seat), from_hand=True)
-        # A building card is named and no more (the author, 2026-10-16:
-        # "remove 'a building, 4 HP'"); an upgrade still says what it is.
-        what = "" if card.is_building_card else ": an upgrade"
+        # A building or an upgrade is named and no more (the author,
+        # 2026-10-16: "remove 'a building, 4 HP'", and ": an upgrade" too).
         result.narration.append(
-            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{what}.{note}"
+            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}.{note}"
         )
     else:
         boosted = ", boosted" if boost else ""

@@ -1356,8 +1356,8 @@ steals {gold:1} from {player:2} and is now at {gold:4}; {player:2} has
 name and the price after them** -- "plays {card:tenderfoot} 1/2 for
 {gold:1}", "summons {hero:river_montoya} 2/3 for {gold:2}" (never "level
 1": a hero is always summoned at 1) -- so the line reads as what was bought
-and then what it cost. A building card is named and no more ("plays
-{card:...} for {gold:3}."), its HP on the board. A level that reaches a new
+and then what it cost. A building or an upgrade card is named and no more
+("plays {card:...} for {gold:3}."), what it is on the board. A level that reaches a new
 band says what the band did, as the hero's own doing: "levels
 {hero:river_montoya} to 3 for {gold:2}: they reach a new band, are now
 3/4, and heal." -- `board.new_band`, on every level line, paid, a kill's
