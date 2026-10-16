@@ -398,6 +398,13 @@ def begin_halftime(
         else "No fielded player had any exhaustion to clear."
     )
 
+    # D12 Ball 2.0: every card back into the deck, and a fresh four.
+    if engine.reshuffle_maneuver_decks(game, match):
+        body += (
+            "\n\nBoth coaches shuffle their hand and discard pile back "
+            "into their deck and draw a fresh hand of four."
+        )
+
     match.pending_halftime_stage = HALFTIME_STAGES[0]
     result = advance_halftime_stage(engine, game, match)
     result.narration.insert(

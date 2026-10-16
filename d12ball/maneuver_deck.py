@@ -178,6 +178,19 @@ def play_card(deck: dict, card_id: str, rng: random.Random) -> int:
     return draw_cards(deck, rng, HAND_SIZE - len(deck[HAND]))
 
 
+def reshuffled(deck: dict, rng: random.Random) -> dict:
+    """
+    Every card a coach has -- hand, deck and discard -- shuffled into a
+    new deck, and a fresh hand of four drawn from it: what halftime
+    does (the author, 2026-10-16).
+    """
+    cards = deck[DRAW] + deck[HAND] + deck[DISCARD]
+    rng.shuffle(cards)
+    fresh = {DRAW: cards, HAND: [], DISCARD: []}
+    draw_cards(fresh, rng, HAND_SIZE)
+    return fresh
+
+
 def pile_counts(deck: dict) -> tuple[int, int]:
     """How many cards are face down in the deck and in the discard --
     public, where the hand is its coach's alone."""

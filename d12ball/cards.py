@@ -695,6 +695,13 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
         ),
     ),
 }
+#: The strip's role moves -- a variant only one role's player makes,
+#: drawn dashed and captioned with the role. The two-headed card of
+#: D12 Ball 2.0 leaves them out (`draw_strip(roles=False)`): it
+#: carries no role interactions at all (the author, 2026-10-16).
+ROLE_MOVE_LABELS = frozenset({"playmaker", "fullback"})
+
+
 # What stands on the ball's space to begin with, and what a landing
 # space is drawn holding. A blank landing means the ball alone, and the
 # space carries the distance instead.
@@ -1160,6 +1167,7 @@ def draw_strip(
     maneuver: ManeuverDefinition,
     top: float,
     height: float,
+    roles: bool = True,
 ) -> None:
     """
     The seven-space board with the maneuver drawn on it: who moves,
@@ -1183,6 +1191,15 @@ def draw_strip(
     moves = STRIP_MOVES[maneuver.key]
     standing, landings = STRIP_ACTORS[maneuver.key]
     geo = strip_geometry(maneuver, top, height)
+    if not roles:
+        moves = tuple(
+            move for move in moves if move.label not in ROLE_MOVE_LABELS
+        )
+        reached = {move.offset for move in moves}
+        landings = {
+            offset: actor for offset, actor in landings.items()
+            if offset in reached
+        }
 
     draw_strip_spaces(pen, geo)
     for move in moves:
@@ -2657,13 +2674,101 @@ def render_maneuver_hands(
 
 # -- D12 Ball 2.0: the deck's cards ----------------------------------
 
-#: The line across a two-headed card between its two halves.
-TWO_HEADED_DIVIDER = "#b9b0a0"
+#: A two-headed card's frame: neither side's colour, since it is both.
+TWO_HEADED_EDGE = "#8c9aa6"
+
+#: The shared band across the middle of a two-headed card: one row of
+#: ranks for the half above it and the same row turned for the half
+#: below, each this tall.
+TWO_HEADED_BAND_ROW = 78
 
 #: How much of a card the cream covers where its coach cannot play it
 #: this maneuver -- an advanced card of the other side, in the hand but
 #: dark (docs/design/maneuver-deck.md).
 UNPLAYABLE_VEIL = 0.62
+
+
+def two_headed_ranks(
+    catalog: ManeuverCatalog, rank: int,
+) -> tuple[int, int, int]:
+    """
+    The ranks a two-headed card of `rank` beats, ties and loses to --
+    **the same whichever half is played**, which is what lets one band
+    across the card serve both: Low Pass and Deflect both beat rank 3,
+    tie rank 1 and lose to rank 2 (Law 6.3). Read off the offensive
+    card's matchups; `tests/test_maneuver_deck.py` holds the defensive
+    half to the same three.
+    """
+    offense = next(
+        maneuver for maneuver in catalog.for_tier("offense", MANEUVER_TIER_BASIC)
+        if maneuver.rank == rank
+    )
+    groups = matchup_rank_groups(catalog, offense, True)
+    return tuple(group_rank for group_rank, _ in groups)
+
+
+def render_two_headed_half(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+) -> Image.Image:
+    """
+    One half of a two-headed card, upright: the printed card's header,
+    its strip diagram and its effect sentence -- **and nothing about
+    roles or matchups** (the author, 2026-10-16). The role abilities
+    belong to the three-card game's face; the matchups are the card's
+    shared band (`render_two_headed_card`). Cropped to what it draws,
+    full card width.
+    """
+    color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
+    pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
+    draw_card_header(pen, catalog, maneuver, is_offense, color)
+    _, strip_top, _, strip_bottom = strip_panel_box(catalog, maneuver)
+    draw_strip(
+        pen, maneuver, strip_top, strip_bottom - strip_top, roles=False,
+    )
+
+    effect_font = font(basic_effect_layout(pen, catalog, players).size)
+    step = line_height(pen, effect_font)
+    y = strip_bottom + EFFECT_TOP_PAD * 2
+    for line in pen.wrapped(
+        maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20,
+    ):
+        pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
+        y += step
+    bottom = y + EFFECT_TOP_PAD
+    return pen.finish(False, CARD_FACE).crop(
+        (0, 0, CARD_WIDTH, round(bottom)),
+    )
+
+
+def render_two_headed_band(
+    catalog: ManeuverCatalog, rank: int,
+) -> Image.Image:
+    """
+    The band's row as the half above it reads it: **BEATS R3 -- TIES
+    R1 -- LOSES TO R2**, by rank alone, because the names differ by
+    side and the ranks do not.
+    """
+    width = CARD_WIDTH - MARGIN * 2
+    pen = Pen((width, TWO_HEADED_BAND_ROW), CARD_FACE)
+    column = width / 3
+    label_font = font(20, bold=True)
+    value_font = rank_font(MATCHUP_RANK_SIZE)
+    for index, (label, value) in enumerate(zip(
+        ("BEATS", "TIES", "LOSES TO"), two_headed_ranks(catalog, rank),
+    )):
+        centre = column * index + column / 2
+        pen.text((centre, 8), label, label_font, MUTED, anchor="ma")
+        pen.text(
+            (centre, TWO_HEADED_BAND_ROW - 6), f"R{value}", value_font,
+            INK, anchor="md",
+        )
+    row = pen.image.resize(
+        (width, TWO_HEADED_BAND_ROW), Image.Resampling.LANCZOS,
+    )
+    return row
 
 
 def render_two_headed_card(
@@ -2674,15 +2779,19 @@ def render_two_headed_card(
 ) -> Image.Image:
     """
     **A two-headed basic card** (D12 Ball 2.0): the basic offensive
-    maneuver of `rank` on its top half and the basic defensive maneuver
-    of the same rank on its bottom half, upside down -- the way a
-    playing card's two heads read, so whichever half faces its coach is
-    the maneuver they play. `upright` turns the card so that side's
-    half is the right way up on top, which is how a coach holds it on
-    that side of a maneuver.
+    maneuver of `rank` on one half and the basic defensive maneuver of
+    the same rank on the other, upside down -- the way a playing card's
+    two heads read, so whichever half faces its coach is the maneuver
+    they play. `upright` turns the card so that side's half is the
+    right way up on top, which is how a coach holds it on that side of
+    a maneuver.
 
-    Each half is the printed card itself at half size, so the face says
-    exactly what the three-card game's card says; nothing is reworded.
+    **Across the middle is one band of ranks both halves share**
+    (`render_two_headed_band`): what the card beats, ties and loses to
+    is the same rank whichever way up it is played, so the band is
+    drawn once for each reader -- the row the right way up under the
+    top half, and the same row turned under the bottom half -- and the
+    card is the same picture turned through 180 degrees.
     """
     faces = {
         side: next(
@@ -2692,31 +2801,41 @@ def render_two_headed_card(
         for side in ("offense", "defense")
     }
     other = "defense" if upright == "offense" else "offense"
-    half = CARD_HEIGHT // 2
-    inset = 18
-    mini_height = half - inset * 2
-    mini_width = round(mini_height * CARD_WIDTH / CARD_HEIGHT)
+    band_height = TWO_HEADED_BAND_ROW * 2
+    half_height = (CARD_HEIGHT - band_height) // 2
 
     card = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
+    band = render_two_headed_band(catalog, rank)
     for index, side in enumerate((upright, other)):
-        face = screen_cutout(render_maneuver_card(
-            catalog, players, faces[side], side == "offense", bleed=False,
-        )).resize((mini_width, mini_height), Image.Resampling.LANCZOS)
-        if index == 1:
-            face = face.rotate(180)
-        card.paste(
-            face,
-            ((CARD_WIDTH - mini_width) // 2, index * half + inset),
-            face,
+        half = render_two_headed_half(
+            catalog, players, faces[side], side == "offense",
         )
+        if half.height > half_height:
+            scale = half_height / half.height
+            half = half.resize(
+                (round(half.width * scale), half_height),
+                Image.Resampling.LANCZOS,
+            )
+        row = band
+        if index == 1:
+            half = half.rotate(180)
+            row = band.rotate(180)
+        x = (CARD_WIDTH - half.width) // 2
+        if index == 0:
+            card.paste(half, (x, 0))
+            card.paste(row, (MARGIN, half_height))
+        else:
+            card.paste(row, (MARGIN, half_height + TWO_HEADED_BAND_ROW))
+            card.paste(half, (x, CARD_HEIGHT - half.height))
     draw = ImageDraw.Draw(card)
-    draw.line(
-        (FRAME * 4, half, CARD_WIDTH - FRAME * 4, half),
-        fill=TWO_HEADED_DIVIDER, width=4,
-    )
+    for y in (half_height, CARD_HEIGHT - half_height):
+        draw.line(
+            (MARGIN + 10, y, CARD_WIDTH - MARGIN - 10, y),
+            fill=PANEL_EDGE, width=2,
+        )
     draw.rounded_rectangle(
         (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
-        radius=CORNER, outline=SIDE_COLORS[upright], width=EDGE_WIDTH,
+        radius=CORNER, outline=TWO_HEADED_EDGE, width=EDGE_WIDTH,
     )
     return card
 
@@ -2784,6 +2903,118 @@ def render_deck_hand(
     return lay_out_hand(
         [[cards]], [(HAND_HEADINGS[side], SIDE_COLORS[side])],
     )
+
+
+#: A discard pile's cards, smaller than a hand's: the pile is read for
+#: what has gone, not played from.
+DISCARD_CARD_WIDTH = 230
+DISCARD_MAX_COLUMNS = 6
+
+
+def discard_face(
+    catalog: ManeuverCatalog, players: PlayerCatalog, card_id: str,
+) -> Image.Image:
+    """A discarded card face up: a two-headed card offense upright, an
+    advanced card on its own side."""
+    side = (
+        "offense" if maneuver_deck.is_basic_card(card_id)
+        else catalog.side_of(card_id)
+    )
+    return deck_card_face(catalog, players, card_id, side)
+
+
+def render_discard_piles(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    piles: Sequence[tuple[str, str, Sequence[str]]],
+) -> BytesIO:
+    """
+    **The 2.0 discard piles, face up**, for the public maneuver prompt
+    (the author, 2026-10-16: the discard is visible to both coaches).
+    `piles` is one `(heading, colour, card ids)` per coach. Copies of a
+    card are drawn once with a count on them -- three basic Low Pass /
+    Deflect cards are one face marked x3 -- so a pile of eleven stays
+    one or two rows. An empty pile says so.
+    """
+    scale = DISCARD_CARD_WIDTH / CARD_WIDTH
+    height = round(CARD_HEIGHT * scale)
+    heading_font = load_font(HAND_HEADING_SIZE, bold=True)
+    count_font = load_font(34, bold=True)
+    empty_font = load_font(26)
+    band = HAND_HEADING_SIZE + HAND_HEADING_GAP
+
+    def order(card_id: str) -> tuple:
+        if maneuver_deck.is_basic_card(card_id):
+            return (0, "", maneuver_deck.basic_card_rank(card_id))
+        return (1, catalog.side_of(card_id), catalog.definition(card_id).rank)
+
+    blocks = []
+    for heading, colour, cards in piles:
+        counts: dict[str, int] = {}
+        for card_id in cards:
+            counts[card_id] = counts.get(card_id, 0) + 1
+        faces = [
+            (
+                screen_cutout(discard_face(catalog, players, card_id)).resize(
+                    (DISCARD_CARD_WIDTH, height), Image.Resampling.LANCZOS,
+                ),
+                counts[card_id],
+            )
+            for card_id in sorted(counts, key=order)
+        ]
+        rows = [
+            faces[start:start + DISCARD_MAX_COLUMNS]
+            for start in range(0, len(faces), DISCARD_MAX_COLUMNS)
+        ]
+        blocks.append((f"{heading} ({len(cards)})", colour, rows))
+
+    # A row of cards carries a line under it for the copies; an empty
+    # pile is one line of text.
+    count_room = 46
+    empty_room = 40
+    columns = max(
+        [len(row) for _, _, rows in blocks for row in rows] + [3]
+    )
+    canvas = Image.new(
+        "RGB",
+        (
+            HAND_MARGIN * 2 + DISCARD_CARD_WIDTH * columns
+            + HAND_GAP * (columns - 1),
+            HAND_MARGIN * 2 + sum(
+                band + (
+                    sum(height + count_room + HAND_GAP for _ in rows)
+                    if rows else empty_room + HAND_GAP
+                )
+                for _, _, rows in blocks
+            ),
+        ),
+        FACE_COLOR,
+    )
+    draw = ImageDraw.Draw(canvas)
+    y = HAND_MARGIN
+    for heading, colour, rows in blocks:
+        draw.text((HAND_MARGIN, y), heading, font=heading_font, fill=colour)
+        y += band
+        if not rows:
+            draw.text(
+                (HAND_MARGIN, y), "Nothing discarded yet.",
+                font=empty_font, fill=MUTED,
+            )
+            y += empty_room + HAND_GAP
+        for row in rows:
+            for column, (face, count) in enumerate(row):
+                x = HAND_MARGIN + column * (DISCARD_CARD_WIDTH + HAND_GAP)
+                canvas.paste(face, (x, y), face)
+                if count > 1:
+                    draw.text(
+                        (x + DISCARD_CARD_WIDTH / 2, y + height + 6),
+                        f"x{count}", font=count_font, fill=INK, anchor="ma",
+                    )
+            y += height + count_room + HAND_GAP
+    buffer = BytesIO()
+    canvas.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
 
 
 # A cell is a card plus this much white on every side, so cards are

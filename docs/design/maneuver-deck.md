@@ -84,10 +84,30 @@ chose", the prompt deleted once both are in. The public message is never edited,
 and a restart re-arms it from the custom ids; the ephemeral hand is not persistent, and
 pressing the public button again sends a fresh one.
 
-**The cards are the printed ones.** A two-headed card (`render_two_headed_card`) is the
-offensive and defensive card of its rank at half size, the side being played upright on top;
-an advanced card of the other side is drawn veiled rather than left out, because it is still
-in the hand. Each of the thirty faces is drawn once and kept.
+**A two-headed card is its own face, built from the printed card's parts**
+(`render_two_headed_card`, the author, 2026-10-16). Each half is the printed card's header,
+strip diagram and effect sentence (`render_two_headed_half`), and **nothing about roles**: no
+ability box, and the strip drawn with `draw_strip(roles=False)`, which drops the role's dashed
+moves (`ROLE_MOVE_LABELS`) and the tokens they land. **The matchups are one band across the
+middle, by rank** (`render_two_headed_band`, "BEATS R3 / TIES R1 / LOSES TO R2"), because a
+rank's offensive and defensive maneuvers beat, tie and lose to the same ranks
+(`two_headed_ranks`; a test holds the defensive half to the offensive one's). The band is the
+row once for the half above it and the same row turned for the half below, so the card is one
+picture through 180 degrees; the side being played is upright on top. An advanced card is the
+printed one, veiled where its side cannot play it. Each of the thirty faces is drawn once and
+kept.
+
+**The discard piles are face up** (the author): the public 2.0 prompt carries both coaches'
+piles as one picture (`render_discard_piles`, `D12Ball.build_discard_file`) once either has
+discarded anything -- the upload the 1.0 hand image made, so no extra request. Copies of a card
+are drawn once with a count under them. The model's reading is
+`RulesEngine.maneuver_discards`; a picture is not a button, so it is read off the match, as the
+field strip is.
+
+**Halftime reshuffles** (the author): `begin_halftime` asks
+`RulesEngine.reshuffle_maneuver_decks`, which puts each coach's hand and discard back into the
+deck, shuffles and deals four (`maneuver_deck.reshuffled`), and says so in halftime's opening
+message. A 1.0 halftime is unchanged, which the windows golden pins.
 
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
 print-and-play kit; the Learn to Play.

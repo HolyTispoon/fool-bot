@@ -2081,6 +2081,36 @@ class RulesEngine:
             for side in (TeamSide.HOME, TeamSide.VISITING)
         }
 
+    def reshuffle_maneuver_decks(
+        self, game: D12BallGame, match: MatchState,
+    ) -> bool:
+        """
+        **Halftime in 2.0** (the author, 2026-10-16): each coach's hand,
+        deck and discard pile are shuffled together into a new deck of
+        fifteen and a fresh hand of four is drawn -- home's first, as at
+        kickoff. Says whether it did anything, so a 1.0 halftime says
+        nothing about decks.
+        """
+        if not self.maneuver_deck_applies(game) or not match.maneuver_decks:
+            return False
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            deck = match.maneuver_decks.get(side.value)
+            if deck is not None:
+                match.maneuver_decks[side.value] = maneuver_deck.reshuffled(
+                    deck, self.rng,
+                )
+        return True
+
+    def maneuver_discards(
+        self, match: MatchState,
+    ) -> dict[TeamSide, tuple[str, ...]]:
+        """Each team's 2.0 discard pile, face up and public, oldest
+        first -- `{}` in 1.0."""
+        return {
+            TeamSide(side): tuple(deck[maneuver_deck.DISCARD])
+            for side, deck in match.maneuver_decks.items()
+        }
+
     def withheld_gambits(
         self,
         game: D12BallGame,

@@ -40,6 +40,7 @@ from d12ball.game import (
 from d12ball.cards import (
     maneuver_hand_combinations,
     render_deck_hand,
+    render_discard_piles,
     render_maneuver_hands,
 )
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
@@ -80,6 +81,8 @@ from gamelocks import GameLocks
 from cogs.d12ball_helpers import (
     GAME_COIN_EMOJI_NAMES,
     DiscordTokens,
+    coach_name,
+    side_display_name,
     build_maneuver_action_caption,
     ERROR_RECOVERY_ADVICE,
     LOGGER,
@@ -1073,6 +1076,35 @@ class CoreMixin:
         )
 
 
+    async def build_discard_file(
+        self, game: D12BallGame, match: MatchState,
+    ) -> Optional[discord.File]:
+        """
+        Both coaches' 2.0 discard piles, face up, as one picture
+        (`cards.render_discard_piles`) -- home's first, each under its
+        side and coach in its team's colour. `None` while nothing has
+        been discarded yet, so the first maneuver carries no picture of
+        two empty piles.
+        """
+        discards = self.engine.maneuver_discards(match)
+        if not any(discards.values()):
+            return None
+        piles = [
+            (
+                f"{side_display_name(side).upper()} DISCARD -- "
+                + coach_name(game, self.engine.side_player_number(game, side)),
+                TEAM_COLORS[match.setup_for_side(side).team],
+                discards.get(side, ()),
+            )
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        ]
+        data = await asyncio.to_thread(
+            lambda: render_discard_piles(
+                self.maneuver_catalog, self.player_catalog, piles,
+            ).read()
+        )
+        return discord.File(io.BytesIO(data), filename="discard_piles.png")
+
     async def build_deck_hand_file(
         self, held: Sequence[str], side: str,
     ) -> discord.File:
@@ -1154,9 +1186,12 @@ class CoreMixin:
             # **2.0: the hands are secret**, so the public prompt carries
             # no cards -- each coach's are a button press away, to them
             # alone (`ManeuverActionPromptView.show_hand`).
+            # The discard piles are public (the author, 2026-10-16), so
+            # they ride on the prompt once anything has been played.
             prompt_message = await send_new_prompt(
                 interaction,
                 content,
+                file=await self.build_discard_file(game, match),
                 view=prompt_view,
                 allowed_mentions=discord.AllowedMentions(
                     users=True, roles=False, everyone=False,

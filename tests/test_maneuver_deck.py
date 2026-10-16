@@ -105,6 +105,33 @@ class DeckTests(unittest.TestCase):
         self.assertEqual(len(deck["draw"]), 10)
 
 
+    def test_halftime_reshuffles_everything_and_deals_four(self) -> None:
+        deck = maneuver_deck.new_deck(MANEUVERS, random.Random(4))
+        for _ in range(6):
+            maneuver_deck.play_card(deck, deck["hand"][0], random.Random(4))
+        fresh = maneuver_deck.reshuffled(deck, random.Random(5))
+        self.assertEqual(len(fresh["hand"]), 4)
+        self.assertEqual(fresh["discard"], [])
+        self.assertEqual(
+            Counter(fresh["draw"] + fresh["hand"]),
+            Counter(maneuver_deck.deck_cards(MANEUVERS)),
+        )
+
+    def test_both_halves_of_a_two_headed_card_share_one_band(self) -> None:
+        from d12ball.cards import matchup_rank_groups, two_headed_ranks
+        for rank in (1, 2, 3):
+            defense = maneuver_deck.plays_as(
+                MANEUVERS, maneuver_deck.basic_card_id(rank), "defense",
+            )
+            self.assertEqual(
+                two_headed_ranks(MANEUVERS, rank),
+                tuple(
+                    group_rank for group_rank, _ in
+                    matchup_rank_groups(MANEUVERS, defense, False)
+                ),
+            )
+
+
 class EditionSettingTests(unittest.TestCase):
 
     def test_a_game_starts_in_one_point_oh_and_saves_without_the_field(self) -> None:
@@ -150,6 +177,21 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(self.engine.gambits_apply(game))
         self.assertFalse(self.engine.coin_applies(game))
         self.assertIsNone(self.engine.coin_holder(game, build_match()))
+
+    def test_halftime_reshuffles_in_two_point_oh_alone(self) -> None:
+        one = build_game()
+        match = build_match()
+        self.assertFalse(self.engine.reshuffle_maneuver_decks(one, match))
+
+        two = two_point_oh()
+        self.engine.deal_maneuver_decks(two, match)
+        home = match.maneuver_decks["home"]
+        maneuver_deck.play_card(home, home["hand"][0], self.engine.rng)
+        self.assertTrue(self.engine.reshuffle_maneuver_decks(two, match))
+        for deck in match.maneuver_decks.values():
+            self.assertEqual(deck["discard"], [])
+            self.assertEqual(len(deck["hand"]), 4)
+            self.assertEqual(len(deck["draw"]), 11)
 
     def test_the_hand_is_what_the_cards_play_on_the_side(self) -> None:
         game = two_point_oh()

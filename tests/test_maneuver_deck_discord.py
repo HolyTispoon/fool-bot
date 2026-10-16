@@ -114,5 +114,19 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(deck["discard"]), 1)
 
 
+class DiscardPictureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_no_picture_until_something_is_discarded(self) -> None:
+        cog = build_cog()
+        game = build_game(mode=GameMode.STANDARD, edition=Edition.TWO)
+        cog.engine.rng.seed(3)
+        match = cog.engine.initialize_standard_match(game)
+        self.assertIsNone(await cog.build_discard_file(game, match))
+
+        home = match.maneuver_decks["home"]
+        home["discard"].append(home["hand"].pop(0))
+        picture = await cog.build_discard_file(game, match)
+        self.assertEqual(picture.filename, "discard_piles.png")
+
+
 if __name__ == "__main__":
     unittest.main()
