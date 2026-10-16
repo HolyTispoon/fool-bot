@@ -593,11 +593,15 @@ def slot_tile(hero_count: int, slot: str) -> tuple[int, int, int, int]:
     return (left, top, left + tile, top + tile)
 
 
+#: What the frontend calls the three seats of `LentPatrollerTests`' table.
+NAMES = {1: "perrytom", 2: "ann", 3: "bo"}
+
+
 class LentPatrollerTests(unittest.TestCase):
     """A patroller lent at a free-for-all's lock (Rulebook p. 14) is
-    drawn in the borrower's slot, marked LENT, and nowhere on its
-    owner's side (docs/design/codex.md, "The board" under Multiplayer).
-    Seat 3's hero is lent to seat 2 as technician."""
+    drawn in the borrower's slot, tagged with its lender's name, and
+    nowhere on its owner's side (docs/design/codex.md, "The board"
+    under Multiplayer). Seat 3's hero is lent to seat 2 as technician."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -620,25 +624,28 @@ class LentPatrollerTests(unittest.TestCase):
         return match
 
     def panel(self, match: MatchState, seat: int) -> Image.Image:
-        return render.render_panel(match, seat, "x", self.cards, stats=self.engine.board_reading)
+        return render.render_panel(match, seat, NAMES[seat], self.cards,
+                                   stats=self.engine.board_reading, names=NAMES)
 
     def test_a_lent_hero_is_drawn_in_the_borrowers_slot_and_nowhere_else(self) -> None:
         """The borrower's slot carries the hero (`MatchState.patrollers`,
         `hero_on`); both sides render at a panel's size; the borrower's
         panel is not the one without the loan; and the hero goes through
-        `hero_lying` once, for the borrower, never for its owner."""
+        `hero_lying` once, for the borrower, with its lender's name,
+        never for its owner."""
         match = self.lent()
         jaina = match.player(3).heroes[0]
         self.assertEqual(match.patrollers(2)["technician"], f"3:{hero_ref(jaina.slug)}")
         for seat in (2, 3):
             with self.subTest(seat=seat):
-                side = render.render_side(match, seat, "x", self.cards, self.engine.board_reading)
+                side = render.render_side(match, seat, NAMES[seat], self.cards,
+                                          self.engine.board_reading, NAMES)
                 self.assertEqual(size(side), (render.panel_width(1), panel_height(1)))
         with mock.patch.object(render, "hero_lying", wraps=render.hero_lying) as lying:
             borrower = self.panel(match, 2)
             self.assertEqual(len(lying.call_args_list), 1)
             self.assertIs(lying.call_args_list[0].args[0], jaina)
-            self.assertTrue(lying.call_args_list[0].args[0].lent_to == 2)
+            self.assertEqual(lying.call_args_list[0].kwargs.get("lender"), "bo")
             lying.reset_mock()
             self.panel(match, 3)
             self.assertEqual(lying.call_args_list, [])
@@ -664,18 +671,30 @@ class LentPatrollerTests(unittest.TestCase):
                         and differs[2] <= tile[2] and differs[3] <= tile[3], (tile, differs))
         self.assertEqual(panels["lent"].crop(tile).tobytes(), panels["empty"].crop(tile).tobytes())
 
-    def test_a_lent_unit_is_marked_as_the_hero_is(self) -> None:
-        """LENT on a lent unit (`CardInstance.lent`) and a lent hero
-        (`HeroState.lent_to`), a state tag that changes the card's tile;
-        neither while they are their owner's."""
+    def test_a_lent_card_is_tagged_with_its_lenders_name(self) -> None:
+        """"Lent from <name>", the name as the frontend spells it, on a
+        lent unit (`CardInstance.lent`) as on a lent hero
+        (`HeroState.lent_to`) -- "Lent" where the frontend gave no name,
+        nothing while they are their owner's -- a tag that changes the
+        card's tile; a Discord name's 32 characters cut to the card with
+        an ellipsis."""
         match = self.lent()
         thief = put(match, 3, "brick_thief")
-        self.assertFalse(render.unit_lying(thief, False, self.cards).lent)
+        self.assertIsNone(render.unit_lying(thief, False, self.cards, lender="bo").lent)
         board.lend(match, 3, thief.ref, 2, "elite")
-        self.assertTrue(render.unit_lying(thief, False, self.cards).lent)
-        self.assertTrue(render.hero_lying(match.player(3).heroes[0], self.cards).lent)
-        self.assertFalse(render.hero_lying(self.table().player(3).heroes[0], self.cards).lent)
-        marked = render.lying_card(render.Lying("brick_thief", lent=True), self.cards)
+        self.assertEqual(render.unit_lying(thief, False, self.cards, lender="bo").lent,
+                         "Lent from bo")
+        self.assertEqual(render.unit_lying(thief, False, self.cards).lent, "Lent")
+        self.assertEqual(render.hero_lying(match.player(3).heroes[0], self.cards, lender="bo").lent,
+                         "Lent from bo")
+        self.assertIsNone(render.hero_lying(self.table().player(3).heroes[0], self.cards,
+                                            lender="bo").lent)
+        self.assertEqual(render.lent_tag("PerryTom"), "Lent from PerryTom")
+        long = render.lent_tag("w" * 32)
+        self.assertTrue(long.startswith("Lent from www") and long.endswith("…"), long)
+        self.assertLessEqual(render.tag_size(long)[0], render.LENT_TAG_WIDTH)
+        self.assertGreater(render.tag_size("Lent from " + "w" * 32)[0], render.LENT_TAG_WIDTH)
+        marked = render.lying_card(render.Lying("brick_thief", lent="Lent from bo"), self.cards)
         self.assertNotEqual(marked.tobytes(),
                             render.lying_card(render.Lying("brick_thief"), self.cards).tobytes())
 

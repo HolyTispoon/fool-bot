@@ -75,6 +75,7 @@ from codex import seats
 from codex.cards import BOARD_IMAGE_DIR, CARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
 from codex.components import (
     PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
+    split_lent_ref,
 )
 from codex.engine import ADD_ONS, CODEX_COLUMNS, TECH_BUILDING_SLUGS
 from codex.formatting import copy_number, team_name
@@ -343,9 +344,15 @@ TURN_COLORS: dict[str, TurnColors] = {
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 #: ARRIVED and DISABLED, on grey (the author, 2026-10-11): states, not
-#: anything a card of a colour put there; LENT with them, a patroller
-#: lent into the zone it lies in (multiplayer, Rulebook p. 14).
+#: anything a card of a colour put there; a lent patroller's tag with
+#: them -- "Lent from bo" (the author, 2026-10-15) -- the zone it lies
+#: in not its owner's (multiplayer, Rulebook p. 14).
 STATE_FILL = (104, 106, 112)     # #686a70
+#: The widest a lent patroller's tag may be: inside the card, from where
+#: `lay_states` stands it (`px(10)` in from the card's left edge) to the
+#: same margin on the right. A longer name is cut with an ellipsis
+#: (`lent_tag`), since a Discord name runs to 32 characters.
+LENT_TAG_WIDTH = CARD[0] - 2 * px(10)
 #: A tag on a card -- a feather rune (step 11), a copy, a jail, a number,
 #: an oath (step 13), the buried, FUTURE -- is the colour of the card it
 #: comes from (the author, 2026-10-11), and this purple where that card
@@ -833,8 +840,8 @@ def plan_marks(column_right: int, column_top: int, ceiling: int, foot: int,
 def lay_states(canvas: Image.Image, card_left: int, ceiling: int, foot: int,
                states: Sequence[str], clear_of: Sequence[Box]) -> None:
     """
-    LENT, ARRIVED and DISABLED up a card's left edge from the foot of its
-    art, on the marks' rows, each in the lowest row clear of `clear_of` -- the
+    A lent card's tag, ARRIVED and DISABLED up a card's left edge from the
+    foot of its art, on the marks' rows, each in the lowest row clear of `clear_of` -- the
     marks, the rune chits and the damage chits -- and not above
     `ceiling` (the cost); with none free, the lowest left (the author,
     2026-10-12: "Skip draw/discard" lay over DISABLED).
@@ -856,7 +863,7 @@ def lay_states(canvas: Image.Image, card_left: int, ceiling: int, foot: int,
                                        if not any(overlaps(boxes[row], other) for other in placed))
         placed.append(boxes[row])
     # The rows they found, lowest first, so ARRIVED stays under DISABLED
-    # and LENT under both.
+    # and a lent card's tag under both.
     for state, top in zip(reversed(states), sorted((box[1] for box in placed), reverse=True)):
         tag_at(draw, left, top, state, STATE_FILL, INK)
 
@@ -938,10 +945,12 @@ class Lying:
     #: Disabled (step 12): a mark beside where the exhaust glyph goes.
     disabled: bool = False
     #: Lent into another player's patrol zone at a free-for-all's lock
-    #: (Rulebook p. 14): a unit with `lent` set, a hero with `lent_to`
-    #: -- LENT beside ARRIVED and DISABLED, since the card lies in a
-    #: zone that is not its owner's, which the board says nowhere else.
-    lent: bool = False
+    #: (Rulebook p. 14) -- a unit with `lent` set, a hero with `lent_to`
+    #: -- the tag it carries beside ARRIVED and DISABLED: "Lent from
+    #: bo", or "Lent" where the frontend gave no name (`lent_tag`),
+    #: since the card lies in a zone that is not its owner's, which the
+    #: board says nowhere else. `None` while it is its owner's.
+    lent: Optional[str] = None
     #: A card in the future (step 12): greyed, not yet in play.
     future: bool = False
     #: Which of its player's copies in play it is, "#2" on its top edge
@@ -1144,12 +1153,29 @@ def shown_stats(match: MatchState, body: Union[CardInstance, HeroState], cards: 
                  reading[3] if len(reading) > 3 else None)
 
 
+def lent_tag(lender: Optional[str]) -> str:
+    """The tag a lent patroller carries: "Lent from bo", the lender's
+    name as the frontend gives it and the nameplate spells it (the
+    author, 2026-10-15: whose it is, not only that it is not the
+    borrower's, and said as a sentence rather than the possessive
+    "BO'S"), the name cut with an ellipsis to `LENT_TAG_WIDTH`; "Lent"
+    where the frontend gave no name."""
+    if not lender:
+        return "Lent"
+    name = lender
+    while len(name) > 1 and tag_size(f"Lent from {name}")[0] > LENT_TAG_WIDTH:
+        name = name[:-2 if name.endswith("…") else -1].rstrip() + "…"
+    return f"Lent from {name}"
+
+
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
-               copy: int = 0, stats: Optional[Stats] = None) -> Lying:
+               copy: int = 0, stats: Optional[Stats] = None,
+               lender: Optional[str] = None) -> Lying:
     """A card in play as it lies -- a Squirrel's art while Polymorph:
     Squirrel has it (step 11) -- `copy`, its number among its
-    player's copies, and `stats`, its ATK and HP as they stand and the
-    effects across a side that reach it."""
+    player's copies, `stats`, its ATK and HP as they stand and the
+    effects across a side that reach it, and `lender`, its owner's name
+    as the frontend gives it, read only where the card is lent."""
     return Lying(shown_slug(card), damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
@@ -1158,8 +1184,8 @@ def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog]
                  + effect_tags(card, cards, stats.auras if stats is not None else (),
                                stats.barred_by if stats is not None else None),
                  time_runes=card.time_runes,
-                 disabled=card.disabled, lent=card.lent, copy=copy,
-                 stats=stats)
+                 disabled=card.disabled, lent=lent_tag(lender) if card.lent else None,
+                 copy=copy, stats=stats)
 
 
 def future_lying(card: CardInstance) -> Lying:
@@ -1168,12 +1194,15 @@ def future_lying(card: CardInstance) -> Lying:
     return Lying(card.slug, time_runes=card.time_runes, future=True)
 
 
-def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = None) -> Lying:
+def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = None,
+               lender: Optional[str] = None) -> Lying:
+    """A hero in play as it lies; `lender`, its owner's name as the
+    frontend gives it, read only where the hero is lent."""
     return Lying(hero.slug, level=level_chit(hero, cards), damage=hero.damage,
                  plus_runes=hero.plus_runes, minus_runes=hero.minus_runes,
                  arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
                  time_runes=hero.time_runes, disabled=hero.disabled,
-                 lent=hero.lent_to is not None,
+                 lent=lent_tag(lender) if hero.lent_to is not None else None,
                  named_runes=rune_counts(hero, cards),
                  marks=rune_marks(hero)
                  + effect_tags(hero, cards, stats.auras if stats is not None else ()),
@@ -1192,9 +1221,10 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     art at `CARD`, its ATK and HP as they stand top right, a level
     chit top left (a hero), its rune chits over its right edge a little
     below its middle, its damage chits on the foot of its art, Two
-    Step's chit on a dance partner just left of its stats, ARRIVED on its art's foot the turn
-    it came and LENT while it patrols for another player, a copy's
-    number on its top edge -- and, exhausted, the
+    Step's chit on a dance partner just left of its stats, ARRIVED on
+    its art's foot the turn it came and its lender's name while it
+    patrols for another player, a copy's number on its top edge -- and,
+    exhausted, the
     whole of it turned on its side at full size, lying across the cell,
     with the exhaust glyph on the cell's top corner and its stats on
     the turned card's top right, both level with the table -- left of
@@ -1252,9 +1282,10 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     draw = ImageDraw.Draw(upright)
     for mark, colour, box in planned:
         tag_at(draw, box[2], box[1], mark, *label_colors(colour), leftward=True)
-    # Lowest last: LENT on the foot, ARRIVED over it, DISABLED over that.
+    # Lowest last: "Lent from <name>" on the foot, ARRIVED over it,
+    # DISABLED over that.
     states = [state for state, on in (("DISABLED", lying.disabled), ("ARRIVED", lying.arrived),
-                                      ("LENT", lying.lent)) if on]
+                                      (lying.lent, lying.lent is not None)) if on]
     lay_states(upright, side, margin + TAG_CEILING, foot, states, column)
     if stats is not None and not lying.exhausted:
         upright.alpha_composite(stats, (right + STAT_OVERHANG - stats.width,
@@ -1724,20 +1755,23 @@ def panel_width(hero_count: int) -> int:
 
 def grid_cells(player: PlayerState, cards: CardCatalog, turned: bool = False,
                stats: Optional[Callable[[Union[CardInstance, HeroState]], Optional[Stats]]] = None,
-               ) -> list[Image.Image]:
+               names: Optional[Mapping[int, str]] = None) -> list[Image.Image]:
     """The grid, in order: the heroes on the field, then the units,
     every one not patrolling, then the building cards and upgrades,
     which never patrol (step 10), then the cards in the future, greyed
     with their time runes (step 12). The heroes off the field are in
-    the command zone, above. `stats`, each unit's and hero's `Stats`."""
+    the command zone, above. `stats`, each unit's and hero's `Stats`;
+    `names`, the seats' names, for a lent unit's tag (one sidelined
+    off its slot waits here for the upkeep that sends it home)."""
     stats = stats or (lambda body: None)
+    names = names or {}
     field = [lying_card(hero_lying(hero, cards, stats(hero)), cards, turned)
              for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
     partners = partner_ids(player)
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
     units = [lying_card(unit_lying(card, card.id in partners, cards, copy_number(player, card),
-                                   stats(card)),
+                                   stats(card), lender=names.get(card.owner)),
                         cards, turned) for card in lying]
     future = [lying_card(future_lying(card), cards) for card in player.future]
     return field + units + future
@@ -1754,21 +1788,24 @@ def body_height(cells: int, columns: int) -> int:
 
 def render_body(match: MatchState, seat: int, cards: CardCatalog,
                 building_hp: Mapping[str, int], turned: bool = False,
-                stats: Optional[StatsOf] = None) -> Image.Image:
+                stats: Optional[StatsOf] = None,
+                names: Optional[Mapping[int, str]] = None) -> Image.Image:
     """
     One panel's body, the nameplate aside, on a transparent ground with
     `OVERHANG` round it for the chits that hang over an edge -- so the
     far panel's is turned round whole about its own centre. `turned`,
     it is about to be: a copy's number is drawn to read upright after.
-    `stats`, the engine's `board_reading`.
+    `stats`, the engine's `board_reading`. `names`, what the frontend
+    calls each seat: a lent patroller's tag is its lender's.
     """
     player = match.player(seat)
     columns = panel_columns(player)
+    names = names or {}
 
     def shown(body):
         return shown_stats(match, body, cards, stats)
 
-    cells = grid_cells(player, cards, turned, shown)
+    cells = grid_cells(player, cards, turned, shown, names)
     inner_width = panel_width(len(heroes(player))) - 2 * PADDING
     height = body_height(1 + len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
@@ -1810,15 +1847,16 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
             continue
         if is_hero_ref(ref):
             # Either spelling of a hero's ref: the player's own, or one
-            # lent to them; its stats the engine's for a hero on this
-            # side (`controller_of` is the borrower while it is lent).
+            # lent to them, whose owner the ref carries; its stats the
+            # engine's for a hero on this side (`controller_of` is the
+            # borrower while it is lent).
             hero = match.hero_on(seat, ref)
-            lying = hero_lying(hero, cards, shown(hero))
+            lying = hero_lying(hero, cards, shown(hero), lender=names.get(split_lent_ref(ref)[0]))
         else:
             instance_id = int(ref.split(":", 1)[1])
             card = match.instance(instance_id)
             lying = unit_lying(card, instance_id in partners, cards, copy_number(player, card),
-                               shown(card))
+                               shown(card), lender=names.get(card.owner))
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards, turned),
@@ -1927,7 +1965,8 @@ def render_panel(match: MatchState, seat: int, name: str,
                  cards: Optional[CardCatalog] = None,
                  building_hp: Optional[Mapping[str, int]] = None, *,
                  turned: bool = False, height: Optional[int] = None,
-                 stats: Optional[StatsOf] = None) -> Image.Image:
+                 stats: Optional[StatsOf] = None,
+                 names: Optional[Mapping[int, str]] = None) -> Image.Image:
     """
     One player as a panel: the body -- the buildings, the patrol zone,
     the grid -- and the nameplate along the panel's outer edge, below
@@ -1937,11 +1976,12 @@ def render_panel(match: MatchState, seat: int, name: str,
     a phone for. `height`, where taller than the panel needs, is filled
     between the body and the nameplate, which stays on the outer edge.
     `stats`, the engine's `board_reading`: each unit's and hero's ATK and
-    HP as they stand, on its card.
+    HP as they stand, on its card. `names`, every seat's name, which a
+    lent patroller's tag reads its lender's from; `name` is this seat's.
     """
     cards = cards or load_catalog()
     building_hp = building_hp or default_building_hp(cards)
-    body = render_body(match, seat, cards, building_hp, turned, stats)
+    body = render_body(match, seat, cards, building_hp, turned, stats, names)
     width = body.width - 2 * OVERHANG + 2 * PADDING
     natural = (2 * PADDING + body.height - 2 * OVERHANG + NAMEPLATE_GAP + NAMEPLATE_HEIGHT)
     total = max(natural, height or 0)
@@ -2075,7 +2115,7 @@ def compose_board(match: MatchState, layout: str = "stacked",
         return names.get(seat) or f"Player {seat}"
 
     def panels(row, turned: bool = False) -> list[Image.Image]:
-        return _even_panels(match, row, name, cards, building_hp, stats, turned)
+        return _even_panels(match, row, name, cards, building_hp, stats, turned, names)
 
     # Whose turn the divider names: the active player, or both of a
     # dragon's teammates, or the one seat taking an extra turn.
@@ -2100,8 +2140,9 @@ def compose_board(match: MatchState, layout: str = "stacked",
     if near is not None:
         far_seat, near_seat = seats.sole_opponent(match, near), near
     far = render_panel(match, far_seat, name(far_seat), cards, building_hp,
-                       turned=layout != "stacked_upright", stats=stats)
-    bottom = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats)
+                       turned=layout != "stacked_upright", stats=stats, names=names)
+    bottom = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats,
+                          names=names)
     return _stack([far], bottom, label)
 
 
@@ -2112,17 +2153,19 @@ TABLE_GAP = px(14)
 
 
 def _even_panels(match: MatchState, row, name, cards: CardCatalog, building_hp: dict,
-                 stats: Optional[StatsOf], turned: bool = False) -> list[Image.Image]:
+                 stats: Optional[StatsOf], turned: bool = False,
+                 names: Optional[Mapping[int, str]] = None) -> list[Image.Image]:
     """The panels of `row`'s seats drawn side by side at one height, the
     tallest's: a shorter one is drawn again at that height, so a row of
     panels lines up -- the duel's side by side, a free-for-all's rows of
     two, a dragon's teams."""
-    natural = [render_panel(match, seat, name(seat), cards, building_hp, turned=turned, stats=stats)
+    natural = [render_panel(match, seat, name(seat), cards, building_hp, turned=turned, stats=stats,
+                            names=names)
                for seat in row]
     height = max(panel.height for panel in natural)
     return [panel if panel.height == height
             else render_panel(match, seat, name(seat), cards, building_hp, turned=turned,
-                              height=height, stats=stats)
+                              height=height, stats=stats, names=names)
             for seat, panel in zip(row, natural)]
 
 
@@ -2259,15 +2302,19 @@ def render_board(match: MatchState, layout: str = "stacked",
 
 def render_side(match: MatchState, seat: int, name: str,
                 cards: Optional[CardCatalog] = None,
-                stats: Optional[StatsOf] = None) -> bytes:
+                stats: Optional[StatsOf] = None,
+                names: Optional[Mapping[int, str]] = None) -> bytes:
     """
     One player's side of the table as WebP bytes, upright and at the
     board's scale: the panel `render_board` draws for `seat`, alone. A
     target prompt's picture (docs/design/codex.md, "The panel"), where
     what is chosen from is on the board rather than in the hand.
+    `names`, every seat's, as `render_board` takes them: a patroller
+    lent into this side is tagged with its lender's.
     """
     cards = cards or load_catalog()
-    return _webp(render_panel(match, seat, name, cards, default_building_hp(cards), stats=stats))
+    return _webp(render_panel(match, seat, name, cards, default_building_hp(cards), stats=stats,
+                              names=names))
 
 
 # -- A hand, a codex -----------------------------------------------------------
