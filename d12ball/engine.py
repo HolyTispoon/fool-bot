@@ -105,11 +105,13 @@ from d12ball.game import (
     AIOpponent,
     CoinFace,
     D12BallGame,
+    Edition,
     Formation,
     GameMode,
     Team,
     team_display_name,
 )
+from d12ball import maneuver_deck
 from d12ball import tokens
 from d12ball.special_abilities import (
     BOOST_BONUS,
@@ -590,7 +592,38 @@ class RulesEngine:
         sets it any more; it is still read so an advanced game saved
         with the gambits turned off plays on as it was started.
         """
-        return game.mode == GameMode.ADVANCED and game.advanced_maneuvers
+        return (
+            game.mode == GameMode.ADVANCED and game.advanced_maneuvers
+        ) or self.maneuver_deck_applies(game)
+
+    def maneuver_deck_applies(self, game: Optional[D12BallGame]) -> bool:
+        """
+        Whether this game plays **D12 Ball 2.0's maneuver deck**: each
+        coach a shuffled deck of fifteen cards and a hand of four, in
+        place of the three cards every maneuver (the author,
+        2026-10-16; docs/rules-2.0.md). The edition is a setting beside
+        the mode, so any mode may play it -- and the deck holds the six
+        advanced maneuvers whatever the mode, which is why
+        `gambits_apply` answers yes for it too. Never a tutorial, whose
+        beats are written for the three cards.
+        """
+        return (
+            game is not None
+            and game.edition == Edition.TWO
+            and not game.tutorial
+        )
+
+    def coin_applies(self, game: D12BallGame) -> bool:
+        """
+        Whether **the coin** decides who may make a gambit (Law 19.3):
+        a game playing the gambits from three cards, which is 1.0's
+        advanced mode. In 2.0 an advanced maneuver is a card in the
+        hand and is played like any other (the author, 2026-10-16), so
+        there is no coin, no declaration and no answer.
+        """
+        return self.gambits_apply(game) and not self.maneuver_deck_applies(
+            game,
+        )
 
     def maneuver_reference_tier(
         self, game: Optional[D12BallGame],
@@ -1709,7 +1742,7 @@ class RulesEngine:
         the coin existed. A game seated without a toss -- a test game --
         has no winner to read, and the coin starts with the home team.
         """
-        if not self.gambits_apply(game):
+        if not self.coin_applies(game):
             return None
         if match.coin_holder is not None:
             return TeamSide(match.coin_holder)
@@ -1746,7 +1779,7 @@ class RulesEngine:
         team holds the coin. Whether the maneuver has already resolved
         is the prompt's question -- this is only asked while it is up.
         """
-        if not self.gambits_apply(game) or match.maneuver_uncontested:
+        if not self.coin_applies(game) or match.maneuver_uncontested:
             return False
         if match.gambit_declared_by is not None:
             return False
@@ -1766,7 +1799,7 @@ class RulesEngine:
         declared = match.gambit_declared_by
         if declared is None or declared == side:
             return False
-        if not self.gambits_apply(game) or match.maneuver_uncontested:
+        if not self.coin_applies(game) or match.maneuver_uncontested:
             return False
         return self.behind(match, self.maneuver_side_team(match, side))
 
@@ -1831,6 +1864,12 @@ class RulesEngine:
         `side` is a maneuver side, so the two hands on one prompt can
         be different threes.
         """
+        if self.maneuver_deck_applies(game):
+            # 2.0: whatever the hand's cards play on this side.
+            return tuple(sorted({
+                maneuver.tier
+                for maneuver in self.maneuver_hand(game, match, side)
+            }, key=(MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT).index))
         if not self.gambits_apply(game) or match.maneuver_uncontested:
             return (MANEUVER_TIER_BASIC,)
         if match.gambit_declared_by == side:
@@ -1853,7 +1892,7 @@ class RulesEngine:
         prompt only draws a hand for a side a *person* still picks for,
         so in a solo game Dinky's cards are never on the message.
         """
-        if not self.gambits_apply(game) or match.maneuver_uncontested:
+        if not self.coin_applies(game) or match.maneuver_uncontested:
             return ""
         declared = match.gambit_declared_by
         if declared is None:
@@ -1893,6 +1932,31 @@ class RulesEngine:
                 "and may answer with one of their own."
             )
         return f"{declarer} has declared a gambit."
+
+    def describe_maneuver_decks(
+        self, game: D12BallGame, match: MatchState,
+    ) -> str:
+        """
+        D12 Ball 2.0's public count of each coach's cards, for the
+        maneuver prompt -- how many are face down in their deck and in
+        their discard pile, home's first. The hand is four and secret,
+        so it is not counted. `""` in 1.0.
+        """
+        if not self.maneuver_deck_applies(game):
+            return ""
+        lines = []
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            deck = self.maneuver_deck(match, side)
+            if deck is None:
+                continue
+            draw, discard = maneuver_deck.pile_counts(deck)
+            coach = format_player_with_team(
+                game, self.side_player_number(game, side),
+            )
+            lines.append(
+                f"{coach}: {draw} in deck, {discard} in discard."
+            )
+        return "\n".join(lines)
 
     def maneuver_pick_sides(
         self,
@@ -1950,7 +2014,32 @@ class RulesEngine:
         match: MatchState,
         side: str,
     ) -> tuple[ManeuverDefinition, ...]:
-        """One side's playable cards this turn, in the order they read."""
+        """
+        One side's playable cards this turn, in the order they read.
+
+        **In 2.0 it is what the coach's hand plays on this side**
+        (`maneuver_deck_hand`): each two-headed card the basic maneuver
+        of its rank, each advanced card of this side itself, and an
+        advanced card of the other side nothing -- one entry a
+        maneuver however many copies of its card are held. An advanced
+        card is in the hand against no challenge too, and resolves as
+        its basic counterpart there (`resolving_maneuver`).
+        """
+        if self.maneuver_deck_applies(game):
+            playable = {
+                maneuver.key: maneuver
+                for card_id in self.maneuver_deck_hand(
+                    match, self.maneuver_side_team(match, side),
+                )
+                for maneuver in (
+                    maneuver_deck.plays_as(self.maneuver_catalog, card_id, side),
+                )
+                if maneuver is not None
+            }
+            return tuple(sorted(
+                playable.values(),
+                key=lambda item: (item.rank, item.tier != MANEUVER_TIER_BASIC),
+            ))
         tiers = self.maneuver_tiers(game, match, side)
         return tuple(
             sorted(
@@ -1965,6 +2054,32 @@ class RulesEngine:
                 ),
             )
         )
+
+    def maneuver_deck(
+        self, match: MatchState, team_side: TeamSide,
+    ) -> Optional[dict]:
+        """A team's 2.0 deck as the match holds it, or `None` in 1.0."""
+        return match.maneuver_decks.get(TeamSide(team_side).value)
+
+    def maneuver_deck_hand(
+        self, match: MatchState, team_side: TeamSide,
+    ) -> tuple[str, ...]:
+        """The card ids in a team's 2.0 hand, as dealt -- `()` in 1.0."""
+        deck = self.maneuver_deck(match, team_side)
+        return () if deck is None else tuple(deck[maneuver_deck.HAND])
+
+    def deal_maneuver_decks(self, game: D12BallGame, match: MatchState) -> None:
+        """
+        Each coach's fifteen cards shuffled and four drawn, at kickoff
+        -- home's first, so a seeded game deals the same hands. A 1.0
+        game is dealt nothing.
+        """
+        if not self.maneuver_deck_applies(game):
+            return
+        match.maneuver_decks = {
+            side.value: maneuver_deck.new_deck(self.maneuver_catalog, self.rng)
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        }
 
     def withheld_gambits(
         self,
@@ -1987,7 +2102,7 @@ class RulesEngine:
         within the side's cards, asked of `maneuver_tiers` so the two
         cannot disagree.
         """
-        if not self.gambits_apply(game) or match.maneuver_uncontested:
+        if not self.coin_applies(game) or match.maneuver_uncontested:
             return ()
         # Once a gambit is declared each hand is its three cards and
         # nothing dimmed beside them (the author, 2026-09-28).
@@ -2256,6 +2371,7 @@ class RulesEngine:
             home_team=home_team,
             visiting_team=visiting_team,
         )
+        self.deal_maneuver_decks(game, match)
         game.ruleset_id = match.ruleset_id
         game.player_data_version = match.player_data_version
         game.match_state = match.to_dict()

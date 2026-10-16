@@ -70,6 +70,7 @@ from d12ball.game import (
     AIOpponent,
     D12BallGame,
     GAME_COINS,
+    Edition,
     GameMode,
     GameStatus,
     HomeChoice,
@@ -433,6 +434,7 @@ class GameService:
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
         ai_seats: Optional[list[int]] = None,
+        edition: Edition = Edition.ONE,
     ) -> D12BallGame:
         """
         A new game record, in setup, saved.
@@ -465,6 +467,7 @@ class GameService:
             ai_opponent=ai_opponent,
             game_name=game_name,
             ai_seats=ai_seats,
+            edition=edition,
         )
         self.save()
         return game
@@ -487,6 +490,7 @@ class GameService:
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
         ai_seats: Optional[list[int]] = None,
+        edition: Edition = Edition.ONE,
     ) -> D12BallGame:
         """`create_game`'s record, in the games and not yet saved."""
         if game_number is None:
@@ -504,6 +508,7 @@ class GameService:
             test_game=test_game,
             game_name=game_name,
             mode=mode,
+            edition=edition,
             status=GameStatus.SETUP,
             board_size=(
                 default_board_size(mode) if board_size is None else board_size
@@ -830,6 +835,7 @@ class GameService:
             ai_opponent=game.ai_opponent,
             game_name=game.game_name,
             ai_seats=None if game.ai_seats is None else list(game.ai_seats),
+            edition=game.edition,
         )
         game.rematch_game_id = rematch.game_id
         self.save()

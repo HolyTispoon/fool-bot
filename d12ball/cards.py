@@ -30,6 +30,7 @@ from typing import NamedTuple, Optional, Sequence
 
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
+from d12ball import maneuver_deck
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
@@ -2652,6 +2653,137 @@ def render_maneuver_hands(
         # which pushes the whole image to a second row for one card.
         blocks[-1][-1] = list(blocks[-1][-1]) + [hand_back_image(catalog)]
     return lay_out_hand(blocks, headings)
+
+
+# -- D12 Ball 2.0: the deck's cards ----------------------------------
+
+#: The line across a two-headed card between its two halves.
+TWO_HEADED_DIVIDER = "#b9b0a0"
+
+#: How much of a card the cream covers where its coach cannot play it
+#: this maneuver -- an advanced card of the other side, in the hand but
+#: dark (docs/design/maneuver-deck.md).
+UNPLAYABLE_VEIL = 0.62
+
+
+def render_two_headed_card(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    rank: int,
+    upright: str = "offense",
+) -> Image.Image:
+    """
+    **A two-headed basic card** (D12 Ball 2.0): the basic offensive
+    maneuver of `rank` on its top half and the basic defensive maneuver
+    of the same rank on its bottom half, upside down -- the way a
+    playing card's two heads read, so whichever half faces its coach is
+    the maneuver they play. `upright` turns the card so that side's
+    half is the right way up on top, which is how a coach holds it on
+    that side of a maneuver.
+
+    Each half is the printed card itself at half size, so the face says
+    exactly what the three-card game's card says; nothing is reworded.
+    """
+    faces = {
+        side: next(
+            maneuver for maneuver in catalog.for_tier(side, MANEUVER_TIER_BASIC)
+            if maneuver.rank == rank
+        )
+        for side in ("offense", "defense")
+    }
+    other = "defense" if upright == "offense" else "offense"
+    half = CARD_HEIGHT // 2
+    inset = 18
+    mini_height = half - inset * 2
+    mini_width = round(mini_height * CARD_WIDTH / CARD_HEIGHT)
+
+    card = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
+    for index, side in enumerate((upright, other)):
+        face = screen_cutout(render_maneuver_card(
+            catalog, players, faces[side], side == "offense", bleed=False,
+        )).resize((mini_width, mini_height), Image.Resampling.LANCZOS)
+        if index == 1:
+            face = face.rotate(180)
+        card.paste(
+            face,
+            ((CARD_WIDTH - mini_width) // 2, index * half + inset),
+            face,
+        )
+    draw = ImageDraw.Draw(card)
+    draw.line(
+        (FRAME * 4, half, CARD_WIDTH - FRAME * 4, half),
+        fill=TWO_HEADED_DIVIDER, width=4,
+    )
+    draw.rounded_rectangle(
+        (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
+        radius=CORNER, outline=SIDE_COLORS[upright], width=EDGE_WIDTH,
+    )
+    return card
+
+
+#: Each 2.0 card face drawn once, by `(card_id, side)` -- thirty faces
+#: in all, and every hand is four of them.
+_DECK_CARD_FACES: dict[tuple[str, str], Image.Image] = {}
+
+
+def deck_card_face(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    card_id: str,
+    side: str,
+) -> Image.Image:
+    """
+    One 2.0 card as its coach holds it on `side`: a two-headed card
+    with that side's half upright, an advanced card as printed -- and
+    veiled where it cannot be played on `side`.
+    """
+    cached = _DECK_CARD_FACES.get((card_id, side))
+    if cached is not None:
+        return cached
+    if maneuver_deck.is_basic_card(card_id):
+        face = render_two_headed_card(
+            catalog, players, maneuver_deck.basic_card_rank(card_id), side,
+        )
+    else:
+        maneuver = catalog.definition(card_id)
+        own_side = catalog.side_of(card_id)
+        face = render_maneuver_card(
+            catalog, players, maneuver, own_side == "offense", bleed=False,
+        )
+        if own_side != side:
+            face = Image.blend(
+                face, Image.new("RGB", face.size, FACE_COLOR), UNPLAYABLE_VEIL,
+            )
+    _DECK_CARD_FACES[(card_id, side)] = face
+    return face
+
+
+def render_deck_hand(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    held: Sequence[str],
+    side: str,
+) -> BytesIO:
+    """
+    **A 2.0 coach's hand**, for their eyes alone: the four cards they
+    hold, turned for the side they are playing this maneuver, in one
+    row under the side's heading. A card the side cannot play -- an
+    advanced card of the other side -- is drawn veiled rather than left
+    out, because it is still in the hand.
+    """
+    def order(card_id: str) -> tuple:
+        maneuver = maneuver_deck.plays_as(catalog, card_id, side)
+        if maneuver is None:
+            return (1, 0, 0, card_id)
+        return (0, maneuver.rank, maneuver.is_gambit, card_id)
+
+    cards = [
+        deck_card_face(catalog, players, card_id, side)
+        for card_id in sorted(held, key=order)
+    ]
+    return lay_out_hand(
+        [[cards]], [(HAND_HEADINGS[side], SIDE_COLORS[side])],
+    )
 
 
 # A cell is a card plus this much white on every side, so cards are

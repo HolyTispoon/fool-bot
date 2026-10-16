@@ -39,6 +39,7 @@ from d12ball.game import (
 )
 from d12ball.cards import (
     maneuver_hand_combinations,
+    render_deck_hand,
     render_maneuver_hands,
 )
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
@@ -1072,6 +1073,22 @@ class CoreMixin:
         )
 
 
+    async def build_deck_hand_file(
+        self, held: Sequence[str], side: str,
+    ) -> discord.File:
+        """
+        A 2.0 coach's own four cards, turned for `side`, as a picture
+        for their eyes alone (`cards.render_deck_hand`). Drawn in a
+        worker thread, like every render; each card face is drawn once
+        and kept, so after the first few hands this is a paste.
+        """
+        data = await asyncio.to_thread(
+            lambda: render_deck_hand(
+                self.maneuver_catalog, self.player_catalog, tuple(held), side,
+            ).read()
+        )
+        return discord.File(io.BytesIO(data), filename=f"my_hand_{side}.png")
+
     async def begin_score_attempt(
         self,
         interaction: discord.Interaction,
@@ -1133,6 +1150,22 @@ class CoreMixin:
         """
         prompt_view = ManeuverActionPromptView(self, game.game_id)
         sides = self.engine.maneuver_pick_sides(game, match)
+        if self.engine.maneuver_deck_applies(game):
+            # **2.0: the hands are secret**, so the public prompt carries
+            # no cards -- each coach's are a button press away, to them
+            # alone (`ManeuverActionPromptView.show_hand`).
+            prompt_message = await send_new_prompt(
+                interaction,
+                content,
+                view=prompt_view,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True, roles=False, everyone=False,
+                ),
+            )
+            game.turn_message_id = prompt_message.id
+            save_games(self.games)
+            await self.post_field_image(interaction, game)
+            return
         # The cards ride on the prompt itself. One image, not one per
         # side: Discord lays two attachments out side by side, which
         # would halve the width of both hands. See render_maneuver_hands

@@ -1715,6 +1715,12 @@ def copy_lists(mapping: dict) -> dict:
     return {key: list(value) for key, value in mapping.items()}
 
 
+def copy_decks(decks: dict) -> dict:
+    """`{side: {pile: list(cards)}}` -- `maneuver_decks` two levels
+    deep, so a saved deck and the match's never share a list."""
+    return {side: copy_lists(deck) for side, deck in decks.items()}
+
+
 # Every field of a match whose save is "write it, read it back, and
 # fall back to this when the file predates it". The structured ones --
 # the board, the two setups, the ball, the scoreboard, the maneuver
@@ -1920,6 +1926,9 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
 # coverage test can tell "deliberately explicit" from "forgotten".
 MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
     {
+        # Left out of a save with no decks: a 1.0 match is written as
+        # it was before 2.0.
+        "maneuver_decks",
         "ruleset_id",
         "player_data_version",
         "board",
@@ -2004,6 +2013,18 @@ class MatchState:
     # or "basic". `None` while nobody has declared, or the question is
     # still owed, or it was never asked. Goes with the maneuver.
     gambit_answer: Optional[str] = None
+    # D12 Ball 2.0's maneuver decks (`d12ball/maneuver_deck.py`): one
+    # per team, keyed by the side's saved value ("home", "visiting"),
+    # each `{"draw": [...], "hand": [...], "discard": [...]}` of card
+    # ids. Empty in a 1.0 game, and in every save made before 2.0, which
+    # is what 1.0 reads -- saved explicitly, and only where there are
+    # decks (`MATCH_EXPLICIT_FIELDS`). Dealt at kickoff
+    # (`RulesEngine.initialize_standard_match`) and played at a
+    # maneuver's reveal (`d12ball.flow.turn.play_maneuver_cards`); it
+    # outlives every maneuver, so `reset_maneuver` leaves it alone.
+    maneuver_decks: dict[str, dict[str, list[str]]] = field(
+        default_factory=dict,
+    )
     # **Volatile's tier rider**: the skill test that just resolved was
     # ignited in a way that raises the *winner's* maneuver to its
     # gambit -- see "Volatile (Fire Demon)" in
@@ -5823,6 +5844,12 @@ class MatchState:
             saved[saved_field.name] = saved_field.stored(
                 getattr(self, saved_field.name),
             )
+        # D12 Ball 2.0's decks, written only where there are any: a 1.0
+        # match is saved exactly as it was before the field
+        # (docs/design/maneuver-deck.md), which is why it is explicit
+        # rather than a row of the table.
+        if self.maneuver_decks:
+            saved["maneuver_decks"] = copy_decks(self.maneuver_decks)
         return saved
 
     @classmethod
@@ -5957,6 +5984,8 @@ class MatchState:
                 GoalRecord.from_dict(goal)
                 for goal in data.get("goals", [])
             ],
+            # Absent from every 1.0 save, which reads as no decks.
+            maneuver_decks=copy_decks(data.get("maneuver_decks", {})),
             **{
                 saved_field.name: saved_field.restored(data)
                 for saved_field in MATCH_SAVED_FIELDS

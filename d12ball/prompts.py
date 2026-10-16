@@ -75,7 +75,7 @@ from d12ball.formatting import (
 )
 from d12ball.game import D12BallGame, Formation
 from d12ball.wire import jsonable
-from d12ball import tokens, tutorial
+from d12ball import maneuver_deck, tokens, tutorial
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from d12ball.engine import RulesEngine
@@ -563,6 +563,14 @@ class ManeuverHand:
     #: The card itself is not on the prompt: the pick is secret, and a
     #: Discord prompt is public.
     unconfirmed: bool = False
+    #: **D12 Ball 2.0**: every card in this coach's hand, by card id
+    #: (`d12ball/maneuver_deck.py`), the ones this side cannot play
+    #: among them -- and how many cards are in their deck and their
+    #: discard pile. The hand is its coach's secret: a frontend shows
+    #: it to that coach alone. Empty and zero in 1.0.
+    held: tuple[str, ...] = ()
+    deck_count: int = 0
+    discard_count: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -578,6 +586,9 @@ class ManeuverHand:
             "may_declare": self.may_declare,
             "declared": self.declared,
             "unconfirmed": self.unconfirmed,
+            "held": list(self.held),
+            "deck_count": self.deck_count,
+            "discard_count": self.discard_count,
         }
 
 
@@ -1347,7 +1358,10 @@ def maneuver_action_ask(
     )
     return maneuver_gambit_paragraph(
         f"{' and '.join(waiting_on)}, {instruction}",
-        engine.describe_gambit_access(game, match),
+        "\n".join(filter(None, (
+            engine.describe_gambit_access(game, match),
+            engine.describe_maneuver_decks(game, match),
+        ))),
     )
 
 
@@ -2613,9 +2627,26 @@ def _maneuver_options(
             ),
             declared=match.gambit_declared_by == side,
             unconfirmed=match.pick_unconfirmed == side,
+            **_deck_fields(engine, match, side),
         ))
 
     return ManeuverOptions(tuple(hands))
+
+
+def _deck_fields(
+    engine: "RulesEngine", match: MatchState, side: str,
+) -> dict:
+    """A 2.0 hand's cards and its coach's two pile counts, for
+    `ManeuverHand` -- nothing in 1.0."""
+    deck = engine.maneuver_deck(match, engine.maneuver_side_team(match, side))
+    if deck is None:
+        return {}
+    deck_count, discard_count = maneuver_deck.pile_counts(deck)
+    return {
+        "held": tuple(deck[maneuver_deck.HAND]),
+        "deck_count": deck_count,
+        "discard_count": discard_count,
+    }
 
 
 def _challenge_options(

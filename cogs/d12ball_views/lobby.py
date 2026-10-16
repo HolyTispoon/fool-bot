@@ -24,12 +24,14 @@ from typing import TYPE_CHECKING
 from d12ball.components import RuleRefusal
 from d12ball.game import (
     AIOpponent,
+    Edition,
     GameMode,
     VALID_BOARD_SIZES,
 )
 from cogs.d12ball_helpers import (
     codex_lobby_prompt,
     AI_OPPONENT_NAMES,
+    EDITION_BUTTONS,
     GAME_MODE_BUTTONS,
     HUB_ROLE_CUSTOM_ID_PREFIX,
     HUB_ROLES,
@@ -285,6 +287,21 @@ class LobbyView(SafeView):
                 # The tutorial is a Training-mode script -- see the class
                 # docstring.
                 disabled=started or tutorial or mode == selected_mode,
+            )
+        # The edition shares the mode's row (five buttons); a tutorial
+        # is 1.0.
+        selected_edition = game.edition if game else Edition.ONE
+        for label, edition in EDITION_BUTTONS:
+            self._add_button(
+                label,
+                (
+                    discord.ButtonStyle.secondary
+                    if edition == selected_edition
+                    else discord.ButtonStyle.success
+                ),
+                f"edition:{edition.value}",
+                row=2,
+                disabled=started or tutorial or edition == selected_edition,
             )
 
         selected_board = game.board_size if game else 7

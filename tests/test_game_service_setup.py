@@ -708,7 +708,9 @@ class TableReadingTests(SetupHarness):
         game = self.open_lobby()
         self.assertEqual(game.open_settings(), GAME_SETTINGS)
         self.service.start_lobby(game.game_id)
-        self.assertEqual(game.open_settings(), ("mode", "board", "ai"))
+        self.assertEqual(
+            game.open_settings(), ("mode", "edition", "board", "ai"),
+        )
         for setting in ("test", "tutorial", "name"):
             with self.subTest(setting=setting):
                 self.assertIn(
