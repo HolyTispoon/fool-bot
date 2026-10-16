@@ -231,12 +231,15 @@ def play(seed: int = SEED, *, say=None, teams=None, players=None, dragon=None,
         lines = [line for group in run.groups for line in group.narration]
         lines += run.result.narration
         # Every change to a player's gold is said with where it now
-        # stands -- "{gold:3} left" or "now {gold:5}" (the author,
-        # 2026-10-16): the last line that moved it ends on the total.
+        # stands -- "{gold:3} left", "now {gold:5}", or a steal's "is now
+        # at {gold:5}" (the author, 2026-10-16): the last line that moved
+        # it ends on the total.
         said = " ".join(lines)
         for seat, gold in golds().items():
             if gold != before.get(seat, gold):
-                assert f"{{gold:{gold}}} left" in said or f"now {{gold:{gold}}}" in said, (
+                assert any(said_as in said for said_as in (
+                    f"{{gold:{gold}}} left", f"now {{gold:{gold}}}", f"now at {{gold:{gold}}}",
+                )), (
                     f"seat {seat}'s gold went from {before[seat]} to {gold} unsaid: {lines}"
                 )
         for line in lines:

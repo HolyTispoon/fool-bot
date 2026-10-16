@@ -13,7 +13,7 @@ from pathlib import Path
 
 from codex.components import PATROL_SLOTS
 from codex.engine import GOLD_CAP, RulesEngine
-from codex.flow import StepResult, actions, board, combat, turn
+from codex.flow import StepResult, actions, board, combat, resolve, turn
 from codex.flow import driver
 from codex.game import RuleRefusal
 from codex.prompts import Action, PromptKind, pending_prompt
@@ -135,6 +135,18 @@ class EconomyTests(unittest.TestCase):
             run.result.narration,
         )
 
+
+    def test_a_steal_says_both_sides(self) -> None:
+        """"{player:1} steals {gold:1} from {player:2} and is now at
+        {gold:4}; {player:2} has {gold:0} left" (the author, 2026-10-16)."""
+        engine, game, match = main_phase()
+        match.player(1).gold, match.player(2).gold = 3, 1
+        taken = resolve.steal_gold(match, 1, 2, 1)
+        self.assertEqual(
+            turn.stolen(match, 1, 2, taken),
+            "{player:1} steals {gold:1} from {player:2} and is now at {gold:4}; "
+            "{player:2} has {gold:0} left",
+        )
 
 class OwnDeckTests(unittest.TestCase):
     """`own_deck`: every card a player owns, wherever it is -- the

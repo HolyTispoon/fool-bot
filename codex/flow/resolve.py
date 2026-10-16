@@ -1003,8 +1003,7 @@ def _pillage(engine, match, top, part, target, result) -> None:
     taken = steal_gold(match, seat, other, steal) if other != seat else 0
     if taken:
         result.narration.append(
-            f"{tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)} with "
-            f"{top['by']}: {stolen(match, seat, other)}."
+            f"{stolen(match, seat, other, taken, by=top['by'])}."
         )
 
 
@@ -1792,8 +1791,8 @@ def _play_buried(engine, match, top, part, target, result) -> None:
     card.owner = entry["owner"]
     atk, hp = engine.unit_stats(card, match)
     result.narration.append(
-        f"{tokens.player(seat)} plays {tokens.card(slug)} from their {tokens.card(effects.GRAVEYARD)} "
-        f"for {tokens.gold(cost)}{', boosted' if boosted else ''}: {atk}/{hp}.{gold_left(match, seat, cost)}"
+        f"{tokens.player(seat)} plays {tokens.card(slug)} {atk}/{hp} from their {tokens.card(effects.GRAVEYARD)} "
+        f"for {tokens.gold(cost)}{', boosted' if boosted else ''}.{gold_left(match, seat, cost)}"
     )
     board.arrive(engine, match, card, boosted=boosted)
 
@@ -2886,8 +2885,7 @@ def _steal_gold(engine, match, top, part, target, result) -> None:
     taken = steal_gold(match, seat, other, part.amount)
     if taken:
         result.narration.append(
-            f"{top['by']}: {tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}: "
-            f"{stolen(match, seat, other)}."
+            f"{top['by']}: {stolen(match, seat, other, taken)}."
         )
     else:
         result.narration.append(f"{tokens.player(other)} has no gold for {top['by']} to steal.")

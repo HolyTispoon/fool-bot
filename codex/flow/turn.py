@@ -86,11 +86,14 @@ def gold_now(match: MatchState, seat: int) -> str:
     return f"now {tokens.gold(match.player(seat).gold)}"
 
 
-def stolen(match: MatchState, seat: int, other: int) -> str:
-    """Where a steal leaves both sides: "now {gold:5}; {player:2} has
-    {gold:1} left" -- the thief's after the gain, the robbed seat's after
-    the loss."""
-    return (f"{gold_now(match, seat)}; {tokens.player(other)} has "
+def stolen(match: MatchState, seat: int, other: int, taken: int, by: str = "") -> str:
+    """A steal and where it leaves both sides, as one clause: "{player:1}
+    steals {gold:1} from {player:2} and is now at {gold:4}; {player:2} has
+    {gold:0} left" (the author, 2026-10-16) -- `by`, "with {card:...}",
+    where the line has not already said what steals."""
+    by = f" with {by}" if by else ""
+    return (f"{tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}{by} "
+            f"and is now at {tokens.gold(match.player(seat).gold)}; {tokens.player(other)} has "
             f"{tokens.gold(match.player(other).gold)} left")
 
 

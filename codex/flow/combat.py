@@ -756,8 +756,7 @@ def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, 
         match.player(seat).lasting.append({"kind": "looked_hand", "until": "end_of_turn", "seat": other})
         result.narration.append(
             f"{tokens.card(slug)} looks at {tokens.player(other)}'s hand"
-            + (f" and steals {tokens.gold(taken)} for {tokens.player(seat)}: {stolen(match, seat, other)}." if taken
-               else "; they have no gold to steal.")
+            + (f"; {stolen(match, seat, other, taken)}." if taken else "; they have no gold to steal.")
         )
     if slug in effects.BASE_ON_BUILDING_KILL and match.winner is None:
         gone = standing - _standing(engine, match, other)
@@ -818,8 +817,7 @@ def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
             taken = resolve.steal_gold(match, seat, other, steal)
             if taken:
                 result.narration.append(
-                    f"{tokens.card(slug)} killed a patroller: {tokens.player(seat)} steals "
-                    f"{tokens.gold(taken)} from {tokens.player(other)}: {stolen(match, seat, other)}."
+                    f"{tokens.card(slug)} killed a patroller: {stolen(match, seat, other, taken)}."
                 )
         if hitting.hero is not None:
             board.kill_bonus(engine, match, seat, hitting.hero.slug, slot, result)

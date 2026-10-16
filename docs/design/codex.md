@@ -1347,11 +1347,15 @@ Calamandra's, a cost, Desperation's hand -- are not told: they know.
 **Every line that moves a player's gold says why, and where it now
 stands: "{gold:3} left" where it went down, "now {gold:5}" where it went
 up** (the author, 2026-10-16). A spend ends on its own sentence --
-"{player:1} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:3} left." --
+"{player:1} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:3} left." --
 and a gain on its own clause -- "collects {gold:5} from 5 workers: now
 {gold:5}", "gains {gold:1} from {card:gemscout_owl}: now {gold:4}", "collects
-a bounty of {gold:1}: now {gold:2}". A steal says both sides: "steals
-{gold:1} from {player:2}: now {gold:4}; {player:2} has {gold:0} left". The
+a bounty of {gold:1}: now {gold:2}". A steal says both sides: "{player:1}
+steals {gold:1} from {player:2} and is now at {gold:4}; {player:2} has
+{gold:0} left" (`stolen`, the whole clause). **A card's stats go with its
+name and the price after them** -- "plays {card:tenderfoot} 1/2 for
+{gold:1}", "summons {hero:river_montoya} 2/3, level 1, for {gold:2}" --
+so the line reads as what was bought and then what it cost. The
 reason is never left to be inferred: resist is its own line naming what is
 targeted and with what ("pays {gold:1} for resist to target {player:2}'s
 {card:brick_thief} with {card:spark}. {gold:2} left." -- the author:

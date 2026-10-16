@@ -129,8 +129,8 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     match.record_event("summoned", slug=hero.slug)
     atk, hp = engine.hero_stats(hero)
     result = StepResult(board_changed=True, narration=[
-        f"{tokens.player(seat)} summons {tokens.hero(hero.slug)} for "
-        f"{tokens.gold(option.cost)}: level 1, {atk}/{hp}.{gold_left(match, seat, option.cost)}"
+        f"{tokens.player(seat)} summons {tokens.hero(hero.slug)} {atk}/{hp}, level 1, for "
+        f"{tokens.gold(option.cost)}.{gold_left(match, seat, option.cost)}"
         f"{_vanilla_note(engine, hero.slug)}"
     ])
     board.hero_arrives(engine, match, seat, hero)
@@ -278,8 +278,7 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
         atk, hp = engine.unit_stats(instance, match)
         boosted = ", boosted" if boost else ""
         result.narration.append(
-            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{boosted}: "
-            f"{atk}/{hp}.{note}"
+            f"{tokens.player(seat)} plays {tokens.card(slug)} {atk}/{hp} for {tokens.gold(cost)}{boosted}.{note}"
         )
         board.arrive(engine, match, instance, from_hand=True, boosted=boost)
     elif card.is_permanent:

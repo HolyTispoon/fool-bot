@@ -25,7 +25,7 @@
 --- board changed
 === action 3: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 3}
 --- narration
-{player:3} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:1} left.
+{player:3} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -33,7 +33,7 @@
 --- board changed
 === action 4: MAIN_ACTION 'summon' {"hero": "river_montoya", "player": 4}
 --- narration
-{player:4} summons {hero:river_montoya} for {gold:2}: level 1, 2/3. {gold:1} left.
+{player:4} summons {hero:river_montoya} 2/3, level 1, for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -41,7 +41,7 @@
 --- board changed
 === action 5: MAIN_ACTION 'play' {"player": 3, "slug": "tenderfoot"}
 --- narration
-{player:3} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:0} left.
+{player:3} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -49,7 +49,7 @@
 --- board changed
 === action 6: MAIN_ACTION 'play' {"player": 4, "slug": "tenderfoot"}
 --- narration
-{player:4} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:0} left.
+{player:4} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -139,7 +139,7 @@
 --- board changed
 === action 17: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 1}
 --- narration
-{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:1} left.
+{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -149,7 +149,7 @@
 --- board changed
 === action 18: MAIN_ACTION 'summon' {"hero": "river_montoya", "player": 2}
 --- narration
-{player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3. {gold:1} left.
+{player:2} summons {hero:river_montoya} 2/3, level 1, for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -159,7 +159,7 @@
 --- board changed
 === action 19: MAIN_ACTION 'play' {"player": 1, "slug": "tenderfoot"}
 --- narration
-{player:1} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:0} left.
+{player:1} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -169,7 +169,7 @@
 --- board changed
 === action 20: MAIN_ACTION 'play' {"player": 2, "slug": "tenderfoot"}
 --- narration
-{player:2} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:0} left.
+{player:2} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -286,7 +286,7 @@
 --- board changed
 === action 33: MAIN_ACTION 'play' {"player": 3, "slug": "brick_thief"}
 --- narration
-{player:3} plays {card:brick_thief} for {gold:2}: 2/1. {gold:1} left.
+{player:3} plays {card:brick_thief} 2/1 for {gold:2}. {gold:1} left.
 --- prompt TARGET (player 3)
 {player:3}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 1)
@@ -314,7 +314,7 @@
 --- board changed
 === action 36: MAIN_ACTION 'play' {"player": 4, "slug": "brick_thief"}
 --- narration
-{player:4} plays {card:brick_thief} for {gold:2}: 2/1. {gold:1} left.
+{player:4} plays {card:brick_thief} 2/1 for {gold:2}. {gold:1} left.
 --- prompt TARGET (player 4)
 {player:4}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 1)
@@ -495,7 +495,7 @@
 --- board changed
 === action 57: MAIN_ACTION 'play' {"player": 1, "slug": "timely_messenger"}
 --- narration
-{player:1} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:4} left.
+{player:1} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -505,7 +505,7 @@
 --- board changed
 === action 58: MAIN_ACTION 'play' {"player": 2, "slug": "timely_messenger"}
 --- narration
-{player:2} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:4} left.
+{player:2} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -534,7 +534,7 @@
 --- board changed
 === action 61: MAIN_ACTION 'play' {"player": 1, "slug": "helpful_turtle"}
 --- narration
-{player:1} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:0} left.
+{player:1} plays {card:helpful_turtle} 1/2 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -544,7 +544,7 @@
 --- board changed
 === action 62: MAIN_ACTION 'play' {"player": 2, "slug": "older_brother"}
 --- narration
-{player:2} plays {card:older_brother} for {gold:2}: 2/2. {gold:2} left.
+{player:2} plays {card:older_brother} 2/2 for {gold:2}. {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -725,7 +725,7 @@
 --- board changed
 === action 83: MAIN_ACTION 'play' {"player": 3, "slug": "timely_messenger"}
 --- narration
-{player:3} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:4} left.
+{player:3} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -735,7 +735,7 @@
 --- board changed
 === action 84: MAIN_ACTION 'play' {"player": 4, "slug": "timely_messenger"}
 --- narration
-{player:4} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:4} left.
+{player:4} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -745,7 +745,7 @@
 --- board changed
 === action 85: MAIN_ACTION 'play' {"player": 3, "slug": "helpful_turtle"}
 --- narration
-{player:3} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:2} left.
+{player:3} plays {card:helpful_turtle} 1/2 for {gold:2}. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -755,7 +755,7 @@
 --- board changed
 === action 86: MAIN_ACTION 'play' {"player": 4, "slug": "nimble_fencer"}
 --- narration
-{player:4} plays {card:nimble_fencer} for {gold:2}: 2/3. {gold:2} left.
+{player:4} plays {card:nimble_fencer} 2/3 for {gold:2}. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -765,7 +765,7 @@
 --- board changed
 === action 87: MAIN_ACTION 'play' {"player": 3, "slug": "older_brother"}
 --- narration
-{player:3} plays {card:older_brother} for {gold:2}: 2/2. {gold:0} left.
+{player:3} plays {card:older_brother} 2/2 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -991,7 +991,7 @@
 --- board changed
 === action 113: MAIN_ACTION 'play' {"player": 1, "slug": "tenderfoot"}
 --- narration
-{player:1} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:1} left.
+{player:1} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1191,7 +1191,7 @@
 --- board changed
 === action 136: MAIN_ACTION 'play' {"player": 4, "slug": "helpful_turtle"}
 --- narration
-{player:4} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:0} left.
+{player:4} plays {card:helpful_turtle} 1/2 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1201,7 +1201,7 @@
 --- board changed
 === action 137: MAIN_ACTION 'play' {"player": 3, "slug": "revolver_ocelot"}
 --- narration
-{player:3} plays {card:revolver_ocelot} for {gold:2}: 3/3. {gold:0} left.
+{player:3} plays {card:revolver_ocelot} 3/3 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1349,7 +1349,7 @@
 --- board changed
 === action 154: MAIN_ACTION 'play' {"player": 2, "slug": "tenderfoot"}
 --- narration
-{player:2} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:6} left.
+{player:2} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1359,7 +1359,7 @@
 --- board changed
 === action 155: MAIN_ACTION 'play' {"player": 1, "slug": "revolver_ocelot"}
 --- narration
-{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3. {gold:5} left.
+{player:1} plays {card:revolver_ocelot} 3/3 for {gold:2}. {gold:5} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1369,7 +1369,7 @@
 --- board changed
 === action 156: MAIN_ACTION 'play' {"player": 2, "slug": "nimble_fencer"}
 --- narration
-{player:2} plays {card:nimble_fencer} for {gold:2}: 2/3. {gold:4} left.
+{player:2} plays {card:nimble_fencer} 2/3 for {gold:2}. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1533,7 +1533,7 @@
 --- board changed
 === action 176: MAIN_ACTION 'play' {"player": 4, "slug": "tenderfoot"}
 --- narration
-{player:4} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:6} left.
+{player:4} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1543,7 +1543,7 @@
 --- board changed
 === action 177: MAIN_ACTION 'play' {"player": 3, "slug": "tenderfoot"}
 --- narration
-{player:3} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:6} left.
+{player:3} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1553,7 +1553,7 @@
 --- board changed
 === action 178: MAIN_ACTION 'play' {"player": 4, "slug": "brick_thief"}
 --- narration
-{player:4} plays {card:brick_thief} for {gold:2}: 2/1. {gold:4} left.
+{player:4} plays {card:brick_thief} 2/1 for {gold:2}. {gold:4} left.
 --- prompt TARGET (player 4)
 {player:4}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 1)
@@ -1607,7 +1607,7 @@
 --- board changed
 === action 184: MAIN_ACTION 'play' {"player": 4, "slug": "starcrossed_starlet"}
 --- narration
-{player:4} plays {card:starcrossed_starlet} for {gold:2}: 3/2. {gold:2} left.
+{player:4} plays {card:starcrossed_starlet} 3/2 for {gold:2}. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -1763,7 +1763,7 @@
 --- board changed
 === action 202: MAIN_ACTION 'play' {"player": 2, "slug": "granfalloon_flagbearer"}
 --- narration
-{player:2} plays {card:granfalloon_flagbearer} for {gold:2}: 2/2. {gold:1} left.
+{player:2} plays {card:granfalloon_flagbearer} 2/2 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1773,7 +1773,7 @@
 --- board changed
 === action 203: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 1}
 --- narration
-{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:6} left.
+{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -1807,7 +1807,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 207: MAIN_ACTION 'play' {"player": 1, "slug": "revolver_ocelot"}
 --- narration
-{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3. {gold:4} left.
+{player:1} plays {card:revolver_ocelot} 3/3 for {gold:2}. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt PATROL (player 2)
@@ -1825,7 +1825,7 @@
 --- board changed
 === action 209: MAIN_ACTION 'play' {"player": 1, "slug": "fruit_ninja"}
 --- narration
-{player:1} plays {card:fruit_ninja} for {gold:3}: 2/2. {gold:1} left.
+{player:1} plays {card:fruit_ninja} 2/2 for {gold:3}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 3)
@@ -1932,7 +1932,7 @@
 --- board changed
 === action 221: MAIN_ACTION 'play' {"player": 3, "slug": "brick_thief"}
 --- narration
-{player:3} plays {card:brick_thief} for {gold:2}: 2/1. {gold:1} left.
+{player:3} plays {card:brick_thief} 2/1 for {gold:2}. {gold:1} left.
 --- prompt TARGET (player 3)
 {player:3}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 1)
@@ -1958,7 +1958,7 @@
 --- board changed
 === action 224: MAIN_ACTION 'play' {"player": 4, "slug": "granfalloon_flagbearer"}
 --- narration
-{player:4} plays {card:granfalloon_flagbearer} for {gold:2}: 2/2. {gold:2} left.
+{player:4} plays {card:granfalloon_flagbearer} 2/2 for {gold:2}. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2153,7 +2153,7 @@
 --- board changed
 === action 246: MAIN_ACTION 'play' {"player": 2, "slug": "leaping_lizard"}
 --- narration
-{player:2} plays {card:leaping_lizard} for {gold:1}: 3/5. {gold:10} left.
+{player:2} plays {card:leaping_lizard} 3/5 for {gold:1}. {gold:10} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2163,7 +2163,7 @@
 --- board changed
 === action 247: MAIN_ACTION 'play' {"player": 1, "slug": "helpful_turtle"}
 --- narration
-{player:1} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:8} left.
+{player:1} plays {card:helpful_turtle} 1/2 for {gold:2}. {gold:8} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2173,7 +2173,7 @@
 --- board changed
 === action 248: MAIN_ACTION 'play' {"player": 2, "slug": "nimble_fencer"}
 --- narration
-{player:2} plays {card:nimble_fencer} for {gold:2}: 2/3. {gold:8} left.
+{player:2} plays {card:nimble_fencer} 2/3 for {gold:2}. {gold:8} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2285,7 +2285,7 @@
 --- board changed
 === action 261: MAIN_ACTION 'play' {"player": 3, "slug": "helpful_turtle"}
 --- narration
-{player:3} plays {card:helpful_turtle} for {gold:2}: 1/2. {gold:9} left.
+{player:3} plays {card:helpful_turtle} 1/2 for {gold:2}. {gold:9} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2295,7 +2295,7 @@
 --- board changed
 === action 262: MAIN_ACTION 'play' {"player": 4, "slug": "helpful_turtle"}
 --- narration
-{player:4} plays {card:helpful_turtle} for {gold:1}: 1/2. {gold:11} left.
+{player:4} plays {card:helpful_turtle} 1/2 for {gold:1}. {gold:11} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2305,7 +2305,7 @@
 --- board changed
 === action 263: MAIN_ACTION 'play' {"player": 3, "slug": "sneaky_pig"}
 --- narration
-{player:3} plays {card:sneaky_pig} for {gold:3}: 3/3. {gold:6} left.
+{player:3} plays {card:sneaky_pig} 3/3 for {gold:3}. {gold:6} left.
 {card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
@@ -2316,7 +2316,7 @@
 --- board changed
 === action 264: MAIN_ACTION 'play' {"player": 4, "slug": "leaping_lizard"}
 --- narration
-{player:4} plays {card:leaping_lizard} for {gold:1}: 3/5. {gold:10} left.
+{player:4} plays {card:leaping_lizard} 3/5 for {gold:1}. {gold:10} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2426,7 +2426,7 @@
 --- board changed
 === action 277: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 1}
 --- narration
-{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:16} left.
+{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:16} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2436,7 +2436,7 @@
 --- board changed
 === action 278: MAIN_ACTION 'play' {"player": 2, "slug": "tenderfoot"}
 --- narration
-{player:2} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:17} left.
+{player:2} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:17} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2446,7 +2446,7 @@
 --- board changed
 === action 279: MAIN_ACTION 'play' {"player": 1, "slug": "brick_thief"}
 --- narration
-{player:1} plays {card:brick_thief} for {gold:2}: 2/1. {gold:14} left.
+{player:1} plays {card:brick_thief} 2/1 for {gold:2}. {gold:14} left.
 --- prompt TARGET (player 1)
 {player:1}, {card:brick_thief}: deal 1 damage to a building.
 --- standing TECH_CHOICE (player 3)
@@ -2472,7 +2472,7 @@
 --- board changed
 === action 282: MAIN_ACTION 'play' {"player": 2, "slug": "starcrossed_starlet"}
 --- narration
-{player:2} plays {card:starcrossed_starlet} for {gold:2}: 3/2. {gold:15} left.
+{player:2} plays {card:starcrossed_starlet} 3/2 for {gold:2}. {gold:15} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2482,7 +2482,7 @@
 --- board changed
 === action 283: MAIN_ACTION 'play' {"player": 1, "slug": "iron_man"}
 --- narration
-{player:1} plays {card:iron_man} for {gold:3}: 3/4. {gold:11} left.
+{player:1} plays {card:iron_man} 3/4 for {gold:3}. {gold:11} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2533,7 +2533,7 @@
 --- standing TECH_CHOICE (player 4)
 === action 289: MAIN_ACTION 'play' {"player": 1, "slug": "eggship"}
 --- narration
-{player:1} plays {card:eggship} for {gold:4}: 4/3. {gold:7} left.
+{player:1} plays {card:eggship} 4/3 for {gold:4}. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt PATROL (player 2)
@@ -2609,7 +2609,7 @@
 --- board changed
 === action 298: MAIN_ACTION 'play' {"player": 4, "slug": "leaping_lizard"}
 --- narration
-{player:4} plays {card:leaping_lizard} for {gold:1}: 3/5. {gold:19} left.
+{player:4} plays {card:leaping_lizard} 3/5 for {gold:1}. {gold:19} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2619,7 +2619,7 @@
 --- board changed
 === action 299: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 3}
 --- narration
-{player:3} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:14} left.
+{player:3} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:14} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2629,7 +2629,7 @@
 --- board changed
 === action 300: MAIN_ACTION 'play' {"player": 4, "slug": "starcrossed_starlet"}
 --- narration
-{player:4} plays {card:starcrossed_starlet} for {gold:2}: 3/2. {gold:17} left.
+{player:4} plays {card:starcrossed_starlet} 3/2 for {gold:2}. {gold:17} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2639,7 +2639,7 @@
 --- board changed
 === action 301: MAIN_ACTION 'play' {"player": 3, "slug": "timely_messenger"}
 --- narration
-{player:3} plays {card:timely_messenger} for {gold:1}: 1/1. {gold:13} left.
+{player:3} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:13} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -2707,7 +2707,7 @@
 --- standing TECH_CHOICE (player 2)
 === action 309: MAIN_ACTION 'play' {"player": 3, "slug": "iron_man"}
 --- narration
-{player:3} plays {card:iron_man} for {gold:3}: 3/4. {gold:10} left.
+{player:3} plays {card:iron_man} 3/4 for {gold:3}. {gold:10} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt PATROL (player 4)
@@ -2814,7 +2814,7 @@
 --- board changed
 === action 322: MAIN_ACTION 'summon' {"hero": "river_montoya", "player": 2}
 --- narration
-{player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3. {gold:18} left.
+{player:2} summons {hero:river_montoya} 2/3, level 1, for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2824,7 +2824,7 @@
 --- board changed
 === action 323: MAIN_ACTION 'play' {"player": 1, "slug": "revolver_ocelot"}
 --- narration
-{player:1} plays {card:revolver_ocelot} for {gold:2}: 3/3. {gold:8} left.
+{player:1} plays {card:revolver_ocelot} 3/3 for {gold:2}. {gold:8} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2834,7 +2834,7 @@
 --- board changed
 === action 324: MAIN_ACTION 'play' {"player": 2, "slug": "starcrossed_starlet"}
 --- narration
-{player:2} plays {card:starcrossed_starlet} for {gold:2}: 3/2. {gold:16} left.
+{player:2} plays {card:starcrossed_starlet} 3/2 for {gold:2}. {gold:16} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2844,7 +2844,7 @@
 --- board changed
 === action 325: MAIN_ACTION 'play' {"player": 1, "slug": "eggship"}
 --- narration
-{player:1} plays {card:eggship} for {gold:4}: 4/3. {gold:4} left.
+{player:1} plays {card:eggship} 4/3 for {gold:4}. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -2854,7 +2854,7 @@
 --- board changed
 === action 326: MAIN_ACTION 'play' {"player": 2, "slug": "fruit_ninja"}
 --- narration
-{player:2} plays {card:fruit_ninja} for {gold:3}: 2/2. {gold:13} left.
+{player:2} plays {card:fruit_ninja} 2/2 for {gold:3}. {gold:13} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3001,7 +3001,7 @@
 --- board changed
 === action 344: MAIN_ACTION 'play' {"player": 4, "slug": "tenderfoot"}
 --- narration
-{player:4} plays {card:tenderfoot} for {gold:0}: 1/2.
+{player:4} plays {card:tenderfoot} 1/2 for {gold:0}.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3011,7 +3011,7 @@
 --- board changed
 === action 345: MAIN_ACTION 'play' {"player": 3, "slug": "older_brother"}
 --- narration
-{player:3} plays {card:older_brother} for {gold:2}: 2/2. {gold:11} left.
+{player:3} plays {card:older_brother} 2/2 for {gold:2}. {gold:11} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3021,7 +3021,7 @@
 --- board changed
 === action 346: MAIN_ACTION 'play' {"player": 4, "slug": "cloud_sprite"}
 --- narration
-{player:4} plays {card:cloud_sprite} for {gold:2}: 3/2. {gold:18} left.
+{player:4} plays {card:cloud_sprite} 3/2 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3031,7 +3031,7 @@
 --- board changed
 === action 347: MAIN_ACTION 'play' {"player": 3, "slug": "iron_man"}
 --- narration
-{player:3} plays {card:iron_man} for {gold:3}: 3/4. {gold:8} left.
+{player:3} plays {card:iron_man} 3/4 for {gold:3}. {gold:8} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3195,7 +3195,7 @@
 --- board changed
 === action 366: MAIN_ACTION 'play' {"player": 2, "slug": "timely_messenger"}
 --- narration
-{player:2} plays {card:timely_messenger} for {gold:0}: 1/1.
+{player:2} plays {card:timely_messenger} 1/1 for {gold:0}.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3205,7 +3205,7 @@
 --- board changed
 === action 367: MAIN_ACTION 'play' {"player": 1, "slug": "tenderfoot"}
 --- narration
-{player:1} plays {card:tenderfoot} for {gold:1}: 1/2. {gold:13} left.
+{player:1} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:13} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3215,7 +3215,7 @@
 --- board changed
 === action 368: MAIN_ACTION 'play' {"player": 2, "slug": "older_brother"}
 --- narration
-{player:2} plays {card:older_brother} for {gold:1}: 2/2. {gold:18} left.
+{player:2} plays {card:older_brother} 2/2 for {gold:1}. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3225,7 +3225,7 @@
 --- board changed
 === action 369: MAIN_ACTION 'play' {"player": 1, "slug": "sneaky_pig"}
 --- narration
-{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3. {gold:10} left.
+{player:1} plays {card:sneaky_pig} 3/3 for {gold:3}. {gold:10} left.
 {card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
@@ -3417,7 +3417,7 @@
 --- board changed
 === action 392: MAIN_ACTION 'play' {"player": 4, "slug": "cloud_sprite"}
 --- narration
-{player:4} plays {card:cloud_sprite} for {gold:2}: 3/2. {gold:18} left.
+{player:4} plays {card:cloud_sprite} 3/2 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3427,7 +3427,7 @@
 --- board changed
 === action 393: MAIN_ACTION 'play' {"player": 3, "slug": "hired_stomper"}
 --- narration
-{player:3} plays {card:hired_stomper} for {gold:4}: 4/3. {gold:14} left.
+{player:3} plays {card:hired_stomper} 4/3 for {gold:4}. {gold:14} left.
 --- prompt TARGET (player 3)
 {player:3}, {card:hired_stomper}: deal 3 damage to a unit.
 --- standing TECH_CHOICE (player 1)
@@ -3446,7 +3446,7 @@
 --- board changed
 === action 395: MAIN_ACTION 'play' {"player": 3, "slug": "regularsized_rhinoceros"}
 --- narration
-{player:3} plays {card:regularsized_rhinoceros} for {gold:4}: 5/6. {gold:10} left.
+{player:3} plays {card:regularsized_rhinoceros} 5/6 for {gold:4}. {gold:10} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3456,7 +3456,7 @@
 --- board changed
 === action 396: MAIN_ACTION 'play' {"player": 4, "slug": "nimble_fencer"}
 --- narration
-{player:4} plays {card:nimble_fencer} for {gold:2}: 2/3. {gold:16} left.
+{player:4} plays {card:nimble_fencer} 2/3 for {gold:2}. {gold:16} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- prompt MAIN_ACTION (player 4)
@@ -3599,7 +3599,7 @@
 --- board changed
 === action 413: MAIN_ACTION 'summon' {"hero": "troq_bashar", "player": 1}
 --- narration
-{player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3. {gold:18} left.
+{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3609,7 +3609,7 @@
 --- board changed
 === action 414: MAIN_ACTION 'play' {"player": 2, "slug": "leaping_lizard"}
 --- narration
-{player:2} plays {card:leaping_lizard} for {gold:1}: 3/5. {gold:19} left.
+{player:2} plays {card:leaping_lizard} 3/5 for {gold:1}. {gold:19} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
@@ -3637,7 +3637,7 @@
 --- board changed
 === action 417: MAIN_ACTION 'play' {"player": 1, "slug": "sneaky_pig"}
 --- narration
-{player:1} plays {card:sneaky_pig} for {gold:3}: 3/3. {gold:13} left.
+{player:1} plays {card:sneaky_pig} 3/3 for {gold:3}. {gold:13} left.
 {card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
@@ -3648,7 +3648,7 @@
 --- board changed
 === action 418: MAIN_ACTION 'play' {"player": 2, "slug": "cloud_sprite"}
 --- narration
-{player:2} plays {card:cloud_sprite} for {gold:2}: 3/2. {gold:17} left.
+{player:2} plays {card:cloud_sprite} 3/2 for {gold:2}. {gold:17} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- prompt MAIN_ACTION (player 2)
