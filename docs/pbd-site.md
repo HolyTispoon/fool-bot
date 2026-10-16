@@ -313,7 +313,7 @@ worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 
 | # | Step | Size |
 | --- | --- | --- |
-| 1 | The shapes: the record, the JSON, the segments, the design note | medium |
+| ~~1~~ | ~~The shapes: the record, the JSON, the segments, the design note~~ -- landed; `cogs/codex_publish/` (`record`, `keys`, `shapes`, `segments`) and [design/pbd-site.md](design/pbd-site.md) | ~~medium~~ |
 | 2 | The store and the queue: R2 behind `CODEX_PUBLISH_*`, a fake for the tests, the put order, the deletes, the lists' own queue | medium |
 | 3 | The hooks: the Codex cog publishes every change, every turn's end, every undo, every ending | medium |
 | 4 | The site: `pbd/`, the two lists, the game, the log column, the history, the viewer, the Function | medium |
