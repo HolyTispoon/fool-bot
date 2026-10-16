@@ -357,6 +357,45 @@ class EndingTests(unittest.TestCase):
         self.assertEqual(match.active, 3)
         self.assertEqual(match.playoff, [1])
 
+    def test_an_extra_turn_is_taken_before_the_playoff(self) -> None:
+        """The author, 2026-10-16 ("extra turn first"): Double Time's
+        "Take an extra turn after this one" comes straight after the turn
+        that earned it, the playoff after it -- in the order it was
+        filled, so nobody's playoff turn is lost to it."""
+        engine, game, match, _ = self.tie()
+        match.extra_turns = [1]  # seat 1 cast Double Time this turn
+        heard = end_turn(engine, game, match)
+        self.assertIn(f"{tokens.player(1)} takes an extra turn.", heard)
+        self.assertEqual(match.active, 1)
+        self.assertEqual((match.extra_turns, match.playoff), ([], [3, 1]))
+        end_turn(engine, game, match)
+        self.assertEqual(match.active, 3)
+        self.assertEqual(match.playoff, [1])
+        match.set_base(1, 9)  # seat 3 hurts seat 1 in its playoff turn
+        end_turn(engine, game, match)
+        self.assertEqual(match.active, 1)
+        heard = end_turn(engine, game, match)
+        self.assertEqual(match.winner, 3)
+        self.assertIn(f"{tokens.player(3)} wins with 14 base HP: the tie is broken.", heard)
+
+    def test_an_extra_turn_earned_in_the_last_playoff_turn_comes_before_the_comparison(
+            self) -> None:
+        """The comparison among the tied waits for an extra turn the last
+        playoff turn earned: that turn is still the tied player's."""
+        engine, game, match, _ = self.tie()
+        end_turn(engine, game, match)
+        end_turn(engine, game, match)
+        self.assertEqual((match.active, match.playoff), (1, []))
+        match.extra_turns = [1]  # seat 1 casts Double Time in its playoff turn
+        heard = end_turn(engine, game, match)
+        self.assertIsNone(match.winner)
+        self.assertIn(f"{tokens.player(1)} takes an extra turn.", heard)
+        self.assertEqual(match.active, 1)
+        match.set_base(3, 9)  # seat 1 hurts seat 3 in it
+        heard = end_turn(engine, game, match)
+        self.assertEqual(match.winner, 1)
+        self.assertIn(f"{tokens.player(1)} wins with 14 base HP: the tie is broken.", heard)
+
     def test_a_tie_the_rest_of_the_turn_would_break_still_plays_off(self) -> None:
         """Question 15 (the author, 2026-10-14): the tied players are those
         tied when the base falls -- "at that moment" -- and a repair later
@@ -436,6 +475,53 @@ class TowerAndArmorTests(unittest.TestCase):
         from codex.components import AddOnState
 
         match.player(seat).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
+
+    def mirror(self):
+        """Seat 1 with a tower; seats 2 and 3 each with River Montoya in
+        play, invisible -- a mirror game's two copies of one hero, one ref."""
+        engine, game, match = free_for_all(teams=(("bashing",), ("finesse",), ("finesse",)))
+        self.tower(match, 1)
+        for seat in (2, 3):
+            hero_in_play(match, seat)
+            match.player(seat).heroes[0].modifiers.append(
+                {"kind": "keyword", "keyword": "Invisible", "until": "end_of_turn"})
+        return engine, game, match
+
+    def test_a_mirror_games_two_copies_of_a_hidden_hero_are_two_candidates(self) -> None:
+        """The tower's own-turn detection keys a candidate by its seat and
+        its ref (the review of 2026-10-15): two players' River Montoya are
+        two choices, the answer naming whose, and detecting one leaves the
+        other hidden."""
+        engine, game, match = self.mirror()
+        river = "hero:river_montoya"
+        option = engine.detect_option(match)
+        self.assertEqual(list(zip(option.seats, option.candidates)), [(2, river), (3, river)])
+        self.assertEqual(option.to_dict()["seats"], [2, 3])
+        refused = driver.apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "detect", {"card": river}))
+        self.assertIsInstance(refused, driver.Refusal)
+        self.assertIn("more than one side", refused.reason)
+        heard = said(apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "detect", {"card": river, "against": 3})))
+        self.assertIn(f"{tokens.player(3)}'s", heard)
+        self.assertTrue(engine.detected_by(match, 1, river, 3))
+        self.assertFalse(engine.detected_by(match, 1, river, 2))
+        self.assertEqual(engine.hidden(match, 2, river), "invisible")
+        self.assertFalse(engine.targetable(match, 1, 2, river))
+        self.assertTrue(engine.targetable(match, 1, 3, river))
+
+    def test_the_detected_seat_is_saved_only_while_set(self) -> None:
+        """`detected_seat` beside `detected`, written only while set, so a
+        save without one reads as before -- the ref alone matched."""
+        engine, game, match = self.mirror()
+        tower = match.player(1).add_on
+        self.assertNotIn("detected_seat", match.to_dict()["players"][0]["add_on"])
+        tower.detected, tower.detected_seat = "hero:river_montoya", 3
+        saved = match.to_dict()
+        self.assertEqual(saved["players"][0]["add_on"]["detected_seat"], 3)
+        older = MatchState.from_dict(saved)
+        older.player(1).add_on.detected_seat = None  # a save from before
+        self.assertTrue(engine.detected_by(older, 1, "hero:river_montoya", 2))
 
     def test_the_tower_detects_only_an_attacker_of_its_owner(self) -> None:
         """Rulebook p. 4: "the first one of those that attacks you" -- a

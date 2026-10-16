@@ -169,5 +169,45 @@ class RecordOfSeveralSeatsTests(unittest.TestCase):
         self.assertEqual(engine.next_seat(match), seats.next_seat(match))
 
 
+
+class VariantReadingTests(unittest.TestCase):
+    """The variant read one way (docs/design/codex.md, "The variant and
+    the seats"): three predicates on the match and the record, and
+    `by_variant` for a line worded three ways."""
+
+    def test_the_match_and_the_record_answer_alike(self) -> None:
+        from codex.game import FREE_FOR_ALL, TWO_HEADED_DRAGON, VARIANTS
+
+        for variant, count in (("duel", 2), (FREE_FOR_ALL, 3), (TWO_HEADED_DRAGON, 4)):
+            with self.subTest(variant=variant):
+                _, game, match = new_game(teams=TEAMS[:count], variant=variant)
+                game.variant = variant
+                for one in (match, game):
+                    self.assertEqual((one.is_duel, one.is_free_for_all, one.is_dragon),
+                                     tuple(variant == name for name in VARIANTS))
+                self.assertEqual(match.is_dragon, bool(match.dragons))
+
+    def test_by_variant_names_all_three(self) -> None:
+        from codex.game import by_variant
+
+        words = {"duel": "your opponent's", "free_for_all": "the others'",
+                 "two_headed_dragon": "the other team's"}
+        for variant, expected in words.items():
+            self.assertEqual(by_variant(variant, duel=words["duel"],
+                                        free_for_all=words["free_for_all"],
+                                        dragon=words["two_headed_dragon"]), expected)
+
+    def test_another_team_is_asked_of_a_dragon_alone(self) -> None:
+        _, _, match = new_game(teams=TEAMS[:3], variant="free_for_all")
+        with self.assertRaises(RuleRefusal):
+            seats.other_team(match, 1)
+
+    def test_an_attack_against_nobody_chosen_says_what_to_do(self) -> None:
+        engine, _, match = new_game(teams=TEAMS[:3], variant="free_for_all")
+        with self.assertRaises(RuleRefusal) as refused:
+            engine.defending_seat(match)
+        self.assertEqual(str(refused.exception), "Choose whose forces to attack first.")
+
+
 if __name__ == "__main__":
     unittest.main()

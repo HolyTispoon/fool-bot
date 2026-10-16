@@ -610,7 +610,16 @@ always.
   included. On its owner's own turn the detection is an action instead
   (`detect`, offered in `MainActionOptions.detect`), naming one hidden
   card of the opponent's for the rest of the turn. Both are once a turn,
-  and `begin_turn` makes it new again.
+  and `begin_turn` makes it new again. **A detection names a seat as
+  well as a ref** (2026-10-16): a hero's ref is its slug, so in a mirror
+  game at a table two opponents' copies of one hero share it, and were
+  one candidate that, detected, showed both. `DetectOption.seats` gives
+  each candidate's seat (on the wire only where there are several), the
+  action takes `against` and refuses an ambiguous ref without it, as the
+  levels' recipient does, and the tower keeps `detected_seat` beside
+  `detected` -- written only while set, so a save from before matches
+  the ref alone, as it did. `detected_by` takes the side the thing is
+  on; every caller knows it.
 - **The damage lands in two batches** (`codex.flow.combat._resolve`):
   swift strike's first, then everything else, with deaths taken between
   them, so a card destroyed by swift strike deals nothing back and two
@@ -1035,7 +1044,8 @@ black's, and the rest waits for step 13.
   the channel hears none of it until a card is discarded.
 - **The extra turn.** Double Time appends its caster to
   `MatchState.extra_turns`; `begin_tech` gives the next turn to the
-  first seat waiting there instead of the other player, so two Double
+  first seat waiting there instead of the other player -- and, in a
+  free-for-all, ahead of a playoff ("Multiplayer") -- so two Double
   Times are two extra turns, three turns in a row (its ruling). The
   tech choice in an extra turn is the standing prompt as in any turn,
   asked in the ready phase and confirmed there.
@@ -1216,7 +1226,8 @@ match as its saved dict, as D12 Ball's record does; its file,
 - **Step 5 added four**, each with its fallback, since the save format is
   the contract: `attacked_this_turn` on a card and a hero (readiness
   attacks once a turn), `detected` on the add-on (what the tower has
-  detected this turn), and `combat` on the match -- the attack standing
+  detected this turn; `detected_seat` beside it since 2026-10-16, written
+  only while set), and `combat` on the match -- the attack standing
   half-resolved while a choice inside it is asked, so a restart between
   two clicks asks the same question.
 - **Step 6 added four more**, each with its fallback: `plus_runes`,
@@ -3536,6 +3547,14 @@ than 66 sites; the PR of every step showed these empty:
   `acting_seats` differ only in a dragon, where a teammate who has
   locked is still taking their turn -- their Frenzy still counts, their
   tower is not a defender's.
+- **No "other seat" is worked out by hand** (2026-10-16): the engine's
+  `defending_seat` asks `sole_opponent` -- which takes the refusal's
+  words, "Choose whose forces to attack first." there -- and the save's
+  `read_defending_seat` and `upgrade_hero_refs` ask `opponents` and
+  `sole_opponent`, the second only for a save of two seats, the only kind
+  that holds the bare `hero` it rewrites. `other_team` refuses outside a
+  dragon, as `sole_opponent` refuses a table, rather than raising a
+  StopIteration a generator would swallow.
 - **`sole_opponent` marks a site that must be a duel's.** Where a rule
   reads "the opponent" and the duel's one is the whole answer, the code
   asks `sole_opponent`, which refuses a table with several opponents
@@ -3579,6 +3598,21 @@ than 66 sites; the PR of every step showed these empty:
   -- a match outlives its lobby. The hero count stays `mode`; the two
   are independent axes, as the rulebook has them. A duel writes no
   `variant` key.
+- **The variant is read one way** (2026-10-16, after the review of
+  2026-10-15): `is_duel`, `is_free_for_all` and `is_dragon`, the same
+  three on `MatchState` and on `CodexGame`, in the shape of `base_of`.
+  Nothing compares `variant` to a string outside them and `new_match`,
+  which names `DUEL`, `FREE_FOR_ALL` and `TWO_HEADED_DRAGON`, and nothing
+  reads `match.dragons` for its truth -- only `seats.py` reads the teams
+  it holds. They were 13 string compares on the match, 25 on the record
+  and 39 truth tests on `dragons`, some mixed in one expression. **A line
+  worded three ways is `game.by_variant(variant, duel=, free_for_all=,
+  dragon=)`**, which names all three, so none falls through to the duel's
+  wording -- how several duel lines reached a table before #601: the
+  undo's label, "has already started their turn", the tech button's
+  "changed during your opponent's turn". Lines that branch on more than
+  the variant (a team of one seat's extra turn) keep their own
+  conditions over the predicates.
 - **The record's seats are a list** (decision 3): `CodexGame.seats`,
   `{id, name}` per seat as long as `seat_count`, an empty seat keeping
   its number. The four `player_1_*` / `player_2_*` keys are still
@@ -3637,9 +3671,17 @@ than 66 sites; the PR of every step showed these empty:
   playoff empties as it is played and the comparison after it is among
   the tied alone. The current turn runs to its end first -- the UMR's
   reading, the rulebook being silent -- and changes nothing about who is
-  tied. `next_seat` hands the playoff out ahead of the order and of any
-  extra turn; `begin_tech` pops it and, once it has emptied, compares
-  again: a winner, or the playoff filled again ("Still tied"). While
+  tied. `next_seat` hands the playoff out ahead of the order;
+  `begin_tech` pops it and, once it has emptied, compares again: a
+  winner, or the playoff filled again ("Still tied"). **Double Time's
+  extra turn comes first** (the author, 2026-10-16: "extra turn
+  first", the rulebook being silent): the card says "after this one",
+  so a seat owed one (`seats.owes_extra_turn`) takes it straight after
+  the turn that earned it, ahead of the playoff, which then runs in the
+  order it was filled; and the comparison after the last playoff turn
+  waits for an extra turn that turn earned. Before this the playoff
+  went first and the extra turn was in practice lost, since the active
+  seat after the playoff was no longer the one it was owed to. While
   anyone is tied only a tied player's base falling counts, and the game
   ends then on the comparison among the tied. **A debt unpaid is a base
   destroyed**: the base to zero, the comparison then. **A destroyed base
@@ -3702,7 +3744,12 @@ on.
   (cost 3, `allowed`, `why_not`) on `MainActionOptions.repair`, `None`
   and absent from the wire outside a free-for-all, as often a turn as
   the gold goes, through `base_of` / `set_base`, journaled as every
-  action is; refused at 20, under 3 gold, and in a duel.
+  action is; refused at 20, under 3 gold, and in a duel -- and **once
+  the base is destroyed** ("the base is destroyed", 2026-10-16): a base
+  at 0 is out of the game and no defender, and its player reaches their
+  own main phase with it only after a debt unpaid at their upkeep left
+  a tie. Repairing it from 0 put it back among the defenders, and its
+  second fall was announced again.
   - **On Discord it is a button on the panel's board row** (the panel
     step, 2026-10-15): **Repair base (3 gold)**, green among what may be
     built where the engine allows it, and greyed with its reason --
@@ -3815,6 +3862,37 @@ on.
   patroller it may take is, where before the hero was on nobody's list
   -- `player.play` and the owner's `heroes_in_play` -- and only a
   blocking patroller was offered.
+- **A lent hero is its controller's to every effect that says so**
+  (2026-10-16, after the review of 2026-10-15).
+  `MatchState.heroes_controlled(seat)` is the one reading of the heroes a
+  seat controls -- its own in play and not lent out (`hero:<slug>`),
+  then those lent into its zone (`<owner seat>:hero:<slug>`) -- and
+  `_hero_refs_of` reads it. What "you have", "your", "that opponent
+  controls" and "each opposing" read is on it: Inverse Power Ninja's
+  count, a hero's band grants (Midori's, Calamandra's, Drakk's), Stalking
+  Tiger's Feral hero, the target lists that take any side's heroes (any
+  unit or hero, a time rune, runes, a flier, Boot Camp's), Dothram's total
+  ATK, Plague Lord, Molting Firebird, Death and Decay, Banefire Golem,
+  channeling's "the correct hero", Orpal's, and the dead hero's levels
+  and their prompt (`board.destroy`, `_level_options`, the answer through
+  `hero_on`). What reads every unit and hero in play -- Wandering Mimic,
+  Bloodlust -- reads `heroes_on_table`, so a lent hero is on its owner's
+  list there; Maximum Anarchy and Spreading Plague build their rows
+  through `heroes_controlled`, so a lent hero is named as its side names
+  it. What is the owner's stays on `heroes_in_play` and the hero list:
+  the hero limit, summoning, the command zone, healing and the upkeep's
+  own effects, and every effect of the seat's own turn, which a lent-in
+  hero never meets, since it goes home first thing in the borrower's
+  upkeep. **The levels of a hero that dies may go to a hero lent to an
+  opponent** of its controller, that opponent's to give, the same
+  reading question 18 took for the dead hero (built so; the PR asks).
+  Grants such as Training Grounds and Hero's Monument were already
+  worked out per hero through `seat_of`. A lent hero keeps the **Final
+  Showdown** its owner attached to it: the spell stays in its caster's
+  play, `<owner>:hero:<slug>`, which `_hero_profile` reads for a lent
+  hero beside the controller's play. And a lent hero's button names it:
+  `formatting.ref_label` resolves either spelling (`hero_on`), where it
+  had printed the bare `3:hero:troq_bashar`.
 - **On Discord a loan is a destination in the patrol view** (the panel
   step, 2026-10-15; `PatrolView`). Where the options carry `zones`,
   each opponent's open slots follow the owner's five in the slot menu --
@@ -3869,7 +3947,14 @@ on.
   (`driver.answer`) and puts the team's head back between actions
   (`driver.settle_active`, once nothing stands half-resolved); every
   reading made on a seat's behalf -- its prompt's options and ask -- is
-  made under `seats.as_active`. The questions that are the team's do not
+  made under `seats.as_active`. **A prompt's options are built one way,
+  `prompts.asked_options`**, with the asked seat active where it is one
+  of the turn's seats: `_finished` and `driver.advance` both ask it.
+  Until 2026-10-16 `advance` rebuilt the run's following prompt with
+  plain `with_options`, before `apply` settled the head, so after a
+  teammate's action the head's question carried the teammate's hand
+  (the review of 2026-10-15; nothing read it yet, since the cog asks
+  `pending_prompts`). The questions that are the team's do not
   move: `turn_seats` is the active seat's dragon, the same for both
   teammates, and `next_seat` and the snapshots rest on the head
   (`seats.head_of`).
@@ -4238,13 +4323,6 @@ with its own condition.
 
 ### Not yet, and still open
 
-- **The tower's own-turn detection names a ref**, so in a mirror game
-  two of one hero hidden at once are one candidate.
-- **An effect that names "your heroes" does not see a hero lent to its
-  controller** (`heroes_in_play` is the owner's reading there); units,
-  which sit in the borrower's play zone, are seen by every effect. (The
-  board draws a lent hero in the borrower's slot since 2026-10-15 --
-  "The board", above.)
 - **A dragon panel made stale by the teammate's click** is refreshed
   only by its own player's next click, as decision 13 says; nothing
   pushes it.

@@ -110,7 +110,9 @@ def _ref_label(engine, match, seat: int, ref: str, note: str) -> str:
         card = next((one for one in player.future if f"future:{one.id}" == ref), None)
         if card is not None:
             return f"{catalog().name(card.slug)} (in the future, {card.time_runes} time runes)"
-    hero = player.hero_by_ref(ref) if is_hero_ref(ref) else None
+    # Either spelling: a hero lent into `seat`'s patrol zone is named
+    # `<owner seat>:hero:<slug>` there (`MatchState.hero_on`).
+    hero = match.hero_on(seat, ref) if is_hero_ref(ref) else None
     if hero is not None:
         atk, hp = engine.hero_stats(hero)
         label = f"{catalog().name(hero.slug)} {atk}/{hp}"

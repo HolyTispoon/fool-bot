@@ -174,7 +174,7 @@ class TurnsMixin:
         and nothing reads one teammate's for the team's."""
         if standing:
             return self.standing_for(game, match, seat)
-        if match.dragons:
+        if match.is_dragon:
             found = pending(self.engine, game, match, seat)
             return found if isinstance(found, PendingPrompt) else None
         prompt = pending_prompt(self.engine, game, match)
@@ -190,7 +190,7 @@ class TurnsMixin:
         **Switch to** button.
         """
         held = game.seats_of(user_id)
-        if match.dragons and match.winner is None and len(held) > 1:
+        if match.is_dragon and match.winner is None and len(held) > 1:
             for seat in self.engine.acting_seats(match):
                 if seat in held and self.prompt_for(game, match, seat) is not None:
                     return seat
@@ -200,7 +200,7 @@ class TurnsMixin:
         """The other acting seat the same person holds in a dragon's test
         game, where it has a question of its own -- what the panel's
         **Switch to** button sends -- or `None`."""
-        if not match.dragons or match.winner is not None:
+        if not match.is_dragon or match.winner is not None:
             return None
         held = game.seats_of(user_id)
         for other in self.engine.acting_seats(match):
@@ -267,7 +267,7 @@ class TurnsMixin:
             files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt, self.engine.opponents(match, prompt.asked_player)))]
         elif prompt.kind in PANEL_HAND_KINDS or gate:
             files = await hand_files(self.engine, match, prompt.asked_player)
-            if match.dragons:
+            if match.is_dragon:
                 # The teammate's hand under one's own wherever the hand is
                 # pictured (decision 13); a duel's reveal stays the main
                 # phase's.
@@ -331,7 +331,7 @@ class TurnsMixin:
         """
         prompt = self.prompt_for(game, match, seat, standing)
         if prompt is None:
-            if edit and match.dragons and seat in self.engine.turn_seats(match) and match.winner is None:
+            if edit and match.is_dragon and seat in self.engine.turn_seats(match) and match.winner is None:
                 # A teammate's panel the team has moved past -- their
                 # teammate's action stands part-way, or they have locked:
                 # the hand, why, and **Back to my turn** (decision 13).
@@ -475,7 +475,7 @@ class TurnsMixin:
         if prompt is not None:
             await self.show_panel(interaction, game, match, seat, edit=True)
             return
-        if match is not None and match.dragons and match.winner is None \
+        if match is not None and match.is_dragon and match.winner is None \
                 and seat in self.engine.turn_seats(match):
             # The team's turn goes on without this seat for now: in a test
             # game, the one person's other seat, where it is asked
@@ -744,7 +744,7 @@ class TurnsMixin:
                                   note="There is no previous turn to go back to.")
             return
         asker = seat_label(game, seat)
-        duel = match.variant == "duel"
+        duel = match.is_duel
         # In a dragon the turn unwound was the other team's: either of its
         # players may agree (decision 15) -- unless it was one seat's
         # extra turn alone, which is that seat's to agree to, as it was

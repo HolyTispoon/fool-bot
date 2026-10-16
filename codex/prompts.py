@@ -737,14 +737,15 @@ def _upkeep_options(engine, game, match, prompt) -> UpkeepOrderOptions:
 
 
 def _level_options(engine, game, match, prompt) -> LevelGainOptions:
-    from codex.components import hero_ref
-
     top = match.resolving[0]
     owner = match.player(top["seat"])
     # Several seats only where the dead hero had several opponents; the
     # answer may name the seat beside the ref (`seat`).
     holders = [match.player(seat) for seat in top.get("seats") or [top["seat"]]]
-    found = [(holder.seat, hero_ref(hero.slug)) for holder in holders for hero in holder.heroes_in_play
+    # Each holder's heroes as their side names them: one lent to them is
+    # `<owner seat>:hero:<slug>` (`heroes_controlled`).
+    found = [(holder.seat, ref) for holder in holders
+             for ref, hero in match.heroes_controlled(holder.seat)
              if engine.takes_kill_levels(hero)]
     return LevelGainOptions(
         prompt.asked_player, owner.seat, tuple(ref for _, ref in found), tuple(seat for seat, _ in found),
@@ -993,9 +994,7 @@ def _finished(engine, game, match: MatchState, waiting: Union[PendingPrompt, Fol
               ) -> Union[PendingPrompt, FollowOn]:
     """A prompt with the notes its asked player is told and the options
     it carries -- read with the asked seat active, which in a dragon is
-    whichever teammate is the one asked."""
-    from codex import seats
-
+    whichever teammate is the one asked (`asked_options`)."""
     if isinstance(waiting, FollowOn):
         return waiting
     asked = waiting.asked_player
@@ -1003,10 +1002,29 @@ def _finished(engine, game, match: MatchState, waiting: Union[PendingPrompt, Fol
         told = discard_notes(match, asked)
         if told:
             waiting = replace(waiting, told=told)
-    if match.dragons and asked is not None and asked in engine.turn_seats(match):
+    return asked_options(engine, game, match, waiting)
+
+
+def asked_options(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                  prompt: PendingPrompt) -> PendingPrompt:
+    """
+    `prompt` with its options, **read with the asked seat active** where
+    it is one of the seats whose turn it is: in a dragon `match.active`
+    is whichever teammate last acted until the driver settles the head
+    (`driver.settle_active`), so a teammate's question read without it
+    would carry the other teammate's options. A defender's question, the
+    other team's, is read with the turn's seat active, as it must be. The
+    one way options are built for a prompt: `_finished` and
+    `driver.advance` both ask it (the review of 2026-10-15 found
+    `advance` rebuilding a dragon's options without it).
+    """
+    from codex import seats
+
+    asked = prompt.asked_player
+    if match.is_dragon and asked is not None and asked in engine.turn_seats(match):
         with seats.as_active(match, asked):
-            return with_options(engine, game, match, waiting)
-    return with_options(engine, game, match, waiting)
+            return with_options(engine, game, match, prompt)
+    return with_options(engine, game, match, prompt)
 
 
 def pending_all(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -1018,12 +1036,12 @@ def pending_all(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     duel's and a free-for-all's list is `[pending(...)]`. A step the bot
     owes is a list of that step alone.
     """
-    if not match.dragons:
+    if not match.is_dragon:
         return [pending(engine, game, match)]
     return [_finished(engine, game, match, waiting) for waiting in _team_pending(engine, game, match)]
 
 
-def _half_resolved(match: MatchState) -> bool:
+def half_resolved(match: MatchState) -> bool:
     """Whether a teammate's action stands part-way: an effect under way,
     an attack declared or one at a choice of its own. Then the team waits
     on that one question alone (decision 8)."""
@@ -1036,7 +1054,7 @@ def _team_pending(engine, game, match: MatchState) -> list[Union[PendingPrompt, 
     """`_pending` for a dragon, a prompt per acting seat (decision 8)."""
     from codex import seats
 
-    if match.winner is not None or _half_resolved(match):
+    if match.winner is not None or half_resolved(match):
         return [_pending(engine, game, match)]
     taking = engine.turn_seats(match)
     if match.phase == "ready":
@@ -1088,7 +1106,7 @@ def pending(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     questions than this one, which only a client that lists them all
     (`pending_prompts`) hears.
     """
-    if not match.dragons:
+    if not match.is_dragon:
         waiting = _pending(engine, game, match)
         return _finished(engine, game, match, waiting)
     found = pending_all(engine, game, match)
@@ -1125,8 +1143,8 @@ def pending_prompt(engine, game, match) -> Optional[PendingPrompt]:
     while the bot owes a step. **Raises `SeveralAsked` on a match with
     more than one acting seat** (decision 8): nothing may read one
     teammate's prompt for the team's."""
-    if match.dragons and len(engine.acting_seats(match)) > 1 and match.winner is None \
-            and not _half_resolved(match):
+    if match.is_dragon and len(engine.acting_seats(match)) > 1 and match.winner is None \
+            and not half_resolved(match):
         owed = pending_all(engine, game, match)
         if len([one for one in owed if isinstance(one, PendingPrompt)]) > 1:
             raise SeveralAsked("This team has more than one seat to ask; list them with pending_prompts.")

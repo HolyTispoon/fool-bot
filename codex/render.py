@@ -1813,7 +1813,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     # A dragon team's one base is drawn on both teammates' columns, marked
     # JOINT (the author, 2026-10-15).
     draw_building_column(body, player, match.base_of(seat), building_hp, o, o + height,
-                         joint=bool(match.dragons))
+                         joint=match.is_dragon)
 
     grid_left = o + BUILDING_WIDTH + BUILDING_GAP
     draw = ImageDraw.Draw(body)
@@ -2121,9 +2121,9 @@ def compose_board(match: MatchState, layout: str = "stacked",
     # dragon's teammates, or the one seat taking an extra turn.
     label = divider_label(match, " and ".join(name(seat) for seat in seats.turn_seats(match)))
 
-    if match.dragons:
+    if match.is_dragon:
         return _compose_dragon(match, layout, panels, label, near)
-    if match.variant == "free_for_all":
+    if match.is_free_for_all:
         if layout == "side_by_side":
             return _compose_rows(match, panels, label, near)
         return _compose_table(match, panels, label, near)

@@ -207,6 +207,20 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call.last()[1][0], NOT_YOUR_TABLE)
         self.assertNotIn("two", NOT_YOUR_TABLE)
 
+    async def test_an_attack_with_nothing_to_attack_at_a_table_is_a_greyed_button(self) -> None:
+        """With no defender to label, the defender panel asks nobody for
+        "the one opponent", which a table of several refuses: it shows
+        **Nothing can be attacked** greyed and **Cancel the attack** (the
+        review of 2026-10-15)."""
+        from codex.prompts import DefenderOptions, PendingPrompt, PromptKind
+
+        match = self.table.match
+        prompt = PendingPrompt(PromptKind.CHOOSE_DEFENDER, "Choose a defender.", match.active,
+                               DefenderOptions(attacker="unit:1", defenders=()))
+        view = TurnPanelView(self.table.cog, self.game.game_id, prompt, match)
+        self.assertEqual(labels(view), ["Nothing can be attacked", "Cancel the attack"])
+        self.assertTrue(find_button(view, "Nothing can be attacked").disabled)
+
     async def test_a_watchers_concede_is_refused_in_the_models_words(self) -> None:
         concede = self.table.cog.concede_command.callback
         call = self.table.interaction(user(999, "watcher"))

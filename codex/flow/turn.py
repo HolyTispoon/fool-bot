@@ -93,7 +93,7 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         return
     match.set_base(seat, max(0, base - amount))
     if match.base_of(seat) == 0 and match.winner is None and base > 0:
-        if match.variant == "free_for_all":
+        if match.is_free_for_all:
             base_destroyed(match, seat, result)
             return
         # The one opponent of a duel wins, or the dragon team across the
@@ -190,7 +190,7 @@ def refuse_concession(match: MatchState, seat: Optional[int]) -> None:
         raise RuleRefusal("Only a player of the game can concede it.")
     if match.winner is not None:
         raise RuleRefusal("This game is already over.")
-    if match.variant == "free_for_all":
+    if match.is_free_for_all:
         raise RuleRefusal(
             "A free-for-all has no conceding: there is no player elimination.",
             cite="Rulebook p. 14",
@@ -286,6 +286,7 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             body.attacked_this_turn = False
         if side.add_on is not None:
             side.add_on.detected = None
+            side.add_on.detected_seat = None
     # Armor refreshes at the start of every turn (UMR p. 10); only the
     # other player's patrollers are standing in their slots now.
     for side in match.players:
@@ -369,7 +370,7 @@ def _begin_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState, s
     from codex.flow import board
 
     player = match.player(seat)
-    if match.dragons:
+    if match.is_dragon:
         # The upkeep is this teammate's action while it runs.
         match.active = seat
     board.return_lent(engine, match, seat, result)
@@ -772,7 +773,9 @@ def _plague_lord(engine: "RulesEngine", match: MatchState, seat: int, card,
     their units and heroes." -- its controller's own base included (its
     ruling)."""
     for player in match.players:
-        runes = sum(body.minus_runes for body in (*player.play, *player.heroes_in_play))
+        # "Their" heroes: the ones they control, one lent to them included.
+        runes = sum(body.minus_runes for body in (
+            *player.play, *(hero for _, hero in match.heroes_controlled(player.seat))))
         if runes:
             result.narration.append(
                 f"{tokens.card(card.slug)} deals {runes} to {base_owner(match, player.seat)}'s base: "
@@ -794,7 +797,7 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
         return
     if match.winner is not None:
         return
-    if match.variant == "free_for_all":
+    if match.is_free_for_all:
         # Exactly a base destroyed (the author, 2026-10-14, question 17):
         # the base to zero, and the comparison made then.
         match.record_event("lost_by_debt", loser=seat, owed=owed)
@@ -862,7 +865,7 @@ def _open_main(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     author, 2026-10-10).
     """
     match.enter_phase("main")
-    if match.dragons:
+    if match.is_dragon:
         # The team's turn is its head's between actions.
         match.active = seats.head_of(match)
     match.record_event("turn_began")
@@ -886,7 +889,7 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     seat in order, a stash answered by its seat first (`stash_choice`)."""
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
     taking = engine.turn_seats(match)
-    if match.dragons:
+    if match.is_dragon:
         if any(isinstance(one, PendingPrompt) for one in _team_asks(engine, game, match)):
             result.next = pending(engine, game, match)
             return result
@@ -992,7 +995,8 @@ def end_of_turn(engine: "RulesEngine", match: MatchState, result: StepResult) ->
                 board.leave_play(engine, match, card, "hand")
                 match.record_event("returned", slug=card.slug, owner=card.owner)
     for side in match.players:
-        for body in (*side.play, *side.heroes_in_play):
+        # Every unit and hero in play, a lent hero on its owner's list.
+        for body in (*side.play, *side.heroes_on_table):
             lust = sum(1 for m in body.modifiers if m.get("kind") == "bloodlust")
             if lust:
                 landed = board.take_damage(body, lust)
@@ -1090,28 +1094,32 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             # Free Speech: "until after that opponent's next turn" -- this one.
             player.silenced = False
             result.narration.append(f"{tokens.player(seat)}'s heroes are no longer silenced.")
-    if match.tied and not match.playoff:
-        # The last of the playoff's turns is over: the comparison again,
-        # among the tied alone (the author, 2026-10-14, question 16).
+    extra = seats.owes_extra_turn(match)
+    if match.tied and not match.playoff and not extra:
+        # The last of the playoff's turns is over -- and any extra turn
+        # it earned: the comparison again, among the tied alone (the
+        # author, 2026-10-14, question 16).
         _highest_base(match, match.tied, result)
         if match.winner is not None:
             result.next = pending(engine, game, match)
             return result
     following = engine.next_seat(match)
-    if match.playoff:
-        # Each tied player takes one more turn, ahead of the order and of
-        # any extra turn (Rulebook p. 14).
-        match.playoff.pop(0)
-        match.active = following
-    elif match.extra_turns and following == match.extra_turns[0] and following in seats.dragon_of(match, match.active):
+    if extra:
         # Double Time: "Take an extra turn after this one" -- the turn passes
-        # to the same player, with every phase (its ruling). In a dragon
-        # it is that one seat's alone: "you means you" (Rulebook p. 13).
+        # to the same player, with every phase (its ruling), ahead of a
+        # free-for-all's playoff (the author, 2026-10-16: "extra turn
+        # first"). In a dragon it is that one seat's alone: "you means
+        # you" (Rulebook p. 13).
         match.extra_turns.pop(0)
         result.narration.append(f"{tokens.player(following)} takes an extra turn.")
-        if match.dragons:
+        if match.is_dragon:
             match.solo = following
             match.active = following
+    elif match.playoff:
+        # Each tied player takes one more turn, ahead of the order
+        # (Rulebook p. 14).
+        match.playoff.pop(0)
+        match.active = following
     else:
         match.solo = None
         match.active = following

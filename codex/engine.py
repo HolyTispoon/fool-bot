@@ -34,7 +34,7 @@ from typing import Iterable, Optional, Sequence
 
 from codex import effects, keywords, seats
 from codex.cards import CardCatalog, Hero, HeroBand, catalog as load_catalog
-from codex.game import DRAGON_TEAMS, RuleRefusal
+from codex.game import DRAGON_TEAMS, FREE_FOR_ALL, TWO_HEADED_DRAGON, RuleRefusal
 from codex.components import (
     BASE_HP as _BASE_HP,
     DRAGON_BASE_HP as _DRAGON_BASE_HP,
@@ -42,7 +42,6 @@ from codex.components import (
     AddOnState,
     hero_ref,
     is_hero_ref,
-    split_lent_ref,
     PATROL_SLOTS,
     TECH_BUILDINGS,
     CardInstance,
@@ -307,12 +306,20 @@ class DetectOption:
     #: Whether this player has a finished tower at all -- whether the
     #: action is theirs to be offered, disabled or not.
     tower: bool = False
+    #: The seat each of `candidates` is on, in the same order: a hero's ref
+    #: is its slug, so in a mirror game two opponents' copies of one hero
+    #: are two candidates with one ref (`DefenderOptions.seats` does the
+    #: same). On the wire only where there is more than one such seat.
+    seats: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             "allowed": self.allowed, "candidates": list(self.candidates),
             "why_not": self.why_not, "tower": self.tower,
         }
+        if len(set(self.seats)) > 1:
+            data["seats"] = list(self.seats)
+        return data
 
 
 @dataclass(frozen=True)
@@ -471,7 +478,7 @@ class RulesEngine:
         from the first are owed 1, 2 and 3 Mercenaries, which arrive in
         their first upkeep (Rulebook p. 14).
         """
-        dragons = [list(pair) for pair in DRAGON_TEAMS] if variant == "two_headed_dragon" else []
+        dragons = [list(pair) for pair in DRAGON_TEAMS] if variant == TWO_HEADED_DRAGON else []
         if first is None:
             # A dragon draws the first team, and its head goes first.
             first = self.rng.choice(tuple(pair[0] for pair in dragons) if dragons
@@ -506,7 +513,7 @@ class RulesEngine:
             # A dragon team's 30 sits on its head's seat, which `base_of`
             # reads; the second seat's is dealt too and never read.
             player.base_hp = match.base_cap
-        if variant == "free_for_all":
+        if variant == FREE_FOR_ALL:
             order = seats.turn_order(match, first)
             for place, seat in enumerate(order[2:], start=1):
                 match.player(seat).mercenaries_owed = place * MERCENARIES_A_PLACE
@@ -653,7 +660,7 @@ class RulesEngine:
             # controller's in play (its ruling).
             others = sum(1 for other in match.player(card.controller).play
                          if other is not card and self.catalog.cards[other.slug].is_unit)
-            others += len(match.player(card.controller).heroes_in_play)
+            others += len(match.heroes_controlled(card.controller))
             atk -= others
             hp -= others
         if match is not None and "Legendary" in (printed.type or ""):
@@ -728,7 +735,7 @@ class RulesEngine:
         for spell in match.player(seat).play:
             if spell.slug == effects.TWO_STEP and self.partnered(match, card, both_held=True) is spell:
                 found.append((spell.sequence, "two_step", spell))
-        for hero in match.player(seat).heroes_in_play:
+        for _, hero in match.heroes_controlled(seat):
             if not self.hero_texted(match, hero):
                 continue
             for (slug, level), grant in effects.BAND_GRANTS.items():
@@ -879,7 +886,15 @@ class RulesEngine:
         mine = match.player(seat).play
         if any(self.text_slug(card) in effects.GRANTS_SWIFT_STRIKE for card in mine):
             profile.grant("Swift strike")
-        for card in mine:
+        # Final Showdown is attached to its hero, `<owner>:hero:<slug>`, and
+        # stays in its caster's play -- the owner's -- while the hero is
+        # lent: it goes with the hero, where "your heroes" grants are the
+        # controller's (Rulebook p. 14; the review of 2026-10-15).
+        owner = self.owner_of_hero(match, hero)
+        held = f"{owner}:{hero_ref(hero.slug)}"
+        attached = [card for card in match.player(owner).play
+                    if owner != seat and effects.HERO_GRANTS.get(self.text_slug(card) or "") == "showdown"]
+        for card in (*mine, *attached):
             if not self.texted(card):
                 continue
             grant = effects.HERO_GRANTS.get(self.text_slug(card) or "")
@@ -895,7 +910,7 @@ class RulesEngine:
                 # Hero's Monument: "Your heroes get +1/+1."
                 profile.atk += 1
                 profile.hp += 1
-            elif grant == "showdown" and card.attached_hero == f"{seat}:{hero_ref(hero.slug)}":
+            elif grant == "showdown" and card.attached_hero == held:
                 # Final Showdown: "He gets +3/+3, readiness, resist 1, and
                 # draws a card when he attacks."
                 profile.atk += effects.SHOWDOWN_BONUS
@@ -1787,10 +1802,17 @@ class RulesEngine:
 
     def repair_option(self, match: MatchState) -> Optional[RepairOption]:
         """Repair the active player's base: 3 gold for 1 HP (Rulebook
-        p. 14), listed on a free-for-all match alone, with why not."""
-        if match.variant != "free_for_all":
+        p. 14), listed on a free-for-all match alone, with why not --
+        never once the base is destroyed: a base at 0 is out of the game
+        and no defender (`_standing`), and a player reaches their own
+        main phase with it only after a debt unpaid at their upkeep left
+        a tie (the review of 2026-10-15: repairing it put it back, and
+        its second fall was announced again)."""
+        if not match.is_free_for_all:
             return None
         player = match.active_player
+        if match.base_of(match.active) <= 0:
+            return RepairOption(False, why_not="the base is destroyed")
         if match.base_of(match.active) >= match.base_cap:
             return RepairOption(False, why_not="the base is undamaged")
         if player.gold < REPAIR_COST:
@@ -2123,10 +2145,8 @@ class RulesEngine:
             return match.combat["against"]
         if match.against is not None:
             return match.against
-        found = self.opponents(match, match.active if attacker_seat is None else attacker_seat)
-        if len(found) != 1:
-            raise RuleRefusal("Choose whose forces to attack first.")
-        return found[0]
+        return seats.sole_opponent(match, match.active if attacker_seat is None else attacker_seat,
+                                   refusal="Choose whose forces to attack first.")
 
     def body(self, match: MatchState, seat: int, ref: str):
         """
@@ -2191,7 +2211,7 @@ class RulesEngine:
         spec = effects.INVISIBLE_WITH_HERO.get(slug)
         if spec is not None and seat is not None and any(
             (self.hero_card(hero).spec or "").lower() == spec
-            for hero in match.player(seat).heroes_in_play
+            for _, hero in match.heroes_controlled(seat)
         ):
             found.append(("Invisible", None))
         if slug in effects.WHEN_ATTACKING_HEROES and seat in self.turn_seats(match):
@@ -2229,7 +2249,7 @@ class RulesEngine:
         found: list = []
         for player in match.players:
             found.extend(card for card in player.play if self.catalog.cards[card.slug].is_unit)
-            found.extend(player.heroes_in_play)
+            found.extend(player.heroes_on_table)
         return found
 
     def has_keyword(self, body, keyword: str, match: Optional[MatchState] = None) -> bool:
@@ -2303,7 +2323,8 @@ class RulesEngine:
             return "stealth"
         return ""
 
-    def detected_by(self, match: MatchState, watcher: int, ref: str) -> bool:
+    def detected_by(self, match: MatchState, watcher: int, ref: str,
+                    side: Optional[int] = None) -> bool:
         """
         Whether `watcher`'s detector sees what `ref` names: their tower
         has detected that card this turn, and a detection lasts the rest
@@ -2315,7 +2336,11 @@ class RulesEngine:
         2016-03-14) -- so a hidden attacker cannot sneak past a tower that
         has not detected yet, and the attack spends the detection
         (`tower_detects`). On its owner's own turn a tower sees only what
-        it has detected, which is the `detect` action's to name.
+        it has detected, which is the `detect` action's to name. `side`
+        is the seat whose `ref` it is: a detection names its seat too
+        (`AddOnState.detected_seat`), so a mirror game's other copy of a
+        hero stays hidden; one from an older save, with no seat, matches
+        the ref alone.
         """
         if self.has_detector(match, watcher):
             return True
@@ -2323,7 +2348,7 @@ class RulesEngine:
         if found is None:
             return False
         tower = found[1]
-        if tower.detected == ref:
+        if tower.detected == ref and (side is None or tower.detected_seat in (None, side)):
             return True
         return tower.detected is None and watcher not in self.turn_seats(match)
 
@@ -2360,7 +2385,8 @@ class RulesEngine:
         found = self.team_tower(match, other)
         if found is None:
             return ()
-        if not self.hidden(match, match.active, attacker) or self.detected_by(match, other, attacker):
+        if not self.hidden(match, match.active, attacker) or self.detected_by(
+                match, other, attacker, match.active):
             return (found[0],)
         return ()
 
@@ -2394,17 +2420,19 @@ class RulesEngine:
             return DetectOption(why_not="you have no finished tower")
         if tower.detected is not None:
             return DetectOption(why_not="your tower has detected this turn", tower=True)
-        candidates = []
+        found_on: list[tuple[int, str]] = []
         # Every opponent's: on its owner's turn the tower reveals one
-        # thing (Rulebook p. 4), whoever's it is.
+        # thing (Rulebook p. 4), whoever's it is -- by seat and ref, since
+        # a mirror game's two copies of one hero share a ref.
         for other in self.opponents(match, seat):
             for ref in self._things_in_play(match, other):
-                if (self.hidden(match, other, ref) and not self.detected_by(match, seat, ref)
-                        and ref not in candidates):
-                    candidates.append(ref)
-        if not candidates:
+                if (self.hidden(match, other, ref) and not self.detected_by(match, seat, ref, other)
+                        and (other, ref) not in found_on):
+                    found_on.append((other, ref))
+        if not found_on:
             return DetectOption(why_not="nothing of theirs is hidden", tower=True)
-        return DetectOption(True, tuple(candidates), tower=True)
+        return DetectOption(True, tuple(ref for _, ref in found_on), tower=True,
+                            seats=tuple(other for other, _ in found_on))
 
     # -- Combat ---------------------------------------------------------------
 
@@ -2431,10 +2459,7 @@ class RulesEngine:
         defender, a tower's candidate and a holder's whether or not the
         zone it stands in holds the attacker (docs/design/codex.md,
         "Lending is a control change")."""
-        found = [hero_ref(hero.slug) for hero in match.player(seat).heroes_in_play]
-        found.extend(ref for ref in match.patrollers(seat).values()
-                     if split_lent_ref(ref)[0] is not None)
-        return tuple(found)
+        return tuple(ref for ref, _ in match.heroes_controlled(seat))
 
     def _standing(self, match: MatchState, seat: int) -> tuple[str, ...]:
         """Everything on `seat`'s side with HP: the units and hero in
@@ -2475,7 +2500,7 @@ class RulesEngine:
         if (
             self.has_keyword(body, "Invisible", match)
             and body.patrol_slot is None
-            and not self.detected_by(match, seat, target)
+            and not self.detected_by(match, seat, target, other)
         ):
             return False
         if self.has_keyword(body, "Flying", match):
@@ -2548,7 +2573,7 @@ class RulesEngine:
         if self.has_keyword(body, "Unstoppable", match):
             return "unstoppable"
         hidden = self.hidden(match, seat, attacker)
-        if hidden and not self.detected_by(match, other, attacker):
+        if hidden and not self.detected_by(match, other, attacker, seat):
             return hidden
         return ""
 
@@ -2656,7 +2681,7 @@ class RulesEngine:
         dragon the team's, pooled (`_pooled_rows`) and cut to the ones on
         that seat.
         """
-        if not match.dragons:
+        if not match.is_dragon:
             return self._foe_rows(match, attacker, against)
         foe = self.defending_seat(match, against)
         return tuple((ref, why) for seat, ref, why in self._pooled_rows(match, attacker) if seat == foe)
@@ -2783,7 +2808,7 @@ class RulesEngine:
         if not isinstance(body, CardInstance) or body.slug not in effects.STEALTH_ATTACKING_UNITS:
             return False
         other = self.defending_seat(match, against)
-        return not self.detected_by(match, other, attacker)
+        return not self.detected_by(match, other, attacker, match.active)
 
     def _unstoppable_to_buildings(self, match: MatchState, attacker: str) -> str:
         """`"base"` for Colossus, `"buildings"` for Traffic Director, or
@@ -3174,7 +3199,10 @@ class RulesEngine:
         for side in (*foes, seat, *([mate] if mate is not None else [])):
             player = match.player(side)
             units = self._units_of(match, side)
-            hero = [hero_ref(one.slug) for one in player.heroes_in_play]
+            # The heroes this side controls, one lent into its patrol
+            # zone among them, as the side names them (`heroes_controlled`).
+            controlled = match.heroes_controlled(side)
+            hero = [ref for ref, _ in controlled]
             damageable = [
                 (side, ref) for ref in self._buildings_of(match, side)
                 if not self._under_construction(player, ref)
@@ -3273,8 +3301,7 @@ class RulesEngine:
                 # Time Spiral, Tinkerer, Seer: a card with a time rune, in
                 # play or in the future, any player's (their rulings).
                 found += [(side, card.ref) for card in player.play if card.time_runes > 0]
-                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
-                          if one.time_runes > 0]
+                found += [(side, ref) for ref, one in controlled if one.time_runes > 0]
                 found += [(side, future_ref(card)) for card in player.future if card.time_runes > 0]
             elif choose == "own_sacrificable":
                 # Omegacron's cost: a unit, hero, worker or upgrade of yours
@@ -3329,9 +3356,8 @@ class RulesEngine:
                 # Plague Lab: a card with runes and a kind of them -- one
                 # row per kind, one rune a card (its rulings).
                 done = frame.get("lab_done") or []
-                bodies = [*player.play, *player.heroes_in_play]
-                for body in bodies:
-                    ref = body.ref if isinstance(body, CardInstance) else hero_ref(body.slug)
+                bodies = [(card.ref, card) for card in player.play] + controlled
+                for ref, body in bodies:
                     if target_key(side, ref) in done:
                         continue
                     for kind in rune_kinds(body):
@@ -3410,7 +3436,7 @@ class RulesEngine:
                     found += [(side, card.ref) for card in units if tech(card) <= 1]
             elif choose == "flier":
                 found += [(side, card.ref) for card in units if self.has_keyword(card, "Flying", match)]
-                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                found += [(side, ref) for ref, one in controlled
                           if self.has_keyword(one, "Flying", match)]
             elif choose == "dead_hero":
                 # Blackhand Resurrector: a hero of yours in the command zone
@@ -3467,7 +3493,7 @@ class RulesEngine:
             elif choose == "unit_or_non_peace_hero":
                 # Boot Camp: "a unit or non-Peace hero".
                 found += [(side, card.ref) for card in units]
-                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                found += [(side, ref) for ref, one in controlled
                           if (self.hero_card(one).spec or "").lower() != "peace"]
             elif choose in ("opponent_hand_unit_1_2", "opponent_discard_unit_1_2"):
                 # Community Service: a tech I or II unit of the opponent's
@@ -3514,7 +3540,7 @@ class RulesEngine:
             found = [row for row in found if target_key(*row) not in taken]
         if choose == "other_building":
             found = self._repair_candidates(match, seat, found)
-        if match.dragons:
+        if match.is_dragon:
             # A team's one base is one thing to choose (Rulebook p. 13),
             # listed on the first of its seats the loop reached.
             bases: set[int] = set()
@@ -3686,7 +3712,7 @@ class RulesEngine:
         if body is None:
             return True
         if self.has_keyword(body, "Invisible", match):
-            return self.detected_by(match, seat, ref) and seat in self.turn_seats(match)
+            return self.detected_by(match, seat, ref, side) and seat in self.turn_seats(match)
         return True
 
     def target_rows(self, match: MatchState, seat: int, part, *, taken: Sequence[str] = (),
@@ -4082,7 +4108,8 @@ class RulesEngine:
         player = match.player(seat)
         units = sum(self.unit_stats(card, match)[0] for card in player.play
                     if self.catalog.cards[card.slug].is_unit)
-        return units + sum(self.hero_stats(hero, match)[0] for hero in player.heroes_in_play)
+        return units + sum(self.hero_stats(hero, match)[0]
+                           for _, hero in match.heroes_controlled(seat))
 
     def patrol_candidates(self, match: MatchState) -> tuple[str, ...]:
         """What the active player may lock into the patrol zone: ready
@@ -4105,7 +4132,7 @@ class RulesEngine:
         lend a patroller into at the lock (Rulebook p. 14) -- `(seat,
         slots)` in seat order, a free-for-all's alone and only the seats
         that have a slot open."""
-        if match.variant != "free_for_all":
+        if not match.is_free_for_all:
             return ()
         found = []
         for foe in self.opponents(match, match.active):

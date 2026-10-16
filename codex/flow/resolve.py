@@ -1374,8 +1374,10 @@ def _anarchy(engine, match, top, part, target, result) -> None:
         (player.seat, card.ref) for player in match.players for card in player.play
         if engine.catalog.cards[card.slug].is_unit
     ] + [
-        (player.seat, hero_ref(hero.slug)) for player in match.players
-        for hero in player.heroes_in_play
+        # Every hero, as the side that controls it names it: one lent into
+        # a patrol zone is `<owner seat>:hero:<slug>` there.
+        (player.seat, ref) for player in match.players
+        for ref, _ in match.heroes_controlled(player.seat)
     ]
     result.narration.append(f"{top['by']} destroys every unit and hero.")
     board.destroy(engine, match, everything, result, cause=cause_of(match, top))
@@ -1466,7 +1468,7 @@ def _firebird(engine, match, top, part, target, result) -> None:
     hit = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
     for card in hit:
         board.take_damage(card, amount)
-    for hero in player.heroes_in_play:
+    for _, hero in match.heroes_controlled(other):
         board.take_damage(hero, amount)
     result.narration.append(
         f"{top['by']} deals {amount} to every unit and hero {tokens.player(other)} controls."
@@ -1675,8 +1677,8 @@ def _plague(engine, match, top, part, target, result) -> None:
         if engine.catalog.cards[card.slug].is_unit and card.minus_runes > 0
         and (engine.catalog.cards[card.slug].tech_level or 0) <= 2
     ] + [
-        (player.seat, hero_ref(hero.slug)) for player in match.players
-        for hero in player.heroes_in_play if hero.minus_runes > 0
+        (player.seat, ref) for player in match.players
+        for ref, hero in match.heroes_controlled(player.seat) if hero.minus_runes > 0
     ]
     if not doomed:
         result.narration.append(f"{top['by']} finds nothing with a -1/-1 rune.")
@@ -1693,7 +1695,7 @@ def _decay(engine, match, top, part, target, result) -> None:
     other = _against(engine, match, top)
     player = match.player(other)
     for body in [*(card for card in player.play if engine.catalog.cards[card.slug].is_unit),
-                 *player.heroes_in_play]:
+                 *(hero for _, hero in match.heroes_controlled(other))]:
         body.modifiers.append({"kind": "atk", "amount": -part.amount, "until": "end_of_turn"})
         body.modifiers.append({"kind": "hp", "amount": -part.amount, "until": "end_of_turn"})
     result.narration.append(
@@ -1832,7 +1834,7 @@ def _runes_on_opposing(engine, match, top, part, target, result) -> None:
         player = match.player(other)
         bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
         if part.token == "heroes":
-            bodies += player.heroes_in_play
+            bodies += [hero for _, hero in match.heroes_controlled(other)]
         for body in bodies:
             board.add_minus_rune(body)
         what = "unit and hero" if part.token == "heroes" else "unit"
@@ -2346,7 +2348,7 @@ def _banefire_one(engine, match, top, part, other: int, result) -> None:
     player = match.player(other)
     amount = damage_amount(engine, match, top, part.amount)
     bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
-    bodies += player.heroes_in_play
+    bodies += [hero for _, hero in match.heroes_controlled(other)]
     shielded = board.sentry_shields(engine, match, bodies, result)
     for body in bodies:
         if body not in shielded:

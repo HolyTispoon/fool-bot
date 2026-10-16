@@ -33,11 +33,12 @@ from codex.prompts import (
     Action,
     PendingPrompt,
     PromptKind,
+    asked_options,
+    half_resolved,
     pending,
     pending_all,
     standing_prompts,
     tech_stands,
-    with_options,
 )
 
 if TYPE_CHECKING:
@@ -164,7 +165,11 @@ def advance(
             headlines = ()
 
     if isinstance(following, PendingPrompt):
-        following = with_options(engine, game, match, following)
+        # Read with the asked seat active: in a dragon the teammate who
+        # just acted is still `match.active` until `apply` settles the
+        # head (`settle_active`), and their options are not the asked
+        # seat's (the review of 2026-10-15).
+        following = asked_options(engine, game, match, following)
 
     return DriverRun(
         result=StepResult(
@@ -232,7 +237,8 @@ STALE_CLICK: Mapping[PromptKind, str] = {
 
 def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
                  building=None, attacker=None, card=None, ability=None,
-                 source=None, hero=None, spec=None, lab_spec=None, boost=None) -> StepResult:
+                 source=None, hero=None, spec=None, lab_spec=None, boost=None,
+                 against=None) -> StepResult:
     if choice == "hire":
         return actions.hire_worker(engine, game, match, _required(slug, "slug"))
     if choice == "summon":
@@ -248,7 +254,7 @@ def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
     if choice == "attack":
         return actions.declare_attacker(engine, game, match, _required(attacker, "attacker"))
     if choice == "detect":
-        return actions.detect(engine, game, match, _required(card, "card"))
+        return actions.detect(engine, game, match, _required(card, "card"), against)
     if choice == "ability":
         return actions.use_ability(
             engine, game, match, _required(ability, "ability"), _required(source, "source"),
@@ -389,17 +395,19 @@ def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None, seat=N
         raise RuleRefusal("Choose whose hero gains the levels: that hero is on more than one side.")
     top = match.resolving.pop(0)
     result = StepResult(board_changed=True)
-    holder = next(
-        match.player(on) for on in ([seat] if seat is not None else top.get("seats") or [top["seat"]])
-        if match.player(on).hero_by_ref(hero) is not None
+    # Either spelling of the ref: a hero lent to the holder is named
+    # `<owner seat>:hero:<slug>` on their side (`hero_on`).
+    gaining = next(
+        found for on in ([seat] if seat is not None else top.get("seats") or [top["seat"]])
+        for found in (match.hero_on(on, hero),) if found is not None
     )
-    board.gain_kill_levels(engine, match, holder.hero_by_ref(hero), result)
+    board.gain_kill_levels(engine, match, gaining, result)
     return resolve.carry_on(engine, game, match, result)
 
 
 def _answer_stash(engine, game, match, prompt, choice, *, slug=None) -> StepResult:
     """Stash's card, or none, and the draw it changes (step 13)."""
-    if match.dragons:
+    if match.is_dragon:
         # Both teammates' draws run together once each has answered
         # (`codex.flow.turn.draw_phase`).
         keeping = ""
@@ -455,7 +463,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
 ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.MAIN_ACTION: frozenset({
         "slug", "levels", "building", "attacker", "card", "ability", "source", "hero",
-        "spec", "lab_spec", "boost",
+        "spec", "lab_spec", "boost", "against",
     }),
     PromptKind.CHOOSE_DEFENDER: frozenset({"defender", "against"}),
     PromptKind.PATROL: frozenset({"assignment", "lent"}),
@@ -524,7 +532,7 @@ def _find_team_prompt(engine, game, match, action: Action) -> Union[PendingPromp
 
 
 def _find_prompt(engine, game, match, action: Action) -> Union[PendingPrompt, Refusal]:
-    if match.dragons:
+    if match.is_dragon:
         return _find_team_prompt(engine, game, match, action)
     waiting = pending(engine, game, match)
     if isinstance(waiting, FollowOn):
@@ -618,7 +626,7 @@ def answer(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         )
     arguments = dict(action.arguments)
     before = match.active
-    if match.dragons:
+    if match.is_dragon:
         # Journalled with the seat that answered, and run with that seat
         # active: every reading below is made on their behalf.
         if found.asked_player is not None:
@@ -645,9 +653,7 @@ def settle_active(match: MatchState) -> None:
     (`codex.seats.next_seat`). A duel's and a free-for-all's is left
     alone.
     """
-    from codex.prompts import _half_resolved
-
-    if match.dragons and match.winner is None and not _half_resolved(match):
+    if match.is_dragon and match.winner is None and not half_resolved(match):
         match.active = seats.head_of(match)
 
 

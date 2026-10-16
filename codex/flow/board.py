@@ -372,7 +372,7 @@ def _is_a_kill(engine: "RulesEngine", match: MatchState, card: CardInstance,
     or by an effect they control (`cause`, `effects.ACTIVE_PLAYER_ACTS`).
     What its own controller's trigger or the state of the table kills
     (`cause` is theirs or nobody's) is nobody's kill."""
-    if match.variant != "free_for_all":
+    if not match.is_free_for_all:
         return False
     killer = match.active if combat else cause
     return killer in engine.turn_seats(match) and card.controller in engine.opponents(match, match.active)
@@ -564,11 +564,13 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
             continue
         # Every hero in play of every opponent of the dead hero's
         # controller may take the levels (Rulebook p. 11): the controller
-        # rather than the owner, for a lent hero -- less any at its
-        # maximum level, which can gain no more (`takes_kill_levels`).
+        # rather than the owner, for a lent hero -- on either side: one
+        # lent to that opponent is theirs to give them to
+        # (`heroes_controlled`) -- less any at its maximum level, which
+        # can gain no more (`takes_kill_levels`).
         standing = [
             (foe, hero) for foe in engine.opponents(match, seat)
-            for hero in match.player(foe).heroes_in_play
+            for _, hero in match.heroes_controlled(foe)
             if engine.takes_kill_levels(hero)
         ]
         if not standing:
@@ -907,7 +909,9 @@ def _orpal_unspent(engine: "RulesEngine", match: MatchState) -> bool:
     for player in match.players:
         if player.silenced:
             continue
-        for hero in player.heroes_in_play:
+        # The heroes each player controls, one lent to them included: a
+        # lent Orpal's ability is its controller's, silenced or not.
+        for _, hero in match.heroes_controlled(player.seat):
             if hero.slug == slug and hero.level >= level:
                 if any(m.get("kind") == "once" and m.get("effect") == "orpal_gloor_max"
                        for m in hero.modifiers):
@@ -1850,9 +1854,12 @@ def _sacrifice_due(engine: "RulesEngine", match: MatchState) -> Optional[tuple[C
         for card in player.play:
             spec = effects.CHANNELING.get(card.slug)
             if spec is not None:
+                # Channeling: "if you don't control" a hero of the spec --
+                # one lent to the spell's controller counts, one they lent
+                # out does not (`heroes_controlled`).
                 if not any(
                     (engine.hero_card(hero).spec or "").lower() == spec
-                    for hero in player.heroes_in_play
+                    for _, hero in match.heroes_controlled(player.seat)
                 ):
                     return card, f"its controller has no {spec.title()} hero"
             if card.slug == effects.TWO_STEP:
