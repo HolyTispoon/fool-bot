@@ -12,7 +12,7 @@
 --- board changed
 === action 2: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
-{player:2} summons {hero:river_montoya} 2/3, level 1, for {gold:2}. {gold:1} left.
+{player:2} summons {hero:river_montoya} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- board changed
@@ -53,7 +53,7 @@
 --- board changed
 === action 9: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
-{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:1} left.
+{player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -410,7 +410,7 @@
 {hero:troq_bashar} deals 2; {player:2}'s {card:brick_thief} deals 2.
 {player:2}'s {card:brick_thief} is destroyed.
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes.
-{hero:river_montoya} gains 2 levels for the kill: level 3, a new band, and healed.
+{hero:river_montoya} gains 2 levels for the kill, to level 3: they reach a new band, are now 2/4, and heal.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -456,7 +456,7 @@
 --- board changed
 === action 70: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 2}
 --- narration
-{player:2} levels {hero:river_montoya} to 5 for {gold:2}: a new band, 3/4 and healed. {gold:0} left.
+{player:2} levels {hero:river_montoya} to 5 for {gold:2}: they reach a new band, are now 3/4, and heal. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -671,7 +671,7 @@
 --- board changed
 === action 103: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
-{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:3} left.
+{player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:3} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -759,7 +759,7 @@
 {hero:river_montoya} attacks {player:1}'s {card:revolver_ocelot}.
 {hero:river_montoya} deals 2 (armor takes 1); {player:1}'s {card:revolver_ocelot} deals 3.
 {player:2}'s {hero:river_montoya} dies and returns to the command zone with 2 summoning runes.
-{hero:troq_bashar} gains 2 levels for the kill: level 4.
+{hero:troq_bashar} gains 2 levels for the kill, to level 4.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -808,7 +808,7 @@
 --- board changed
 === action 123: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 4}
 --- narration
-{player:1} levels {hero:troq_bashar} to 8 for {gold:4}: a new band, 4/5 and healed. {gold:1} left.
+{player:1} levels {hero:troq_bashar} to 8 for {gold:4}: they reach a new band, are now 4/5, and heal. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -976,7 +976,7 @@
 --- board changed
 === action 149: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
-{player:2} summons {hero:river_montoya} 2/3, level 1, for {gold:2}. {gold:18} left.
+{player:2} summons {hero:river_montoya} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -1011,7 +1011,7 @@
 --- board changed
 === action 154: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 4}
 --- narration
-{player:2} levels {hero:river_montoya} to 5 for {gold:4}: a new band, 3/4 and healed. {gold:8} left.
+{player:2} levels {hero:river_montoya} to 5 for {gold:4}: they reach a new band, are now 3/4, and heal. {gold:8} left.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -1305,7 +1305,7 @@
 --- board changed
 === action 199: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
-{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:18} left.
+{player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -1327,7 +1327,7 @@
 --- board changed
 === action 202: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7}
 --- narration
-{player:1} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed. {gold:7} left.
+{player:1} levels {hero:troq_bashar} to 8 for {gold:7}: they reach a new band, are now 4/5, and heal. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -1519,7 +1519,7 @@
 --- board changed
 === action 232: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
-{player:2} summons {hero:river_montoya} 2/3, level 1, for {gold:2}. {gold:18} left.
+{player:2} summons {hero:river_montoya} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -1541,7 +1541,7 @@
 --- board changed
 === action 235: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 4}
 --- narration
-{player:2} levels {hero:river_montoya} to 5 for {gold:4}: a new band, 3/4 and healed. {gold:12} left.
+{player:2} levels {hero:river_montoya} to 5 for {gold:4}: they reach a new band, are now 3/4, and heal. {gold:12} left.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -1599,7 +1599,7 @@
 --- board changed
 === action 244: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
-{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:18} left.
+{player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -1635,7 +1635,7 @@
 --- board changed
 === action 249: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7}
 --- narration
-{player:1} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed. {gold:0} left.
+{player:1} levels {hero:troq_bashar} to 8 for {gold:7}: they reach a new band, are now 4/5, and heal. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)

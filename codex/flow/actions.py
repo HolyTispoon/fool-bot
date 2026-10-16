@@ -129,7 +129,7 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     match.record_event("summoned", slug=hero.slug)
     atk, hp = engine.hero_stats(hero)
     result = StepResult(board_changed=True, narration=[
-        f"{tokens.player(seat)} summons {tokens.hero(hero.slug)} {atk}/{hp}, level 1, for "
+        f"{tokens.player(seat)} summons {tokens.hero(hero.slug)} {atk}/{hp} for "
         f"{tokens.gold(option.cost)}.{gold_left(match, seat, option.cost)}"
         f"{_vanilla_note(engine, hero.slug)}"
     ])
@@ -158,12 +158,11 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
     player.gold -= levels * LEVEL_COST
     reached = raise_level(engine, hero, levels, match)
     match.record_event("levelled", slug=hero.slug, levels=levels, level=hero.level)
-    atk, hp = engine.hero_stats(hero)
     line = (
         f"{tokens.player(seat)} levels {tokens.hero(hero.slug)} to {hero.level} "
         f"for {tokens.gold(levels * LEVEL_COST)}"
     )
-    line += f": a new band, {atk}/{hp} and healed." if reached else "."
+    line += board.new_band(engine, hero) if reached else "."
     line += gold_left(match, seat, levels * LEVEL_COST)
     result = StepResult(board_changed=True, narration=[line])
     board.max_level_reached(engine, match, seat, hero, result)
@@ -286,10 +285,11 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
             # Building Inspector's "first building each turn" (step 13).
             player.built_this_turn = True
         board.arrive(engine, match, match.new_instance(slug, seat), from_hand=True)
-        what = f"a building, {card.hp} HP" if card.is_building_card else "an upgrade"
+        # A building card is named and no more (the author, 2026-10-16:
+        # "remove 'a building, 4 HP'"); an upgrade still says what it is.
+        what = "" if card.is_building_card else ": an upgrade"
         result.narration.append(
-            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}: "
-            f"{what}.{note}"
+            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{what}.{note}"
         )
     else:
         boosted = ", boosted" if boost else ""

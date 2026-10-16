@@ -1354,8 +1354,15 @@ a bounty of {gold:1}: now {gold:2}". A steal says both sides: "{player:1}
 steals {gold:1} from {player:2} and is now at {gold:4}; {player:2} has
 {gold:0} left" (`stolen`, the whole clause). **A card's stats go with its
 name and the price after them** -- "plays {card:tenderfoot} 1/2 for
-{gold:1}", "summons {hero:river_montoya} 2/3, level 1, for {gold:2}" --
-so the line reads as what was bought and then what it cost. The
+{gold:1}", "summons {hero:river_montoya} 2/3 for {gold:2}" (never "level
+1": a hero is always summoned at 1) -- so the line reads as what was bought
+and then what it cost. A building card is named and no more ("plays
+{card:...} for {gold:3}."), its HP on the board. A level that reaches a new
+band says what the band did, as the hero's own doing: "levels
+{hero:river_montoya} to 3 for {gold:2}: they reach a new band, are now
+3/4, and heal." -- `board.new_band`, on every level line, paid, a kill's
+or an effect's; "they", since the cards carry no pronoun for their heroes
+(the author, 2026-10-16). The
 reason is never left to be inferred: resist is its own line naming what is
 targeted and with what ("pays {gold:1} for resist to target {player:2}'s
 {card:brick_thief} with {card:spark}. {gold:2} left." -- the author:

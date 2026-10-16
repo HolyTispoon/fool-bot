@@ -610,12 +610,21 @@ def gain_kill_levels(engine: "RulesEngine", match: MatchState, victor: HeroState
         gained = victor.level - before
         line = (
             f"{tokens.hero(victor.slug)} gains {gained} "
-            f"level{'' if gained == 1 else 's'} for the kill: level {victor.level}"
+            f"level{'' if gained == 1 else 's'} for the kill, to level {victor.level}"
         )
-        line += ", a new band, and healed." if reached else "."
+        line += new_band(engine, victor, match) if reached else "."
         result.narration.append(line)
         if seat is not None:
             max_level_reached(engine, match, seat, victor, result)
+
+
+def new_band(engine: "RulesEngine", hero: HeroState, match: Optional[MatchState] = None) -> str:
+    """A level line's end where the hero reached a new band: ": they reach
+    a new band, are now 3/4, and heal." -- what the band changed, said as
+    the hero's own doing (the author, 2026-10-16). "They", since the
+    cards carry no pronoun for their heroes."""
+    atk, hp = engine.hero_stats(hero, match)
+    return f": they reach a new band, are now {atk}/{hp}, and heal."
 
 
 def raise_level(engine: "RulesEngine", hero: HeroState, levels: int,

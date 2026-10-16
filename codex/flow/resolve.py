@@ -1973,7 +1973,7 @@ def _gain_levels(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{_thing(match, target)} gains no level.")
         return
     line = f"{top['by']} raises {_thing(match, target)} to level {hero.level}"
-    result.narration.append(line + (", a new band, and healed." if reached else "."))
+    result.narration.append(line + (board.new_band(engine, hero, match) if reached else "."))
     board.max_level_reached(engine, match, seat, hero, result)
 
 
@@ -2618,7 +2618,7 @@ def _max_level(engine, match, top, part, target, result) -> None:
         return
     result.narration.append(
         f"{top['by']} levels {_thing(match, target)} to {hero.level}"
-        + (", a new band, and healed." if reached else ".")
+        + (board.new_band(engine, hero, match) if reached else ".")
     )
     board.max_level_reached(engine, match, seat, hero, result)
 

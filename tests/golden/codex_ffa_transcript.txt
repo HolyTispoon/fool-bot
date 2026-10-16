@@ -12,7 +12,7 @@
 --- board changed
 === action 2: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
-{player:2} summons {hero:river_montoya} 2/3, level 1, for {gold:2}. {gold:1} left.
+{player:2} summons {hero:river_montoya} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- board changed
@@ -53,7 +53,7 @@
 --- board changed
 === action 9: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
-{player:3} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:1} left.
+{player:3} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -102,7 +102,7 @@
 --- board changed
 === action 16: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
-{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:1} left.
+{player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -232,7 +232,7 @@
 --- board changed
 === action 33: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 1}
 --- narration
-{player:2} levels {hero:river_montoya} to 3 for {gold:1}: a new band, 2/4 and healed. {gold:0} left.
+{player:2} levels {hero:river_montoya} to 3 for {gold:1}: they reach a new band, are now 2/4, and heal. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -339,7 +339,7 @@
 --- board changed
 === action 47: LEVEL_GAIN '' {"hero": "hero:river_montoya", "seat": 2}
 --- narration
-{hero:river_montoya} gains 2 levels for the kill: level 5, a new band, and healed.
+{hero:river_montoya} gains 2 levels for the kill, to level 5: they reach a new band, are now 3/4, and heal.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase.
 --- standing TECH_CHOICE (player 1)
@@ -708,7 +708,7 @@
 --- board changed
 === action 96: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
-{player:1} summons {hero:troq_bashar} 2/3, level 1, for {gold:2}. {gold:0} left.
+{player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
 {player:1}'s main phase.
 --- standing TECH_CHOICE (player 2)
@@ -793,7 +793,7 @@
 {card:fruit_ninja} deals 3; {player:1}'s {hero:troq_bashar} deals 2.
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes.
 {player:2}'s {card:fruit_ninja} is destroyed.
-{hero:troq_bashar} gains 2 levels for the kill: level 5, a new band, and healed.
+{hero:troq_bashar} gains 2 levels for the kill, to level 5: they reach a new band, are now 3/4, and heal.
 --- prompt MAIN_ACTION (player 2)
 {player:2}'s main phase.
 --- standing TECH_CHOICE (player 1)
