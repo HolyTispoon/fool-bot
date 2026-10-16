@@ -484,6 +484,20 @@ Codex bot, as one with no tunnel token starts no tunnel, so a deploy on
 the Mac or before the token is in `.env` goes on to the web app.
 `deploy.ps1` runs it straight after `update_main_bot.ps1`.
 
+**Its web page's bucket, the `K:\` checkout alone.** The Codex games'
+web page ([pbd-site.md](pbd-site.md)) is written by the Codex bot into a
+private Cloudflare R2 bucket, with four variables in the `.env` beside
+`CODEX_DISCORD_TOKEN`: `CODEX_PUBLISH_ACCOUNT_ID`,
+`CODEX_PUBLISH_ACCESS_KEY_ID`, `CODEX_PUBLISH_SECRET_ACCESS_KEY` -- an R2
+token scoped to that one bucket -- and `CODEX_PUBLISH_BUCKET`, which
+defaults to `pbd`. They are a credential: the `.env` and nowhere else,
+never committed, never pasted into a PR or a chat. They are set on the
+`K:\` checkout and on no other, so a developer's test games never reach
+the live site; a checkout without them, or without boto3, publishes
+nothing and says so once at INFO. One publisher per bucket, as one bot
+per token. boto3 is in `requirements.txt`, so the host gets it on the
+pull `run_codex_bot.ps1` makes.
+
 **One application, one token, one Codex bot.** The author created the
 Codex application on 2026-10-07 and there is no test application beside
 it (2026-10-08), so a developer testing from the Mac stops the live

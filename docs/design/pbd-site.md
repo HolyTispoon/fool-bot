@@ -16,6 +16,11 @@ before anything is uploaded: `cogs/codex_publish/` -- `record.py`, the
 publisher's own file; `keys.py`, the bucket's keys; `shapes.py`, the JSON;
 `segments.py`, a line as the web draws it.
 
+Step 2 landed how it is sent: `botkit/objectstore.py`, the store (R2, and
+a fake for the tests); `cogs/codex_publish/queue.py`, the queue; and
+`cogs/codex_publish/config.py`, the `CODEX_PUBLISH_*` variables that turn
+it on. Nothing calls them yet; step 3's hooks do.
+
 ## What the publisher is, and is not
 
 **The publisher is a frontend, like the cog**, and a second door out of the
@@ -166,3 +171,110 @@ game's entry is `PublishedGame`, a small class with `to_dict` and
 `from_dict`, because `save_games` calls `to_dict` on every value; its
 `from_dict` reads every field with its default where it is missing or the
 wrong shape, so a hand-edited entry loads as much as it holds.
+
+## The store
+
+`botkit/objectstore.py` is a store with two calls, `put(key, body,
+content_type, cache_control)` and `delete(key)`, both `async`, both raising
+on a failure. Nothing reads or lists: the publisher's record says what is
+up, so the bot never needs to ask the bucket.
+
+- **`R2Store` is R2 over its S3 API, through boto3**, pinned in
+  `requirements.txt`. boto3 blocks, so every call runs in
+  `asyncio.to_thread`. It is imported in the constructor, never at module
+  level, so a checkout without it imports everything and runs with the
+  publisher off. The client asks for a checksum only where an operation
+  requires one (`request_checksum_calculation="when_required"`): botocore
+  1.36 began sending one on every request, and R2 is S3-compatible rather
+  than S3. That is a precaution, not a measured failure; nothing in this
+  repository has talked to R2 yet (step 5).
+- **`MemoryStore` is the tests'**: the objects in a dict, every call in
+  order, failures on demand, and a gate that holds a call in flight.
+- **In `botkit/`, not the publisher's package**, because nothing in it
+  knows Codex: a D12 Ball publisher would take the same store.
+
+**A delete costs nothing.** R2's pricing page, read 2026-10-16: "Free
+operations include `DeleteObject`, `DeleteBucket` and
+`AbortMultipartUpload`" (<https://developers.cloudflare.com/r2/pricing/>).
+So deleting the boards the game has moved past is free, and keeps the
+bucket at the worksheet's 15 to 20 MB a game ("What it costs").
+
+## The queue
+
+`PublishQueue` (`cogs/codex_publish/queue.py`) takes **a change as a flag,
+not a payload**: the caller changes `PublishRecord`, then names the game
+(`game_changed(game_id, boards)`), handing over the bytes of any board the
+change named, since the record keeps only keys. The queue builds the JSON
+from the record when it sends. A burst of changes is one upload, and the
+newest state is always the one sent, with no pending payload to merge.
+
+**Per game, one send in flight**, a task a game while there is something
+to send. A change during a send is sent after it. Everything a send puts
+is built before its first `await`, so a change made while it is in flight
+goes whole into the next send rather than half into this one.
+
+**The order is the page's guarantee** (decision 9). A send puts every board
+the JSON names that is not up yet -- the current board, then any the history
+keeps -- then `history.json`, then `live.json`, and a failed put stops the
+send before anything that would name what failed. A poll that lands between
+two puts then never names an object that is not there.
+
+- **A board goes up once.** The record's `uploaded` is what is there; it
+  is changed only after a put or a delete succeeds, and the record is
+  saved when it changes. A restart uploads nothing twice.
+- **A board nothing names is deleted**, after the `live.json` that stopped
+  naming it is up: what is named is the current board and every board the
+  history keeps, at the send and in the record as it is now (a change
+  waiting to be sent would only put the board back). This is the
+  "What it costs" rule with no special case: a board replaced as current
+  goes unless a turn ended on it, a turn's board dropped by an undo to the
+  previous turn goes unless it is current again, and a delete that failed
+  is tried again on the next send. An undo back to a deleted board puts it
+  up again, since every change hands over the current board's bytes.
+- **The JSON goes up only when it changed** from what this process last
+  put under that key, by digest. That keeps an unchanged `history.json`
+  off every action without a version check, and a restart puts each once.
+- **A board the JSON needs and the queue does not have** -- a current
+  board neither up nor handed over, which only a failed upload before a
+  restart leaves -- holds the game's send, with a WARNING, until a change
+  hands it over: the site keeps the older board with the older lines
+  rather than naming a picture that is not there. A history board in the
+  same state is sent without it, with a WARNING, since nothing would ever
+  hand it over again.
+- **A lobby, and a game the record has no entry for, send nothing**
+  (`shapes.on_site`).
+
+**`index.json` and `archive.json` have one queue of their own**
+(`lists_changed()`), rebuilt from the games and the record when sent:
+every game changes them, and two games' sends finishing out of order
+would otherwise put back the older list. One task, so the last list put
+is the newest. The lists are built from the bot's games, not from the
+record, so a game that started before the publisher saw it is listed
+anyway. A match is read off its record once per saved state: the record's
+`match_state` dict is replaced on every save, so the queue keeps the dict
+it read and compares by identity.
+
+**Nothing raises out of it.** A failed call is a WARNING (console-only)
+and is retried with the next change: the boards a failed send held are
+kept for it. A **run** of failures -- `FAILURE_RUN` (ten) in a row, or a
+run older than `FAILURE_WINDOW` (five minutes), whichever comes first --
+is one ERROR, which reaches #logs because somebody must act: a revoked
+token or a deleted bucket fails every call from then on, and a WARNING on
+a console nobody watches would leave the site stale for good. A success
+resets the run, and says so at INFO if the ERROR had been logged. The run
+is counted across the whole queue, since one bucket and one token serve
+every game.
+
+**`close()`** takes nothing new and cancels what is in flight, for the
+cog's unload. A put already handed to its thread finishes there; the
+record says only what was confirmed, so the next start sends the rest.
+
+## Turning it on
+
+`cogs/codex_publish/config.py`'s `store_from_env` reads the `.env` once,
+as the cog loads: `CODEX_PUBLISH_ACCOUNT_ID`, `CODEX_PUBLISH_ACCESS_KEY_ID`,
+`CODEX_PUBLISH_SECRET_ACCESS_KEY` and `CODEX_PUBLISH_BUCKET` (default
+`pbd`). With any of the first three missing, or boto3 not installed, the
+publisher is off and says so once at INFO. They are a credential, in the
+`.env` of the `K:\` checkout alone ([collaboration.md](collaboration.md),
+"The Codex bot"), so a developer's test games never reach the live site.
