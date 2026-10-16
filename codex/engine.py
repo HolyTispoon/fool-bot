@@ -42,7 +42,6 @@ from codex.components import (
     AddOnState,
     hero_ref,
     is_hero_ref,
-    split_lent_ref,
     PATROL_SLOTS,
     TECH_BUILDINGS,
     CardInstance,
@@ -653,7 +652,7 @@ class RulesEngine:
             # controller's in play (its ruling).
             others = sum(1 for other in match.player(card.controller).play
                          if other is not card and self.catalog.cards[other.slug].is_unit)
-            others += len(match.player(card.controller).heroes_in_play)
+            others += len(match.heroes_controlled(card.controller))
             atk -= others
             hp -= others
         if match is not None and "Legendary" in (printed.type or ""):
@@ -728,7 +727,7 @@ class RulesEngine:
         for spell in match.player(seat).play:
             if spell.slug == effects.TWO_STEP and self.partnered(match, card, both_held=True) is spell:
                 found.append((spell.sequence, "two_step", spell))
-        for hero in match.player(seat).heroes_in_play:
+        for _, hero in match.heroes_controlled(seat):
             if not self.hero_texted(match, hero):
                 continue
             for (slug, level), grant in effects.BAND_GRANTS.items():
@@ -879,7 +878,15 @@ class RulesEngine:
         mine = match.player(seat).play
         if any(self.text_slug(card) in effects.GRANTS_SWIFT_STRIKE for card in mine):
             profile.grant("Swift strike")
-        for card in mine:
+        # Final Showdown is attached to its hero, `<owner>:hero:<slug>`, and
+        # stays in its caster's play -- the owner's -- while the hero is
+        # lent: it goes with the hero, where "your heroes" grants are the
+        # controller's (Rulebook p. 14; the review of 2026-10-15).
+        owner = self.owner_of_hero(match, hero)
+        held = f"{owner}:{hero_ref(hero.slug)}"
+        attached = [card for card in match.player(owner).play
+                    if owner != seat and effects.HERO_GRANTS.get(self.text_slug(card) or "") == "showdown"]
+        for card in (*mine, *attached):
             if not self.texted(card):
                 continue
             grant = effects.HERO_GRANTS.get(self.text_slug(card) or "")
@@ -895,7 +902,7 @@ class RulesEngine:
                 # Hero's Monument: "Your heroes get +1/+1."
                 profile.atk += 1
                 profile.hp += 1
-            elif grant == "showdown" and card.attached_hero == f"{seat}:{hero_ref(hero.slug)}":
+            elif grant == "showdown" and card.attached_hero == held:
                 # Final Showdown: "He gets +3/+3, readiness, resist 1, and
                 # draws a card when he attacks."
                 profile.atk += effects.SHOWDOWN_BONUS
@@ -2198,7 +2205,7 @@ class RulesEngine:
         spec = effects.INVISIBLE_WITH_HERO.get(slug)
         if spec is not None and seat is not None and any(
             (self.hero_card(hero).spec or "").lower() == spec
-            for hero in match.player(seat).heroes_in_play
+            for _, hero in match.heroes_controlled(seat)
         ):
             found.append(("Invisible", None))
         if slug in effects.WHEN_ATTACKING_HEROES and seat in self.turn_seats(match):
@@ -2236,7 +2243,7 @@ class RulesEngine:
         found: list = []
         for player in match.players:
             found.extend(card for card in player.play if self.catalog.cards[card.slug].is_unit)
-            found.extend(player.heroes_in_play)
+            found.extend(player.heroes_on_table)
         return found
 
     def has_keyword(self, body, keyword: str, match: Optional[MatchState] = None) -> bool:
@@ -2438,10 +2445,7 @@ class RulesEngine:
         defender, a tower's candidate and a holder's whether or not the
         zone it stands in holds the attacker (docs/design/codex.md,
         "Lending is a control change")."""
-        found = [hero_ref(hero.slug) for hero in match.player(seat).heroes_in_play]
-        found.extend(ref for ref in match.patrollers(seat).values()
-                     if split_lent_ref(ref)[0] is not None)
-        return tuple(found)
+        return tuple(ref for ref, _ in match.heroes_controlled(seat))
 
     def _standing(self, match: MatchState, seat: int) -> tuple[str, ...]:
         """Everything on `seat`'s side with HP: the units and hero in
@@ -3181,7 +3185,10 @@ class RulesEngine:
         for side in (*foes, seat, *([mate] if mate is not None else [])):
             player = match.player(side)
             units = self._units_of(match, side)
-            hero = [hero_ref(one.slug) for one in player.heroes_in_play]
+            # The heroes this side controls, one lent into its patrol
+            # zone among them, as the side names them (`heroes_controlled`).
+            controlled = match.heroes_controlled(side)
+            hero = [ref for ref, _ in controlled]
             damageable = [
                 (side, ref) for ref in self._buildings_of(match, side)
                 if not self._under_construction(player, ref)
@@ -3280,8 +3287,7 @@ class RulesEngine:
                 # Time Spiral, Tinkerer, Seer: a card with a time rune, in
                 # play or in the future, any player's (their rulings).
                 found += [(side, card.ref) for card in player.play if card.time_runes > 0]
-                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
-                          if one.time_runes > 0]
+                found += [(side, ref) for ref, one in controlled if one.time_runes > 0]
                 found += [(side, future_ref(card)) for card in player.future if card.time_runes > 0]
             elif choose == "own_sacrificable":
                 # Omegacron's cost: a unit, hero, worker or upgrade of yours
@@ -3336,9 +3342,8 @@ class RulesEngine:
                 # Plague Lab: a card with runes and a kind of them -- one
                 # row per kind, one rune a card (its rulings).
                 done = frame.get("lab_done") or []
-                bodies = [*player.play, *player.heroes_in_play]
-                for body in bodies:
-                    ref = body.ref if isinstance(body, CardInstance) else hero_ref(body.slug)
+                bodies = [(card.ref, card) for card in player.play] + controlled
+                for ref, body in bodies:
                     if target_key(side, ref) in done:
                         continue
                     for kind in rune_kinds(body):
@@ -3417,7 +3422,7 @@ class RulesEngine:
                     found += [(side, card.ref) for card in units if tech(card) <= 1]
             elif choose == "flier":
                 found += [(side, card.ref) for card in units if self.has_keyword(card, "Flying", match)]
-                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                found += [(side, ref) for ref, one in controlled
                           if self.has_keyword(one, "Flying", match)]
             elif choose == "dead_hero":
                 # Blackhand Resurrector: a hero of yours in the command zone
@@ -3474,7 +3479,7 @@ class RulesEngine:
             elif choose == "unit_or_non_peace_hero":
                 # Boot Camp: "a unit or non-Peace hero".
                 found += [(side, card.ref) for card in units]
-                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                found += [(side, ref) for ref, one in controlled
                           if (self.hero_card(one).spec or "").lower() != "peace"]
             elif choose in ("opponent_hand_unit_1_2", "opponent_discard_unit_1_2"):
                 # Community Service: a tech I or II unit of the opponent's
@@ -4089,7 +4094,8 @@ class RulesEngine:
         player = match.player(seat)
         units = sum(self.unit_stats(card, match)[0] for card in player.play
                     if self.catalog.cards[card.slug].is_unit)
-        return units + sum(self.hero_stats(hero, match)[0] for hero in player.heroes_in_play)
+        return units + sum(self.hero_stats(hero, match)[0]
+                           for _, hero in match.heroes_controlled(seat))
 
     def patrol_candidates(self, match: MatchState) -> tuple[str, ...]:
         """What the active player may lock into the patrol zone: ready

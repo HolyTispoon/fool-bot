@@ -884,6 +884,25 @@ class MatchState:
                     found[hero.patrol_slot] = lent_hero_ref(owner.seat, hero.slug)
         return found
 
+    def heroes_controlled(self, seat: int) -> list[tuple[str, HeroState]]:
+        """
+        **The heroes `seat` controls**, each with the ref that names it on
+        that side: their own heroes in play and not lent out
+        (`hero:<slug>`), then every hero another player has lent into
+        their patrol zone (`<owner seat>:hero:<slug>`, Rulebook p. 14), in
+        seat order. What "you have", "your heroes", "that opponent
+        controls" and "each opposing hero" read (docs/design/codex.md,
+        "Lending is a control change"); `PlayerState.heroes_in_play` is
+        the heroes on a player's own list alone, and leaves out the ones
+        lent to them.
+        """
+        found = [(hero_ref(hero.slug), hero) for hero in self.player(seat).heroes_in_play]
+        for owner in self.players:
+            for hero in owner.heroes_on_table:
+                if hero.lent_to == seat and hero.patrol_slot is not None:
+                    found.append((lent_hero_ref(owner.seat, hero.slug), hero))
+        return found
+
     def hero_on(self, seat: int, ref: Optional[str]) -> Optional[HeroState]:
         """The hero `ref` names on `seat`'s side: their own (`hero:<slug>`)
         or, spelled `<owner seat>:hero:<slug>`, one lent to their patrol

@@ -393,11 +393,13 @@ def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None, seat=N
         raise RuleRefusal("Choose whose hero gains the levels: that hero is on more than one side.")
     top = match.resolving.pop(0)
     result = StepResult(board_changed=True)
-    holder = next(
-        match.player(on) for on in ([seat] if seat is not None else top.get("seats") or [top["seat"]])
-        if match.player(on).hero_by_ref(hero) is not None
+    # Either spelling of the ref: a hero lent to the holder is named
+    # `<owner seat>:hero:<slug>` on their side (`hero_on`).
+    gaining = next(
+        found for on in ([seat] if seat is not None else top.get("seats") or [top["seat"]])
+        for found in (match.hero_on(on, hero),) if found is not None
     )
-    board.gain_kill_levels(engine, match, holder.hero_by_ref(hero), result)
+    board.gain_kill_levels(engine, match, gaining, result)
     return resolve.carry_on(engine, game, match, result)
 
 

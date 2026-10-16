@@ -737,14 +737,15 @@ def _upkeep_options(engine, game, match, prompt) -> UpkeepOrderOptions:
 
 
 def _level_options(engine, game, match, prompt) -> LevelGainOptions:
-    from codex.components import hero_ref
-
     top = match.resolving[0]
     owner = match.player(top["seat"])
     # Several seats only where the dead hero had several opponents; the
     # answer may name the seat beside the ref (`seat`).
     holders = [match.player(seat) for seat in top.get("seats") or [top["seat"]]]
-    found = [(holder.seat, hero_ref(hero.slug)) for holder in holders for hero in holder.heroes_in_play
+    # Each holder's heroes as their side names them: one lent to them is
+    # `<owner seat>:hero:<slug>` (`heroes_controlled`).
+    found = [(holder.seat, ref) for holder in holders
+             for ref, hero in match.heroes_controlled(holder.seat)
              if engine.takes_kill_levels(hero)]
     return LevelGainOptions(
         prompt.asked_player, owner.seat, tuple(ref for _, ref in found), tuple(seat for seat, _ in found),
