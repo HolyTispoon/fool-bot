@@ -925,7 +925,13 @@ class TurnPanelView(PanelView):
         author, 2026-10-15) -- and **Cancel**."""
         engine = self.cog.engine
         whys = options.why or ("",) * len(options.defenders)
-        seats = options.seats or (engine.sole_opponent(self.match, self.seat),) * len(options.defenders)
+        seats = options.seats
+        if not seats and options.defenders:
+            # A duel's rows name no seat: they are all its one opponent's.
+            # Asked only where there is a row to label -- a table with
+            # nothing to attack has no seats either, and several opponents,
+            # which `sole_opponent` refuses (the review of 2026-10-15).
+            seats = (engine.sole_opponent(self.match, self.seat),) * len(options.defenders)
         defenders = [
             self.make_button(
                 self.label(ref, side, why),
