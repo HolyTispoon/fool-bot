@@ -1,4 +1,4 @@
-# The Codex games on the web: `propheticfools.com/pbd/codex`
+# The Codex games on the web: `codex-pbd.pages.dev`
 
 **This is a worksheet, not a specification.** It was written on
 2026-10-16 from the author's ask: a website that shows the current board
@@ -87,54 +87,70 @@ codex) and never a tech or stash choice. The turn message's board is the
 same for every viewer: its layout is `CodexGame.board_layout`, on the
 record, and the near side is always `match.active`.
 
-**The landing site is static and has no secrets.** `propheticfools.com`
-is the `propheticfoolsgames` Cloudflare Pages project, built from `main`
-by `scripts/build_landing.py --only studio` into `landing/dist/studio`
-([landing-pages.md](design/landing-pages.md), "Deploying"). Anything
-live has to come from elsewhere. Today the build does not copy a folder
-as it stands, though. It fills `landing/studio/index.html` alone through
-`string.Template` and copies only the stylesheets and the fonts
-(`copy_styles`). It writes no `robots.txt` and no `_headers`, and no
-`_redirects` for the studio, whose `REDIRECTS` entry is empty, and
-`redirects_file` writes every rule as a `302`. Step 4 grows the build
-for all of that.
+**The board is Sirlin Games' art, so it stays off the studio's
+domain.** The board is drawn from the card pictures and the Screentop
+module's sheets (`scripts/import_codex_cards.py`). Inside a Discord
+server that is a group of people playing. On `propheticfools.com`, the
+studio's own public site, it would read as the studio publishing another
+company's art, unlisted or not. So the site is on a host that is not the
+studio's (the author, 2026-10-16), and nothing about it lives under
+`landing/` or `propheticfools.com`; `d12ball.com` is the studio's game's
+public face and is ruled out for the same reason.
+
+**A third Pages project can carry a Function without touching the two
+landing sites.** Cloudflare Pages looks for a `functions/` folder at the
+root of the project, and the root is a per-project setting ("Root
+directory"). The two landing projects build from the repository's root,
+so a `functions/` there would deploy to both. A project whose root is
+`pbd/` finds `pbd/functions/` and nothing else, and the landing projects
+never see it. A Pages project with no custom domain is served at
+`<project>.pages.dev`, Cloudflare's own hostname, at no cost.
 
 ## The decisions
 
 Taken with the author on 2026-10-16.
 
-1. **The bot uploads to Cloudflare R2; the page is static and reads
-   from there.** R2 is Cloudflare's file storage, its version of Amazon
-   S3, on the account `d12ball.com` and `propheticfools.com` are already
-   on (the author: no account on another service). It is a public bucket
-   on a subdomain of its own, `pbd.propheticfools.com` (the author,
-   2026-10-16); the page at
-   `propheticfools.com/pbd/codex` fetches JSON from it, with a CORS rule
-   allowing the studio's origin, and shows its images.
-   - **Not the tunnel.** Cloudflare Tunnel routes by hostname, not by
-     path, so `/pbd/codex` on the Pages domain would need a Worker in
-     front, the bot would need a web server of its own, and the site
-     would go down with the PC. With R2 the site keeps the last board
-     and the whole history while `K:\` is off; only updates wait for it,
-     and with the bot off nothing moves anyway.
-   - **Not a Pages Function.** Both Pages projects build from the
-     repository's root, so a `functions/` folder there would deploy to
-     `d12ball.com` as well. It would also mean a writable public
-     endpoint to maintain.
+1. **The bot uploads to a private Cloudflare R2 bucket; a Pages
+   project of its own serves the page and reads the bucket.** R2 is
+   Cloudflare's file storage, its version of Amazon S3, on the account
+   `d12ball.com` and `propheticfools.com` are already on (the author: no
+   account on another service). The site is the Pages project
+   `codex-pbd`, at `https://codex-pbd.pages.dev` -- on a host that is
+   not the studio's (the author, 2026-10-16); if the name is taken
+   Cloudflare adds a suffix, and the address is whatever the project is
+   given. It is built from `pbd/` in this repository: static files in
+   `pbd/public/`, and one Pages Function, `pbd/functions/data/`, which
+   reads the bucket through an R2 binding and answers `GET /data/...`.
+   - **The bucket is never public.** No custom domain, no `r2.dev`
+     address, no CORS rule: the page and its data are one origin, and
+     the only way into the bucket from the web is the Function, which
+     reads and never writes, and answers only the keys the bucket's
+     layout names. The bot writes through R2's S3 API with a token
+     scoped to the bucket.
+   - **Not the bucket's `r2.dev` address.** It needs no Function, but
+     Cloudflare rate-limits it and says it is for development, not
+     production.
+   - **Not the tunnel.** Cloudflare Tunnel would need the bot to run a
+     web server of its own, and the site would go down with the PC.
+     With R2 the site keeps the last board and the whole history while
+     `K:\` is off; only updates wait for it, and with the bot off nothing
+     moves anyway.
+   - **Not a domain of its own, for now.** It would cost a registration
+     a year for a page nobody is meant to find. A Pages project takes a
+     custom domain later as a setting, with nothing in the repository
+     changed.
 2. **Unlisted, not private** (the author). Nothing on
-   `propheticfools.com` links to `/pbd/codex`. The pages carry
-   `<meta name="robots" content="noindex">`, and the studio build's
-   `_headers` sends `X-Robots-Tag: noindex` on `/pbd/*`. The studio's
-   `robots.txt` does **not** disallow `/pbd/`, for two reasons. A
+   `propheticfools.com` or `d12ball.com` links to the site. The pages
+   carry `<meta name="robots" content="noindex">`, `pbd/public/_headers`
+   sends `X-Robots-Tag: noindex` on every static file, and the Function
+   sends it on every answer, since JSON and pictures carry no meta tag.
+   There is no `robots.txt` disallowing anything, for two reasons. A
    crawler barred from a page never reads its `noindex`, so a linked URL
    can still be indexed by its address alone. And a `robots.txt` is
-   public, so a `Disallow` line would print the unlisted address for
-   anyone to read. The bucket's own `robots.txt` is `Disallow: /`, since
-   nothing on it is meant to be found: JSON and pictures carry no meta
-   tag. Anyone with the link can see it, as with an unlisted video. The
-   bucket cannot be listed through its custom domain, and the images'
-   names are their hashes, so nothing is reached that the page does not
-   link to.
+   public, so it would print what it hides. Anyone with the link can see
+   the site, as with an unlisted video. The Function answers only named
+   keys, so the bucket cannot be listed, and the images' names are their
+   hashes, so nothing is reached that the page does not link to.
 3. **Finished and abandoned games go to an archive** (the author), as
    the D12 Ball web app's `/archive` does: one list for the games being
    played, one for the rest, every game's page the same shape either way.
@@ -199,6 +215,10 @@ Taken with the author on 2026-10-16.
     file name, `codex-<number>-board.webp`, never by the prefix alone
     ("What was found", the pins). A turn past the pin cap was never
     pinned, so it is not imported, and the history says where it starts.
+11. **The players are named as they are on Discord** (the author,
+    2026-10-16): every list and every log line names a seat by the
+    display name its player had when they joined (`seat_name`, on the
+    record), on a page anyone with the link can read.
 
 ## What it costs
 
@@ -212,8 +232,18 @@ From Cloudflare's R2 pricing page, read on 2026-10-16
 | Reads (Class B) | 10 million | $0.36 per million |
 | Downloads (egress) | free | free |
 
-The Pages project, the custom domain and DNS are already paid for or
-free; no Worker and no tunnel is used.
+The Pages project and its `pages.dev` address are free; no domain is
+bought and no tunnel is used. **The Function is the one other quota.**
+Pages Functions requests count toward the Workers free plan's 100,000
+requests a day, shared across the account and reset at midnight UTC;
+past it Cloudflare answers Error 1027 rather than billing, until the next
+day (<https://developers.cloudflare.com/pages/functions/pricing/>, read
+2026-10-16). Static files do not count: `pbd/public/_routes.json` sends
+only `/data/*` to the Function. An open game page polls `live.json` 240
+times an hour, about 5,800 a day, so the quota holds roughly fifteen
+pages open around the clock -- far more than a few games' players
+checking in. If it ever runs short, the poll interval is the dial, or
+the Workers paid plan removes the limit.
 
 Measured on 2026-10-16 with `scripts/render_codex_sample.py`: a
 two-player board is 0.35 to 0.75 MB, a five-player one about 1 MB. A
@@ -239,8 +269,11 @@ tier; the author checks when enabling it (step 5).
 
 ## The bucket's layout
 
-Under `codex/` in the bucket `pbd`, served at
-`https://pbd.propheticfools.com/codex/...`:
+Under `codex/` in the private bucket `pbd`, read by the Function at
+`https://codex-pbd.pages.dev/data/codex/...` -- the key after `/data/`,
+the object's own `Cache-Control` and `ETag` passed through, a `304` for
+a matching `If-None-Match`, and a `404` for any key that is not one of
+these shapes:
 
 | Key | What | Cache-Control |
 | --- | --- | --- |
@@ -250,7 +283,6 @@ Under `codex/` in the bucket `pbd`, served at
 | `games/<id>/history.json` | One entry per finished turn: `turn`, `heading`, `lines`, `board` | `no-cache` |
 | `games/<id>/board-<sha256>.webp` | A board. Named by its bytes, so it never changes | `public, max-age=31536000, immutable` |
 | `emoji/<name>.png` | The glyphs the lines carry (`codex/images/emoji/`), uploaded once | `public, max-age=86400` |
-| `/robots.txt` | `Disallow: /` | |
 
 `<id>` is the game's `game_id`, never its number ("What was found"). The
 number is shown on the page and in the lists. It is never a key.
@@ -284,14 +316,15 @@ worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 | 1 | The shapes: the record, the JSON, the segments, the design note | medium |
 | 2 | The store and the queue: R2 behind `CODEX_PUBLISH_*`, a fake for the tests, the put order, the deletes, the lists' own queue | medium |
 | 3 | The hooks: the Codex cog publishes every change, every turn's end, every undo, every ending | medium |
-| 4 | The page: the two lists, the game, the log column, the history, the viewer | medium |
-| 5 | Deploy: the bucket, its domain, the token, the `.env` on `K:\` -- **the dashboard half is the author's** | small, half of it in dashboards |
+| 4 | The site: `pbd/`, the two lists, the game, the log column, the history, the viewer, the Function | medium |
+| 5 | Deploy: the bucket, the token, the Pages project and its binding, the `.env` on `K:\` -- **the dashboard half is the author's** | small, half of it in dashboards |
 | 6 | The old turns, from the pins | small |
 
-Steps 1 to 4 need no Cloudflare: the store has a fake, and the page is
-looked at against a local folder served with CORS standing in for the
-bucket. Nothing goes public until step 5. The author can run step 5's
-dashboard half at any time after step 2.
+Steps 1 to 4 need no Cloudflare: the store has a fake, and the site is
+looked at through `scripts/serve_pbd.py`, which serves `pbd/public/` and
+answers `/data/` from a local folder in the bucket's layout, as the
+Function does. Nothing goes public until step 5. The author can run step
+5's dashboard half at any time after step 2.
 
 ### Claiming a step
 
@@ -328,9 +361,11 @@ a hand, a panel, a tech choice or `with_turn_log`'s copy. Publishing
 never fails a turn, never blocks a click, and spends no Discord request
 except in step 6. It runs only where CODEX_PUBLISH_* is set.
 
-The page is a static page of the studio site, under landing/studio/,
-built by landing/build.py: plain HTML, CSS and JavaScript, no framework,
-no CDN. It builds every line with textContent, never innerHTML.
+The site is its own Cloudflare Pages project, under pbd/ (static files
+in pbd/public/, one Function in pbd/functions/), never under landing/
+and never on the studio's domain: the board is Sirlin Games' art. Plain
+HTML, CSS and JavaScript, no framework, no CDN, no build step. It builds
+every line with textContent, never innerHTML.
 
 Run python3 -m unittest discover -s tests before the PR; a full run must
 not create data/. The PR carries a ## Questions for the author section,
@@ -501,37 +536,39 @@ fakes log stay what they are).
 
 ```text
 Step 4 of docs/pbd-site.md. Read docs/design/landing-pages.md at "Python
-and plain HTML, no framework", "The night palette, because a page is a
-screen" and "Redirects".
+and plain HTML, no framework" and "The night palette, because a page is
+a screen" for the look; the site borrows the palette's values, not the
+landing build.
 
-Add landing/studio/pbd/codex/: index.html (the two lists: the games
-being played, newest activity first, and the archive under them), and
-game.html (one game), with codex.js, viewer.js and codex.css, built by
-landing/build.py (scripts/build_landing.py --only studio) into the
-studio site and sharing base.css and the night palette. Today build()
-fills landing/<site>/index.html alone through string.Template and
-copy_styles copies only the stylesheets and the fonts, so grow the
-build: copy landing/studio/pbd/ into the output as it stands, never
-through Template (its JavaScript is full of $), and keep everything
-else as it is.
+Add pbd/, the Pages project's root (decision 1). Nothing under it is
+built: Pages serves pbd/public/ as it stands and finds pbd/functions/.
+Nothing under landing/ changes, and nothing under pbd/ is linked from
+either landing site.
 
-A rewrite sends /pbd/codex/<game_id> to game.html with a 200, not a
-redirect. REDIRECTS has no status today -- redirects_file writes every
-rule as a 302, and the studio's entry is empty, so it writes no
-_redirects -- so give an entry an optional status, the existing ones
-staying 302. The address is the game's id, never its number (the
-worksheet's "What was found"). Pages serves game.html at
-/pbd/codex/game and redirects the .html name there, so check a 200 onto
-game.html does not loop, and point it at /pbd/codex/game if it does.
-The pages name their scripts and stylesheets by absolute path
-(/pbd/codex/codex.js), so a trailing slash on the address breaks
-nothing.
+pbd/public/:
+- index.html: the two lists -- the games being played, newest activity
+  first, and the archive under them -- from /data/codex/index.json and
+  /data/codex/archive.json.
+- game.html: one game. _redirects rewrites /game/:id to /game with a 200,
+  not a redirect (Pages serves game.html at /game and redirects the
+  .html name there, so the rewrite names /game). The address is the
+  game's id, never its number (the worksheet's "What was found"). The
+  page reads the id off location.pathname.
+- codex.js, viewer.js, codex.css, named by absolute path, so a trailing
+  slash on an address breaks nothing.
+- _headers: X-Robots-Tag: noindex on /*. Both pages also carry
+  <meta name="robots" content="noindex">. No robots.txt (decision 2).
+- _routes.json: {"version": 1, "include": ["/data/*"], "exclude": []},
+  so only the data counts against the Functions quota ("What it costs").
 
-Both pages carry <meta name="robots" content="noindex">. The studio
-build writes a _headers file with X-Robots-Tag: noindex on /pbd/*. The
-site's robots.txt does not name /pbd/ (decision 2): a disallowed page's
-noindex is never read, and the robots file is public. Nothing on the
-studio page links here.
+pbd/functions/data/[[path]].js: GET and HEAD only. The key is "codex/"
+plus the path, answered only where it is one of the bucket's layout's
+shapes (a short list of patterns at the top of the file; games/<id>/ a
+32-character hex id, a board a 64-character hex hash, an emoji name of
+letters, digits and underscores) and a 404 otherwise. env.PBD.get(key,
+{onlyIf: request.headers}), the object's writeHttpMetadata and httpEtag
+passed through, a 304 where the precondition fails, X-Robots-Tag:
+noindex on every answer. It never writes and never lists.
 
 The game page: the board, as large as the window allows, in the
 viewer (the worksheet's decision 6), and a log column beside it that a
@@ -543,19 +580,21 @@ its board as a thumbnail that opens in the viewer. Polling as decision
 viewer's current zoom and position. A game that is over says so and
 stops polling.
 
-The bucket's address is one constant in build.py, written into the
-page, so a local build can point at a folder. To look at it: stage a
-folder in the bucket's layout with step 1's shapes and a
-render_codex_sample board, serve it with CORS on one port and the built
-site on another, and take the page at desktop, iPad (touch emulated)
-and phone widths, the log open and closed, zoomed in and out. Put the
-pictures in the PR.
+Add scripts/serve_pbd.py, run more than once while the page is worked
+on: it serves pbd/public/ with the rewrite and _headers, and answers
+/data/ from a folder in the bucket's layout (--data <dir>), refusing the
+keys the Function refuses. To look at it: stage a folder with step 1's
+shapes and a render_codex_sample board, serve it, and take the page at
+desktop, iPad (touch emulated) and phone widths, the log open and
+closed, zoomed in and out. Put the pictures in the PR.
 
-tests/test_landing_build.py: the two pages and their scripts are in the
-studio build, the rewrite is a 200 and names a file that is there (the
-test's check that a redirect's target exists has to read a placeholder
-source), the d12ball site's redirects are still 302s, _headers carries
-the noindex for /pbd/*, nothing on index.html links to /pbd/.
+tests/test_pbd_site.py: the files are there; _routes.json includes
+/data/* alone; _headers carries the noindex; _redirects' rewrite is a
+200 onto a page that is there; every key step 1's shapes write matches
+one of the Function's patterns and a key outside them matches none (read
+the patterns out of the .js, which are plain enough to compile as
+Python regexes, so the two cannot drift); nothing under landing/ names
+pbd/ or the site's address.
 ```
 
 ### 5. Deploy
@@ -567,31 +606,51 @@ promise.
 1. **Turn R2 on**: dashboard -> R2 Object Storage. If it asks for a
    payment method, this is where; it charges only past the free tier.
 2. **Create the bucket** `pbd`, location automatic, Standard storage
-   (the free tier covers Standard alone).
-3. **Give it its domain**: the bucket -> Settings -> Custom Domains ->
-   `pbd.propheticfools.com`. The zone is on the same account, so
-   Cloudflare adds the DNS record. Leave the `r2.dev` address off.
-4. **CORS**: the bucket -> Settings -> CORS policy, allowing `GET` from
-   `https://propheticfools.com` and `https://www.propheticfools.com`.
-5. **The token**: R2 -> Manage API tokens -> Create, *Object Read &
+   (the free tier covers Standard alone). **Leave it private**: no
+   custom domain, the `r2.dev` address off, no CORS policy (decision 1).
+3. **The token**: R2 -> Manage API tokens -> Create, *Object Read &
    Write*, **this bucket only**. Copy the access key id, the secret and
    the account id into the `K:\` checkout's `.env` as step 2's
    variables. The secret is shown once; a lost one is a new token.
-6. **Restart the Codex bot** with `run_codex_bot.cmd` and play an
-   action in a game; open `https://propheticfools.com/pbd/codex` on a
-   phone off the home Wi-Fi and see the board change.
-7. **Watch the bucket's size** after a game or two: R2 -> the bucket ->
+4. **Create the Pages project** `codex-pbd`: Workers & Pages -> *Create*
+   -> *Pages* -> *Connect to Git* -> `HolyTispoon/fool-bot`.
+   - Production branch: `main`. Framework preset: *None*.
+   - Root directory: `pbd`. Build command: `exit 0` (there is nothing
+     to build; a blank one may be refused). Build output directory:
+     `public`.
+   - If `codex-pbd` is taken, Cloudflare offers the name with a suffix;
+     take it and note the address.
+5. **On the project** (Settings):
+   - *Bindings* (or *Functions* -> *R2 bucket bindings* in older
+     dashboards): variable name `PBD`, bucket `pbd`, for Production.
+     The binding is read when a deployment is made, so **retry the
+     deployment after adding it**.
+   - *Build* -> *Branch control*: preview deployments *None*, as on the
+     two landing projects; otherwise every pushed branch gets a public
+     `*.codex-pbd.pages.dev` address.
+   - *Build watch paths*, include: `pbd/*`. Nothing else feeds the site.
+   - No custom domain.
+6. **Check the Function was found**: the deployment's log names the
+   Function it compiled; a log that says no `functions` directory was
+   found means the root directory is wrong.
+7. **Restart the Codex bot** with `run_codex_bot.cmd` and play an
+   action in a game; open the project's address on a phone off the home
+   Wi-Fi and see the board change. `https://<address>/data/codex/index.json`
+   answers the list; `https://<address>/data/anything-else` answers 404.
+8. **Watch the bucket's size** after a game or two: R2 -> the bucket ->
    Metrics. A game should be tens of MB, not a hundred ("What it
-   costs"); more means superseded boards are not being deleted.
+   costs"); more means superseded boards are not being deleted. And the
+   Functions requests a day: Workers & Pages -> the project -> Metrics,
+   against the 100,000.
 
 ```text
 Step 5 of docs/pbd-site.md.
 
 The repository half: write the checklist above into
 docs/design/pbd-site.md, "Deploying", as landing-pages.md's is written,
-and the variables into scripts/run_codex_bot.ps1's skip message if it
-names what is missing. Upload robots.txt to the bucket at startup if it
-is not there. Nothing else; the dashboard half is the author's.
+with the address the project was given, and the variables into
+scripts/run_codex_bot.ps1's skip message if it names what is missing.
+Nothing else; the dashboard half is the author's.
 ```
 
 ### 6. The old turns, from the pins
@@ -626,30 +685,15 @@ left out, a mention resolved, a deleted channel marked done, a second
 startup importing nothing.
 ```
 
-## Open questions for the author
+## Questions the author answered
 
-Two questions are still open, raised in review on 2026-10-16. Neither
-blocks steps 1 to 4, but both should be answered before step 5 makes
-anything public.
+Both raised in review on 2026-10-16 and answered the same day.
 
-1. **The players' names on the open web.** Every list and every log
-   line names a seat by the display name its player had when they
-   joined (`seat_name`, stored on the record), and the page is unlisted,
-   not private. A Discord name read only by the server's members becomes
-   one anyone with the link can read, and anyone they pass it to. Is
-   that fine as it is? Or should the players be told, or the site show
-   something less, such as "Player 1" or initials? If it shows less, the
-   segments carry the seat's number and the page words the name, and
-   nothing else changes.
-2. **Codex's card art on the studio's domain.** The board is drawn from
-   the card pictures and the Screentop module's sheets
-   (`scripts/import_codex_cards.py`), which are Sirlin Games'. Inside a
-   Discord server that is a group of people playing. On
-   `propheticfools.com`, the studio's own public site, it reads more
-   like the studio publishing another company's art, unlisted or not.
-   Is that acceptable, or does it want Sirlin Games' permission first,
-   or a host that is not the studio's (the bucket's `r2.dev` address,
-   or a domain of its own)?
+1. **The players' names on the open web**: fine as they are -- the
+   Discord display name on the record (decision 11).
+2. **Codex's card art on the studio's domain**: not there -- on a host
+   that is not the studio's, which made the site its own Pages project
+   on `pages.dev` with a private bucket behind a Function (decision 1).
 
 ## What is not in these prompts, on purpose
 
