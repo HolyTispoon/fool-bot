@@ -1344,6 +1344,48 @@ cancel, which rebuild the turn from its snapshot, bring it back with
 the rest. Discards the player chooses themselves --
 Calamandra's, a cost, Desperation's hand -- are not told: they know.
 
+**Every line that moves a player's gold says why, and where it now
+stands: "{gold:3} left" where it went down, "now {gold:5}" where it went
+up** (the author, 2026-10-16). A spend ends on its own sentence --
+"{player:1} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:3} left." --
+and a gain on its own clause -- "collects {gold:5} from 5 workers: now
+{gold:5}", "gains {gold:1} from {card:gemscout_owl}: now {gold:4}", "collects
+a bounty of {gold:1}: now {gold:2}". A steal says both sides: "{player:1}
+steals {gold:1} from {player:2} and is now at {gold:4}; {player:2} has
+{gold:0} left" (`stolen`, the whole clause). **A card's stats go with its
+name and the price after them** -- "plays {card:tenderfoot} 1/2 for
+{gold:1}", "summons {hero:river_montoya} 2/3 for {gold:2}" (never "level
+1": a hero is always summoned at 1) -- so the line reads as what was bought
+and then what it cost. A building or an upgrade card is named and no more
+("plays {card:...} for {gold:3}."), what it is on the board. A level that reaches a new
+band says what the band did, as the hero's own doing: "levels
+{hero:river_montoya} to 3 for {gold:2}: they reach a new band, are now
+3/4, and heal." -- `board.new_band`, on every level line, paid, a kill's
+or an effect's; "they", since the cards carry no pronoun for their heroes
+(the author, 2026-10-16). The
+reason is never left to be inferred: resist is its own line naming what is
+targeted and with what ("pays {gold:1} for resist to target {player:2}'s
+{card:brick_thief} with {card:spark}. {gold:2} left." -- the author:
+"resist for spells needs to be spelled out"), a repair says its price,
+and Promise of Payment's debt says it is the debt. A line paying 0 says
+no total (`gold_left` is empty for it), as a move that costs nothing says
+nothing.
+
+The wording is three helpers in `codex/flow/turn.py` -- `gold_left`,
+`gold_now`, `stolen` -- called by each sentence that moves gold, since
+the total belongs on the sentence that says why. A first version said
+the total once, in the driver, on the end of an answer's last line,
+which could not miss a spend but put the total on whatever line came
+last ("{card:sneaky_pig} has stealth this turn. {gold:6} left.") and
+said nothing for a gain at the upkeep. What it guarded against -- a way
+of paying that forgets to say so -- is held instead by
+`tests/test_codex_driver_full_game.py`: `play` asserts, for every action
+of every whole game it plays (the duel, the standard games, each colour
+pair, the free-for-alls, the dragons), that a seat whose gold changed
+has its new total said as "left" or "now". The main phase's ask is the
+seat's name and no more ("{player:1}'s main phase."): the gold is on the
+lines above it.
+
 **A line that damages a building or the base says where it now stands,
 out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's
 or Stampede's excess, a spell's, a trigger's or an ability's damage, a

@@ -563,11 +563,10 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
 
 
 def _main_ask(match: MatchState) -> str:
-    player = match.active_player
-    return (
-        f"{tokens.player(match.active)}, your main phase: "
-        f"{tokens.gold(player.gold)} and {player.workers} workers."
-    )
+    """Whose main phase it is, and nothing else: the upkeep's line just
+    said the gold, and the panel's picture shows the workers (the author,
+    2026-10-16)."""
+    return f"{tokens.player(match.active)}'s main phase."
 
 
 def _tech_ask(engine: "RulesEngine", match: MatchState, seat: int) -> str:

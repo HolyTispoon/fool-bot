@@ -52,7 +52,7 @@ class RepairTests(unittest.TestCase):
         match.set_base(1, 15)
         match.active_player.gold = 7
         first = said(apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "repair")))
-        self.assertEqual(first, "{player:1} repairs the base: 16 HP.")
+        self.assertEqual(first, "{player:1} repairs the base for {gold:3}: 16 HP. {gold:4} left.")
         apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "repair"))
         self.assertEqual((match.base_of(1), match.active_player.gold), (17, 1))
         self.assertFalse(main_options(engine, game, match).repair.allowed)
@@ -127,7 +127,7 @@ class FreeGoldTests(unittest.TestCase):
         iron = put(self.match, 1, "iron_man")
         victim = put(self.match, 2, "tenderfoot", patrol="elite")
         heard = attack(self.engine, self.game, self.match, iron.ref, victim.ref, 2)
-        self.assertIn("{player:1} collects {gold:1}.", heard)
+        self.assertIn("{player:1} collects a bounty of {gold:1}: now {gold:1}.", heard)
         self.assertEqual((self.match.player(1).gold, self.match.player(1).bounties), (1, 1))
 
     def test_a_kill_by_a_spell_pays_its_caster(self) -> None:
@@ -142,7 +142,7 @@ class FreeGoldTests(unittest.TestCase):
                 PromptKind.TARGET, arguments={"target": target_key(3, victim.ref)}))
         self.assertEqual(self.match.player(1).gold, 1)  # spent 1, collected 1
         self.assertEqual(self.match.player(1).bounties, 1)
-        self.assertIn("{player:1} collects {gold:1}.", said(run))
+        self.assertIn("{player:1} collects a bounty of {gold:1}: now {gold:1}.", said(run))
 
     def test_a_unit_that_dies_to_its_own_controllers_trigger_pays_nothing(self) -> None:
         """Jandra's "Dies from combat damage: Destroy all your units" is
@@ -407,7 +407,7 @@ class LendingTests(unittest.TestCase):
         iron = put(self.match, 1, "iron_man")
         heard = attack(self.engine, self.game, self.match, iron.ref, card.ref, 2)
         self.assertEqual(self.match.player(1).gold, 1)
-        self.assertIn("{player:1} collects {gold:1}", heard)
+        self.assertIn("{player:1} collects a bounty of {gold:1}", heard)
 
     def test_an_effect_on_the_borrowers_units_reaches_a_lent_card(self) -> None:
         """Bloom-style "your units": the borrower's controller reading is

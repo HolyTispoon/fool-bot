@@ -450,7 +450,7 @@ class PanelTests(TurnTestCase):
         _, view = await self.table.panel()
         opened = await self.table.press(view, "Hire worker")
         self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
-        self.assertIn("which card goes", opened.last()[2]["content"])
+        self.assertIn("Pick a card to trash", opened.last()[2]["content"])
         hiring = opened.view()
         options = view.prompt.options
         numbers = hand_numbers(options)
