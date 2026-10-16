@@ -3704,7 +3704,12 @@ on.
   (cost 3, `allowed`, `why_not`) on `MainActionOptions.repair`, `None`
   and absent from the wire outside a free-for-all, as often a turn as
   the gold goes, through `base_of` / `set_base`, journaled as every
-  action is; refused at 20, under 3 gold, and in a duel.
+  action is; refused at 20, under 3 gold, and in a duel -- and **once
+  the base is destroyed** ("the base is destroyed", 2026-10-16): a base
+  at 0 is out of the game and no defender, and its player reaches their
+  own main phase with it only after a debt unpaid at their upkeep left
+  a tie. Repairing it from 0 put it back among the defenders, and its
+  second fall was announced again.
   - **On Discord it is a button on the panel's board row** (the panel
     step, 2026-10-15): **Repair base (3 gold)**, green among what may be
     built where the engine allows it, and greyed with its reason --
