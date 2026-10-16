@@ -154,6 +154,9 @@ Taken with the author on 2026-10-16.
 3. **Finished and abandoned games go to an archive** (the author), as
    the D12 Ball web app's `/archive` does: one list for the games being
    played, one for the rest, every game's page the same shape either way.
+   **Only a game that started is on the site** (the author, 2026-10-16):
+   a lobby is not listed, and a game abandoned in its lobby is never
+   archived (`shapes.on_site`).
 4. **The site mirrors the turn message** (the author). Its board is
    whatever the turn message carries, including **Swap view** (which
    flips `board_layout` on the record, not the near side) and the
@@ -313,7 +316,7 @@ worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 
 | # | Step | Size |
 | --- | --- | --- |
-| 1 | The shapes: the record, the JSON, the segments, the design note | medium |
+| ~~1~~ | ~~The shapes: the record, the JSON, the segments, the design note~~ -- landed; `cogs/codex_publish/` (`record`, `keys`, `shapes`, `segments`) and [design/pbd-site.md](design/pbd-site.md) | ~~medium~~ |
 | 2 | The store and the queue: R2 behind `CODEX_PUBLISH_*`, a fake for the tests, the put order, the deletes, the lists' own queue | medium |
 | 3 | The hooks: the Codex cog publishes every change, every turn's end, every undo, every ending | medium |
 | 4 | The site: `pbd/`, the two lists, the game, the log column, the history, the viewer, the Function | medium |
@@ -496,7 +499,8 @@ worksheet's "What was found"), so the hooks are:
   present) and abandon_command (cogs/codex/ending.py, where the abandon
   is written inline -- no method of its own): the game moved from
   index.json to archive.json with its last board and its winner, or
-  none.
+  none. A game abandoned in its lobby was never on the site and is not
+  archived (shapes.on_site, decision 3).
 - /codex admin reset_channels, which drops games through neither: the
   dropped games taken off index.json and archive.json, so a list never
   links to a game the record no longer has.
@@ -506,7 +510,8 @@ worksheet's "What was found"), so the hooks are:
   (restore_saved_views), before the loop runs. So schedule the startup
   publish from cog_load as a task. It writes index.json and archive.json
   from the record: every game being played, and every finished or
-  abandoned game the publisher's record has no entry for yet, each
+  abandoned game that started (shapes.on_site) and the publisher's
+  record has no entry for yet, each
   with its last board, so a game that ended before the site existed is
   in the archive before step 6 gives it a history. It uploads the
   emoji if they are not up. It renders no board for a game whose
@@ -687,13 +692,15 @@ startup importing nothing.
 
 ## Questions the author answered
 
-Both raised in review on 2026-10-16 and answered the same day.
+Raised in review on 2026-10-16 and answered the same day.
 
 1. **The players' names on the open web**: fine as they are -- the
    Discord display name on the record (decision 11).
 2. **Codex's card art on the studio's domain**: not there -- on a host
    that is not the studio's, which made the site its own Pages project
    on `pages.dev` with a private bucket behind a Function (decision 1).
+3. **A game abandoned in its lobby** (raised on step 1's PR): not
+   archived. A game is on the site only once it has started (decision 3).
 
 ## What is not in these prompts, on purpose
 
