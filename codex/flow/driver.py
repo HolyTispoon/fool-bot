@@ -33,11 +33,11 @@ from codex.prompts import (
     Action,
     PendingPrompt,
     PromptKind,
+    asked_options,
     pending,
     pending_all,
     standing_prompts,
     tech_stands,
-    with_options,
 )
 
 if TYPE_CHECKING:
@@ -164,7 +164,11 @@ def advance(
             headlines = ()
 
     if isinstance(following, PendingPrompt):
-        following = with_options(engine, game, match, following)
+        # Read with the asked seat active: in a dragon the teammate who
+        # just acted is still `match.active` until `apply` settles the
+        # head (`settle_active`), and their options are not the asked
+        # seat's (the review of 2026-10-15).
+        following = asked_options(engine, game, match, following)
 
     return DriverRun(
         result=StepResult(

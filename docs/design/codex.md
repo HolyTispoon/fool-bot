@@ -1035,7 +1035,8 @@ black's, and the rest waits for step 13.
   the channel hears none of it until a card is discarded.
 - **The extra turn.** Double Time appends its caster to
   `MatchState.extra_turns`; `begin_tech` gives the next turn to the
-  first seat waiting there instead of the other player, so two Double
+  first seat waiting there instead of the other player -- and, in a
+  free-for-all, ahead of a playoff ("Multiplayer") -- so two Double
   Times are two extra turns, three turns in a row (its ruling). The
   tech choice in an extra turn is the standing prompt as in any turn,
   asked in the ready phase and confirmed there.
@@ -3630,9 +3631,17 @@ than 66 sites; the PR of every step showed these empty:
   playoff empties as it is played and the comparison after it is among
   the tied alone. The current turn runs to its end first -- the UMR's
   reading, the rulebook being silent -- and changes nothing about who is
-  tied. `next_seat` hands the playoff out ahead of the order and of any
-  extra turn; `begin_tech` pops it and, once it has emptied, compares
-  again: a winner, or the playoff filled again ("Still tied"). While
+  tied. `next_seat` hands the playoff out ahead of the order;
+  `begin_tech` pops it and, once it has emptied, compares again: a
+  winner, or the playoff filled again ("Still tied"). **Double Time's
+  extra turn comes first** (the author, 2026-10-16: "extra turn
+  first", the rulebook being silent): the card says "after this one",
+  so a seat owed one (`seats.owes_extra_turn`) takes it straight after
+  the turn that earned it, ahead of the playoff, which then runs in the
+  order it was filled; and the comparison after the last playoff turn
+  waits for an extra turn that turn earned. Before this the playoff
+  went first and the extra turn was in practice lost, since the active
+  seat after the playoff was no longer the one it was owed to. While
   anyone is tied only a tied player's base falling counts, and the game
   ends then on the comparison among the tied. **A debt unpaid is a base
   destroyed**: the base to zero, the comparison then. **A destroyed base
@@ -3695,7 +3704,12 @@ on.
   (cost 3, `allowed`, `why_not`) on `MainActionOptions.repair`, `None`
   and absent from the wire outside a free-for-all, as often a turn as
   the gold goes, through `base_of` / `set_base`, journaled as every
-  action is; refused at 20, under 3 gold, and in a duel.
+  action is; refused at 20, under 3 gold, and in a duel -- and **once
+  the base is destroyed** ("the base is destroyed", 2026-10-16): a base
+  at 0 is out of the game and no defender, and its player reaches their
+  own main phase with it only after a debt unpaid at their upkeep left
+  a tie. Repairing it from 0 put it back among the defenders, and its
+  second fall was announced again.
   - **On Discord it is a button on the panel's board row** (the panel
     step, 2026-10-15): **Repair base (3 gold)**, green among what may be
     built where the engine allows it, and greyed with its reason --
@@ -3862,7 +3876,14 @@ on.
   (`driver.answer`) and puts the team's head back between actions
   (`driver.settle_active`, once nothing stands half-resolved); every
   reading made on a seat's behalf -- its prompt's options and ask -- is
-  made under `seats.as_active`. The questions that are the team's do not
+  made under `seats.as_active`. **A prompt's options are built one way,
+  `prompts.asked_options`**, with the asked seat active where it is one
+  of the turn's seats: `_finished` and `driver.advance` both ask it.
+  Until 2026-10-16 `advance` rebuilt the run's following prompt with
+  plain `with_options`, before `apply` settled the head, so after a
+  teammate's action the head's question carried the teammate's hand
+  (the review of 2026-10-15; nothing read it yet, since the cog asks
+  `pending_prompts`). The questions that are the team's do not
   move: `turn_seats` is the active seat's dragon, the same for both
   teammates, and `next_seat` and the snapshots rest on the head
   (`seats.head_of`).

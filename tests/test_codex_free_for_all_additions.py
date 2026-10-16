@@ -67,6 +67,25 @@ class RepairTests(unittest.TestCase):
         self.assertEqual(refusal.cite, "Rulebook p. 14")
         self.assertEqual(match.active_player.gold, 6)
 
+    def test_a_destroyed_base_is_never_repaired(self) -> None:
+        """A base at 0 is out of the game: a debt unpaid at seat 2's
+        upkeep destroys it with seats 1 and 3 tied, seat 2's turn runs
+        on, and its gold buys no HP back -- else it would defend again,
+        and its second fall be announced again (the review of
+        2026-10-15)."""
+        engine, game, match = free_for_all()
+        for seat, hp in {1: 15, 2: 18, 3: 15}.items():
+            match.set_base(seat, hp)
+        match.player(2).debt = 30
+        end_turn(engine, game, match)
+        self.assertEqual((match.active, match.base_of(2), match.tied), (2, 0, [3, 1]))
+        match.active_player.gold = 9
+        option = main_options(engine, game, match).repair
+        self.assertEqual((option.allowed, option.why_not), (False, "the base is destroyed"))
+        refusal = refused_by(engine, game, match, Action(PromptKind.MAIN_ACTION, "repair"))
+        self.assertIn("destroyed", refusal.reason)
+        self.assertEqual((match.base_of(2), match.active_player.gold), (0, 9))
+
     def test_a_repair_is_journaled_and_replays(self) -> None:
         engine, game, match = free_for_all()
         match.set_base(1, 15)

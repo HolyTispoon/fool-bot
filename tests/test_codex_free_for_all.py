@@ -357,6 +357,45 @@ class EndingTests(unittest.TestCase):
         self.assertEqual(match.active, 3)
         self.assertEqual(match.playoff, [1])
 
+    def test_an_extra_turn_is_taken_before_the_playoff(self) -> None:
+        """The author, 2026-10-16 ("extra turn first"): Double Time's
+        "Take an extra turn after this one" comes straight after the turn
+        that earned it, the playoff after it -- in the order it was
+        filled, so nobody's playoff turn is lost to it."""
+        engine, game, match, _ = self.tie()
+        match.extra_turns = [1]  # seat 1 cast Double Time this turn
+        heard = end_turn(engine, game, match)
+        self.assertIn(f"{tokens.player(1)} takes an extra turn.", heard)
+        self.assertEqual(match.active, 1)
+        self.assertEqual((match.extra_turns, match.playoff), ([], [3, 1]))
+        end_turn(engine, game, match)
+        self.assertEqual(match.active, 3)
+        self.assertEqual(match.playoff, [1])
+        match.set_base(1, 9)  # seat 3 hurts seat 1 in its playoff turn
+        end_turn(engine, game, match)
+        self.assertEqual(match.active, 1)
+        heard = end_turn(engine, game, match)
+        self.assertEqual(match.winner, 3)
+        self.assertIn(f"{tokens.player(3)} wins with 14 base HP: the tie is broken.", heard)
+
+    def test_an_extra_turn_earned_in_the_last_playoff_turn_comes_before_the_comparison(
+            self) -> None:
+        """The comparison among the tied waits for an extra turn the last
+        playoff turn earned: that turn is still the tied player's."""
+        engine, game, match, _ = self.tie()
+        end_turn(engine, game, match)
+        end_turn(engine, game, match)
+        self.assertEqual((match.active, match.playoff), (1, []))
+        match.extra_turns = [1]  # seat 1 casts Double Time in its playoff turn
+        heard = end_turn(engine, game, match)
+        self.assertIsNone(match.winner)
+        self.assertIn(f"{tokens.player(1)} takes an extra turn.", heard)
+        self.assertEqual(match.active, 1)
+        match.set_base(3, 9)  # seat 1 hurts seat 3 in it
+        heard = end_turn(engine, game, match)
+        self.assertEqual(match.winner, 1)
+        self.assertIn(f"{tokens.player(1)} wins with 14 base HP: the tie is broken.", heard)
+
     def test_a_tie_the_rest_of_the_turn_would_break_still_plays_off(self) -> None:
         """Question 15 (the author, 2026-10-14): the tied players are those
         tied when the base falls -- "at that moment" -- and a repair later

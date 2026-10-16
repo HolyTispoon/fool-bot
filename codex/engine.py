@@ -1787,10 +1787,17 @@ class RulesEngine:
 
     def repair_option(self, match: MatchState) -> Optional[RepairOption]:
         """Repair the active player's base: 3 gold for 1 HP (Rulebook
-        p. 14), listed on a free-for-all match alone, with why not."""
+        p. 14), listed on a free-for-all match alone, with why not --
+        never once the base is destroyed: a base at 0 is out of the game
+        and no defender (`_standing`), and a player reaches their own
+        main phase with it only after a debt unpaid at their upkeep left
+        a tie (the review of 2026-10-15: repairing it put it back, and
+        its second fall was announced again)."""
         if match.variant != "free_for_all":
             return None
         player = match.active_player
+        if match.base_of(match.active) <= 0:
+            return RepairOption(False, why_not="the base is destroyed")
         if match.base_of(match.active) >= match.base_cap:
             return RepairOption(False, why_not="the base is undamaged")
         if player.gold < REPAIR_COST:
