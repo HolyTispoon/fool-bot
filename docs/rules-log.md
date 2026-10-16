@@ -155,6 +155,21 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-16 (later) -- author, 2.0: the two-headed card, face-up discards, a halftime reshuffle
+
+Three answers to the questions the first 2.0 PR asked. The author: *"Need to remake the two
+headed card. It will not include any of the interactions with roles and we need to merge the
+beats/ties/defeated by row so it works for both sides. Discard piles should be visible.
+Halftime reshuffle."* And: *"The beats band in the middle should say beat R3 rather than beat
+3."*
+
+- **A two-headed card carries no role abilities** (rules-2.0 1.1a), and its beats / ties /
+  loses-to row is **one band across the middle, by rank**, which both halves share -- a rank's
+  offensive and defensive maneuvers beat, tie and lose to the same ranks.
+- **Discard piles are face up** (1.2), where they were counted only.
+- **Halftime reshuffles** (3.3): each coach's hand and discard go back into the deck and a fresh
+  four is drawn. It was "carry on through halftime".
+
 ### 2026-10-16 -- author, D12 Ball 2.0: a deck of fifteen maneuver cards and a hand of four
 
 **A second edition, beside the first.** The author: *"each player now has a deck of 15

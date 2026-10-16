@@ -16,13 +16,17 @@ It is played on the Discord bot only for now. Its history is in [rules-log.md](r
 - **a.** **Nine two-headed basic cards**, three of each rank. The top half of a two-headed
   card is the basic offensive maneuver of its rank and the bottom half, upside down, is the
   basic defensive maneuver of the same rank: the rank 1 card is Low Pass one way up and
-  Deflect the other, rank 2 is Dribble and Steal, rank 3 is High Pass and Pressure.
+  Deflect the other, rank 2 is Dribble and Steal, rank 3 is High Pass and Pressure. A
+  two-headed card carries no role abilities. Across its middle is one band of ranks both
+  halves share, because both maneuvers on a rank beat, tie and lose to the same ranks (Law
+  6.3): the rank 1 card beats R3, ties R1 and loses to R2.
 - **b.** **Six advanced maneuvers**, one of each (Law 19.1): Pinpoint, Burst and Cross on
   offense, Clear, Intercept and Double Team on defense. An advanced card has one head and is
   played on its own side alone.
 
 **1.2** Before kickoff each coach shuffles their deck and draws **a hand of four**. The hand is
-secret; how many cards are in each coach's deck and discard pile is public.
+secret. How many cards are in each coach's deck is public, and **each discard pile is face up**,
+so both coaches see every card the other has played since the last shuffle.
 
 ## 2. Playing a card
 
@@ -50,5 +54,5 @@ challenge, either coach at a shot or a time out -- draws nothing.
 **3.2** **When a coach draws the last card of their deck, they shuffle their discard pile to
 make a new deck** at once.
 
-**3.3** The decks, the hands and the discard piles carry on through halftime. Nothing else in
-the game draws, discards or shuffles a card.
+**3.3** **At halftime each coach shuffles their hand and discard pile back into their deck and
+draws a fresh hand of four.** Nothing else in the game draws, discards or shuffles a card.
