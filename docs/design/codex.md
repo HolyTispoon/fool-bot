@@ -3876,7 +3876,14 @@ on.
   (`driver.answer`) and puts the team's head back between actions
   (`driver.settle_active`, once nothing stands half-resolved); every
   reading made on a seat's behalf -- its prompt's options and ask -- is
-  made under `seats.as_active`. The questions that are the team's do not
+  made under `seats.as_active`. **A prompt's options are built one way,
+  `prompts.asked_options`**, with the asked seat active where it is one
+  of the turn's seats: `_finished` and `driver.advance` both ask it.
+  Until 2026-10-16 `advance` rebuilt the run's following prompt with
+  plain `with_options`, before `apply` settled the head, so after a
+  teammate's action the head's question carried the teammate's hand
+  (the review of 2026-10-15; nothing read it yet, since the cog asks
+  `pending_prompts`). The questions that are the team's do not
   move: `turn_seats` is the active seat's dragon, the same for both
   teammates, and `next_seat` and the snapshots rest on the head
   (`seats.head_of`).

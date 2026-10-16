@@ -256,6 +256,19 @@ class TeamTurnTests(unittest.TestCase):
         self.assertEqual({row.slug for row in second.options.hand}, set(match.player(2).hand))
         self.assertIn("4", first.ask)
 
+    def test_the_prompt_after_a_teammates_action_carries_the_asked_seats_options(self) -> None:
+        """The run's following prompt is read with the asked seat active,
+        as `pending_prompts` reads it: after seat 2 acts, the head's
+        question carries the head's hand, not seat 2's (the review of
+        2026-10-15: `advance` rebuilt it with seat 2 still active)."""
+        engine, game, match = started()
+        slug = match.player(2).hand[0]
+        run = act(engine, game, match, PromptKind.MAIN_ACTION, "hire", slug=slug, player=2)
+        following = run.result.next
+        self.assertEqual(following.asked_player, 1)
+        self.assertEqual({row.slug for row in following.options.hand}, set(match.player(1).hand))
+        self.assertEqual(following.options, pending_prompts(engine, game, match)[0].options)
+
     def test_a_teammate_hires_with_their_own_gold_and_the_journal_names_the_seat(self) -> None:
         engine, game, match = started()
         slug = match.player(2).hand[0]

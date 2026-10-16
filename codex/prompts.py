@@ -993,9 +993,7 @@ def _finished(engine, game, match: MatchState, waiting: Union[PendingPrompt, Fol
               ) -> Union[PendingPrompt, FollowOn]:
     """A prompt with the notes its asked player is told and the options
     it carries -- read with the asked seat active, which in a dragon is
-    whichever teammate is the one asked."""
-    from codex import seats
-
+    whichever teammate is the one asked (`asked_options`)."""
     if isinstance(waiting, FollowOn):
         return waiting
     asked = waiting.asked_player
@@ -1003,10 +1001,29 @@ def _finished(engine, game, match: MatchState, waiting: Union[PendingPrompt, Fol
         told = discard_notes(match, asked)
         if told:
             waiting = replace(waiting, told=told)
+    return asked_options(engine, game, match, waiting)
+
+
+def asked_options(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                  prompt: PendingPrompt) -> PendingPrompt:
+    """
+    `prompt` with its options, **read with the asked seat active** where
+    it is one of the seats whose turn it is: in a dragon `match.active`
+    is whichever teammate last acted until the driver settles the head
+    (`driver.settle_active`), so a teammate's question read without it
+    would carry the other teammate's options. A defender's question, the
+    other team's, is read with the turn's seat active, as it must be. The
+    one way options are built for a prompt: `_finished` and
+    `driver.advance` both ask it (the review of 2026-10-15 found
+    `advance` rebuilding a dragon's options without it).
+    """
+    from codex import seats
+
+    asked = prompt.asked_player
     if match.dragons and asked is not None and asked in engine.turn_seats(match):
         with seats.as_active(match, asked):
-            return with_options(engine, game, match, waiting)
-    return with_options(engine, game, match, waiting)
+            return with_options(engine, game, match, prompt)
+    return with_options(engine, game, match, prompt)
 
 
 def pending_all(engine: "RulesEngine", game: "CodexGame", match: MatchState,
