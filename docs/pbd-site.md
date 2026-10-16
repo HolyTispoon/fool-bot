@@ -258,8 +258,9 @@ kept them all would hold 75 to 150 MB a game, and the free tier would
 cover 65 to 130 games. So the queue deletes the board it replaces as the
 current one, unless the history names it (the board a turn ended on).
 The record knows which keys are up, so this needs no listing.
-Whether R2 charges for a delete is to be read off the pricing page when
-step 2 is built.
+R2 does not charge for a delete: "Free operations include
+`DeleteObject`, `DeleteBucket` and `AbortMultipartUpload`" (the pricing
+page, read 2026-10-16 when step 2 was built).
 
 Writes are two or three per action, so a game is roughly a thousand to
 fifteen hundred. An open game page reads `live.json` 240 times an hour.
@@ -317,7 +318,7 @@ worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 | # | Step | Size |
 | --- | --- | --- |
 | ~~1~~ | ~~The shapes: the record, the JSON, the segments, the design note~~ -- landed; `cogs/codex_publish/` (`record`, `keys`, `shapes`, `segments`) and [design/pbd-site.md](design/pbd-site.md) | ~~medium~~ |
-| 2 | The store and the queue: R2 behind `CODEX_PUBLISH_*`, a fake for the tests, the put order, the deletes, the lists' own queue | medium |
+| ~~2~~ | ~~The store and the queue: R2 behind `CODEX_PUBLISH_*`, a fake for the tests, the put order, the deletes, the lists' own queue~~ -- landed; `botkit/objectstore.py`, `cogs/codex_publish/queue.py` and `config.py`, [design/pbd-site.md](design/pbd-site.md), "The store" and "The queue" | ~~medium~~ |
 | 3 | The hooks: the Codex cog publishes every change, every turn's end, every undo, every ending | medium |
 | 4 | The site: `pbd/`, the two lists, the game, the log column, the history, the viewer, the Function | medium |
 | 5 | Deploy: the bucket, the token, the Pages project and its binding, the `.env` on `K:\` -- **the dashboard half is the author's** | small, half of it in dashboards |
