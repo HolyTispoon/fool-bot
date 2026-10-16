@@ -208,10 +208,11 @@ STAT_SIZE = px(25)
 #: higher up, and a tad smaller, than the first build's 46 inside the
 #: corner).
 STAT_OVERHANG = px(10)
-#: Two Step's chit on a dance partner, this far across, just left of the
-#: stats pill and centred on its line (the author, 2026-10-15: it stood
-#: at the card's foot, bottom left), and the gap between the two.
-PARTNER_CHIT = px(42)
+#: Two Step's chit on a dance partner, this far across -- the damage
+#: chits' size (`lay_damage`) -- just left of the stats pill (the author,
+#: 2026-10-15: it stood at the card's foot, bottom left, and then a
+#: little smaller than the damage chits), and the gap between the two.
+PARTNER_CHIT = px(62)
 PARTNER_GAP = px(3)
 #: The rune chits hang over the card's right edge by this, centred this
 #: far down it -- a little below the card's middle, on the end of its
@@ -731,16 +732,24 @@ def armor_shield(armor: int, height: int) -> Image.Image:
     return shield
 
 
+def pill_rise(height: int) -> int:
+    """How far a picture `height` tall that holds the stats pill rises
+    above the pill (`beside_pill`): centred on the pill's line, but no
+    higher than the room the card's drawing leaves above the pill, which
+    `OVERHANG` round the card bounds -- a damage chit's size rises past
+    it, so it hangs a little lower than the pill's line."""
+    return min((height - STAT_HEIGHT) // 2, OVERHANG - STAT_OVERHANG)
+
+
 def beside_pill(pill: Image.Image, chit: Image.Image) -> Image.Image:
-    """`chit` at `PARTNER_CHIT` just left of the stats `pill`, centred on
-    its line, as one picture: placed where the pill alone would be, the
-    pill stands where it did and the chit beside it. Taller than the
-    pill by the chit's overhang, `(height - STAT_HEIGHT) // 2` above it."""
+    """`chit` at `PARTNER_CHIT` just left of the stats `pill`, as one
+    picture: placed where the pill alone would be, less `pill_rise` of
+    its height, the pill stands where it did and the chit beside it."""
     piece = by_width(chit, PARTNER_CHIT)
     height = max(piece.height, pill.height)
     whole = Image.new("RGBA", (piece.width + PARTNER_GAP + pill.width, height), (0, 0, 0, 0))
-    whole.alpha_composite(piece, (0, (height - piece.height) // 2))
-    whole.alpha_composite(pill, (piece.width + PARTNER_GAP, (height - pill.height) // 2))
+    whole.alpha_composite(piece, (0, 0 if height == piece.height else (height - piece.height) // 2))
+    whole.alpha_composite(pill, (piece.width + PARTNER_GAP, pill_rise(height)))
     return whole
 
 
@@ -1218,7 +1227,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
                 (side - px(8), bottom + px(8)), upward=True)
     # How far the pill's picture rises above the pill: a partner's chit
     # is taller than the pill it stands beside.
-    stats_rise = (stats.height - STAT_HEIGHT) // 2 if stats is not None else 0
+    stats_rise = pill_rise(stats.height) if stats is not None else 0
     # Every rune in one column under the stats pill, its tags under it
     # (the author, 2026-10-11): the time runes first -- a purple card's,
     # in its colour -- then the named runes; FUTURE under the time runes.
