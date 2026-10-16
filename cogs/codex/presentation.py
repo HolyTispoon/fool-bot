@@ -98,7 +98,9 @@ class PresentationMixin:
     async def refresh_match_image(self, game: CodexGame, png: Optional[bytes] = None) -> None:
         """**The one forwarder** over the turn message's write gate: an
         edit in place, after an action, an undo of the turn, or **Swap
-        view**."""
+        view** -- and the site's current turn with it."""
+        if self.publisher is not None:
+            self.publisher.current(game, board=png)
         channel = self.bot.get_channel(game.channel_id) if game.channel_id else None
         if channel is None:
             return
@@ -310,6 +312,9 @@ class PresentationMixin:
             if replace and old is not None:
                 await self.delete_table_message(channel, game, old)
         self.boards.posted(channel, game, message, png, text)
+        if self.publisher is not None:
+            # The bytes just posted: one already up is a live.json at most.
+            self.publisher.current(game, match, png)
         return message
 
     async def delete_table_message(self, channel: discord.TextChannel, game: CodexGame,

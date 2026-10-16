@@ -282,7 +282,7 @@ these shapes:
 | Key | What | Cache-Control |
 | --- | --- | --- |
 | `index.json` | The games being played: id, number, mode and variant, seats (name and team), turn, whose turn (a list of seats: a two-headed dragon's turn is two), updated | `no-cache` |
-| `archive.json` | The finished and abandoned games, the same fields and the winner | `no-cache` |
+| `archive.json` | The finished games and the abandoned ones, each a section of its own (`finished`, `abandoned`), the same fields and the winner | `no-cache` |
 | `games/<id>/live.json` | The game's status, heading, the current turn's lines, the current board's key, and the history's version | `no-cache` |
 | `games/<id>/history.json` | One entry per finished turn: `turn`, `heading`, `lines`, `board` | `no-cache` |
 | `games/<id>/board-<sha256>.webp` | A board. Named by its bytes, so it never changes | `public, max-age=31536000, immutable` |
@@ -319,7 +319,7 @@ worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 | --- | --- | --- |
 | ~~1~~ | ~~The shapes: the record, the JSON, the segments, the design note~~ -- landed; `cogs/codex_publish/` (`record`, `keys`, `shapes`, `segments`) and [design/pbd-site.md](design/pbd-site.md) | ~~medium~~ |
 | ~~2~~ | ~~The store and the queue: R2 behind `CODEX_PUBLISH_*`, a fake for the tests, the put order, the deletes, the lists' own queue~~ -- landed; `botkit/objectstore.py`, `cogs/codex_publish/queue.py` and `config.py`, [design/pbd-site.md](design/pbd-site.md), "The store" and "The queue" | ~~medium~~ |
-| 3 | The hooks: the Codex cog publishes every change, every turn's end, every undo, every ending | medium |
+| ~~3~~ | ~~The hooks: the Codex cog publishes every change, every turn's end, every undo, every ending~~ -- landed; `cogs/codex_publish/publisher.py`, [design/pbd-site.md](design/pbd-site.md), "The hooks" | ~~medium~~ |
 | 4 | The site: `pbd/`, the two lists, the game, the log column, the history, the viewer, the Function | medium |
 | 5 | Deploy: the bucket, the token, the Pages project and its binding, the `.env` on `K:\` -- **the dashboard half is the author's** | small, half of it in dashboards |
 | 6 | The old turns, from the pins | small |
@@ -552,9 +552,11 @@ Nothing under landing/ changes, and nothing under pbd/ is linked from
 either landing site.
 
 pbd/public/:
-- index.html: the two lists -- the games being played, newest activity
-  first, and the archive under them -- from /data/codex/index.json and
-  /data/codex/archive.json.
+- index.html: the games being played, newest activity first, and the
+  archive under them in its two sections -- the finished games, then
+  the abandoned ones (the author, 2026-10-16) -- from
+  /data/codex/index.json and /data/codex/archive.json, which carries the
+  two sections as `finished` and `abandoned`.
 - game.html: one game. _redirects rewrites /game/:id to /game with a 200,
   not a redirect (Pages serves game.html at /game and redirects the
   .html name there, so the rewrite names /game). The address is the

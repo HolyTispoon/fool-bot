@@ -19,7 +19,11 @@ publisher's own file; `keys.py`, the bucket's keys; `shapes.py`, the JSON;
 Step 2 landed how it is sent: `botkit/objectstore.py`, the store (R2, and
 a fake for the tests); `cogs/codex_publish/queue.py`, the queue; and
 `cogs/codex_publish/config.py`, the `CODEX_PUBLISH_*` variables that turn
-it on. Nothing calls them yet; step 3's hooks do.
+it on.
+
+Step 3 landed the hooks: `cogs/codex_publish/publisher.py`, which the
+Codex cog builds in `cog_load` and calls from its own methods, so every
+change the channel sees reaches the bucket.
 
 ## What the publisher is, and is not
 
@@ -60,7 +64,7 @@ builds each of them; nothing else spells one.
 | Key | Written by | What |
 | --- | --- | --- |
 | `codex/index.json` | `shapes.index` over `index_entry` | The games being played, newest activity first |
-| `codex/archive.json` | `shapes.archive` over `archive_entry` | The finished and abandoned games, the same fields, `status` and `winner` |
+| `codex/archive.json` | `shapes.archive` over `archive_entry` | Two sections, `finished` and `abandoned`, each newest first: the same fields, `status` and `winner` |
 | `codex/games/<id>/live.json` | `shapes.live` | The game as the lists name it, the current turn's `heading` and `lines`, the current `board`'s key, `history_version` and the history's key |
 | `codex/games/<id>/history.json` | `shapes.history` | `version`, and `turns`: one entry per finished turn -- `turn`, `heading`, `lines`, `board` |
 | `codex/games/<id>/board-<sha256>.webp` | `keys.board_key` | A board |
@@ -82,6 +86,14 @@ builds each of them; nothing else spells one.
   lobby was never on the site, so it is not archived: it has no board and
   no turn to show, and an archive of lobbies nobody played would bury the
   games that were. A game abandoned after its Start is archived.
+- **The archive is two sections, `finished` and `abandoned`** (the
+  author, 2026-10-16: "a finished game needs to go a finished games
+  section in the archive"). A game played out is read for how it was
+  won; an abandoned one has no ending to read. The split is made here,
+  not in the page, so the page builds no reading of a status of its own.
+  A finished game's page is the same shape as any other: its last turn
+  is its current turn, with the final board, and the turns before it its
+  history.
 - **`winner` is a list of seats, or `null`**: one seat, a dragon's two
   (`seats.dragon_of`), and `null` for an abandoned game.
 - **`history.json` is an object, not a bare list**, so it carries its
@@ -278,3 +290,97 @@ as the cog loads: `CODEX_PUBLISH_ACCOUNT_ID`, `CODEX_PUBLISH_ACCESS_KEY_ID`,
 publisher is off and says so once at INFO. They are a credential, in the
 `.env` of the `K:\` checkout alone ([collaboration.md](collaboration.md),
 "The Codex bot"), so a developer's test games never reach the live site.
+
+## The hooks
+
+`Publisher` (`cogs/codex_publish/publisher.py`) is built in the cog's
+`cog_load` where `store_from_env` hands back a store, and is `None`
+everywhere else; every call site reads `if self.publisher is not None`.
+It is called from the cog's own methods and **never from
+`BoardRefresher`**, which D12 Ball shares and which the Codex cog does
+not send every turn message through (the worksheet's "What was found").
+
+| Cog method | Hook | What the site gets |
+| --- | --- | --- |
+| `refresh_match_image` | `current` | The turn's lines now, and the board drawn: every action, an undo within the turn, **Swap view**, `/codex side_by_side` |
+| `post_turn_message` | `current`, with the bytes posted | The turn current: the game's start, a turn's end, an undo to the previous turn, `/codex resume`, **Show board** |
+| `roll_over` | `turn_ended`, with the bytes the standing message carries | The ended turn's history entry: its lines and the closing lines whole, its heading, its board -- never a second drawing |
+| `_previous_turn_back` | `previous_turn_back` | The restored turn's entry, and any after it, dropped; the history's version counted up |
+| `_own_undo` | `turn_undone` | The lines back to the turn's head (below) |
+| `note_turn_head` | `head_noted` | The turn's head, kept in the record's `head` |
+| `finish_game`, `abandon_command` | `game_over` | The last lines and board, and the game moved to `archive.json` |
+| `reset_channels` | `dropped` | The dropped games off the record and both lists, then their objects deleted |
+
+Start needs no hook of its own: its first turn message goes through
+`post_turn_message`, which lists the game.
+
+**A hook changes the record at once and awaits nothing.** The turn's
+lines are the cog's at the moment of the call -- `finish_game` and the
+abandon forget them a line later, and `roll_over` replaces them -- so
+they are read then. Drawing a board where the hook had none, saving the
+record and naming the game to the queue are the game's own task, one a
+game, so a burst of hooks is one save and one send. A board drawn for a
+change a newer one overtook is dropped: a post that handed over its
+bytes while a drawing was under way keeps its board current. Every hook
+is wrapped, so a bug in it is logged and never reaches the click.
+
+**The board is `render_match_png`'s**, the same call the gate makes, so
+an action's board is the drawing the gate made or is about to make, and
+the cache (`boards_drawn`) keeps it one drawing. Where the cog hands
+bytes over -- a post, a turn's end, the game's end -- nothing is drawn.
+
+**`updated` moves only when what the site shows moves**: the turn, its
+heading, its lines or its board. **Show board** posts the same board and
+lines again, so it changes nothing on the site and writes nothing.
+
+### The lines after a restart
+
+`Codex.turn_lines` is in memory, so a restarted process has not seen the
+current turn's lines. Until it says something more of the turn, the site
+keeps the record's lines, as the gate keeps the message's text
+(`turn_text_or_none`). When it does -- an action re-armed by the
+restart, or `/codex resume`, which resets `turn_lines` to nothing or the
+opening lines -- the cog's lines are only the end of the turn. So the
+publisher starts with every game's record lines **carried** for that
+turn, and the site's lines are the carried lines followed by
+`turn_lines`, never `turn_lines` alone, until the turn ends.
+
+An undo within the turn sets `turn_lines` to the turn's head and what
+the undo said. The head is the cog's `turn_heads`, also in memory, so the
+record keeps its own copy (`PublishedGame.head`), and remembers what it
+carried when the head was noted: after an undo, the site's lines are
+that carried part, then `turn_lines`. An undo to the previous turn takes
+the restored turn's head from the cog where it has it; after a restart
+it does not, and the site shows what Discord shows.
+
+A turn that ends with no `roll_over` -- `/codex resume` running the end
+the bot owed at the restart -- is noticed by the next `current`, whose
+turn is past the record's: the record's turn, as it stood, becomes its
+history entry, with the last board the site had for it.
+
+### Startup
+
+`cog_load` starts a task, since the views are re-armed in `__init__` and
+a click may land before it is done. It puts the four glyphs' pictures,
+then gives every game the site does not have a board for one: a game
+being played the record never saw, or whose board did not go up before
+the restart; and a finished or abandoned game that started and the
+record has no entry for, with its last board and no `updated`, so it
+sorts below the games the site saw end. A game whose current board is up
+is not drawn: the next change sends a new one. Then both lists.
+
+**The glyphs go up once a start**, not once ever: four small pictures,
+four writes a restart, and the record holds games and nothing else. The
+queue's own digest keeps them from going up twice in one process.
+
+### What a reset deletes
+
+`/codex admin reset_channels` drops games through neither ending, so it
+has a hook of its own: the games come off the record and so off both
+lists, and then **out of the bucket** -- every board the record had up,
+`live.json` and `history.json` (the author, 2026-10-16). The deletes run
+on the lists' queue, after both lists without the games are up, so no
+list ever links to a game whose objects are gone. A delete that fails is
+tried again with the lists' next change; deletes cost nothing ("The
+store"). A game's send still in flight is cancelled first, and its
+record entry is gone, so nothing puts it back.

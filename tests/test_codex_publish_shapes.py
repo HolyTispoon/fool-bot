@@ -124,7 +124,16 @@ class ListShapesTests(unittest.TestCase):
             {"id": "c", "updated": None},
         ])
         self.assertEqual([entry["id"] for entry in listed["games"]], ["b", "a", "c"])
-        self.assertEqual(shapes.archive([])["games"], [])
+        self.assertEqual(shapes.archive([]), {"finished": [], "abandoned": []})
+
+    def test_the_archive_has_a_section_for_finished_games(self):
+        archived = shapes.archive([
+            {"id": "a", "status": "abandoned", "updated": "2026-10-16T09:00:00Z"},
+            {"id": "b", "status": "finished", "updated": "2026-10-16T10:00:00Z"},
+            {"id": "c", "status": "finished", "updated": "2026-10-16T11:00:00Z"},
+        ])
+        self.assertEqual([entry["id"] for entry in archived["finished"]], ["c", "b"])
+        self.assertEqual([entry["id"] for entry in archived["abandoned"]], ["a"])
 
 
 class GameShapesTests(unittest.TestCase):
