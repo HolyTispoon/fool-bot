@@ -38,13 +38,13 @@ class SlashCommandsMixin:
         lines = []
         for game in games[-20:]:
             names = [held["name"] for held in game.seats if held["name"]]
-            players = (", " if game.variant != "duel" else " vs ").join(names) or "nobody seated"
-            if game.variant == "two_headed_dragon" and names:
+            players = (", " if not game.is_duel else " vs ").join(names) or "nobody seated"
+            if game.is_dragon and names:
                 # Its two teams: "ann and bo vs cy and dee".
                 players = " vs ".join(
                     " and ".join(game.seat_name(seat) for seat in team if game.seat_name(seat))
                     or "nobody seated" for team in game.teams())
-            if game.variant != "duel":
+            if not game.is_duel:
                 players = f"{VARIANT_LABELS[game.variant]}: {players}"
             where = f" in <#{game.channel_id}>" if game.channel_id else ""
             lines.append(f"**{game.game_number}** -- {game.status.value}: {players}{where}")
@@ -91,7 +91,7 @@ class SlashCommandsMixin:
         if game.seat_of(interaction.user.id) is None and not is_game_helper(interaction.user):
             await send_ephemeral(interaction, "Only the players can swap the board's view.")
             return
-        if game.variant == "two_headed_dragon":
+        if game.is_dragon:
             # Two rows of two is the dragon's one layout; Swap view flips
             # the far team (the author, 2026-10-14; decision 14).
             await send_ephemeral(

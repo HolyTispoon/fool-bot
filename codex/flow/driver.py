@@ -34,6 +34,7 @@ from codex.prompts import (
     PendingPrompt,
     PromptKind,
     asked_options,
+    half_resolved,
     pending,
     pending_all,
     standing_prompts,
@@ -406,7 +407,7 @@ def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None, seat=N
 
 def _answer_stash(engine, game, match, prompt, choice, *, slug=None) -> StepResult:
     """Stash's card, or none, and the draw it changes (step 13)."""
-    if match.dragons:
+    if match.is_dragon:
         # Both teammates' draws run together once each has answered
         # (`codex.flow.turn.draw_phase`).
         keeping = ""
@@ -531,7 +532,7 @@ def _find_team_prompt(engine, game, match, action: Action) -> Union[PendingPromp
 
 
 def _find_prompt(engine, game, match, action: Action) -> Union[PendingPrompt, Refusal]:
-    if match.dragons:
+    if match.is_dragon:
         return _find_team_prompt(engine, game, match, action)
     waiting = pending(engine, game, match)
     if isinstance(waiting, FollowOn):
@@ -625,7 +626,7 @@ def answer(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         )
     arguments = dict(action.arguments)
     before = match.active
-    if match.dragons:
+    if match.is_dragon:
         # Journalled with the seat that answered, and run with that seat
         # active: every reading below is made on their behalf.
         if found.asked_player is not None:
@@ -652,9 +653,7 @@ def settle_active(match: MatchState) -> None:
     (`codex.seats.next_seat`). A duel's and a free-for-all's is left
     alone.
     """
-    from codex.prompts import _half_resolved
-
-    if match.dragons and match.winner is None and not _half_resolved(match):
+    if match.is_dragon and match.winner is None and not half_resolved(match):
         match.active = seats.head_of(match)
 
 

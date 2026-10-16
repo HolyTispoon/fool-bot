@@ -44,7 +44,7 @@ import time
 import discord
 
 from codex.formatting import codex_view_name, team_name
-from codex.game import GameStatus, RuleRefusal
+from codex.game import GameStatus, RuleRefusal, by_variant
 from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import elapsed_ms, pictures_size, seat_label
 from cogs.codex_views.base import SafeView, edit_clicked, kept_pictures, picture_file, send_ephemeral
@@ -117,11 +117,11 @@ class TurnMessageView(SafeView):
             ("Tech", "tech", discord.ButtonStyle.secondary),
             ("Codex", "codex", discord.ButtonStyle.secondary),
             ("Undo", "undo", discord.ButtonStyle.secondary),
-            (swap_label(layout, game is not None and game.variant == "free_for_all"), "swap",
+            (swap_label(layout, game is not None and game.is_free_for_all), "swap",
              discord.ButtonStyle.secondary),
             ("Concede", "concede", discord.ButtonStyle.danger),
         ):
-            if action == "concede" and game is not None and game.variant == "free_for_all":
+            if action == "concede" and game is not None and game.is_free_for_all:
                 # A free-for-all has no conceding (Rulebook p. 14).
                 continue
             button = discord.ui.Button(
@@ -165,7 +165,7 @@ class TurnMessageView(SafeView):
         if seat is None:
             return
         await self._own_tech(interaction, game, match, seat)
-        if match.dragons and not game.test_game:
+        if match.is_dragon and not game.test_game:
             await self.cog.send_teammate_tech(interaction, game, match, seat)
 
     async def _own_tech(self, interaction: discord.Interaction, game, match, seat: int) -> None:
@@ -184,8 +184,8 @@ class TurnMessageView(SafeView):
             await send_ephemeral(
                 interaction,
                 "Tech is chosen at the end of your turn and changed during "
-                + ("your opponent's" if match.variant == "duel"
-                   else "the other team's" if match.dragons else "the others'")
+                + by_variant(match.variant, duel="your opponent's", free_for_all="the others'",
+                             dragon="the other team's")
                 + ": it is not yours to press now.",
             )
             return
@@ -253,7 +253,7 @@ class TurnMessageView(SafeView):
         # A dragon's far team flips between facing and the same way up, as
         # a duel's far panel does (decision 14); a free-for-all has no
         # facing view.
-        layout = swapped_layout(game.board_layout, game.variant == "free_for_all")
+        layout = swapped_layout(game.board_layout, game.is_free_for_all)
         try:
             self.cog.service.set_board_layout(game.game_id, layout)
         except RuleRefusal as refused:
@@ -328,7 +328,7 @@ def revealed_caption(engine, match, seat: int, game=None) -> str:
         name = seat_label(game, other)
         if other == mate:
             lines.append(f"{name}'s hand: {cards}")
-        elif match.variant == "duel":
+        elif match.is_duel:
             lines.append(f"Their hand, revealed by Eyes of the Chancellor: {cards}")
         else:
             lines.append(f"{name}'s hand, revealed by Eyes of the Chancellor: {cards}")

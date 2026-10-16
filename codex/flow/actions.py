@@ -647,7 +647,7 @@ def end_main(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Ste
     """The main phase ends on the patrol lock (UMR p. 10). In a dragon the
     seat alone ends theirs, owing the lock while their teammate goes on
     (Rulebook p. 13: each seat's lock is its own)."""
-    if match.dragons:
+    if match.is_dragon:
         match.active_player.locking = True
         return StepResult(next=pending(engine, game, match))
     match.enter_phase("patrol")
@@ -758,7 +758,7 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             )
             player.discard.extend(player.hand)
             player.hand = []
-    if match.dragons:
+    if match.is_dragon:
         # The seat's actions are over; the team's main phase ends with
         # the second lock, and the draw and tech phases run for both
         # (Rulebook p. 13).

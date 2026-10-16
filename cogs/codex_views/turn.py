@@ -42,6 +42,7 @@ import discord
 from codex import effects, history
 from codex.engine import ARRIVED, EXHAUSTED, TECH_BUILDINGS, building_name
 from codex.formatting import deck_name, ref_label, team_name
+from codex.game import by_variant
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name, seat_label
 from cogs.codex_views.base import SafeView, acknowledge, edit_clicked, kept_pictures, send_ephemeral
@@ -80,11 +81,8 @@ PREVIOUS_TURN_LABEL_DRAGON = "To the start of the previous turn (asks the other 
 def previous_turn_label(variant: str) -> str:
     """The undo to the previous turn's label for `variant`, the record's
     or the match's."""
-    if variant == "duel":
-        return PREVIOUS_TURN_LABEL
-    if variant == "two_headed_dragon":
-        return PREVIOUS_TURN_LABEL_DRAGON
-    return PREVIOUS_TURN_LABEL_TABLE
+    return by_variant(variant, duel=PREVIOUS_TURN_LABEL, free_for_all=PREVIOUS_TURN_LABEL_TABLE,
+                      dragon=PREVIOUS_TURN_LABEL_DRAGON)
 
 #: What the fine undo's menu asks.
 UNDO_MENU = "To before an action of this turn..."
@@ -106,11 +104,10 @@ def opponent_started(game, match) -> str:
     """`OPPONENT_STARTED`, naming the seat that has started its turn
     where there are several, or the other team in a dragon
     (docs/codex-multiplayer.md, decision 15)."""
-    if match.variant == "duel":
-        return OPPONENT_STARTED
-    if match.dragons:
-        return OTHER_TEAM_STARTED
-    return f"{seat_label(game, match.active)} has already started their turn."
+    return by_variant(
+        match.variant, duel=OPPONENT_STARTED, dragon=OTHER_TEAM_STARTED,
+        free_for_all=f"{seat_label(game, match.active)} has already started their turn.",
+    )
 
 
 def undo_menu(choices, callback, row: int | None = None) -> discord.ui.Select | None:
@@ -221,7 +218,7 @@ class PanelView(SafeView):
         game, match = await self.mine(interaction)
         if game is None:
             return
-        if match.dragons and "player" not in action.arguments:
+        if match.is_dragon and "player" not in action.arguments:
             # In a dragon every action names its seat, since both
             # teammates may have a prompt of one kind open (decision 8).
             action = Action(action.kind, action.choice, {**action.arguments, "player": self.seat})
@@ -248,7 +245,7 @@ class PanelView(SafeView):
         privately, as ever.
         """
         game, match = self.load_match()
-        if match is None or not match.dragons:
+        if match is None or not match.is_dragon:
             await super().refuse(interaction, reason)
             return
         standing = (self.prompt.kind is PromptKind.TECH_CHOICE
@@ -1435,12 +1432,12 @@ class UndoConfirmView(SafeView):
         # Whose agreement it is: the duel's opponent, the other team's
         # two -- or, across an extra turn one seat took alone, that seat,
         # named as a free-for-all's is.
-        team = match.dragons and len(self.agreeing) > 1
-        if seat == self.asker or (match.dragons and seat is not None and seat not in self.agreeing
+        team = match.is_dragon and len(self.agreeing) > 1
+        if seat == self.asker or (match.is_dragon and seat is not None and seat not in self.agreeing
                                   and seat in self.cog.engine.turn_seats(match)):
             await send_ephemeral(
                 interaction,
-                ("Your opponent" if match.variant == "duel" else "The other team" if team
+                ("Your opponent" if match.is_duel else "The other team" if team
                  else "The player whose turn it was")
                 + " has to agree to this: it undoes their turn too.",
             )
@@ -1448,7 +1445,7 @@ class UndoConfirmView(SafeView):
         if seat not in self.agreeing and not self.may_act_for(interaction, game, self.opponent):
             await send_ephemeral(
                 interaction,
-                ("Only the opponent" if match.variant == "duel" else "Only the other team's players"
+                ("Only the opponent" if match.is_duel else "Only the other team's players"
                  if team else "Only the player whose turn it was")
                 + ", or a helper with Manage Channels, can agree to this.",
             )

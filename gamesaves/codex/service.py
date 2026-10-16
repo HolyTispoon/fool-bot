@@ -258,12 +258,18 @@ class GameService:
         question of any other game."""
         return pending_prompts(self.engine, game, match)
 
+    def team_prompts(self, game: CodexGame, match: MatchState) -> tuple[PendingPrompt, ...]:
+        """`GameResult.prompts`: a two-headed dragon's every question,
+        one per acting seat, and nothing in any other game, whose one
+        question is the result's `prompt`."""
+        return self.waiting_all(game, match) if match.is_dragon else ()
+
     def questions(self, game: CodexGame, match: MatchState,
                   ) -> tuple[Optional[PendingPrompt], tuple[PendingPrompt, ...]]:
         """`(prompt, prompts)` for a `GameResult` read off the position:
         the first question and, in a dragon, all of them."""
         everything = self.waiting_all(game, match)
-        return (everything[0] if everything else None), (everything if match.dragons else ())
+        return (everything[0] if everything else None), (everything if match.is_dragon else ())
 
     # -- The lobby -------------------------------------------------------
 
@@ -461,7 +467,7 @@ class GameService:
             )
         self.persist(game, match)
         following = applied.result.next
-        everything = self.waiting_all(game, match) if match.dragons else ()
+        everything = self.team_prompts(game, match)
         result = GameResult(
             groups=tuple(
                 Narration(group.narration, group.step, board=group.board,
@@ -496,7 +502,7 @@ class GameService:
                 self.run(game, match, StepResult(next=waiting)),
             )
         result = GameResult(
-            prompt=waiting, prompts=self.waiting_all(game, match) if match.dragons else (),
+            prompt=waiting, prompts=self.team_prompts(game, match),
             standing=self.standing(game, match), match=match,
         )
         self.announce(game, result)
@@ -689,7 +695,7 @@ class GameService:
             groups=tuple(groups),
             narration=narration,
             prompt=prompt,
-            prompts=self.waiting_all(game, match) if match.dragons and prompt is not None else (),
+            prompts=self.team_prompts(game, match) if prompt is not None else (),
             standing=self.standing(game, match),
             board_changed=board_changed,
             match=match,
