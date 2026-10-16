@@ -83,7 +83,7 @@ class EconomyTests(unittest.TestCase):
         run = to_their_turn(engine, game, match)
         self.assertEqual(match.player(2).gold, GOLD_CAP)
         said = " ".join(run.result.narration)
-        self.assertIn("collects {gold:2} from 5 workers and hits the gold cap: {gold:20}.", said)
+        self.assertIn("collects {gold:2} from 5 workers and hits the gold cap: now {gold:20}.", said)
 
     def test_a_worker_is_hired_once_a_turn_and_its_card_is_gone(self) -> None:
         """A gold and a card from the hand, trashed unseen, once a turn

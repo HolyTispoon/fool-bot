@@ -249,12 +249,13 @@ class TeamTurnTests(unittest.TestCase):
 
     def test_each_prompt_carries_its_own_seats_options(self) -> None:
         """Every reading is made on the asked seat's behalf: their hand,
-        their gold."""
+        their name in the ask."""
         engine, game, match = started()
         first, second = pending_prompts(engine, game, match)
         self.assertEqual({row.slug for row in first.options.hand}, set(match.player(1).hand))
         self.assertEqual({row.slug for row in second.options.hand}, set(match.player(2).hand))
-        self.assertIn("4", first.ask)
+        self.assertIn("{player:1}", first.ask)
+        self.assertIn("{player:2}", second.ask)
 
     def test_the_prompt_after_a_teammates_action_carries_the_asked_seats_options(self) -> None:
         """The run's following prompt is read with the asked seat active,

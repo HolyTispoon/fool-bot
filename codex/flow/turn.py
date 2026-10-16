@@ -389,13 +389,13 @@ def _begin_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState, s
     )
     if produced < player.workers:
         collected += f", held to {tokens.gold(produced)} by {tokens.card('slowtime_generator')}: "
-        collected += f"{tokens.gold(player.gold)}."
+        collected += f"now {tokens.gold(player.gold)}."
     elif gained < player.workers:
         # Said where it bites, so a short income is not read as a slip
         # (the author, 2026-10-08).
-        collected += f" and hits the gold cap: {tokens.gold(player.gold)}."
+        collected += f" and hits the gold cap: now {tokens.gold(player.gold)}."
     else:
-        collected += f": {tokens.gold(player.gold)}."
+        collected += f": now {tokens.gold(player.gold)}."
     result.narration.append(collected)
     # One summoning rune off each hero (UMR p. 5).
     for hero in player.heroes:
