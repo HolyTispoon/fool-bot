@@ -23,7 +23,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Iterable, Iterator, Optional
 
 from codex import seats
-from codex.game import RuleRefusal
+from codex.game import DUEL, FREE_FOR_ALL, TWO_HEADED_DRAGON, RuleRefusal
 from gamekit.saved import SavedField
 
 __all__ = [
@@ -881,6 +881,27 @@ class MatchState:
                 return found
         return None
 
+    # -- The variant, read one way ---------------------------------------
+    #
+    # Every "is this a duel / a free-for-all / a dragon" is one of these
+    # three, as `base_of` is the one reading of a base -- never a string
+    # compared, nor `dragons` read for its truth (the review of
+    # 2026-10-15). `CodexGame` has the same three for the record.
+
+    @property
+    def is_duel(self) -> bool:
+        return self.variant == DUEL
+
+    @property
+    def is_free_for_all(self) -> bool:
+        return self.variant == FREE_FOR_ALL
+
+    @property
+    def is_dragon(self) -> bool:
+        """A two-headed dragon -- whose teams are `dragons`, which a
+        valid match has exactly then (`validate`)."""
+        return self.variant == TWO_HEADED_DRAGON
+
     def patrollers(self, seat: int) -> dict[str, str]:
         """Slot to what patrols it in `seat`'s patrol zone, for the slots
         that are filled: their own cards and heroes, and the heroes other
@@ -1011,9 +1032,9 @@ class MatchState:
 
         if self.variant not in VARIANTS:
             fail(f"variant is {self.variant!r}")
-        if self.variant == "free_for_all" and not 3 <= len(seats) <= 5:
+        if self.is_free_for_all and not 3 <= len(seats) <= 5:
             fail("a free-for-all is three to five players")
-        if self.variant == "two_headed_dragon":
+        if self.is_dragon:
             if len(seats) != 4 or sorted(seat for pair in self.dragons for seat in pair) != seats \
                     or any(len(pair) != 2 for pair in self.dragons):
                 fail("a two-headed dragon is four players in two teams of two")
@@ -1157,7 +1178,9 @@ def upgrade_hero_refs(match: MatchState) -> None:
     side's first hero, so the engine reads one spelling. Nothing is
     rewritten in a save that has none.
     """
-    if len(match.players) < 2 or not all(player.heroes for player in match.players):
+    # An older save is a duel: a table's has no bare `hero` to rewrite,
+    # and its seats no one other seat to read.
+    if len(match.players) != 2 or not all(player.heroes for player in match.players):
         return
 
     def mine(seat: int, ref):
@@ -1170,9 +1193,8 @@ def upgrade_hero_refs(match: MatchState) -> None:
             return f"{text[0]}:{mine(int(text[0]), HERO)}"
         return text
 
-    # An older save is a duel: the one seat that is not the active one.
     active = match.active
-    other = next(player.seat for player in match.players if player.seat != active)
+    other = seats.sole_opponent(match, active)
     match.attacking = mine(active, match.attacking)
     if match.combat is not None:
         combat = match.combat
@@ -1184,10 +1206,8 @@ def upgrade_hero_refs(match: MatchState) -> None:
                 combat[name] = [mine(other, ref) for ref in combat[name]]
     for player in match.players:
         if player.add_on is not None:
-            player.add_on.detected = mine(
-                next(p.seat for p in match.players if p.seat != player.seat),
-                player.add_on.detected,
-            )
+            player.add_on.detected = mine(seats.sole_opponent(match, player.seat),
+                                          player.add_on.detected)
     for frame in match.resolving:
         if "source" in frame and "seat" in frame:
             frame["source"] = mine(frame["seat"], frame["source"])
@@ -1201,8 +1221,7 @@ def read_defending_seat(match: MatchState) -> None:
     attack: it was against the one opponent. Fill it in, on the match
     and on the combat under way, where an attack is declared.
     """
-    active = match.active
-    others = [player.seat for player in match.players if player.seat != active]
+    others = seats.opponents(match, match.active)
     if len(others) != 1:
         return
     if match.attacking is not None and match.against is None and match.combat is not None:

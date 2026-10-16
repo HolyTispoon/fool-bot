@@ -1021,7 +1021,7 @@ def asked_options(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     from codex import seats
 
     asked = prompt.asked_player
-    if match.dragons and asked is not None and asked in engine.turn_seats(match):
+    if match.is_dragon and asked is not None and asked in engine.turn_seats(match):
         with seats.as_active(match, asked):
             return with_options(engine, game, match, prompt)
     return with_options(engine, game, match, prompt)
@@ -1036,12 +1036,12 @@ def pending_all(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     duel's and a free-for-all's list is `[pending(...)]`. A step the bot
     owes is a list of that step alone.
     """
-    if not match.dragons:
+    if not match.is_dragon:
         return [pending(engine, game, match)]
     return [_finished(engine, game, match, waiting) for waiting in _team_pending(engine, game, match)]
 
 
-def _half_resolved(match: MatchState) -> bool:
+def half_resolved(match: MatchState) -> bool:
     """Whether a teammate's action stands part-way: an effect under way,
     an attack declared or one at a choice of its own. Then the team waits
     on that one question alone (decision 8)."""
@@ -1054,7 +1054,7 @@ def _team_pending(engine, game, match: MatchState) -> list[Union[PendingPrompt, 
     """`_pending` for a dragon, a prompt per acting seat (decision 8)."""
     from codex import seats
 
-    if match.winner is not None or _half_resolved(match):
+    if match.winner is not None or half_resolved(match):
         return [_pending(engine, game, match)]
     taking = engine.turn_seats(match)
     if match.phase == "ready":
@@ -1106,7 +1106,7 @@ def pending(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     questions than this one, which only a client that lists them all
     (`pending_prompts`) hears.
     """
-    if not match.dragons:
+    if not match.is_dragon:
         waiting = _pending(engine, game, match)
         return _finished(engine, game, match, waiting)
     found = pending_all(engine, game, match)
@@ -1143,8 +1143,8 @@ def pending_prompt(engine, game, match) -> Optional[PendingPrompt]:
     while the bot owes a step. **Raises `SeveralAsked` on a match with
     more than one acting seat** (decision 8): nothing may read one
     teammate's prompt for the team's."""
-    if match.dragons and len(engine.acting_seats(match)) > 1 and match.winner is None \
-            and not _half_resolved(match):
+    if match.is_dragon and len(engine.acting_seats(match)) > 1 and match.winner is None \
+            and not half_resolved(match):
         owed = pending_all(engine, game, match)
         if len([one for one in owed if isinstance(one, PendingPrompt)]) > 1:
             raise SeveralAsked("This team has more than one seat to ask; list them with pending_prompts.")

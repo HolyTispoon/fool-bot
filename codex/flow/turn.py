@@ -93,7 +93,7 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         return
     match.set_base(seat, max(0, base - amount))
     if match.base_of(seat) == 0 and match.winner is None and base > 0:
-        if match.variant == "free_for_all":
+        if match.is_free_for_all:
             base_destroyed(match, seat, result)
             return
         # The one opponent of a duel wins, or the dragon team across the
@@ -190,7 +190,7 @@ def refuse_concession(match: MatchState, seat: Optional[int]) -> None:
         raise RuleRefusal("Only a player of the game can concede it.")
     if match.winner is not None:
         raise RuleRefusal("This game is already over.")
-    if match.variant == "free_for_all":
+    if match.is_free_for_all:
         raise RuleRefusal(
             "A free-for-all has no conceding: there is no player elimination.",
             cite="Rulebook p. 14",
@@ -370,7 +370,7 @@ def _begin_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState, s
     from codex.flow import board
 
     player = match.player(seat)
-    if match.dragons:
+    if match.is_dragon:
         # The upkeep is this teammate's action while it runs.
         match.active = seat
     board.return_lent(engine, match, seat, result)
@@ -797,7 +797,7 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
         return
     if match.winner is not None:
         return
-    if match.variant == "free_for_all":
+    if match.is_free_for_all:
         # Exactly a base destroyed (the author, 2026-10-14, question 17):
         # the base to zero, and the comparison made then.
         match.record_event("lost_by_debt", loser=seat, owed=owed)
@@ -865,7 +865,7 @@ def _open_main(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     author, 2026-10-10).
     """
     match.enter_phase("main")
-    if match.dragons:
+    if match.is_dragon:
         # The team's turn is its head's between actions.
         match.active = seats.head_of(match)
     match.record_event("turn_began")
@@ -889,7 +889,7 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     seat in order, a stash answered by its seat first (`stash_choice`)."""
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
     taking = engine.turn_seats(match)
-    if match.dragons:
+    if match.is_dragon:
         if any(isinstance(one, PendingPrompt) for one in _team_asks(engine, game, match)):
             result.next = pending(engine, game, match)
             return result
@@ -1112,7 +1112,7 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         # you" (Rulebook p. 13).
         match.extra_turns.pop(0)
         result.narration.append(f"{tokens.player(following)} takes an extra turn.")
-        if match.dragons:
+        if match.is_dragon:
             match.solo = following
             match.active = following
     elif match.playoff:

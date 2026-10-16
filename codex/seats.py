@@ -43,6 +43,12 @@ def teammate(match: "MatchState", seat: int) -> Optional[int]:
 def other_team(match: "MatchState", seat: int) -> tuple[int, ...]:
     """A dragon's team that `seat` is not on, its head first, as the deal
     pairs it (Rulebook p. 13). Asked of a dragon alone."""
+    from codex.game import RuleRefusal
+
+    if not match.is_dragon:
+        # Refused as `sole_opponent` refuses, rather than a bare
+        # StopIteration, which a generator around it would swallow.
+        raise RuleRefusal("Only a two-headed dragon has another team.")
     return next(tuple(pair) for pair in match.dragons if seat not in pair)
 
 
@@ -54,19 +60,21 @@ def opponents(match: "MatchState", seat: int) -> tuple[int, ...]:
     return tuple(number for number in seat_numbers(match) if number not in team)
 
 
-def sole_opponent(match: "MatchState", seat: int) -> int:
+def sole_opponent(match: "MatchState", seat: int, *,
+                  refusal: str = "This needs one opponent, and this table has several.") -> int:
     """
     The one opponent of a duel. A reading that is not yet a table's:
     every call is a site the free-for-all and the dragon have to give a
     real answer (docs/codex-multiplayer.md, "What the bot assumes
     today"), and until they do, a table with several opponents refuses
-    here rather than answering for one of them.
+    here rather than answering for one of them -- in `refusal`'s words,
+    where the caller has a player to tell what to do instead.
     """
     from codex.game import RuleRefusal
 
     found = opponents(match, seat)
     if len(found) != 1:
-        raise RuleRefusal("This needs one opponent, and this table has several.")
+        raise RuleRefusal(refusal)
     return found[0]
 
 
@@ -74,7 +82,7 @@ def rivals(match: "MatchState", seat: int) -> tuple[int, ...]:
     """The side that wins when `seat`'s side loses a two-sided game: the
     duel's one opponent, a dragon's other team (a free-for-all has more
     than two sides and refuses, `sole_opponent`)."""
-    if match.dragons:
+    if match.is_dragon:
         return opponents(match, seat)
     return (sole_opponent(match, seat),)
 
@@ -118,7 +126,7 @@ def next_seat(match: "MatchState") -> int:
         return match.extra_turns[0]
     if match.playoff:
         return match.playoff[0]
-    if match.dragons:
+    if match.is_dragon:
         # The other team's head (Rulebook p. 13).
         return other_team(match, match.active)[0]
     return turn_order(match, match.active, inclusive=False)[0]

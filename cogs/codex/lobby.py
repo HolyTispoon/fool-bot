@@ -47,8 +47,8 @@ class LobbyMixin:
         and deck, and what Start waits on. The catalog names the heroes."""
         cards = catalog()
         rows = []
-        duel = game.variant == "duel"
-        dragon = game.variant == "two_headed_dragon"
+        duel = game.is_duel
+        dragon = game.is_dragon
         heads = {team[0]: number for number, team in enumerate(game.teams(), start=1)} if dragon else {}
         for seat in range(1, game.seat_count + 1):
             if seat in heads:
@@ -94,7 +94,7 @@ class LobbyMixin:
             kind = "the basic game, one hero a side"
         each = (kind.replace(", one hero a side", ", one hero each")
                 .replace(", three heroes a side", ", three heroes each"))
-        if game.variant == "free_for_all":
+        if game.is_free_for_all:
             kind = "a free-for-all, three to five players, the seats taken in order: " + each
         elif dragon:
             kind = ("a two-headed dragon, two teams of two sharing a base, the seats taken in "
@@ -108,7 +108,7 @@ class LobbyMixin:
         if game.mode == "basic" and game.status is GameStatus.LOBBY:
             lines.append(self.basic_matchups_line())
         lines.extend(rows)
-        if game.rematch_specs or (game.rematch_of and game.variant != "duel"):
+        if game.rematch_specs or (game.rematch_of and not game.is_duel):
             lines.append(self.rematch_line(game))
         return "\n".join([*lines, waiting])
 
@@ -150,7 +150,7 @@ class LobbyMixin:
         if not game.rematch_specs:
             # A table's rematch keeps its seats and clears every seat's
             # heroes (docs/codex-multiplayer.md, decision 16).
-            if game.variant == "two_headed_dragon":
+            if game.is_dragon:
                 return f"A rematch of {last}: the same seats and teams, each choosing heroes again."
             return f"A rematch of {last}: the same seats, each choosing heroes again."
         if game.heroes_kept:

@@ -34,7 +34,7 @@ from typing import Iterable, Optional, Sequence
 
 from codex import effects, keywords, seats
 from codex.cards import CardCatalog, Hero, HeroBand, catalog as load_catalog
-from codex.game import DRAGON_TEAMS, RuleRefusal
+from codex.game import DRAGON_TEAMS, FREE_FOR_ALL, TWO_HEADED_DRAGON, RuleRefusal
 from codex.components import (
     BASE_HP as _BASE_HP,
     DRAGON_BASE_HP as _DRAGON_BASE_HP,
@@ -478,7 +478,7 @@ class RulesEngine:
         from the first are owed 1, 2 and 3 Mercenaries, which arrive in
         their first upkeep (Rulebook p. 14).
         """
-        dragons = [list(pair) for pair in DRAGON_TEAMS] if variant == "two_headed_dragon" else []
+        dragons = [list(pair) for pair in DRAGON_TEAMS] if variant == TWO_HEADED_DRAGON else []
         if first is None:
             # A dragon draws the first team, and its head goes first.
             first = self.rng.choice(tuple(pair[0] for pair in dragons) if dragons
@@ -513,7 +513,7 @@ class RulesEngine:
             # A dragon team's 30 sits on its head's seat, which `base_of`
             # reads; the second seat's is dealt too and never read.
             player.base_hp = match.base_cap
-        if variant == "free_for_all":
+        if variant == FREE_FOR_ALL:
             order = seats.turn_order(match, first)
             for place, seat in enumerate(order[2:], start=1):
                 match.player(seat).mercenaries_owed = place * MERCENARIES_A_PLACE
@@ -1808,7 +1808,7 @@ class RulesEngine:
         main phase with it only after a debt unpaid at their upkeep left
         a tie (the review of 2026-10-15: repairing it put it back, and
         its second fall was announced again)."""
-        if match.variant != "free_for_all":
+        if not match.is_free_for_all:
             return None
         player = match.active_player
         if match.base_of(match.active) <= 0:
@@ -2145,10 +2145,8 @@ class RulesEngine:
             return match.combat["against"]
         if match.against is not None:
             return match.against
-        found = self.opponents(match, match.active if attacker_seat is None else attacker_seat)
-        if len(found) != 1:
-            raise RuleRefusal("Choose whose forces to attack first.")
-        return found[0]
+        return seats.sole_opponent(match, match.active if attacker_seat is None else attacker_seat,
+                                   refusal="Choose whose forces to attack first.")
 
     def body(self, match: MatchState, seat: int, ref: str):
         """
@@ -2683,7 +2681,7 @@ class RulesEngine:
         dragon the team's, pooled (`_pooled_rows`) and cut to the ones on
         that seat.
         """
-        if not match.dragons:
+        if not match.is_dragon:
             return self._foe_rows(match, attacker, against)
         foe = self.defending_seat(match, against)
         return tuple((ref, why) for seat, ref, why in self._pooled_rows(match, attacker) if seat == foe)
@@ -3542,7 +3540,7 @@ class RulesEngine:
             found = [row for row in found if target_key(*row) not in taken]
         if choose == "other_building":
             found = self._repair_candidates(match, seat, found)
-        if match.dragons:
+        if match.is_dragon:
             # A team's one base is one thing to choose (Rulebook p. 13),
             # listed on the first of its seats the loop reached.
             bases: set[int] = set()
@@ -4134,7 +4132,7 @@ class RulesEngine:
         lend a patroller into at the lock (Rulebook p. 14) -- `(seat,
         slots)` in seat order, a free-for-all's alone and only the seats
         that have a slot open."""
-        if match.variant != "free_for_all":
+        if not match.is_free_for_all:
             return ()
         found = []
         for foe in self.opponents(match, match.active):

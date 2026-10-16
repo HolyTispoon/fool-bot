@@ -372,7 +372,7 @@ def _is_a_kill(engine: "RulesEngine", match: MatchState, card: CardInstance,
     or by an effect they control (`cause`, `effects.ACTIVE_PLAYER_ACTS`).
     What its own controller's trigger or the state of the table kills
     (`cause` is theirs or nobody's) is nobody's kill."""
-    if match.variant != "free_for_all":
+    if not match.is_free_for_all:
         return False
     killer = match.active if combat else cause
     return killer in engine.turn_seats(match) and card.controller in engine.opponents(match, match.active)

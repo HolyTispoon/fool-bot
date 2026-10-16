@@ -161,7 +161,7 @@ class EndingMixin:
         except RuleRefusal as refused:
             await send_ephemeral(interaction, str(refused))
             return
-        if match.dragons:
+        if match.is_dragon:
             # The team's concession, which the teammate agrees to in
             # public after this click (decision 15).
             winners = seat_labels(game, self.engine.opponents(match, seat))
@@ -191,7 +191,7 @@ class EndingMixin:
         archived (`present`, `finish_game`).
         """
         match = self.service.load(game)
-        if match.dragons:
+        if match.is_dragon:
             await self.ask_team_concession(interaction, game, match, seat)
             return
         try:

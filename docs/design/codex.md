@@ -3540,6 +3540,14 @@ than 66 sites; the PR of every step showed these empty:
   `acting_seats` differ only in a dragon, where a teammate who has
   locked is still taking their turn -- their Frenzy still counts, their
   tower is not a defender's.
+- **No "other seat" is worked out by hand** (2026-10-16): the engine's
+  `defending_seat` asks `sole_opponent` -- which takes the refusal's
+  words, "Choose whose forces to attack first." there -- and the save's
+  `read_defending_seat` and `upgrade_hero_refs` ask `opponents` and
+  `sole_opponent`, the second only for a save of two seats, the only kind
+  that holds the bare `hero` it rewrites. `other_team` refuses outside a
+  dragon, as `sole_opponent` refuses a table, rather than raising a
+  StopIteration a generator would swallow.
 - **`sole_opponent` marks a site that must be a duel's.** Where a rule
   reads "the opponent" and the duel's one is the whole answer, the code
   asks `sole_opponent`, which refuses a table with several opponents
@@ -3583,6 +3591,21 @@ than 66 sites; the PR of every step showed these empty:
   -- a match outlives its lobby. The hero count stays `mode`; the two
   are independent axes, as the rulebook has them. A duel writes no
   `variant` key.
+- **The variant is read one way** (2026-10-16, after the review of
+  2026-10-15): `is_duel`, `is_free_for_all` and `is_dragon`, the same
+  three on `MatchState` and on `CodexGame`, in the shape of `base_of`.
+  Nothing compares `variant` to a string outside them and `new_match`,
+  which names `DUEL`, `FREE_FOR_ALL` and `TWO_HEADED_DRAGON`, and nothing
+  reads `match.dragons` for its truth -- only `seats.py` reads the teams
+  it holds. They were 13 string compares on the match, 25 on the record
+  and 39 truth tests on `dragons`, some mixed in one expression. **A line
+  worded three ways is `game.by_variant(variant, duel=, free_for_all=,
+  dragon=)`**, which names all three, so none falls through to the duel's
+  wording -- how several duel lines reached a table before #601: the
+  undo's label, "has already started their turn", the tech button's
+  "changed during your opponent's turn". Lines that branch on more than
+  the variant (a team of one seat's extra turn) keep their own
+  conditions over the predicates.
 - **The record's seats are a list** (decision 3): `CodexGame.seats`,
   `{id, name}` per seat as long as `seat_count`, an empty seat keeping
   its number. The four `player_1_*` / `player_2_*` keys are still

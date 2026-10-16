@@ -129,7 +129,7 @@ class LobbyView(SafeView):
         """
         if not game.test_game:
             return (None,)
-        seats = game.playing_seats() if game.variant == "duel" else tuple(
+        seats = game.playing_seats() if game.is_duel else tuple(
             range(1, game.seat_count + 1))
         per_seat = 1 if game.mode == "basic" else -(-(len(catalog().color_decks(
             game.heroes_per_seat)) + 1) // ROW_WIDTH)
