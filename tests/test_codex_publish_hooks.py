@@ -216,7 +216,8 @@ class StartedTests(HooksTestCase):
         await self.settled()
         self.assertIs(self.game.status, GameStatus.FINISHED)
         self.assertEqual(self.stored(keys.INDEX_KEY)["games"], [])
-        (archived,) = self.stored(keys.ARCHIVE_KEY)["games"]
+        self.assertEqual(self.stored(keys.ARCHIVE_KEY)["abandoned"], [])
+        (archived,) = self.stored(keys.ARCHIVE_KEY)["finished"]
         self.assertEqual((archived["id"], archived["status"], archived["winner"]),
                          (self.game.game_id, "finished", [seat]))
         live = self.stored(keys.live_key(self.game.game_id))
@@ -232,7 +233,8 @@ class StartedTests(HooksTestCase):
         await self.table.cog.abandon_command.callback(self.table.cog, call)
         await self.settled()
         self.assertEqual(self.stored(keys.INDEX_KEY)["games"], [])
-        (archived,) = self.stored(keys.ARCHIVE_KEY)["games"]
+        self.assertEqual(self.stored(keys.ARCHIVE_KEY)["finished"], [])
+        (archived,) = self.stored(keys.ARCHIVE_KEY)["abandoned"]
         self.assertEqual((archived["status"], archived["winner"]), ("abandoned", None))
         self.assertEqual(self.published.lines, lines)
 
@@ -245,7 +247,15 @@ class StartedTests(HooksTestCase):
         self.assertEqual(cog.games, {})
         self.assertNotIn(self.game.game_id, self.publisher.record.games)
         self.assertEqual(self.stored(keys.INDEX_KEY)["games"], [])
-        self.assertEqual(self.stored(keys.ARCHIVE_KEY)["games"], [])
+        self.assertEqual(self.stored(keys.ARCHIVE_KEY), {"finished": [], "abandoned": []})
+        # And out of the bucket, after the lists stopped naming it.
+        prefix = f"{keys.PREFIX}games/{self.game.game_id}/"
+        self.assertEqual([key for key in self.store.objects if key.startswith(prefix)], [])
+        calls = [key for _, key in self.store.calls]
+        last_list = max(index for index, key in enumerate(calls) if key in (keys.INDEX_KEY, keys.ARCHIVE_KEY))
+        first_delete = min(index for index, (operation, key) in enumerate(self.store.calls)
+                           if operation == "delete" and key.startswith(prefix))
+        self.assertLess(last_list, first_delete)
 
     async def test_a_reset_takes_a_game_being_played_off_the_index(self) -> None:
         self.assertEqual(len(self.stored(keys.INDEX_KEY)["games"]), 1)
@@ -254,7 +264,7 @@ class StartedTests(HooksTestCase):
     async def test_a_reset_takes_an_abandoned_game_off_the_archive(self) -> None:
         await self.table.cog.abandon_command.callback(self.table.cog, self.table.interaction(self.table.fencer))
         await self.settled()
-        self.assertEqual(len(self.stored(keys.ARCHIVE_KEY)["games"]), 1)
+        self.assertEqual(len(self.stored(keys.ARCHIVE_KEY)["abandoned"]), 1)
         await self.reset()
 
     async def test_an_action_after_a_restart_adds_to_the_records_lines(self) -> None:
@@ -384,7 +394,7 @@ class WholeGameTests(HooksTestCase):
         stored = self.stored(keys.history_key(self.game.game_id))
         self.assertEqual(len(stored["turns"]), final - 1)
         self.assertEqual(self.stored(keys.INDEX_KEY)["games"], [])
-        (archived,) = self.stored(keys.ARCHIVE_KEY)["games"]
+        (archived,) = self.stored(keys.ARCHIVE_KEY)["finished"]
         self.assertEqual(archived["winner"], [table.match.winner])
         # Only the boards something names are left in the bucket.
         named = {self.published.board, *(entry["board"] for entry in entries)}
@@ -401,7 +411,7 @@ class StartupTests(HooksTestCase):
         publisher = self.attach()
         await publisher.start()
         await publisher.drain()
-        (archived,) = self.stored(keys.ARCHIVE_KEY)["games"]
+        (archived,) = self.stored(keys.ARCHIVE_KEY)["abandoned"]
         self.assertEqual(archived["id"], game.game_id)
         live = self.stored(keys.live_key(game.game_id))
         self.assertIn(live["board"], self.store.objects)

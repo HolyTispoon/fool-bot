@@ -64,7 +64,7 @@ builds each of them; nothing else spells one.
 | Key | Written by | What |
 | --- | --- | --- |
 | `codex/index.json` | `shapes.index` over `index_entry` | The games being played, newest activity first |
-| `codex/archive.json` | `shapes.archive` over `archive_entry` | The finished and abandoned games, the same fields, `status` and `winner` |
+| `codex/archive.json` | `shapes.archive` over `archive_entry` | Two sections, `finished` and `abandoned`, each newest first: the same fields, `status` and `winner` |
 | `codex/games/<id>/live.json` | `shapes.live` | The game as the lists name it, the current turn's `heading` and `lines`, the current `board`'s key, `history_version` and the history's key |
 | `codex/games/<id>/history.json` | `shapes.history` | `version`, and `turns`: one entry per finished turn -- `turn`, `heading`, `lines`, `board` |
 | `codex/games/<id>/board-<sha256>.webp` | `keys.board_key` | A board |
@@ -86,6 +86,14 @@ builds each of them; nothing else spells one.
   lobby was never on the site, so it is not archived: it has no board and
   no turn to show, and an archive of lobbies nobody played would bury the
   games that were. A game abandoned after its Start is archived.
+- **The archive is two sections, `finished` and `abandoned`** (the
+  author, 2026-10-16: "a finished game needs to go a finished games
+  section in the archive"). A game played out is read for how it was
+  won; an abandoned one has no ending to read. The split is made here,
+  not in the page, so the page builds no reading of a status of its own.
+  A finished game's page is the same shape as any other: its last turn
+  is its current turn, with the final board, and the turns before it its
+  history.
 - **`winner` is a list of seats, or `null`**: one seat, a dragon's two
   (`seats.dragon_of`), and `null` for an abandoned game.
 - **`history.json` is an object, not a bare list**, so it carries its
@@ -301,7 +309,7 @@ not send every turn message through (the worksheet's "What was found").
 | `_own_undo` | `turn_undone` | The lines back to the turn's head (below) |
 | `note_turn_head` | `head_noted` | The turn's head, kept in the record's `head` |
 | `finish_game`, `abandon_command` | `game_over` | The last lines and board, and the game moved to `archive.json` |
-| `reset_channels` | `dropped` | The dropped games off the record and both lists |
+| `reset_channels` | `dropped` | The dropped games off the record and both lists, then their objects deleted |
 
 Start needs no hook of its own: its first turn message goes through
 `post_turn_message`, which lists the game.
@@ -365,10 +373,14 @@ is not drawn: the next change sends a new one. Then both lists.
 four writes a restart, and the record holds games and nothing else. The
 queue's own digest keeps them from going up twice in one process.
 
-### What a reset leaves
+### What a reset deletes
 
 `/codex admin reset_channels` drops games through neither ending, so it
 has a hook of its own: the games come off the record and so off both
-lists, and no list links to a game the bot no longer has. Their objects
-stay in the bucket, unlinked, under keys nobody can guess; the test
-server's games are few and small.
+lists, and then **out of the bucket** -- every board the record had up,
+`live.json` and `history.json` (the author, 2026-10-16). The deletes run
+on the lists' queue, after both lists without the games are up, so no
+list ever links to a game whose objects are gone. A delete that fails is
+tried again with the lists' next change; deletes cost nothing ("The
+store"). A game's send still in flight is cancelled first, and its
+record entry is gone, so nothing puts it back.

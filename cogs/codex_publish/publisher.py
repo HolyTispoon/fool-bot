@@ -249,19 +249,27 @@ class Publisher:
 
     def dropped(self, game_ids: Iterable[str]) -> None:
         """Games the bot no longer has (`/codex admin reset_channels`):
-        off the record, and so off both lists. Called after the cog has
-        dropped them, since the lists are read off its games."""
+        off the record, and so off both lists, and then out of the bucket.
+        Called after the cog has dropped them, since the lists are read
+        off its games."""
         self._guarded(self._dropped, list(game_ids))
 
     def _dropped(self, game_ids: list[str]) -> None:
+        boards = {}
         for game_id in game_ids:
+            published = self.record.games.get(game_id)
+            boards[game_id] = list(published.uploaded) if published is not None else []
             self.record.drop(game_id)
             self._new_turn(game_id)
             self._owed.discard(game_id)
             self._draw.discard(game_id)
             self._boards.pop(game_id, None)
+            task = self._tasks.get(game_id)
+            if task is not None:
+                task.cancel()
         self.record.save()
-        self.queue.lists_changed()
+        # Off both lists, then out of the bucket (the author, 2026-10-16).
+        self.queue.games_dropped(boards)
 
     def _guarded(self, hook, *arguments) -> None:
         if self._closed:

@@ -256,7 +256,9 @@ class ListQueueTests(QueueTestCase):
         self.games[OTHER_ID] = staged(OTHER_ID)
 
     def listed(self, key):
-        return [entry["id"] for entry in json.loads(self.store.objects[key].body)["games"]]
+        listed = json.loads(self.store.objects[key].body)
+        sections = listed["finished"] + listed["abandoned"] if key == keys.ARCHIVE_KEY else listed["games"]
+        return [entry["id"] for entry in sections]
 
     async def test_the_lists_are_built_from_the_games(self):
         self.games[OTHER_ID].status = GameStatus.FINISHED
@@ -283,6 +285,26 @@ class ListQueueTests(QueueTestCase):
         self.assertEqual(self.store.puts().count(keys.INDEX_KEY), 2)
         self.assertEqual(self.listed(keys.INDEX_KEY), [GAME_ID])
         self.assertEqual(self.listed(keys.ARCHIVE_KEY), [OTHER_ID])
+
+    async def test_a_dropped_game_is_deleted_after_the_lists(self):
+        self.change(b"one", line="said")
+        await self.queue.drain()
+        board = keys.board_key(GAME_ID, b"one")
+        self.assertIn(keys.live_key(GAME_ID), self.store.objects)
+        del self.games[GAME_ID]
+        self.record.drop(GAME_ID)
+        self.store.fail = lambda operation, key: operation == "delete" and key == board
+        self.queue.games_dropped({GAME_ID: [board]})
+        await self.queue.drain()
+        self.assertNotIn(keys.live_key(GAME_ID), self.store.objects)
+        self.assertNotIn(keys.history_key(GAME_ID), self.store.objects)
+        self.assertIn(board, self.store.objects)
+        self.assertEqual(self.listed(keys.INDEX_KEY), [OTHER_ID])
+        # The failed delete is tried again with the lists' next change.
+        self.store.fail = False
+        self.queue.lists_changed()
+        await self.queue.drain()
+        self.assertNotIn(board, self.store.objects)
 
     async def test_the_lists_are_not_on_a_games_queue(self):
         self.change(b"one")

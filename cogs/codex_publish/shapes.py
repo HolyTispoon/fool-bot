@@ -5,7 +5,7 @@ What the publisher writes into the bucket, as the dicts dumped to JSON
 - `on_site` -- whether a game is on the site at all: only once started;
 - `index_entry` -- a game in `index.json`, the games being played;
 - `archive_entry` -- a game in `archive.json`, the finished and
-  abandoned, the same fields and the winner;
+  abandoned, the same fields and the winner, each in its own section;
 - `index` and `archive` -- the two lists whole;
 - `live` -- a game's `live.json`, what its page polls;
 - `history` -- a game's `history.json`, one entry per finished turn.
@@ -113,8 +113,20 @@ def index(entries: Iterable[dict]) -> dict:
 
 
 def archive(entries: Iterable[dict]) -> dict:
-    """`archive.json`: the finished and abandoned games, newest first."""
-    return {"games": _newest_first(entries)}
+    """
+    `archive.json`: the finished games and the abandoned ones, each a
+    section of its own and newest first (the author, 2026-10-16: a
+    finished game goes to a finished games section in the archive) --
+    a game played out is read for how it was won, an abandoned one is
+    not, and the page builds no split of its own.
+    """
+    entries = list(entries)
+    return {
+        "finished": _newest_first(entry for entry in entries
+                                  if entry.get("status") == GameStatus.FINISHED.value),
+        "abandoned": _newest_first(entry for entry in entries
+                                   if entry.get("status") == GameStatus.ABANDONED.value),
+    }
 
 
 def live(game: "CodexGame", match: "Optional[MatchState]", published: PublishedGame) -> dict:

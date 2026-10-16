@@ -102,6 +102,9 @@ class PublishQueue:
         # The lists' own queue.
         self._lists_changed = False
         self._lists_task: Optional[asyncio.Task] = None
+        # The keys of games the bot dropped, still to be deleted once the
+        # lists that named them are down.
+        self._dropped: set[str] = set()
         # What this process last put under each JSON key, by its digest.
         self._sent: dict[str, str] = {}
         # A match read off its record once per saved state: the record's
@@ -137,6 +140,27 @@ class PublishQueue:
         self._lists_changed = True
         if self._lists_task is None:
             self._lists_task = asyncio.create_task(self._run_lists())
+
+    def games_dropped(self, dropped: Mapping[str, Iterable[str]]) -> None:
+        """
+        Games the bot no longer has (`/codex admin reset_channels`), by
+        `game_id`, each with the boards its record had up: everything of
+        theirs in the bucket is deleted -- their boards, `live.json` and
+        `history.json` -- after the lists without them are up, so no list
+        links to a game that is gone. A delete that fails is tried again
+        with the lists' next change. Their record entries must be dropped
+        already, so nothing sends them again.
+        """
+        if self._closed:
+            return
+        for game_id, boards in dropped.items():
+            task = self._tasks.get(game_id)
+            if task is not None:
+                task.cancel()
+            self._changed.discard(game_id)
+            self._boards.pop(game_id, None)
+            self._dropped.update([*boards, keys.live_key(game_id), keys.history_key(game_id)])
+        self.lists_changed()
 
     async def put_file(self, key: str, body: bytes) -> bool:
         """A file that is no game's -- a glyph's picture -- put now,
@@ -254,8 +278,14 @@ class PublishQueue:
             while self._lists_changed and not self._closed:
                 self._lists_changed = False
                 index, archive = self.lists()
-                await self._put_changed(keys.INDEX_KEY, encode(index))
-                await self._put_changed(keys.ARCHIVE_KEY, encode(archive))
+                listed = (await self._put_changed(keys.INDEX_KEY, encode(index))
+                          and await self._put_changed(keys.ARCHIVE_KEY, encode(archive)))
+                if not listed:
+                    continue
+                for key in sorted(self._dropped):
+                    if await self._delete(key):
+                        self._dropped.discard(key)
+                        self._sent.pop(key, None)
         except Exception:  # pragma: no cover - the queue's own bug
             LOGGER.exception("Publishing the Codex games' lists failed.")
         finally:
