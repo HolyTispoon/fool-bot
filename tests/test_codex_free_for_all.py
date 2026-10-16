@@ -476,6 +476,53 @@ class TowerAndArmorTests(unittest.TestCase):
 
         match.player(seat).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
 
+    def mirror(self):
+        """Seat 1 with a tower; seats 2 and 3 each with River Montoya in
+        play, invisible -- a mirror game's two copies of one hero, one ref."""
+        engine, game, match = free_for_all(teams=(("bashing",), ("finesse",), ("finesse",)))
+        self.tower(match, 1)
+        for seat in (2, 3):
+            hero_in_play(match, seat)
+            match.player(seat).heroes[0].modifiers.append(
+                {"kind": "keyword", "keyword": "Invisible", "until": "end_of_turn"})
+        return engine, game, match
+
+    def test_a_mirror_games_two_copies_of_a_hidden_hero_are_two_candidates(self) -> None:
+        """The tower's own-turn detection keys a candidate by its seat and
+        its ref (the review of 2026-10-15): two players' River Montoya are
+        two choices, the answer naming whose, and detecting one leaves the
+        other hidden."""
+        engine, game, match = self.mirror()
+        river = "hero:river_montoya"
+        option = engine.detect_option(match)
+        self.assertEqual(list(zip(option.seats, option.candidates)), [(2, river), (3, river)])
+        self.assertEqual(option.to_dict()["seats"], [2, 3])
+        refused = driver.apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "detect", {"card": river}))
+        self.assertIsInstance(refused, driver.Refusal)
+        self.assertIn("more than one side", refused.reason)
+        heard = said(apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "detect", {"card": river, "against": 3})))
+        self.assertIn(f"{tokens.player(3)}'s", heard)
+        self.assertTrue(engine.detected_by(match, 1, river, 3))
+        self.assertFalse(engine.detected_by(match, 1, river, 2))
+        self.assertEqual(engine.hidden(match, 2, river), "invisible")
+        self.assertFalse(engine.targetable(match, 1, 2, river))
+        self.assertTrue(engine.targetable(match, 1, 3, river))
+
+    def test_the_detected_seat_is_saved_only_while_set(self) -> None:
+        """`detected_seat` beside `detected`, written only while set, so a
+        save without one reads as before -- the ref alone matched."""
+        engine, game, match = self.mirror()
+        tower = match.player(1).add_on
+        self.assertNotIn("detected_seat", match.to_dict()["players"][0]["add_on"])
+        tower.detected, tower.detected_seat = "hero:river_montoya", 3
+        saved = match.to_dict()
+        self.assertEqual(saved["players"][0]["add_on"]["detected_seat"], 3)
+        older = MatchState.from_dict(saved)
+        older.player(1).add_on.detected_seat = None  # a save from before
+        self.assertTrue(engine.detected_by(older, 1, "hero:river_montoya", 2))
+
     def test_the_tower_detects_only_an_attacker_of_its_owner(self) -> None:
         """Rulebook p. 4: "the first one of those that attacks you" -- a
         stealth attacker of another player passes seat 2's tower by."""

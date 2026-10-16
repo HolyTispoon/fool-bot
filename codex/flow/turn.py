@@ -286,6 +286,7 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             body.attacked_this_turn = False
         if side.add_on is not None:
             side.add_on.detected = None
+            side.add_on.detected_seat = None
     # Armor refreshes at the start of every turn (UMR p. 10); only the
     # other player's patrollers are standing in their slots now.
     for side in match.players:
@@ -772,7 +773,9 @@ def _plague_lord(engine: "RulesEngine", match: MatchState, seat: int, card,
     their units and heroes." -- its controller's own base included (its
     ruling)."""
     for player in match.players:
-        runes = sum(body.minus_runes for body in (*player.play, *player.heroes_in_play))
+        # "Their" heroes: the ones they control, one lent to them included.
+        runes = sum(body.minus_runes for body in (
+            *player.play, *(hero for _, hero in match.heroes_controlled(player.seat))))
         if runes:
             result.narration.append(
                 f"{tokens.card(card.slug)} deals {runes} to {base_owner(match, player.seat)}'s base: "
@@ -992,7 +995,8 @@ def end_of_turn(engine: "RulesEngine", match: MatchState, result: StepResult) ->
                 board.leave_play(engine, match, card, "hand")
                 match.record_event("returned", slug=card.slug, owner=card.owner)
     for side in match.players:
-        for body in (*side.play, *side.heroes_in_play):
+        # Every unit and hero in play, a lent hero on its owner's list.
+        for body in (*side.play, *side.heroes_on_table):
             lust = sum(1 for m in body.modifiers if m.get("kind") == "bloodlust")
             if lust:
                 landed = board.take_damage(body, lust)

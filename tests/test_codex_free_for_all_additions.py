@@ -711,5 +711,112 @@ class LoanEndsTests(unittest.TestCase):
         self.assertIn(f"{{player:2}}'s {{hero:{hero.slug}}}", heard)
 
 
+
+class LentHeroIsItsControllersTests(unittest.TestCase):
+    """A hero lent into another player's patrol zone is the borrower's to
+    every effect that reads "you have", "your", "that opponent controls"
+    or "each opposing" (Rulebook p. 14: the borrower controls it;
+    docs/design/codex.md, "Lending is a control change") -- and its owner's
+    to none: `MatchState.heroes_controlled` is the one reading. Seat 3
+    lends its hero to seat 2's technician slot, staged with `board.lend`
+    as the lock does it; seat 1 is the active player."""
+
+    def table(self, third=("bashing",), first=("anarchy",)):
+        engine, game, match = free_for_all(teams=(first, ("finesse",), third))
+        hero_in_play(match, 3, level=2)
+        return engine, game, match
+
+    def lend(self, match):
+        hero = match.player(3).heroes[0]
+        board.lend(match, 3, f"hero:{hero.slug}", 2, "technician")
+        return hero
+
+    def test_the_borrower_controls_the_hero_and_the_owner_does_not(self) -> None:
+        engine, game, match = self.table()
+        hero = self.lend(match)
+        self.assertEqual(match.heroes_controlled(2), [(f"3:hero:{hero.slug}", hero)])
+        self.assertEqual(match.heroes_controlled(3), [])
+        self.assertEqual(engine._hero_refs_of(match, 2), (f"3:hero:{hero.slug}",))
+
+    def test_inverse_power_ninja_counts_a_hero_lent_to_its_controller(self) -> None:
+        """"-1/-1 for each other unit or hero you have"."""
+        engine, game, match = self.table()
+        ninja = put(match, 2, "inverse_power_ninja")
+        before = engine.unit_stats(ninja, match)
+        self.lend(match)
+        atk, hp = engine.unit_stats(ninja, match)
+        self.assertEqual((atk, hp), (before[0] - 1, before[1] - 1))
+
+    def test_stalking_tiger_is_invisible_beside_a_lent_feral_hero(self) -> None:
+        """"Invisible while you have a Feral hero": the borrower's tiger
+        with a Feral hero lent to them, and not the lender's, whose Feral
+        hero patrols for someone else."""
+        engine, game, match = self.table(third=("feral",))
+        theirs = put(match, 2, "stalking_tiger")
+        mine = put(match, 3, "stalking_tiger")
+        self.assertFalse(engine.has_keyword(theirs, "Invisible", match))
+        self.assertTrue(engine.has_keyword(mine, "Invisible", match))
+        self.lend(match)
+        self.assertTrue(engine.has_keyword(theirs, "Invisible", match))
+        self.assertFalse(engine.has_keyword(mine, "Invisible", match))
+
+    def test_an_effect_targets_a_lent_hero_on_its_borrowers_side(self) -> None:
+        """"Target unit or hero": the lent hero is a row on the side that
+        controls it, spelled as that side names it, and on no other."""
+        engine, game, match = self.table()
+        hero = self.lend(match)
+        rows = engine.target_candidates(match, 1, "unit_or_hero")
+        self.assertIn((2, f"3:hero:{hero.slug}"), rows)
+        self.assertNotIn((3, f"hero:{hero.slug}"), rows)
+
+    def test_total_atk_counts_a_lent_hero_for_its_controller(self) -> None:
+        """Dothram Horselord's "total ATK": every unit and hero a player has."""
+        engine, game, match = self.table()
+        borrower, lender = engine.total_atk(match, 2), engine.total_atk(match, 3)
+        hero = self.lend(match)
+        atk = engine.hero_stats(hero, match)[0]
+        self.assertEqual(engine.total_atk(match, 2), borrower + atk)
+        self.assertEqual(engine.total_atk(match, 3), lender - atk)
+
+    def test_maximum_anarchy_destroys_a_lent_hero(self) -> None:
+        """"Destroy all units and heroes": the lent hero goes to its owner's
+        command zone like any other."""
+        engine, game, match = self.table()
+        hero = self.lend(match)
+        zane = match.player(1).heroes[0]
+        hero_in_play(match, 1)
+        zane.level = engine.hero_card(zane).max_level
+        zane.max_level_since_turn_began = True
+        match.player(1).hand = ["maximum_anarchy"]
+        match.player(1).gold = 3
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "maximum_anarchy"}))
+        self.assertEqual(hero.zone, "command")
+        self.assertIsNone(hero.lent_to)
+
+    def test_a_lent_heros_button_names_it_on_its_borrowers_side(self) -> None:
+        """A row or button for the lent hero -- a target, a defender, the
+        levels' recipient -- reads its name off either spelling."""
+        from codex.formatting import ref_label
+
+        engine, game, match = self.table()
+        hero = self.lend(match)
+        label = ref_label(engine, match, 2, f"3:hero:{hero.slug}")
+        self.assertTrue(label.startswith(engine.catalog.name(hero.slug)), label)
+
+    def test_a_lent_hero_keeps_the_final_showdown_on_it(self) -> None:
+        """Final Showdown stays in its caster's play, attached to the hero:
+        lent, the hero keeps its +3/+3 rather than reading the borrower's
+        play for it."""
+        engine, game, match = self.table(third=("balance",))
+        hero = match.player(3).heroes[0]
+        bare = engine.hero_stats(hero, match)
+        showdown = put(match, 3, "final_showdown")
+        showdown.attached_hero = f"3:hero:{hero.slug}"
+        shown = engine.hero_stats(hero, match)
+        self.assertGreater(shown[0], bare[0])
+        self.lend(match)
+        self.assertEqual(engine.hero_stats(hero, match), shown)
+
+
 if __name__ == "__main__":
     unittest.main()
