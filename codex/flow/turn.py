@@ -1090,28 +1090,32 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             # Free Speech: "until after that opponent's next turn" -- this one.
             player.silenced = False
             result.narration.append(f"{tokens.player(seat)}'s heroes are no longer silenced.")
-    if match.tied and not match.playoff:
-        # The last of the playoff's turns is over: the comparison again,
-        # among the tied alone (the author, 2026-10-14, question 16).
+    extra = seats.owes_extra_turn(match)
+    if match.tied and not match.playoff and not extra:
+        # The last of the playoff's turns is over -- and any extra turn
+        # it earned: the comparison again, among the tied alone (the
+        # author, 2026-10-14, question 16).
         _highest_base(match, match.tied, result)
         if match.winner is not None:
             result.next = pending(engine, game, match)
             return result
     following = engine.next_seat(match)
-    if match.playoff:
-        # Each tied player takes one more turn, ahead of the order and of
-        # any extra turn (Rulebook p. 14).
-        match.playoff.pop(0)
-        match.active = following
-    elif match.extra_turns and following == match.extra_turns[0] and following in seats.dragon_of(match, match.active):
+    if extra:
         # Double Time: "Take an extra turn after this one" -- the turn passes
-        # to the same player, with every phase (its ruling). In a dragon
-        # it is that one seat's alone: "you means you" (Rulebook p. 13).
+        # to the same player, with every phase (its ruling), ahead of a
+        # free-for-all's playoff (the author, 2026-10-16: "extra turn
+        # first"). In a dragon it is that one seat's alone: "you means
+        # you" (Rulebook p. 13).
         match.extra_turns.pop(0)
         result.narration.append(f"{tokens.player(following)} takes an extra turn.")
         if match.dragons:
             match.solo = following
             match.active = following
+    elif match.playoff:
+        # Each tied player takes one more turn, ahead of the order
+        # (Rulebook p. 14).
+        match.playoff.pop(0)
+        match.active = following
     else:
         match.solo = None
         match.active = following

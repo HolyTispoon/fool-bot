@@ -1035,7 +1035,8 @@ black's, and the rest waits for step 13.
   the channel hears none of it until a card is discarded.
 - **The extra turn.** Double Time appends its caster to
   `MatchState.extra_turns`; `begin_tech` gives the next turn to the
-  first seat waiting there instead of the other player, so two Double
+  first seat waiting there instead of the other player -- and, in a
+  free-for-all, ahead of a playoff ("Multiplayer") -- so two Double
   Times are two extra turns, three turns in a row (its ruling). The
   tech choice in an extra turn is the standing prompt as in any turn,
   asked in the ready phase and confirmed there.
@@ -3630,9 +3631,17 @@ than 66 sites; the PR of every step showed these empty:
   playoff empties as it is played and the comparison after it is among
   the tied alone. The current turn runs to its end first -- the UMR's
   reading, the rulebook being silent -- and changes nothing about who is
-  tied. `next_seat` hands the playoff out ahead of the order and of any
-  extra turn; `begin_tech` pops it and, once it has emptied, compares
-  again: a winner, or the playoff filled again ("Still tied"). While
+  tied. `next_seat` hands the playoff out ahead of the order;
+  `begin_tech` pops it and, once it has emptied, compares again: a
+  winner, or the playoff filled again ("Still tied"). **Double Time's
+  extra turn comes first** (the author, 2026-10-16: "extra turn
+  first", the rulebook being silent): the card says "after this one",
+  so a seat owed one (`seats.owes_extra_turn`) takes it straight after
+  the turn that earned it, ahead of the playoff, which then runs in the
+  order it was filled; and the comparison after the last playoff turn
+  waits for an extra turn that turn earned. Before this the playoff
+  went first and the extra turn was in practice lost, since the active
+  seat after the playoff was no longer the one it was owed to. While
   anyone is tied only a tied player's base falling counts, and the game
   ends then on the comparison among the tied. **A debt unpaid is a base
   destroyed**: the base to zero, the comparison then. **A destroyed base
