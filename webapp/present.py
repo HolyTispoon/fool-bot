@@ -1926,21 +1926,28 @@ def maneuver_pill(
     return card
 
 
+#: Card names that are also the ordinary word for something else --
+#: "the pass's target space", "receiving any pass" -- named only when
+#: capitalised, as the sheet capitalises a card (since Low Pass became
+#: Pass, 2026-10-16).
+CAPITALISED_ONLY = frozenset({"Pass"})
+
+
 def _names_card(text: str, name: str, side: str, gambit: bool) -> bool:
     """
     Whether a special ability's sentence names this card, the way the
     sheet words it: the card's name with its last word in any form
-    ("high passing", "pressuring", "Dribble up to 3"), but not as a
+    ("High Balling", "pressuring", "Dribble up to 3"), but not as a
     verb counting something ("clear 1 exhaustion" is not Clear). A
     gambit is also named by "gambit", unless the sentence is about the
     other side's ("Defensive gambits ..." names no offense card).
     """
-    words = name.lower().split()
+    words = (name if name in CAPITALISED_ONLY else name.lower()).split()
     stem = words[:-1] + [words[-1].rstrip("e")]
     named = re.compile(
         r"\b" + r"\s+".join(re.escape(word) for word in stem)
         + r"\w*(?!\s+\d)",
-        re.IGNORECASE,
+        0 if name in CAPITALISED_ONLY else re.IGNORECASE,
     )
     if named.search(text):
         return True
