@@ -85,7 +85,6 @@ class HooksTestCase(unittest.IsolatedAsyncioTestCase):
         return json.loads(self.store.objects[key].body)
 
     async def settled(self) -> None:
-        await self.table.redrawn()
         await self.publisher.drain()
 
     async def end_turn(self):
