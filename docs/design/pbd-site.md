@@ -512,3 +512,91 @@ The page is looked at in a browser at desktop (1440x900), iPad on its side
 (1180x820, touch) and phone (390x844, touch), the log open and closed,
 zoomed in and fitted, and with an old turn's board open; the test does not
 see it.
+
+## Deploying
+
+The site is a Cloudflare Pages project built from `main` by Cloudflare's
+Git integration, as the two landing sites are
+([landing-pages.md](landing-pages.md), "Deploying"); nothing is uploaded
+from a machine. **The project, its binding and the bucket are the author's
+Cloudflare account's; the one secret is the R2 token, and it is in the
+`K:\` checkout's `.env` alone** ("Turning it on"). A developer's checkout
+has none, so its test games never reach the bucket.
+
+The address is `codex-pbd.pages.dev`, the name the worksheet chose. It is
+not confirmed until the project is made: where Cloudflare has to add a
+suffix, the address it gives is the one to write here and in the opening
+paragraph.
+
+### What the repository guarantees the build
+
+- **There is nothing to build.** Pages serves `pbd/public/` as it stands
+  and compiles `pbd/functions/` itself, so the build command only has to
+  succeed. No Python, no `requirements.txt`, no `PYTHON_VERSION`.
+- **Only `pbd/` feeds the site.** The pages, the viewer and the Function
+  read nothing else in the repository; what the bot writes reaches them
+  through the bucket, never through a build. A merge that touches nothing
+  under `pbd/` is a build that would change nothing.
+- **The binding is `PBD`** -- the name the Function reads (`env.PBD`) --
+  and the bucket is `pbd`, `CODEX_PUBLISH_BUCKET`'s default. A bucket by
+  another name is that variable set on `K:\` and the binding pointed at it.
+
+### The checklist
+
+Written 2026-10-17, before it has been run. Cloudflare's dashboard moves
+its menus around; the names below are the shape, not a promise.
+
+1. **Turn R2 on**: dashboard -> R2 Object Storage. If it asks for a
+   payment method, this is where; it charges only past the free tier.
+2. **Create the bucket** `pbd`, location automatic, Standard storage (the
+   free tier covers Standard alone). **Leave it private**: no custom
+   domain, the `r2.dev` address off, no CORS policy. The Function is the
+   only way in (decision 1).
+3. **The token**: R2 -> Manage API tokens -> Create, *Object Read &
+   Write*, **this bucket only**. Copy the access key id, the secret and the
+   account id into the `K:\` checkout's `.env` as
+   `CODEX_PUBLISH_ACCESS_KEY_ID`, `CODEX_PUBLISH_SECRET_ACCESS_KEY` and
+   `CODEX_PUBLISH_ACCOUNT_ID`. The secret is shown once; a lost one is a
+   new token. Scoped to the one bucket, a leaked token reaches the site's
+   data and nothing else on the account.
+4. **Create the Pages project** `codex-pbd`: Workers & Pages -> *Create*
+   -> *Pages* -> *Connect to Git* -> `HolyTispoon/fool-bot`.
+   - Production branch: `main`. Framework preset: *None*.
+   - Root directory: `pbd`. Build command: `exit 0` (a blank one may be
+     refused). Build output directory: `public`.
+   - The root directory is what makes Pages find `pbd/functions/`: it
+     looks for `functions/` there, not at the repository's root.
+   - If `codex-pbd` is taken, Cloudflare offers the name with a suffix;
+     take it and write the address it gives into this file.
+5. **On the project** (Settings):
+   - *Bindings* (or *Functions* -> *R2 bucket bindings* in older
+     dashboards): variable name `PBD`, bucket `pbd`, for Production. The
+     binding is read when a deployment is made, so **retry the deployment
+     after adding it**; until then `env.PBD` is undefined and every `/data/`
+     request the Function would answer fails with an error.
+   - *Build* -> *Branch control*: automatic production deployments on,
+     **preview deployments *None***, as on the two landing projects.
+     Otherwise every pushed branch builds and gets a public
+     `*.codex-pbd.pages.dev` address.
+   - *Build watch paths*, include: `pbd/*`.
+   - No custom domain: the site stays off the studio's domain because the
+     board is Sirlin Games' art (decision 1).
+6. **Check the Function was found**: the deployment's log names the
+   Function it compiled. A log that says no `functions` directory was
+   found means the root directory is wrong.
+7. **Restart the Codex bot** with `run_codex_bot.cmd`; its log says
+   "Codex games are published to the R2 bucket pbd." at INFO, or names
+   the variable that is missing. Play an action in a game, then open the
+   address on a phone off the home Wi-Fi and see the board change.
+   `https://<address>/data/codex/index.json` answers the list;
+   `https://<address>/data/anything-else` answers `404`.
+8. **Watch the bucket's size** after a game or two: R2 -> the bucket ->
+   Metrics. A game should be tens of MB, not a hundred (the worksheet's
+   "What it costs"); more means superseded boards are not being deleted
+   ("The queue": a board nothing names is deleted). And the Functions requests a day: Workers
+   & Pages -> the project -> Metrics, against the free plan's 100,000.
+
+`scripts/run_codex_bot.ps1` is not changed: its one skip is a checkout
+with no `CODEX_DISCORD_TOKEN`, which runs no Codex bot at all. Missing
+`CODEX_PUBLISH_*` is not a skip -- the bot runs and publishes nothing -- and
+the bot's own INFO line in step 7 is where that is said.
