@@ -29,6 +29,11 @@ Step 4 landed the site: `pbd/`, the Pages project's root -- the two pages,
 the viewer and the one Function -- and `scripts/serve_pbd.py`, which serves
 it locally.
 
+Step 6 landed the old turns: `cogs/codex_publish/pins.py`, a pinned turn
+read back into the model's tokens, and the publisher's import after its
+startup publish, so a game played before the site went live has its
+history from its channel's pins.
+
 ## What the publisher is, and is not
 
 **The publisher is a frontend, like the cog**, and a second door out of the
@@ -379,11 +384,70 @@ being played the record never saw, or whose board did not go up before
 the restart; and a finished or abandoned game that started and the
 record has no entry for, with its last board and no `updated`, so it
 sorts below the games the site saw end. A game whose current board is up
-is not drawn: the next change sends a new one. Then both lists.
+is not drawn: the next change sends a new one. Then both lists, and then,
+once the games' sends and the queue are idle, the old turns' import
+(below).
 
 **The glyphs go up once a start**, not once ever: four small pictures,
 four writes a restart, and the record holds games and nothing else. The
 queue's own digest keeps them from going up twice in one process.
+
+### The old turns
+
+A game played before the site went live -- one still being played, and
+every finished or abandoned game in **Codex Archive** -- has its finished
+turns in its channel's pins and nowhere else (decision 10). So the
+startup task, after the startup publish, imports them once a game:
+`PublishedGame.imported` says whether it has run, and a second start
+lists nothing.
+
+- **Every started game the bot has**, not only the ones the record
+  already had: the startup publish has just given each an entry with
+  its current turn.
+- **One listing per channel**, for every game in it -- a Rematch's
+  earlier game, or several games in one `here` channel -- one channel at
+  a time, after `wait_until_ready`, since the task starts in `cog_load`
+  before the cache is filled. A channel the cache does not have -- an
+  archived thread -- is fetched first. Pins come 50 to a request
+  (`PIN_PAGE`, Discord's cap on the endpoint), paged by `pinned_at`.
+- **A pin is the game's by its board's file name and its author**:
+  the bot's own message carrying `codex-<number>-board.webp` exactly
+  (`pins.board_of`), never the prefix alone, which starts every
+  ephemeral picture's name too; and the text's first line is a turn's
+  heading, "**Turn n**". A turn pinned twice -- undone to and played
+  again, its first pin deleted with its message on Discord but not if
+  the delete failed -- is its later pin.
+- **Only the turns before the earliest the record holds** -- its
+  history's first, or the current turn -- are written, before the
+  history, and the bound is read again once the boards are downloaded,
+  since a turn may end meanwhile. A finished game's last turn is pinned
+  too, and is the record's current turn, so it is not imported twice.
+  A turn past Discord's pin cap was never pinned and is not there: the
+  history starts where the pins do.
+- **The text is read back into the model's tokens** (`pins.as_tokens`),
+  so the history's lines go through `segments` as every other line
+  does: a mention becomes `{to:n}` for the seat its user holds -- the
+  seat's name on the web, never `<@id>` -- a glyph's emoji its token,
+  `{gold:n}` with the amount after it, and a hero's emoji with the bold
+  name after it `{hero:slug}`. What Discord drew as plain text stays
+  text: a `{player:n}` is already the seat's name, and a card is its
+  bold name, since the catalog is read by slug and never by name. A
+  turn folded at 2000 characters keeps its "*and n more*": what was
+  folded is not there to read.
+- **Each board is downloaded** and handed to the game's task as any
+  other board is, so the queue puts it before the `history.json` that
+  names it. A board that fails to download leaves the game's import
+  undone, for the next start, rather than a history with a hole in it.
+- **A channel that is gone, or that the bot may not read** (`NotFound`,
+  `Forbidden`), marks the import done with nothing imported: no later
+  start would find more. Any other failure leaves it for the next start.
+- **The requests are counted** -- the fetch, each listing, each download
+  -- and said once a channel at INFO, with the turns imported.
+
+These are the only Discord requests the publisher makes. A listing and a
+download are reads, on routes of their own, never the messages' edit
+bucket ([rate-limits.md](rate-limits.md)), and they run at startup
+behind the queue, never during a click.
 
 ### What a reset deletes
 

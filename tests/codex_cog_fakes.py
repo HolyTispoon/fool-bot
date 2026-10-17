@@ -23,6 +23,7 @@ import hashlib
 import itertools
 import json
 from contextlib import ExitStack
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Optional
 from unittest import mock
@@ -40,6 +41,8 @@ from save_patches import suppressed_cog_saves
 
 GUILD, LOBBY_CHANNEL, GAME_CHANNEL = 1, 10, 20
 LOBBY_MESSAGE = 100
+#: The Codex bot's own user, the author of everything a channel is sent.
+BOT_USER = 9
 
 
 def user(user_id: int, name: str, helper: bool = False):
@@ -69,6 +72,7 @@ class FakePartial:
     async def pin(self, **kwargs):
         self.channel.log("pin", self.id, kwargs)
         self.channel.pinned.add(self.id)
+        self.channel.pin_order = [one for one in self.channel.pin_order if one != self.id] + [self.id]
 
     async def unpin(self, **kwargs):
         self.channel.log("unpin", self.id, kwargs)
@@ -77,6 +81,8 @@ class FakePartial:
     async def delete(self, **kwargs):
         self.channel.log("delete", self.id, kwargs)
         self.channel.deleted.add(self.id)
+        # A deleted message's pin goes with it.
+        self.channel.pinned.discard(self.id)
 
 
 class FakeChannel:
@@ -90,6 +96,10 @@ class FakeChannel:
         self.views: dict[int, object] = {}
         self.pinned: set[int] = set()
         self.deleted: set[int] = set()
+        #: The pinned messages' ids, oldest pin first.
+        self.pin_order: list[int] = []
+        #: Pinned messages of somebody else's, as `pins` hands them back.
+        self.foreign_pins: list[SimpleNamespace] = []
         self.ids = itertools.count(1000)
 
     async def edit(self, **kwargs):
@@ -110,6 +120,39 @@ class FakeChannel:
     def get_partial_message(self, message_id: int) -> FakePartial:
         return FakePartial(self, message_id)
 
+    def pinned_message(self, message_id: int, pinned_at: datetime) -> SimpleNamespace:
+        """A pinned message as `pins` hands it back: its text and the
+        files its last send or edit carried, by the bot."""
+        files = []
+        for kind, one, kwargs in self.requests:
+            if one != message_id:
+                continue
+            if kind == "send" and kwargs.get("file") is not None:
+                files = [kwargs["file"]]
+            elif kind == "edit" and kwargs.get("attachments"):
+                files = list(kwargs["attachments"])
+        return SimpleNamespace(
+            id=message_id, author=SimpleNamespace(id=BOT_USER), content=self.texts.get(message_id),
+            pinned_at=pinned_at, attachments=[fake_attachment(one) for one in files],
+        )
+
+    def pins(self, *, limit: int = 50, before: Optional[datetime] = None):
+        """The pins newest first, one request a call; a call spends
+        nothing from the messages' edit bucket."""
+        self.log("pins", self.id, {"limit": limit, "before": before})
+        start = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        pinned = [self.pinned_message(message_id, start + timedelta(minutes=index))
+                  for index, message_id in enumerate(self.pin_order) if message_id in self.pinned]
+        pinned = sorted([*pinned, *self.foreign_pins], key=lambda one: one.pinned_at, reverse=True)
+        if before is not None:
+            pinned = [one for one in pinned if one.pinned_at < before]
+
+        async def listed():
+            for one in pinned[:limit]:
+                yield one
+
+        return listed()
+
     def since(self, mark: int) -> list[tuple[str, int, dict]]:
         return self.requests[mark:]
 
@@ -119,6 +162,17 @@ class FakeChannel:
             kwargs["content"] for kind, _, kwargs in self.requests
             if kind in ("send", "edit") and kwargs.get("content")
         ]
+
+
+def fake_attachment(file: discord.File) -> SimpleNamespace:
+    """An uploaded file as a message's attachment, its bytes downloaded
+    by `read`."""
+    body = file.fp.getvalue()
+
+    async def read():
+        return body
+
+    return SimpleNamespace(filename=file.filename, body=body, read=read)
 
 
 class FakeMessage(FakePartial):
@@ -347,6 +401,8 @@ class Table:
         # so a click's answers count it.
         self.stack.enter_context(mock.patch.object(codex_views_base, "PICTURE_REDRAW_DELAY", 0))
         self.bot = mock.MagicMock()
+        self.bot.user.id = BOT_USER
+        self.bot.wait_until_ready = mock.AsyncMock()
         self.lobby_channel = FakeChannel(LOBBY_CHANNEL)
         self.game_channel = FakeChannel(GAME_CHANNEL)
         self.game_channel.guild = None  # set below, once the guild is
