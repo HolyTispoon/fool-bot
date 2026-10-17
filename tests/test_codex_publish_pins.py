@@ -80,7 +80,6 @@ class ImportTests(hooks.HooksTestCase):
         self.table.cog.publisher = None
         self.game = await self.table.started()
         await self.end_turn()
-        await self.table.redrawn()
 
     def pinned_boards(self) -> list[str]:
         channel = self.table.game_channel
@@ -98,7 +97,6 @@ class ImportTests(hooks.HooksTestCase):
 
     async def test_the_pins_become_the_history(self) -> None:
         await self.end_turn()
-        await self.table.redrawn()
         with self.assertLogs("cogs.codex_publish.publisher", logging.INFO) as logged:
             await self.start()
         self.assertEqual([entry["turn"] for entry in self.published.history], [1, 2])
