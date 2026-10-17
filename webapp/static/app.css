@@ -1463,26 +1463,6 @@ button.goal { display: block; }
   border-radius: 2px;
   pointer-events: none;
 }
-/* A kickoff space's number wears a ring in its own gray (the author,
-   2026-10-17). The ring is the number's own border -- one element,
-   centred on the number by construction; a ring drawn as a second
-   element was centred on the space while the number was centred on
-   its line box, and the two never quite met. `text-box` trims the line
-   box to the digits, so flex centres the glyph itself rather than its
-   ascent and descent. */
-.space-code.kickoff {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: min(88cqw, 150px);
-  height: min(88cqw, 150px);
-  box-sizing: border-box;
-  border: 3px solid var(--space-number);
-  border-radius: 50%;
-  /* A little smaller than the others, so "-1" clears its ring. */
-  font-size: min(40cqw, 72px);
-  text-box: trim-both cap alphabetic;
-}
 .lane { display: flex; min-height: 140px; min-width: 0; }
 .lane.visiting { justify-content: flex-end; align-items: flex-start; padding-top: 12px; }
 .lane.home { justify-content: flex-start; align-items: flex-end; }
@@ -1896,7 +1876,6 @@ button.goal { display: block; }
   .stage.narrow .field-row { gap: 2px; padding: 0 20px; }
   .stage.narrow .zone-name { font-size: 9px; letter-spacing: 1.5px; }
   .stage.narrow .field-spaces { gap: 2px; }
-  .stage.narrow .space-code.kickoff { border-width: 2px; }
   .stage.narrow .goal { flex: 0 0 18px; border-width: 1.5px; border-radius: 6px; }
   .stage.narrow .goal-word { font-size: 15px; gap: 7px; }
   .stage.narrow .goal-chips, .stage.narrow .out-chip,

@@ -300,16 +300,15 @@ the picture and the sentence beside it cannot disagree
   numbered 0. Boards 7 and 9 have a middle space, space 0, and no line.
 
 The web page draws the same number the same way in its own CSS (`.space-code`,
-sized to the space's width in container units, and `.halfway-line`), with two
-differences, both the author's on 2026-10-17. **The page's numbers are
-stronger** (`--space-number`, white at 30%): the page has no picture around
-them to compete with, and at the PNG's faintness they read as texture. **A
-kickoff space's number wears a ring in the same gray** (`.space-code.kickoff`)
--- the ring is the number's own border, because a ring drawn as a second
-element was centred on the space while the number was centred on its own line
-box, and the two visibly missed each other. A white disc with a black number
-was tried and dropped the same day: it stood out from everything else on the
-board. The PNG has never marked the kickoff space, so it has no ring.
+sized to the space's width in container units, and `.halfway-line`), with one
+difference: **the page's numbers are stronger** (`--space-number`, white at
+30%; the author, 2026-10-17): the page has no picture around them to compete
+with, and at the PNG's faintness they read as texture. **A kickoff space is
+not marked** -- its number is drawn like every other. The page used to ring
+it; on 2026-10-17 the author tried a white disc with a black number (it stood
+out from everything else on the board) and then a gray ring round the number,
+and removed the ring the same day. The KICKOFF bar under the field already
+says where the kickoff is, and on boards 7 and 9 so does the 0.
 
 ## The web page's board
 

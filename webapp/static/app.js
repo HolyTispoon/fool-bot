@@ -1085,7 +1085,7 @@ function space(one, layout, narrow = false) {
          title on a hover (the author, 2026-10-07). */
       onclick: on ? (event) => { event.stopPropagation(); press(controls[0]); } : null,
     },
-    h("span", { class: `space-code${one.kickoff ? " kickoff" : ""}` }, one.code),
+    h("span", { class: "space-code" }, one.code),
     h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout, marks, narrow)),
     h("div", { class: "lane home" }, fanOf(one, "home", layout, marks, narrow)),
     loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, narrow ? 22 : 36, { lit: true })) : null,
