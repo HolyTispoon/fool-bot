@@ -281,7 +281,8 @@ def kickoff_figure(catalog: PlayerCatalog) -> Image.Image:
             Arrow("M1", "M3", "Home attacks this way", row=1),
         ],
         notes=[
-            "Home Zone (spaces 1-2), Midfield (spaces 3-5) and Visitors Zone (spaces 6-7), with a goal "
+            "Home Zone (spaces −3 and −2), Midfield (spaces −1 to 1) and Visitors Zone (spaces 2 and 3), "
+            "with a goal "
             "zone beyond each end that only the ball reaches. Purple is home and attacks the Visitors "
             "Goal on the right; teal is the visitors and attacks the Home Goal on the left.",
             "The kickoff space, with the ball on it. Both sides start in 2-2-2: two players in each zone, "
@@ -289,8 +290,8 @@ def kickoff_figure(catalog: PlayerCatalog) -> Image.Image:
             "A meeple stands for a player card. The letters are the role (SK = Striker, FB = Fullback, "
             "DD = Defender, MF = Midfielder, PM = Playmaker, WG = Winger). The card itself, on the team board, "
             "carries the two skills: offensive and defensive, which always total 7.",
-            "The dashed edge under the field is shooting range: home may shoot from space 5 onward, "
-            "the visitors from space 3 back. The middle space belongs to neither.",
+            "The dashed edge under the field is shooting range: home may shoot from space 1 onward, "
+            "the visitors from space −1 back. The middle space belongs to neither.",
         ],
     )
     return scaled(sketch.render(catalog))
@@ -321,9 +322,9 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         markers=[Marker("V1", 1)],
         notes=[
             "Home played Dribble and the visitors played Deflect. Dribble beats Deflect on rank "
-            "alone, so nothing was rolled. The Playmaker carried the ball from space 4 to space 6 - two spaces, "
+            "alone, so nothing was rolled. The Playmaker carried the ball from space 0 to space 2 - two spaces, "
             "the Playmaker's own ability - and set its speed.",
-            "Space 6 is inside home's shooting range, so next turn a shot would be offered.",
+            "Space 2 is inside home's shooting range, so next turn a shot would be offered.",
         ],
     ))
 
@@ -346,10 +347,10 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         notes=[
             "Pass and Deflect are both rank 1, so they tie and go to a skill test: d12 + offensive skill "
             "against d12 + defensive skill, and a token to each. The visitors won it, and their Deflect knocked "
-            "the ball back one space to space 5 - where their Midfielder was already standing. A ball that lands on "
+            "the ball back one space to space 1 - where their Midfielder was already standing. A ball that lands on "
             "one side's player is simply theirs: no roll, and never loose.",
-            "That is a turnover, so everybody outside their own zone runs back. Home's Playmaker walks from space 6 "
-            "to space 4 and exhausts 2, one for each space.",
+            "That is a turnover, so everybody outside their own zone runs back. Home's Playmaker walks from space 2 "
+            "to space 0 and exhausts 2, one for each space.",
         ],
     ))
 
@@ -369,9 +370,9 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         ],
         markers=[Marker("V1", 1)],
         notes=[
-            "Nobody of home's was standing on the ball at space 5, so home sent the nearest player to it - the "
-            "Playmaker from space 4, one token for the one space. The visitors played Dribble and home "
-            "played Pressure, which beats it: the handler and the ball are shoved back one space to space 6, "
+            "Nobody of home's was standing on the ball at space 1, so home sent the nearest player to it - the "
+            "Playmaker from space 0, one token for the one space. The visitors played Dribble and home "
+            "played Pressure, which beats it: the handler and the ball are shoved back one space to space 2, "
             "and the challenger moves forward onto them. Possession does not change.",
         ],
     ))
@@ -395,8 +396,8 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         markers=[Marker("M3", 1)],
         notes=[
             "The visitors played Pass and home played Steal, which beats it. Possession flips and the "
-            "ball's speed resets to 1; the stealer carries it one space back toward their own goal, to space 5. "
-            "Then everyone outside their own zone runs back - the visitors' Midfielder to space 5, two tokens - "
+            "ball's speed resets to 1; the stealer carries it one space back toward their own goal, to space 1. "
+            "Then everyone outside their own zone runs back - the visitors' Midfielder to space 1, two tokens - "
             "and the stealer sets the ball's speed by up to their defensive skill: 1 + 3 = 4, worth +4 on a shot.",
         ],
     ))
@@ -444,9 +445,9 @@ def score_attempt_figure(catalog: PlayerCatalog) -> Image.Image:
         markers=[Marker("M3", 1), Marker("V1", 2), Marker("V2", 2, offset=0), Marker("M2", 3)],
         notes=[
             "On the ball: the visitors' Midfielder adds their whole defensive skill, 4.",
-            "Between the ball and the goal: the Defender on space 6 adds half of 5, rounded up to 3, and the "
-            "Fullback on space 7 adds half of 6, which is 3. Halving is per player, so the two add 6 together.",
-            "Behind the ball: the Playmaker on space 4 adds nothing. The attack is d12 + 4 (skill) + 4 (speed 4) "
+            "Between the ball and the goal: the Defender on space 2 adds half of 5, rounded up to 3, and the "
+            "Fullback on space 3 adds half of 6, which is 3. Halving is per player, so the two add 6 together.",
+            "Behind the ball: the Playmaker on space 0 adds nothing. The attack is d12 + 4 (skill) + 4 (speed 4) "
             "against d12 + 10, and a tie is a miss - so this is a shot to think twice about.",
         ],
     )

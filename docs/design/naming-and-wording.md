@@ -247,14 +247,31 @@ through the message above it.
 
 ## Naming a space
 
-**A space is named by its number from the home end** -- 1 to 7, or 1 to 9
-(Law 2.1.3). It began on 2026-09-23 as an experiment behind a switch, with the
-rules still naming spaces `H1`/`M2`/`V1`; the author kept it on 2026-09-28,
-and the switch and the letter form went. `d12ball/space_numbering.py`'s
-`flat_space_number` is the one answer, and it takes the board because the
-number counts the spaces of the zones to its left, which differ by board size.
-The model still holds a position as `(zone, space_index)`: the number is a
-name, never a rule, and nothing saved changed.
+**A space is named by its place on a number line whose zero is the middle
+of the field** (Law 2.1.3): negative toward the home end, positive toward the
+visitors'. Boards 7 and 9 have a middle space, the kickoff space, which is
+space 0 -- board 7 runs −3 to 3 and board 9 −4 to 4. Board 10 has no middle
+space; its middle is the halfway line between its two kickoff spaces, so it
+has no space 0 and runs −5 to −1 and 1 to 5. The author set it on
+2026-10-17, for 1.0 and 2.0 alike. Before that a space was counted from the
+home end, 1 to 7, 9 or 10 -- itself an experiment from 2026-09-23 behind a
+switch, with the rules still naming spaces `H1`/`M2`/`V1`, which the author
+kept on 2026-09-28. `d12ball/space_numbering.py`'s `space_number` is the one
+answer and `space_name` the one spelling, and both take the board because the
+number counts the spaces of the zones to its left and where the middle falls,
+which differ by board size. The model still holds a position as
+`(zone, space_index)`: the number is a name, never a rule, and nothing saved
+changed.
+
+- **A negative number takes the minus sign, U+2212 ("−2"), never the
+  hyphen.** The hyphen already joins a range and a compound, and "space -2"
+  beside "spaces 1-2" reads as one more of them. Roboto Slab carries the sign,
+  so the board image draws it too. A range that crosses or holds a negative
+  number is written out -- "spaces −3 and −2", "spaces −1 to 1" -- never
+  "spaces −3-−2".
+- **Positive numbers carry no plus.** "space 2" is the visitors' side of the
+  middle as plainly as "space −2" is home's, and a "+" would make every
+  ordinary number look signed.
 
 - **In text a space is "space 4", never a bare "4"** (the author, 2026-09-25).
   A bare number sat beside counts, distances, minutes and scores and could be
@@ -264,7 +281,8 @@ name, never a rule, and nothing saved changed.
   `formatting.space_label` returns "space 4" everywhere a space is *written*
   -- sentences, buttons, selects, image captions, the web app -- and only a
   space's corner on the board image carries the bare number
-  (`render.space_code`), where nothing else is a number.
+  (`render.space_code`), large in its middle, where nothing else is a
+  number that size.
 - **It is lowercase** because it is mostly named mid-sentence;
   `formatting.capitalized` raises it where it opens a label or a caption.
 - **The pieces that compose it with something else follow it**: a run back

@@ -995,7 +995,13 @@ function pitch(layout, narrow = false) {
     "div",
     { class: "field-spaces" },
     goal("home", layout.jumbotron.home.colour, narrow),
-    layout.spaces.map((one) => space(one, layout, narrow)),
+    layout.spaces.flatMap((one, at) => [
+      /* Board 10 has no middle space: its middle is a line. */
+      layout.spaces.length % 2 === 0 && at === layout.spaces.length / 2
+        ? h("span", { class: "halfway-line" })
+        : null,
+      space(one, layout, narrow),
+    ]),
     goal("visiting", layout.jumbotron.visiting.colour, narrow),
   );
   const bands = h(

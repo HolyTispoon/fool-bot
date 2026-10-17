@@ -38,10 +38,10 @@ and a future shape or board would need it.
 `setup_space_order` and only ever visible on boards 9 and 10 -- the boards
 whose zones are deeper than 2-2-2 fills them. An outer zone's two cards take its
 two end spaces and midfield packs into its own middle, leaning toward that
-side's own goal where it cannot be centred, so home deals spaces 1, 3, 4, 5, 7
-and 9 on board 9 and 1, 3, 5, 6, 8 and 10 on board 10 (see "The standard deal"
+side's own goal where it cannot be centred, so home deals spaces −4, −2, −1,
+0, 2 and 4 on board 9 and −5, −3, −1, 1, 3 and 5 on board 10 (see "The standard deal"
 in the living rules, and the 2026-08-12, 2026-10-06 and 2026-10-07 entries in
-the rules log). On board 10 both sides' pairs share spaces 5 and 6, and because
+the rules log). On board 10 both sides' pairs share spaces −1 and 1, and because
 each side deals from its own end, its first card -- the Midfielder -- lands on
 its own kickoff space and holds the ball when that side kicks off; on boards 7
 and 9 it is the Playmaker. The author chose the Midfielder (2026-10-07). Keeping

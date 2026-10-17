@@ -58,8 +58,8 @@ class GoalZone(Enum):
     """
     The two goal zones, one beyond each end of the row of spaces (Law
     2.1.4):
-    the Home Goal before space 1 and the Visitors Goal after the last
-    space. **A goal zone holds no spaces and no meeple**, which is why
+    the Home Goal before the first space and the Visitors Goal after
+    the last. **A goal zone holds no spaces and no meeple**, which is why
     it is not a `Zone` -- nothing stands in one, so nothing is placed
     in, saved in or drawn in one. Only the ball reaches a goal zone,
     and the ball that does comes to rest on the last space before it
@@ -1556,7 +1556,7 @@ def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
     biased high; the two formulas agree on the true middle when the
     zone is odd-sized, as on boards 7 and 9, so both sides kick off
     from one space there. Board 10's four-space midfield is the even
-    one: home kicks off from space 5 and the visitors from space 6
+    one: home kicks off from space −1 and the visitors from space 1
     (Law 2.4), and every arrangement covers its *own* kickoff space.
     """
     kicking_side = TeamSide(kicking_side)
@@ -1582,8 +1582,8 @@ def setup_space_order(
     outer zone on board 7 -- so this is only ever visible on
     boards 9 and 10, where the three-space zones would otherwise bunch
     each pair against one edge and leave the third space empty. On
-    board 9 it puts the home Defender on space 3 and the home Striker
-    on space 9.
+    board 9 it puts the home Defender on space −2 and the home Striker
+    on space 4.
 
     **Midfield is packed into its middle instead**, from that side's
     own end outward, because the kickoff space is in it: every side
@@ -1592,8 +1592,8 @@ def setup_space_order(
     middle one -- the kickoff space -- empty and hold the coach in the
     setup window until they moved somebody onto it. Where the pack
     cannot be centred -- a pair in board 9's three spaces -- it leans
-    toward that side's own end, spaces 4 and 5 for home. Board 10's
-    four-space midfield centres its pair on spaces 5 and 6 for both
+    toward that side's own end, spaces −1 and 0 for home. Board 10's
+    four-space midfield centres its pair on spaces −1 and 1 for both
     sides, and dealing from the own end puts each side's first card,
     the Midfielder, on its own kickoff space (Law 3.2.2).
 

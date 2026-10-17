@@ -55,9 +55,9 @@ suppresses it, which is what `skip_tutorial` setting that flag is for.
 
 **The opening position is the standard deal**, and the script places
 nothing. Both sides are dealt 2-2-2 exactly as every game deals them:
-the coach's playmaker has the ball on space 4 with Dinky's playmaker
-standing on it to challenge, the coach's striker is on space 7, and Dinky's
-fullback is on space 7 with them. Writing a position of our own was tried
+the coach's playmaker has the ball on space 0 with Dinky's playmaker
+standing on it to challenge, the coach's striker is on space 3, and Dinky's
+fullback is on space 3 with them. Writing a position of our own was tried
 and dropped -- it put both sides in shapes (2-3-1 and 1-3-2) no game
 ever kicks off in, which taught the wrong thing before the first
 button was pressed. **A beat that wants a different position has to
@@ -190,11 +190,12 @@ BEATS: tuple[TutorialBeat, ...] = (
             "## 1. Your first turn\n"
             "Both sides are dealt the standard **2-2-2** -- two cards in "
             "your own zone, two in midfield, two in the zone you "
-            "are attacking -- and the ball is yours, on **space 4**.\n\n"
+            "are attacking -- and the ball is yours, on **space 0**.\n\n"
             "The field is **seven spaces** across in three zones: your "
-            "own Zone (spaces 1-2), midfield (spaces 3-5), and the Zone you are "
-            "attacking (spaces 6-7). Your six cards are on the board as "
-            "meeples and three more wait on your bench. The two numbers "
+            "own Zone (spaces −3 and −2), midfield (spaces −1 to 1), and the "
+            "Zone you are attacking (spaces 2 and 3). Your six cards are on "
+            "the board as meeples and three more wait on your bench. The "
+            "two numbers "
             "on a card are that player's **offensive** and **defensive "
             "skill**.\n\n"
             "A turn starts with whoever is standing on the ball -- the "
@@ -203,7 +204,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "A handler can do three things: shoot, maneuver, or call "
             "a time out to buy both coaches a pause. **You are not offered "
             "the shot** -- a shot may only be taken from inside your "
-            "shooting range, which is space 5 and beyond, and you are one "
+            "shooting range, which is space 1 and beyond, and you are one "
             "space short of it.\n\n"
             "**Press Maneuver.**"
         ),
@@ -257,8 +258,8 @@ BEATS: tuple[TutorialBeat, ...] = (
             "## 2. Every role has an ability\n"
             "Dribble beat Deflect outright -- no dice, "
             "because the cycle had already settled it -- and your "
-            "playmaker carried the ball **two** spaces, from space 4 to "
-            "**space 6**.\n\n"
+            "playmaker carried the ball **two** spaces, from space 0 to "
+            "**space 2**.\n\n"
             "Moving forward two spaces is not the ordinary move. "
             "A Dribble typically moves the player one "
             "space. But your **Playmaker** is a skilled dribbler and "
@@ -272,7 +273,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "**`/d12ball role_abilities_reference`** for all six, and "
             "**`/d12ball team_roster`** gives you a list of your team "
             "with their roles.\n\n"
-            "You are on space 6 now, which is inside your shooting range, so "
+            "You are on space 2 now, which is inside your shooting range, so "
             "the **Shoot** button has appeared. It is grayed out here, "
             "and it would be a poor shot anyway: your playmaker's "
             "offensive skill is 4, Dinky's defender is standing on the "
@@ -296,7 +297,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "Deflect does: it knocks the ball back a space, nothing "
             "more. It only comes **loose** -- open to both sides -- "
             "when it lands where nobody is standing. Dinky already has "
-            "a midfielder right there on space 5, so the ball is simply "
+            "a midfielder right there on space 1, so the ball is simply "
             "theirs: no roll, no contest, never loose."
         ),
         player_has_ball=True,
@@ -306,7 +307,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         # beats 3 and 4 -- the two lessons in defending -- have nothing
         # to defend against. See the module docstring. There is no
         # loose-ball roll to rig any more: Dinky's own midfielder is
-        # already standing on space 5 where the beaten Deflect lands, so
+        # already standing on space 1 where the beaten Deflect lands, so
         # since 2026-08-24 they keep it outright and nothing is asked
         # of either coach.
         rolls={"skill_test": (2, 11)},
@@ -317,11 +318,11 @@ BEATS: tuple[TutorialBeat, ...] = (
         lesson=(
             "## 3. Your turn to defend\n"
             "Dang it. You lost possession. Dinky won the skill test, and "
-            "their Deflect knocked the ball back to **space 5** -- right onto "
+            "their Deflect knocked the ball back to **space 1** -- right onto "
             "one of their own midfielders, who was already standing "
             "there. Nobody of yours was, so it went straight to them: "
             "no roll, and never loose at all. Your playmaker, left "
-            "standing outside her own zone at space 6, has run back into "
+            "standing outside her own zone at space 2, has run back into "
             "midfield -- and exhausted 1 per space to do "
             "it.\n\n"
             "Dinky is coming at your goal now, and this time **nobody "
@@ -370,7 +371,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         lesson=(
             "## 4. Winning the ball back\n"
             "Pressure drove them backwards: their handler and the ball "
-            "went back a space to **space 6**, and your challenger moved up "
+            "went back a space to **space 2**, and your challenger moved up "
             "onto them. Dinky still has it -- but they have lost "
             "ground, and you are standing on the ball.\n\n"
             "Now take it off them."
@@ -407,16 +408,16 @@ BEATS: tuple[TutorialBeat, ...] = (
         title="A shot at goal",
         lesson=(
             "## 5. A shot at goal\n"
-            "The ball is yours again, on **space 5**, and moving fast. This "
+            "The ball is yours again, on **space 1**, and moving fast. This "
             "is the last lesson, and it is worth a goal.\n\n"
-            "Space 5 is inside your shooting range, so **Shoot** is offered "
+            "Space 1 is inside your shooting range, so **Shoot** is offered "
             "again -- and again it is the wrong button. Your midfielder "
             "has an offensive skill of 3 and Dinky's players are between "
             "you and the goal.\n\n"
-            "Look at **space 7** instead. Your striker has been standing "
+            "Look at **space 3** instead. Your striker has been standing "
             "there all game, inside shooting range, offensive skill "
             "**6** -- the best on your team.\n\n"
-            "A High Ball of exactly 2 spaces lands on space 7. A pass that "
+            "A High Ball of exactly 2 spaces lands on space 3. A pass that "
             "reaches a teammate already inside shooting range is a "
             "**scoring opportunity**: they shoot immediately, out of "
             "turn. And the Striker's ability is worth **+3** on "
@@ -440,7 +441,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "standing **on** the ball adds all of their defensive "
             "skill, one further back adds half, rounded up. A tie is a "
             "miss: the shooter has to be higher.\n\n"
-            "Their fullback is standing on space 7, so you get their whole "
+            "Their fullback is standing on space 3, so you get their whole "
             "defensive skill of 6 against you. Even so: your striker "
             "rolls **d12+13** against their **d12+6**. That is a real "
             "roll and it can miss -- but you should score about nine "
@@ -498,7 +499,7 @@ COACHING_NOTE = (
     "Two things to know. You may only *declare* one of these per half, "
     "so taking it now means going without until halftime -- and it is "
     "worth two substitutions. And Done is refused until somebody of "
-    "yours is standing on your own kickoff space, space 4.\n\n"
+    "yours is standing on your own kickoff space, space 0.\n\n"
     "Take the window or decline it; both are fine."
 )
 

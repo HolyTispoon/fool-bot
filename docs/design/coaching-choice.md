@@ -227,7 +227,7 @@ with a minute rather than handed out by the play.
     space positioning to empty it deliberately. On boards 7 and 9 both sides
     kick off from the one middle space, and each owes it its own coverage;
     on board 10, the playtest board, midfield has two middle spaces and each
-    side covers its own (home space 5, the visitors space 6). The question is
+    side covers its own (home space −1, the visitors space 1). The question is
     asked per side because the coverage is the arrangement's.
   - **`pending_kickoff_fill` survives as a fallback, not as a rule.** A game
     saved before this landed can hold an arrangement that leaves the space
