@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Codex game</title>
+  <link rel="stylesheet" href="/codex.css">
+  <script src="/viewer.js" defer></script>
+  <script src="/codex.js" defer></script>
+</head>
+<body class="game">
+  <header class="top">
+    <h1><a href="/">Codex games</a></h1>
+    <p class="game-title" id="title"></p>
+    <button type="button" class="toggle" id="log-toggle" aria-controls="log" aria-expanded="true">Hide log</button>
+  </header>
+  <main class="game-main" id="game-main">
+    <div class="viewer" id="viewer" tabindex="0" aria-label="The board. Scroll or pinch to zoom, drag to pan, double-click to switch between fit and full size.">
+      <img id="board" alt="The board" draggable="false">
+      <div class="viewer-controls">
+        <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
+        <button type="button" id="zoom-fit">Fit</button>
+        <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      </div>
+      <p class="viewer-caption" id="viewer-caption" hidden>
+        <span id="viewer-caption-text"></span>
+        <button type="button" id="back-to-current">Back to the current board</button>
+      </p>
+    </div>
+    <aside class="log" id="log" aria-label="The game's log">
+      <p class="over" id="over" hidden></p>
+      <section class="current">
+        <h2 class="heading" id="heading"></h2>
+        <ol class="lines" id="lines"></ol>
+      </section>
+      <section class="history" aria-labelledby="history-heading">
+        <h2 id="history-heading">Earlier turns</h2>
+        <ol class="turns" id="turns"></ol>
+        <p class="empty" id="turns-empty" hidden>No turn has finished yet.</p>
+      </section>
+    </aside>
+  </main>
+  <p class="status" id="status" role="status"></p>
+</body>
+</html>

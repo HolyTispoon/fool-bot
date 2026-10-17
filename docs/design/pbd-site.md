@@ -25,6 +25,10 @@ Step 3 landed the hooks: `cogs/codex_publish/publisher.py`, which the
 Codex cog builds in `cog_load` and calls from its own methods, so every
 change the channel sees reaches the bucket.
 
+Step 4 landed the site: `pbd/`, the Pages project's root -- the two pages,
+the viewer and the one Function -- and `scripts/serve_pbd.py`, which serves
+it locally.
+
 ## What the publisher is, and is not
 
 **The publisher is a frontend, like the cog**, and a second door out of the
@@ -384,3 +388,127 @@ list ever links to a game whose objects are gone. A delete that fails is
 tried again with the lists' next change; deletes cost nothing ("The
 store"). A game's send still in flight is cancelled first, and its
 record entry is gone, so nothing puts it back.
+
+## The page
+
+`pbd/` is the Pages project's root (the worksheet's decision 1), and nothing
+under it is built: Pages serves `pbd/public/` as it stands and finds
+`pbd/functions/`. Plain HTML, CSS and JavaScript, no framework, no CDN and no
+web font -- the system's sans -- because the landing pages' reason holds
+here too ([landing-pages.md](landing-pages.md), "Python and plain HTML, no
+framework") and a page anyone can open should call no other host.
+
+- **`index.html`** is the games being played, then the archive in its two
+  sections, finished and abandoned, from `index.json` and `archive.json`,
+  read every minute while the tab is visible. Each entry names the game's
+  number, its mode and variant, the sides ("ann vs bo vs cy", a dragon's
+  "ann and bo vs cy and di", off `sides`), and where it stands: whose turn,
+  who won, or the turn it was abandoned on.
+- **`game.html`** is one game at `/game/<game_id>`: `_redirects` rewrites
+  the address onto `/game` with a 200, and the page reads the id off
+  `location.pathname`. Pages serves `game.html` at `/game` and redirects
+  the `.html` name there, which is why the rewrite names `/game`. Every
+  file is named by absolute path, so a trailing slash breaks nothing.
+- **The board fills what the log leaves**, in the viewer; the log is a
+  column beside it, which **Hide log** takes away, remembered in
+  `localStorage` (wrapped, so a browser that refuses storage shows the log).
+  The column is the current turn's heading and lines, then the earlier
+  turns newest first, each its heading, its lines and its board as a
+  thumbnail that opens in the viewer under a caption with **Back to the
+  current board**. While an old board is open, a new current board is
+  neither fetched nor swapped in until **Back to the current board**.
+- **Polling** is `live.json` every 15 seconds while the tab is visible,
+  stopped while it is hidden and taken up again when it shows; the board is
+  fetched only when its key changes, and `history.json` only when
+  `history_version` does. A game that is no longer `playing` says how it
+  ended and stops polling. A `404` is not final: the lists are on a queue
+  of their own, so `index.json` can name a game before its first
+  `live.json` is up, and a deploy can miss a poll -- the page says the game
+  is not on the site yet and keeps asking. The browser revalidates the JSON with its
+  `ETag` on its own, since the objects are `no-cache`.
+- **Every line is built with `textContent`** from its segments (`codex.js`,
+  `segmentNode`): a name, a card and a glyph each a node, bold and italic
+  wrapped round whatever segment carries the flag. A glyph is its picture
+  with its `alt`, and its word where the picture does not load. No file
+  under `pbd/public/` uses `innerHTML` (the test).
+- **What a mode and a variant are called** is a copy in `codex.js` of
+  `cogs/codex_views/lobby.py`'s `MODE_LABELS` and `codex/game.py`'s
+  `VARIANT_LABELS`, held to both by the test: five words are not worth a
+  field in every list entry. A free-for-all's seats are joined with ", ",
+  a duel's and a dragon's sides with " vs ", as `/codex games` joins them.
+- **The look is the night palette's values**, typed into `codex.css`'s
+  `:root` from `box_art.NIGHT_COVER`: this is not the landing build, so it
+  borrows the values rather than the generated `colours.css`.
+- **On a phone, and a tablet held upright** (at most 960px wide), the board
+  is on top and the log under it, the page scrolling. The viewer is as tall
+  as the board at the screen's width (`--board-aspect`, set by the viewer
+  when a board loads) and never taller than the screen, so a stacked board
+  does not sit in black bands.
+
+### The viewer
+
+`viewer.js`, `BoardViewer`, is decision 6 by hand: pointer events and a CSS
+transform on the picture. The wheel (a trackpad's pinch is a wheel with
+`ctrlKey`) and a two-finger pinch zoom toward the pointer; a drag pans; a
+double click or a double tap switches between fit and full size about the
+point (never one on a button, so a fast **+ +** is two zooms); the **-**, **Fit** and **+** buttons and the `+`, `-` and `0` keys do
+the same. The zoom runs from the smaller of fit and full size to twice
+full size or the fit, whichever is larger: the picture's own pixels are the
+limit. A board narrower than the frame sits in its middle; a wider one
+cannot be dragged past its edge.
+
+**A new board keeps the viewer's zoom and position** where it is as wide as
+the one it replaces and the viewer is not fitted; a fitted viewer stays
+fitted. Only the width is compared: a board's height moves with what is on
+the table (a row of units more, measured 1986 against 2362 pixels in one
+staged game), and refitting on that would throw the viewer's zoom away most
+turns. A new width is **Swap view** between stacked and side by side, a new
+picture, and is fitted afresh. The new picture is loaded off screen and
+swapped in whole, so the viewer never shows half a board; one that fails
+to load is asked for again on the next poll.
+
+### The Function
+
+`pbd/functions/data/[[path]].js` answers `GET` and `HEAD` under `/data/`
+and nothing else (a `405` otherwise). The key is the address after `/data/`
+as written -- `codex/` included, since the JSON carries whole keys -- and is
+answered only where it matches one of `KEYS`, six regex literals at the top
+of the file: the two lists, a game's `live.json` and `history.json` under a
+32-character lowercase hex id, a board under a 64-character hex hash, and a
+glyph named by letters, digits and underscores. Anything else is a `404`
+before the bucket is asked, so the bucket cannot be walked. The patterns
+allow no character a browser encodes, so nothing is decoded first, and no
+`..` can reach a key the publisher did not write.
+
+It reads with `env.PBD.get(key, {onlyIf: request.headers})` (a `HEAD` with
+`head`), passes the object's own metadata through (`writeHttpMetadata`: the
+`Content-Type` and `Cache-Control` the publisher put it with) and its
+`httpEtag`, and answers `304` where the `If-None-Match` matched -- a get
+whose precondition fails hands back the object without a body. Every
+answer, a `404` included, carries `X-Robots-Tag: noindex`.
+`_routes.json` sends only `/data/*` to it, so the static files never count
+against the Functions quota. It has been run against a fake binding only;
+step 5 is the first time it meets R2.
+
+**The patterns are the one other place a key's shape is written**, beside
+`keys.py`. `tests/test_pbd_site.py` reads them out of the `.js` (each a
+plain literal on a line of its own, which compiles as a Python regex) and
+holds every key `keys.py` writes to one of them and a list of near misses
+to none. A pattern is matched with `fullmatch` there, because Python's `$`
+also matches before a final newline and JavaScript's does not.
+
+### Looking at it
+
+`scripts/serve_pbd.py` serves the site as Pages would: `pbd/public/` with
+its rewrite and its `_headers`, and `/data/` from a folder in the bucket's
+layout (`--data <dir>`), refusing every key the Function refuses -- it reads
+the same patterns out of the same file. `--stage <dir>` first writes a
+sample there through the publisher's own shapes and `codex.render`'s boards:
+a duel being played with three turns behind it and a seat whose name holds
+markup, a free-for-all finished, and a duel abandoned. Nothing in it talks
+to Cloudflare or writes into `data/`.
+
+The page is looked at in a browser at desktop (1440x900), iPad on its side
+(1180x820, touch) and phone (390x844, touch), the log open and closed,
+zoomed in and fitted, and with an old turn's board open; the test does not
+see it.

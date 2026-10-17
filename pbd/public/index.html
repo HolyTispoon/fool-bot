@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Codex games</title>
+  <link rel="stylesheet" href="/codex.css">
+  <script src="/codex.js" defer></script>
+</head>
+<body class="lists">
+  <header class="top">
+    <h1><a href="/">Codex games</a></h1>
+  </header>
+  <main>
+    <section aria-labelledby="playing-heading">
+      <h2 id="playing-heading">Being played</h2>
+      <ul class="games" id="playing"></ul>
+      <p class="empty" id="playing-empty" hidden>No game is being played.</p>
+    </section>
+    <section aria-labelledby="archive-heading">
+      <h2 id="archive-heading">Archive</h2>
+      <h3>Finished</h3>
+      <ul class="games" id="finished"></ul>
+      <p class="empty" id="finished-empty" hidden>No game has finished yet.</p>
+      <h3>Abandoned</h3>
+      <ul class="games" id="abandoned"></ul>
+      <p class="empty" id="abandoned-empty" hidden>No game has been abandoned.</p>
+    </section>
+    <p class="status" id="status" role="status"></p>
+  </main>
+</body>
+</html>
