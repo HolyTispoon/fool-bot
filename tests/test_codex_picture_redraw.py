@@ -94,6 +94,32 @@ class RedrawTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.kinds(interaction), ["response.edit", "original.edit"])
         self.assertEqual(interaction.log[-1][1], {"attachments": sent.attachments})
 
+    async def test_each_redraw_is_a_console_line(self) -> None:
+        """When it landed and what its edit took, at INFO: the console's
+        answer to "did the redraw run?" for a picture still grey."""
+        interaction = FakeInteraction(message(7))
+        with self.assertLogs("cogs.codex_views.base", level="INFO") as logs:
+            await edit_clicked(interaction, attachments=[picture()])
+            await redraws_done()
+        self.assertEqual(len(logs.records), 1)
+        self.assertEqual(logs.records[0].levelname, "INFO")
+        self.assertRegex(logs.output[0],
+                         r"An ephemeral picture redrawn \d+\.\d s after it went up \(the edit \d+ ms\)$")
+
+    async def test_a_picture_with_no_message_handed_back_says_so(self) -> None:
+        """Discord handed no message back for the write: nothing to
+        redraw, and the console says so rather than nothing."""
+        interaction = FakeInteraction(None)
+        with self.assertLogs("cogs.codex_views.base", level="INFO") as logs:
+            await edit_clicked(interaction, attachments=[picture()])
+        self.assertIn("no message handed back", logs.output[0])
+        self.assertEqual(base._PENDING, {})
+
+    async def test_a_write_with_no_picture_and_no_message_says_nothing(self) -> None:
+        interaction = FakeInteraction(None)
+        with self.assertNoLogs("cogs.codex_views.base", level="INFO"):
+            await edit_clicked(interaction, content="Waiting.")
+
     async def test_a_new_hand_is_drawn_again(self) -> None:
         interaction = FakeInteraction(message(7))
         await send_answer(interaction, "Your hand", file=picture(), ephemeral=True)
@@ -151,16 +177,44 @@ class RedrawTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.kinds(hand)[-1], "original.edit")
         self.assertEqual(self.kinds(deck)[-1], "original.edit")
 
-    async def test_a_message_gone_says_nothing(self) -> None:
+    async def test_a_message_gone_is_a_console_line_with_its_code(self) -> None:
+        """Dismissed, an expired token or an unknown webhook: INFO, never
+        a warning, with the code that tells them apart."""
         interaction = FakeInteraction(message(7))
 
         async def gone(**fields):
-            raise discord.NotFound(SimpleNamespace(status=404, reason="Not Found"), "Unknown Message")
+            raise discord.NotFound(SimpleNamespace(status=404, reason="Not Found"),
+                                   {"code": 10008, "message": "Unknown Message"})
 
         interaction.edit_original_response = gone
         with self.assertNoLogs("cogs.codex_views.base", level="WARNING"):
-            await edit_clicked(interaction, attachments=[picture()])
-            await redraws_done()
+            with self.assertLogs("cogs.codex_views.base", level="INFO") as logs:
+                await edit_clicked(interaction, attachments=[picture()])
+                await redraws_done()
+        self.assertEqual([record.levelname for record in logs.records], ["INFO"])
+        self.assertIn("found its message gone (10008)", logs.output[0])
+
+    async def test_a_redraw_dropped_by_a_later_write_says_so(self) -> None:
+        """The panel written again before its redraw came: one line for
+        the redraw dropped, so the console's count of redraws is not
+        read as redraws that never ran."""
+        sent = message(7)
+        await edit_clicked(FakeInteraction(sent), attachments=[picture()])
+        with self.assertLogs("cogs.codex_views.base", level="INFO") as logs:
+            await edit_clicked(FakeInteraction(sent), attachments=list(sent.attachments))
+        self.assertEqual(len(logs.records), 1)
+        self.assertIn("redraw dropped: its message was written again first", logs.output[0])
+
+    async def test_a_redraw_already_done_is_not_said_dropped(self) -> None:
+        """A redraw that finished is not cancelled, so not said dropped,
+        even before its `forget` has run."""
+        sent = message(7)
+        await edit_clicked(FakeInteraction(sent), attachments=[picture()])
+        (task,) = base._PENDING.values()
+        await task
+        base._PENDING[sent.id] = task
+        with self.assertNoLogs("cogs.codex_views.base", level="INFO"):
+            await edit_clicked(FakeInteraction(sent), attachments=list(sent.attachments))
 
     async def test_any_other_failure_is_a_console_warning_and_never_escapes(self) -> None:
         """Not a discord.py `HTTPException` either -- `ClientException`,

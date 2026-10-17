@@ -2372,7 +2372,7 @@ too, asked with `gate` for the two kinds a turn may open on
   ephemeral message until the message is drawn again. So every write
   of `edit_clicked` and `send_answer` that uploads a picture into an
   ephemeral message -- and `/codex card` and `/codex board` beside
-  them -- schedules one more edit `PICTURE_REDRAW_DELAY` (1 s) later,
+  them -- schedules one more edit `PICTURE_REDRAW_DELAY` (3 s) later,
   with the attachments the message went up with and nothing else:
   **one request** on the click's own webhook, none in the channel's
   bucket (the table below).
@@ -2394,9 +2394,24 @@ too, asked with `gate` for the two kinds a turn may open on
   - **Anything that goes wrong is a console warning** -- the picture
     is shown or it is not -- and a message gone since says nothing; no
     exception leaves the task, where asyncio would log it at ERROR to
-    #logs.
+    #logs. **Every new ephemeral picture ends in one console line**, so
+    a picture still grey can be traced to what became of its redraw:
+    **redrawn** (how long after the picture went up it landed, and what
+    its edit took), **dropped** (its message written again first --
+    gated on `cancel()`, so a redraw already finished is not said
+    dropped), **gone** (a `NotFound`, with its code: dismissed, an
+    expired token, an unknown webhook), **no message handed back**
+    (nothing to redraw), or the warning above. All INFO but the
+    warning, console only: nobody can act on any of them (the
+    review of #616, 2026-10-17).
   - The delay is a guess: whether a second drawing that soon loads,
-    and how much sooner would, is Discord's, measured by playing. The
+    and how much sooner would, is Discord's, measured by playing. It
+    was 1 s until 2026-10-16, when the author found the pictures still
+    grey often enough to see, while switching channels and back, or a
+    click seconds later, always showed them: 3 s since, to learn
+    whether the wait is what matters -- the other reading being that
+    an edit of the attachments alone does not make the apps draw the
+    picture again, however late. The
     fakes report which of their messages are ephemeral, so every click
     of the whole-game test counts its redraw (`FakeInteraction.redraws`,
     kept apart from what the click answered).
@@ -2834,7 +2849,7 @@ more*", since the board carries the position.
 
 Measured with the fakes, and held on every click of the whole-game test.
 **+1** on the webhook is a new picture's redraw (above, "A new picture in an
-ephemeral message is drawn twice"): one edit, a second after a click that put a
+ephemeral message is drawn twice"): one edit, `PICTURE_REDRAW_DELAY` after a click that put a
 new picture up in an ephemeral message, none where the picture was kept:
 
 | Click | The channel's bucket | The interaction's webhook |
