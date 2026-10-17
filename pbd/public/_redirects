@@ -1,0 +1,3 @@
+# A game's page is /game/<its game_id>: game.html, served at /game, reads the
+# id off the address. A rewrite (200), not a redirect.
+/game/:id /game 200

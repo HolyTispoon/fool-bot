@@ -1,0 +1,4 @@
+# Unlisted, not private (docs/pbd-site.md, decision 2): no page of the site is
+# indexed. The Function sends the same header on everything under /data/.
+/*
+  X-Robots-Tag: noindex
