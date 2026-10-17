@@ -795,7 +795,7 @@ def low_pass_choice() -> PromptFixture:
 
 def passer_advance() -> PromptFixture:
     """
-    A Low Pass played and its passer not yet moved or kept (Law 6.5.3).
+    A Pass played and its passer not yet moved or kept (Law 6.5.3).
     The pass is still the live maneuver, so without
     `MatchState.pending_passer_advance` a restart would offer the pass
     a second time.

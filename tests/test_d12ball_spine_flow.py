@@ -188,7 +188,7 @@ class LooseBallFlowTests(SpineFixture):
 
     def test_a_high_pass_draws_no_board_of_its_own(self) -> None:
         """
-        The one thing that tells the two apart: a High Pass is on a
+        The one thing that tells the two apart: a High Ball is on a
         receiver both coaches watched catch it, and the board the pass
         moved was posted by the pass.
         """

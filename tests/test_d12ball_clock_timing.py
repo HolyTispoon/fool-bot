@@ -107,7 +107,7 @@ class ClockTimingTests(unittest.TestCase):
         game, match = build("maneuver picks")
         lines = self.pick(game, match, "high_pass", "steal")
 
-        # The High Pass's own distance question is still to come, and
+        # The High Ball's own distance question is still to come, and
         # its two minutes are already on the clock.
         self.assertIs(
             pending_prompt(ENGINE, game, match).kind,
@@ -129,7 +129,7 @@ class ClockTimingTests(unittest.TestCase):
 
     def test_a_set_up_shot_is_charged_again_once_it_resolves(self) -> None:
         """
-        Law 16.2.5: the High Pass's 2 at the reveal, and the shot's 1
+        Law 16.2.5: the High Ball's 2 at the reveal, and the shot's 1
         once it has resolved -- not 3 at the end.
         """
         game, match = build("maneuver picks")
@@ -150,7 +150,7 @@ class ClockTimingTests(unittest.TestCase):
         self.assertIn("Time has advanced 1, now at 03.", " ".join(lines))
 
     def test_the_card_charged_is_the_one_that_resolves(self) -> None:
-        # Law 16.2.3: a High Pass beaten by a Deflect costs the
+        # Law 16.2.3: a High Ball beaten by a Deflect costs the
         # Deflect's 1, not its own 2.
         game, match = build("maneuver picks")
         self.pick(game, match, "high_pass", "deflect")

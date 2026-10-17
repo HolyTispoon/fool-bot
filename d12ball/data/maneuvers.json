@@ -1,10 +1,10 @@
 {
-  "data_version": 16,
+  "data_version": 17,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
       {
-        "name": "Low Pass",
+        "name": "Pass",
         "key": "low_pass",
         "rank": 1,
         "tier": "basic",
@@ -24,7 +24,7 @@
         "die_values": [
           2
         ],
-        "effect": "Successful gambit: ball to a teammate up to 3 spaces away. Ball speed +3. \nFailed gambit: after stealing, the defender may Low Pass unopposed.",
+        "effect": "Successful gambit: ball to a teammate up to 3 spaces away. Ball speed +3. \nFailed gambit: after stealing, the defender may Pass unopposed.",
         "time": "1",
         "defeats_rank": 3
       },
@@ -54,7 +54,7 @@
         "defeats_rank": 1
       },
       {
-        "name": "High Pass",
+        "name": "High Ball",
         "key": "high_pass",
         "rank": 3,
         "tier": "basic",
@@ -62,7 +62,7 @@
           5,
           6
         ],
-        "effect": "Ball moves forward 2-3 spaces. 2: received, and may set up for scoring. 3+: receiver must win a skill test to keep it, adding ball speed.",
+        "effect": "Ball forward 2-3 spaces. 2: may set up scoring. 3+: receiver must win a contest, adding ball speed.",
         "time": "2",
         "defeats_rank": 2
       },
@@ -126,7 +126,7 @@
         "die_values": [
           4
         ],
-        "effect": "Successful gambit: turnover. Defender and ball move forward 1. Adjust ball speed after turnover (up to dSkill). \nFailed gambit: High Pass reception is uncontested.",
+        "effect": "Successful gambit: turnover. Defender and ball move forward 1. Adjust ball speed after turnover (up to dSkill). \nFailed gambit: High Ball reception is uncontested.",
         "time": "1",
         "defeats_rank": 1
       },

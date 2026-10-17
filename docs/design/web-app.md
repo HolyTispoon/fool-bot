@@ -1348,7 +1348,7 @@ chooser, or puts a refusal away.
   the effect in the sheet's words, never cut down. Each is the answer as
   it was in step 4. An advanced card's tier tag sits under its name, so
   the name and the time keep the first line, and names the basic card of
-  its rank -- "advanced Low Pass" on Pinpoint, the catalog's `counterpart`
+  its rank -- "advanced Pass" on Pinpoint, the catalog's `counterpart`
   (the author, 2026-10-07). On
   a desktop a pill is 230px wide, three in a row, the diagram over the
   effect (the author, 2026-10-07: until then the
@@ -1925,11 +1925,11 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   of somebody who is not rolling, with whose it is, edged in their
   team's colour.
 - **A contest for the ball has a situation** (the author,
-  2026-09-28): the loose ball's roll, or a long High Pass's
+  2026-09-28): the loose ball's roll, or a long High Ball's
   (`LOOSE_BALL_SKILL_TEST`), as the two sent with what the roll adds
   for each, as `score_loose_ball` adds it -- the side on the ball's
   offensive skill, the other's defensive, nothing for an injured one
-  (Law 15.4), the High Pass's signed ball speed modifier, Merge on both
+  (Law 15.4), the High Ball's signed ball speed modifier, Merge on both
   sides, anything already declared -- and the abilities that reach a
   contest, Slitheron's among them. A contest Slitheron skips has no
   prompt, so it has no window: the model's line says why there was no
@@ -1952,7 +1952,7 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   the ask's to say.
 - **An ability that acts when a player takes the ball is said by the
   model when it acts** -- Inferno's speed, Pulsar's Charge-up,
-  Slitheron's contest without a roll, Zytheris's offer off a Low Pass
+  Slitheron's contest without a roll, Zytheris's offer off a Pass
   -- each line naming it as their special ability, so the log (and
   Discord) says why the speed jumped or the roll never came. There is
   no question at that moment, so nothing for a window to hang on.

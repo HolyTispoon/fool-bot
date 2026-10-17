@@ -2059,7 +2059,7 @@ class SmoothCandidateTests(unittest.TestCase):
         )
 
     def test_the_player_the_ball_is_handed_to_is_offered_nothing(self):
-        # The author's case, 2026-09-20: a Low Pass aimed at a
+        # The author's case, 2026-09-20: a Pass aimed at a
         # Telekinetic offered its own receiver a Smooth on the ball
         # they had just caught. Taking it over means taking it off
         # somebody, and there is nobody to take it off here.

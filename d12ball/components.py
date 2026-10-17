@@ -865,7 +865,7 @@ class TeamSetup:
 SETUP_AREAS = ("own_goal", "midfield", "opponent_goal")
 FIELD_PLAYER_COUNT = 6
 
-# The shortest High Pass a coach may choose. A Fullback's ability
+# The shortest High Ball a coach may choose. A Fullback's ability
 # raises the maximum to 4, never this -- and this is the one that
 # decides whether there is a choice to make at all, since a position
 # where even a 2 reaches the goal zone makes every distance identical.
@@ -973,8 +973,8 @@ class BasicRuleset:
 # always been played; the gambit tier is the second set the 2026-08-17
 # ruling added, one card per basic card at the same rank -- see
 # "Gambits" in docs/living-rules.md.
-# Cross's three distances, and its clock cost. It is High Pass's
-# rank and carries High Pass's 2 time; 0 is a teammate
+# Cross's three distances, and its clock cost. It is High Ball's
+# rank and carries High Ball's 2 time; 0 is a teammate
 # sharing the passer's own space.
 SETUP_PASS_DISTANCES = (0, 1, 3)
 # The Fullback's +1, which is the same ability that takes a basic High
@@ -987,7 +987,7 @@ SETUP_PASS_CLOCK_COST = 2
 # maneuver. A value inside a saved field, not a field of its own.
 DOUBLE_TEAM_PARTNER_KIND = "double_team_partner"
 # What a maneuver costs on the clock (Law 16.2.1): a flat 1 time,
-# and two for a High Pass and for the Cross it is the advanced
+# and two for a High Ball and for the Cross it is the advanced
 # version of. `RulesEngine.maneuver_clock_cost` is the one reading; the
 # printed cards say the same in words, and a test holds the two
 # together.
@@ -1044,7 +1044,7 @@ def maneuver_key(name: str) -> str:
     name: `"Steal Intercept"` -> `"steal_intercept"`.
 
     **A maneuver's identity is not its printed name.** It used to be:
-    `match.offense_maneuver` held the string `"Low Pass"` and a dozen
+    `match.offense_maneuver` held the string `"Pass"` and a dozen
     sites compared against those literals, which meant a rename
     upstream was a code change and a saved game held a display string.
     The author renamed the basic D2 card from "Steal Intercept" to
@@ -1074,6 +1074,10 @@ PINNED_MANEUVER_KEYS = {
     "pinpoint": "skilled_pass",
     "burst": "dribble_burst",
     "cross": "setup_pass",
+    # The author renamed two more on 2026-10-16: Pass became Pass and
+    # High Ball became High Ball, for the same reason kept on their keys.
+    "pass": "low_pass",
+    "high_ball": "high_pass",
 }
 
 
@@ -1275,7 +1279,7 @@ class BallState:
         speed itself, never 0, since the speed never drops below 1. It
         was half the speed, rounded down, until 2026-10-01 -- see
         docs/rules-log.md. Unsigned: `MatchState.ball_speed_modifier`
-        is the signed one a High Pass outcome pays.
+        is the signed one a High Ball outcome pays.
         """
         return self.speed
 
@@ -2161,7 +2165,7 @@ class MatchState:
     # **Scorchit may force the test** (Law 21): who is being asked,
     # after a reveal their card lost, and who said yes. The yes is kept
     # rather than re-read off the cards because the handler can change
-    # after the cards resolve (a stealer's free Low Pass), and a
+    # after the cards resolve (a stealer's free Pass), and a
     # re-reading then names one player as winner and loser at once.
     pending_force_test: Optional[str] = None
     forced_test_player: Optional[str] = None
@@ -2218,7 +2222,7 @@ class MatchState:
     # Two of the gambits' effects reach past their own maneuver.
     # Cross adjusts ball speed and *then* sets up a scoring
     # opportunity; Pinpoint, when it is beaten, hands the defense
-    # an unopposed Low Pass once the steal has settled. Both sit behind
+    # an unopposed Pass once the steal has settled. Both sit behind
     # a speed choice, which is the last human step of an effect and has
     # always led straight into `finish_maneuver_resolution`. Rather
     # than a flag per case this says what is left to do, the same shape
@@ -2242,7 +2246,7 @@ class MatchState:
     # and the reason is that neither question could be a
     # `PendingPrompt` without it. The attempt's `distance_moved` and
     # `contest_on_decline` are nowhere else in match state -- by the
-    # time it is asked, a High Pass that reached the goal zone and an ordinary 2-space
+    # time it is asked, a High Ball that reached the goal zone and an ordinary 2-space
     # one have left the match in the same position -- so they lived on
     # the view, which is to say they lived nowhere a restart could
     # read them. A game that went down inside either offer came back
@@ -2260,7 +2264,7 @@ class MatchState:
     # None -- no scoring opportunity outstanding, which is what such a
     # save means.
     pending_scoring_opportunity: Optional[dict] = None
-    # A won Low Pass's passer may move 1 space forward once the ball
+    # A won Pass's passer may move 1 space forward once the ball
     # has gone (Law 6.5.3, the author 2026-10-07), and their coach is
     # asked. What is saved is the question: the passer, and what the
     # pass does once it is answered -- `"then": "pass"` for a pass
@@ -2273,7 +2277,7 @@ class MatchState:
     pending_shot_is_set_up: bool = False
     # The base clock cost of the maneuver that offered a pending set-up
     # shot -- 0 for an ordinary shot, otherwise the maneuver's own flat
-    # cost (1, or 2 for a High Pass). **Charged only by a game saved
+    # cost (1, or 2 for a High Ball). **Charged only by a game saved
     # before 2026-09-28**, whose maneuver had not been charged yet when
     # the shot was offered: since then the maneuver is charged the
     # moment its winner is decided, `clock_charged` says so, and the
@@ -2307,7 +2311,7 @@ class MatchState:
     # rule the declaration and the possession were one flag, raised
     # together at the finish.
     last_possession_declared: bool = False
-    # A High Pass reached the goal zone (Law 6.7.4), so the ball speed
+    # A High Ball reached the goal zone (Law 6.7.4), so the ball speed
     # modifier is paid the other way round for whatever that leads
     # to -- the set-up's shot, or the long-pass contest behind it.
     # **The name is the old word for it and stays**: it is a saved key,
@@ -2846,7 +2850,7 @@ class MatchState:
         self, side: TeamSide, distance: int,
     ) -> bool:
         """
-        Whether a High Pass of `distance` in `side`'s attack direction
+        Whether a High Ball of `distance` in `side`'s attack direction
         reaches the goal zone (Law 6.7.4) -- the ball comes to rest
         short of where it was aimed, on the last space. Read before the
         ball moves, since the clamp is what loses the evidence.
@@ -2857,7 +2861,7 @@ class MatchState:
         self, side: TeamSide, max_distance: int,
     ) -> list[int]:
         """
-        The distances a High Pass may actually be thrown at from where
+        The distances a High Ball may actually be thrown at from where
         the ball is: the minimum up to `max_distance`, less any that
         reach the goal zone. **A distance is dropped when a shorter one
         already reaches the space it would land on**, because the
@@ -2881,7 +2885,7 @@ class MatchState:
         self, side: TeamSide, distance: int,
     ) -> list[str]:
         """
-        Which of `side` would be standing where a High Pass of
+        Which of `side` would be standing where a High Ball of
         `distance` lands, less the passer -- who never receives their
         own pass. Read before the ball moves, so it is the lookahead
         `high_pass_receiver_candidates` is after the fact.
@@ -2903,7 +2907,7 @@ class MatchState:
 
     def high_pass_distance_is_moot(self, side: TeamSide) -> bool:
         """
-        Whether there is anything to choose about a High Pass's
+        Whether there is anything to choose about a High Ball's
         distance: there is not when even the shortest one already
         reaches the goal zone, because 2, 3 and 4 then all come to
         rest on the same space -- the last one before it. That is the
@@ -2916,19 +2920,19 @@ class MatchState:
     def ball_speed_modifier(self) -> int:
         """
         The ball speed modifier as this turn pays it: the speed itself
-        (`BallState.speed_modifier`), but **negated** when a High Pass reached the
-        goal zone -- see "Ball speed" and "High Pass" in the living
+        (`BallState.speed_modifier`), but **negated** when a High Ball reached the
+        goal zone -- see "Ball speed" and "High Ball" in the living
         rules. A pass that reached the goal zone arrives too fast to do anything
         with, so the speed that would have helped is what makes the
         shot hard, and the same sign carries into the long-pass contest
         a declined set-up falls into.
 
-        This is the modifier a *High Pass outcome* pays: the set-up's
+        This is the modifier a *High Ball outcome* pays: the set-up's
         shot and that contest. The one place the modifier is paid to
         somebody else -- a skill test the defense won with Steal
         Intercept -- reads the speed itself, because reaching the goal
         zone is the offense's problem and the intercept happens before any
-        High Pass has been thrown.
+        High Ball has been thrown.
         """
         modifier = self.ball.speed_modifier
         return -modifier if self.pending_high_pass_overshoot else modifier
@@ -3039,7 +3043,7 @@ class MatchState:
         Who `side` may send to the ball's space -- the whole of "Sending
         a player" in docs/living-rules.md, and the one pool behind all
         four rules that ask for somebody: the maneuver challenge, the
-        loose ball, the long High Pass contest, and the pickup after an
+        loose ball, the long High Ball contest, and the pickup after an
         out-of-bounds ball, or one a time out left behind.
 
         **Distance decides it, not zone.** The nearest of that side's
@@ -3054,7 +3058,7 @@ class MatchState:
         **Anyone already standing on the space is included**, at
         distance 0. They are not *sent* anywhere -- every caller
         recognises them and short-circuits (automatic_challengers, the
-        High Pass contest's forced contestant, an eligible ball
+        High Ball contest's forced contestant, an eligible ball
         handler) -- but they are candidates, or automatic_challengers
         would have nothing to filter.
         """
@@ -3122,13 +3126,13 @@ class MatchState:
     def loose_ball_occupants(self, side: TeamSide) -> list[str]:
         """
         `side`'s contestants already on the ball in *this* loose ball --
-        contest_occupants, less the passer where it is a High Pass
+        contest_occupants, less the passer where it is a High Ball
         contest and `side` threw it. They never receive their own pass,
         so the contest is fought by whoever did.
 
         That exclusion can only bite on a pass the field clamped to 0
         spaces, which reaches finish_maneuver_resolution rather than any
-        contest. It is stated as a rule about every High Pass anyway, so
+        contest. It is stated as a rule about every High Ball anyway, so
         a later maneuver that moves a handler cannot reopen the hole
         quietly -- exactly as high_pass_receiver_candidates states it.
 

@@ -305,10 +305,10 @@ def possessions(turns: list[Turn]) -> list[list[Turn]]:
     """
     Consecutive turns by the same side, grouped.
 
-    This is the unit a maneuver's payoff is measured over: a Low Pass
+    This is the unit a maneuver's payoff is measured over: a Pass
     that works pays off two turns later, on the shot it set up, and
     charging it only with goals scored on its own turn would credit
-    the High Pass and nothing else. A side keeps the ball until it
+    the High Ball and nothing else. A side keeps the ball until it
     does not, so a run of turns is exactly a possession.
     """
     runs: list[list[Turn]] = []

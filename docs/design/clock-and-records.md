@@ -105,7 +105,7 @@ the charge now, and the sites that call it are the decisions:
 | A time out | `begin_time_out`, after `call_time_out` | `charge_clock` |
 
 - **The cost is the card that resolves**, `RulesEngine.maneuver_clock_cost`
-  over `resolving_maneuver` (Law 16.2.3): a beaten High Pass costs the
+  over `resolving_maneuver` (Law 16.2.3): a beaten High Ball costs the
   Deflect's 1. That was already the behaviour -- each effect named its own
   card's cost -- and until now it lived only in the rules log. The numbers
   are constants in `components.py` (`MANEUVER_CLOCK_COST`,
@@ -300,7 +300,7 @@ fact.
   off on the shot it set up a turn or two later, so `collect_maneuvers` credits
   a possession's goals to every maneuver played in it. That over-credits by
   design: the log cannot say which of three maneuvers mattered most, and
-  crediting only the last would report the High Pass as the only card that ever
+  crediting only the last would report the High Ball as the only card that ever
   scores.
 - **`exh` and `inj` on a maneuver's row are the turn's, not the card's.** A
   turn charges both sides, and the log does not say which of the two a token

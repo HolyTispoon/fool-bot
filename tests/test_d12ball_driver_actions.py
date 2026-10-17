@@ -259,7 +259,7 @@ LEGAL_ACTIONS = {
 
 
 #: The cases whose kind the driver can answer, one per kind -- several
-#: fixtures stand in the same branch (three Low Passes, two speed
+#: fixtures stand in the same branch (three Passes, two speed
 #: choices) and one of each is enough to assert the seam.
 def _answerable_cases():
     seen = set()

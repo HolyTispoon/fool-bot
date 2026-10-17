@@ -3,7 +3,7 @@ A shot may only be taken from within shooting range.
 
 The rule is one predicate -- MatchState.can_attempt_score -- and these
 cover the geometry it rests on and the three places it is enforced: the
-turn's own shoot button, a High Pass of 2, and a Winger's Low Pass.
+turn's own shoot button, a High Ball of 2, and a Winger's Pass.
 Range is measured from the middle of the *board*, so it is the far part
 of midfield plus the outer zone before the goal a team attacks, and an odd-sized board's
 middle space is in nobody's range.

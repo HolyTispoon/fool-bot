@@ -498,7 +498,7 @@ fills it from a `Bearing` -- which part of which roll the player is in
   the 768 images with a bearing special ability changed.
 - **A note row for somebody who is not rolling** (the author,
   2026-10-02: "add quantor"). Quantor, while a teammate is on the ball,
-  may run onto their High Pass or Cross, so the coach choosing the card
+  may run onto their High Ball or Cross, so the coach choosing the card
   is told: a `MatchupNote` under both groups, whose it is over the
   card's sentence, edged in their team's colour as the page edges its
   note. Who gets one is `dice_brief.challenge_noted`, which the page's

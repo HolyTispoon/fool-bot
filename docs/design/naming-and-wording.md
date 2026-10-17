@@ -269,7 +269,7 @@ name, never a rule, and nothing saved changed.
   `formatting.capitalized` raises it where it opens a label or a caption.
 - **The pieces that compose it with something else follow it**: a run back
   reads "Space 4 (2 away)" on the button and "space 4 (2 away)" in the
-  sentence (`travel_space_label` / `travel_space_phrase`), a High Pass
+  sentence (`travel_space_label` / `travel_space_phrase`), a High Ball
   "2 spaces (space 4, Sizzifizik [PM])", and a range "spaces 1-2" rather than
   "space 1-space 2".
 - **The zone is still spelled out beside it** wherever it was before

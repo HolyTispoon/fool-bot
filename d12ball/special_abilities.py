@@ -156,12 +156,12 @@ SPECIAL_ABILITIES: dict[str, tuple[SpecialAbility, str]] = {
     ),
     "umbrik_fullback": (
         SpecialAbility.DEFENSIVE_THROW,
-        "Uses dSkill for high pass skill tests and when avoiding own "
+        "Uses dSkill for High Ball skill tests and when avoiding own "
         "goals.",
     ),
     "vorix_defender": (
         SpecialAbility.LONG_SET_UP,
-        "When high passing for 3: speed ball to 12 and set up a scoring "
+        "When High Balling for 3: speed ball to 12 and set up a scoring "
         "opportunity without contest.",
     ),
     "zenith_winger": (
@@ -180,7 +180,7 @@ SPECIAL_ABILITIES: dict[str, tuple[SpecialAbility, str]] = {
     ),
     "slitheron_striker": (
         SpecialAbility.WINS_CONTESTS,
-        "Auto wins contests for ball including high pass and loose ball.",
+        "Auto wins contests for ball including High Ball and loose ball.",
     ),
     "shpritz_winger": (
         SpecialAbility.SMOOTH,
@@ -197,7 +197,7 @@ SPECIAL_ABILITIES: dict[str, tuple[SpecialAbility, str]] = {
     ),
     "quantor_winger": (
         SpecialAbility.RUN_ON,
-        "Before resolving High Pass or Cross, drain 3 to move to the "
+        "Before resolving High Ball or Cross, drain 3 to move to the "
         "pass's target space. Quantor gains possession without contest.",
     ),
 }

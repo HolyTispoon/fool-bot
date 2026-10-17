@@ -111,7 +111,7 @@ def build_interaction(user_id: int = 111) -> SimpleNamespace:
         ),
         followup=SimpleNamespace(send=send),
         # A component interaction always carries its message, and a
-        # real one always has an attachment list -- the Low Pass prompt
+        # real one always has an attachment list -- the Pass prompt
         # posts its field strip there and the receiver pick reads the
         # full-image link back off it.
         message=SimpleNamespace(
@@ -993,7 +993,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.MIDFIELD, 2)
         match.active_player_id = winger
-        # A Low Pass the Winger has won: the menu is the answer to a
+        # A Pass the Winger has won: the menu is the answer to a
         # settled maneuver, and every click is checked against that.
         match.challenger_id = match.visiting.field_players[0]
         match.offense_maneuver = "low_pass"

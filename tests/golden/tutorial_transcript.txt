@@ -31,9 +31,9 @@ Out of shooting range. Maneuver, or take a time out:
 ### Choosing a maneuver
 A maneuver is a fight for the ball between two players, and both sides pick a card **secretly and at the same time**. Your hand holds three:
 
-- **Low Pass** -- ball to the nearest teammate ahead or behind, up to 2 spaces. Ball speed +1.
+- **Pass** -- ball to the nearest teammate ahead or behind, up to 2 spaces. Ball speed +1.
 - **Dribble** -- your player *and* the ball move forward, and you may change the ball's speed.
-- **High Pass** -- the ball flies 2 or more spaces forward.
+- **High Ball** -- the ball flies 2 or more spaces forward.
 
 Which card wins is not a roll. The six form a **cycle**, like rock-paper-scissors with six hands: each beats one of the other side's, ties with one, and loses to one. The Maneuver Reference button draws the whole thing, and you can open it whenever you like.
 
@@ -78,7 +78,7 @@ Ball is now in space 6, 🟠 Player 1 (Home) has possession.
 ## 2. Every role has an ability
 Dribble beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from space 4 to **space 6**.
 
-Moving forward two spaces is not the ordinary move. A Dribble typically moves the player one space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Pass, the Midfielder gets +3 on a Low Pass or Steal test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities_reference`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
+Moving forward two spaces is not the ordinary move. A Dribble typically moves the player one space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Ball, the Midfielder gets +3 on a Pass or Steal test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities_reference`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
 
 You are on space 6 now, which is inside your shooting range, so the **Shoot** button has appeared. It is grayed out here, and it would be a poor shot anyway: your playmaker's offensive skill is 4, Dinky's defender is standing on the ball and their fullback is behind them -- roughly d12+4 against d12+8. We will make a much better one shortly.
 
@@ -95,22 +95,22 @@ Choose an action:
 ### When both cards are the same rank
 Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and both players **exhaust 1** for the effort. Exhaustion is the game's running cost; enough of it and a player risks getting injured.
 
-**Pick Low Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on space 5, so the ball is simply theirs: no roll, no contest, never loose.
+**Pick Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on space 5, so the ball is simply theirs: no roll, no contest, never loose.
 === press 11: TutorialContinueView -> 'Continue'
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 12: ManeuverActionPromptView -> 'Low Pass'
+=== press 12: ManeuverActionPromptView -> 'Pass'
 --- message
-You chose **Low Pass**.
+You chose **Pass**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Low Pass**.
+🟠 Player 1 chose **Pass**.
 🟣 Dinky AI chose **Deflect**.
 
-**Low Pass** ties with **Deflect** — skill test!
+**Pass** ties with **Deflect** — skill test!
 
 🟠 Sizzifizik [PM]: offense skill 4
 🟣 Dravox [DD]: defense skill 5
@@ -197,7 +197,7 @@ Now take it off them.
 === press 20: ManeuverChallengeView -> 'Sizzifizik [PM] (0)'
 --- message
 ### Turnovers, the run back, and ball speed
-**Pick Steal.** Dinky is playing Low Pass, and Steal beats it -- the ball will be yours again!
+**Pick Steal.** Dinky is playing Pass, and Steal beats it -- the ball will be yours again!
 
 Two things happen after it. Your player takes the ball back a space with them, and **anyone left standing outside their own zone runs back into it**, exhausting 1 per space, the same cost you watched Dinky pay two turns ago.
 
@@ -213,7 +213,7 @@ You chose **Steal**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Low Pass**.
+🟣 Dinky AI chose **Pass**.
 🟠 Player 1 chose **Steal**.
 
 ## **Steal** wins!
@@ -243,7 +243,7 @@ Space 5 is inside your shooting range, so **Shoot** is offered again -- and agai
 
 Look at **space 7** instead. Your striker has been standing there all game, inside shooting range, offensive skill **6** -- the best on your team.
 
-A High Pass of exactly 2 spaces lands on space 7. A pass that reaches a teammate already inside shooting range is a **scoring opportunity**: they shoot immediately, out of turn. And the Striker's ability is worth **+3** on precisely that shot.
+A High Ball of exactly 2 spaces lands on space 7. A pass that reaches a teammate already inside shooting range is a **scoring opportunity**: they shoot immediately, out of turn. And the Striker's ability is worth **+3** on precisely that shot.
 
 **Press Maneuver.**
 === press 24: TutorialContinueView -> 'Continue'
@@ -258,8 +258,8 @@ Choose an action:
 Dravox has moved 1 space.
 🟣 Dravox [DD] exhausts 1 😮‍💨 (now 2 total).
 --- message
-### High Pass, and what a shot is up against
-**Pick High Pass.** Dinky is playing Steal, and High Pass beats it, so the pass gets through.
+### High Ball, and what a shot is up against
+**Pick High Ball.** Dinky is playing Steal, and High Ball beats it, so the pass gets through.
 
 You will be asked how far to throw. **2 spaces** is the only distance offered here -- a longer throw would reach the goal zone, and the menu never offers one that would. It is also the distance you want: a pass of 2 is caught cleanly, where a 3-space throw has to be *won* by whoever it lands near, with the ball's speed counting against them.
 
@@ -271,24 +271,24 @@ Their fullback is standing on space 7, so you get their whole defensive skill of
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 27: ManeuverActionPromptView -> 'High Pass'
+=== press 27: ManeuverActionPromptView -> 'High Ball'
 --- message
-You chose **High Pass**.
+You chose **High Ball**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **High Pass**.
+🟠 Player 1 chose **High Ball**.
 🟣 Dinky AI chose **Steal**.
 
-## **High Pass** wins!
+## **High Ball** wins!
 Time has advanced 2, now at 06.
 --- message
-🟠 <@111>, choose your High Pass distance:
+🟠 <@111>, choose your High Ball distance:
 === press 28: HighPassChoiceView -> '2 spaces (space 7, Acidel [SK])'
 --- message
 Chose **2 spaces**.
 --- message
-**High Pass:** the ball moves 2 spaces forward. That reaches a teammate -- a scoring opportunity!
+**High Ball:** the ball moves 2 spaces forward. That reaches a teammate -- a scoring opportunity!
 
 <@111> 🟠 Acidel [SK] can attempt the scoring opportunity, or let it go:
 === press 29: SetUpAttemptChoiceView -> 'Acidel [SK] takes the shot'

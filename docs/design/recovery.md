@@ -193,7 +193,7 @@ Two things follow from that:
     a restart hands back the rematch buttons rather than a stale prompt
     off the last turn.
   - **What a restart still cannot restore**: a part-made coaching pick
-    lives on the hub's sub-menus and nowhere else, and a Low Pass
+    lives on the hub's sub-menus and nowhere else, and a Pass
     waiting on *which* of several teammates receives it reads back as
     the first-stage distance choice. Both are narrow crash windows in
     which nothing has been applied, so the coach re-picks.
@@ -223,7 +223,7 @@ Two things follow from that:
   on the ball for the side in possession (`turn_handler_stranded`), so
   such a save fails every load -- every command in the channel, `resume`
   included, used to die on it as an unhandled error. It got there through
-  `/d12ball ball move` after a mis-resolved Low Pass (2026-10-05): the
+  `/d12ball ball move` after a mis-resolved Pass (2026-10-05): the
   command moved the ball off the receiver and saved the position as it
   was. So `resume` loads with `check_turn=False`, `reset_turn` clears the
   very thing the check is about, and any other command that cannot load

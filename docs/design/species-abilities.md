@@ -267,7 +267,7 @@ their own (below).
     `BallState.speed_modifier`, which became the full speed on
     2026-10-01 while Zorch's stayed halved (the author, the same day)
     -- so nothing at speed 1, and never `ball_speed_modifier()`'s signed
-    value -- the sign a High Pass into the goal zone pays is the pass's
+    value -- the sign a High Ball into the goal zone pays is the pass's
     penalty, not Zorch's. **Scorchit's test is their coach's choice** --
     "may force" (the author, 2026-09-26) -- so it is a prompt,
     `FORCE_TEST`, put up by `resolve_maneuver` at the reveal where
@@ -275,7 +275,7 @@ their own (below).
     (`forced_test_player`), which `settled_maneuver_winner` reads
     beside the injury. Saved rather than re-read off the cards because
     the handler can change after they resolve -- the stealer taking the
-    free Low Pass a beaten Pinpoint owes -- and a re-reading then
+    free Pass a beaten Pinpoint owes -- and a re-reading then
     named Scorchit as winner and loser at once, which the advanced
     golden's seed sweep found. The injury-forced test is the model, and
     the gambits need nothing of their own because `gambit_cost_applies`
@@ -284,7 +284,7 @@ their own (below).
   - *Umbrik* -- `attacking_skill`, the one reading of what the side
     attacking a roll adds, at the six sites that read `.offense` for
     an own-goal roll, a maneuver skill test and a contest. Umbrik is
-    defensive on the first two only; the High Pass contest stays
+    defensive on the first two only; the High Ball contest stays
     offensive (the author, 2026-09-26), and the contest sites still ask
     here so every attacking roll reads one place.
     `attacking_skill_name` is the word for the same answer, over the
@@ -1122,7 +1122,7 @@ split is the whole design.
   of the two spends the path. The five are the functions that settle an
   arrival: `finish_maneuver_resolution` (the tail of every ordinary path,
   receptions included), `begin_loose_ball` (a Deflect, which calls it
-  directly, and the High Pass contest, which comes through it),
+  directly, and the High Ball contest, which comes through it),
   `offer_scoring_attempt_choice` (a set-up), `begin_run_back` (a turnover a
   maneuver settles for itself -- Steal, Intercept, a Defender's pressure
   steal, an own goal avoided -- and hands straight to run-back without
@@ -1263,7 +1263,7 @@ either.
 - **Three placements are restarts and no others.** `restart_after_goal` (an
   ordinary goal and a conceded own goal), `restart_after_missed_score`, and
   the second-half kickoff in `end_period`. Every other dead-ball path in the
-  game -- an out-of-bounds Cross or High Pass, an avoided own goal --
+  game -- an out-of-bounds Cross or High Ball, an avoided own goal --
   leaves the ball where it lies and moves it not at all, so there is nothing
   to record either way.
 
@@ -1380,7 +1380,7 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
   roll. Smooth costs nothing, so the reasoning does not reach it, and an
   injured player is still playing.
 - **`ball_carrier_id` is out of Smooth's list, and the pull needs no such
-  clause.** The author, on a Low Pass aimed at a Telekinetic that then
+  clause.** The author, on a Pass aimed at a Telekinetic that then
   offered its own receiver a Smooth (2026-09-20): *"Dravox was already the
   recipient of the ball so it doesn't make sense"*. Taking it over means
   taking it off somebody, and a receiver, a thief and the shooter a set-up
@@ -1394,7 +1394,7 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
   definition, and the pull is only ever offered to the side that is not.
   - **It needed no new state**, which is why it is one `continue`: every
     effect that completes a delivery sets the carrier *before* the arrival
-    gate is asked (`send_low_pass`, the Cross, the two High Pass set-up
+    gate is asked (`send_low_pass`, the Cross, the two High Ball set-up
     branches, the steal and the intercept), and `select_ball_handler` clears
     it at the top of the turn, so nothing stale reaches the gate.
   - **What it does not take away is the whole point of the ability**: a
@@ -1406,7 +1406,7 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
   was theirs anyway: *"Smooth only makes sense when someone is handling and
   locked in to using the ball normally."* So `smooth_candidates` returns
   nothing while `ball_carrier_id` is unset, and an unheld ball -- a Deflect,
-  a pass that reaches nobody, a Clear, a beaten Cross, the High Pass
+  a pass that reaches nobody, a Clear, a beaten Cross, the High Ball
   contest -- is settled by Law 10.1 alone. That includes a space both sides
   share: asked, the author ruled that a Smooth does not skip a contest either.
   - **It is the exclusion above read at its limit**, and it needed no state

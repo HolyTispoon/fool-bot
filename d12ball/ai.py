@@ -313,7 +313,7 @@ class DinkyAI(AIStrategy):
 
         **Cross is answered from here as well** (2026-08-25): a
         Cross that lands on nobody leaves the ball lying there
-        for the other side exactly as a High Pass does. Its 0 counts
+        for the other side exactly as a High Ball does. Its 0 counts
         as reaching somebody only when a teammate shares the passer's
         space, which is what `high_pass_receivers_at` already says. A
         Cross with nowhere to go at all is the card's one way
@@ -359,13 +359,13 @@ class DinkyAI(AIStrategy):
         )
 
     def _take_the_shot(self, prompt, game, match, side, options) -> Action:
-        """Always take the shot when offered one -- a High Pass's own
-        2-space pass, one into the goal zone, a Winger's Low Pass -- rather than
+        """Always take the shot when offered one -- a High Ball's own
+        2-space pass, one into the goal zone, a Winger's Pass -- rather than
         letting the maneuver resolve normally."""
         return Action(prompt.kind, options.railed or "take")
 
     def _advance(self, prompt, game, match, side, options) -> Action:
-        """Always move a Low Pass's passer forward: it costs nothing,
+        """Always move a Pass's passer forward: it costs nothing,
         and a step nearer the goal is a step nearer a shot."""
         return Action(prompt.kind, options.railed or "advance")
 

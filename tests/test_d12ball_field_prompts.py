@@ -141,7 +141,7 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
         """
         The claim the whole design rests on: one helper, five callers.
         Each is checked in a position where its own prompt is really
-        shown, so a resolver that short-circuits (a High Pass with no
+        shown, so a resolver that short-circuits (a High Ball with no
         distance left, a burst from the last space) would fail here
         rather than pass vacuously.
         """
@@ -164,7 +164,7 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_skilled_pass_shares_the_low_pass_prompt(self) -> None:
         """
-        It is a Low Pass with more reach, so it is the same view over
+        It is a Pass with more reach, so it is the same view over
         the same picture -- which is why nothing had to be added for
         it. Worth asserting rather than assuming: the two are one
         function only for as long as nobody splits them.

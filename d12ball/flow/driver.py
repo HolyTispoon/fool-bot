@@ -181,7 +181,7 @@ def _lead_in_first(
 #:
 #: **`BEGIN_HIGH_PASS_CONTEST` is here now and was the near miss.**
 #: It is the one step with a board write ordered *in front of* it:
-#: `begin_loose_ball` draws no board for a High Pass -- the ball is on
+#: `begin_loose_ball` draws no board for a High Ball -- the ball is on
 #: a receiver both coaches watched catch it -- so rank O3 made it a
 #: member of its own precisely so the board the pass moved is written
 #: before the contest is announced (see
@@ -876,7 +876,7 @@ def _answer_passer_advance(
     prompt: PendingPrompt,
     choice: str,
 ) -> StepResult:
-    """Move a Low Pass's passer 1 space forward, or leave them (Law
+    """Move a Pass's passer 1 space forward, or leave them (Law
     6.5.3), and carry on with what the pass was owed."""
     return effects.answer_passer_advance(
         engine, game, match, advance=choice == "advance",
@@ -1555,7 +1555,7 @@ def _answer_loose_ball_skill_test(
     player_id: Optional[str] = None,
     side: Optional[str] = None,
 ) -> tuple[object, StepResult]:
-    """The contest for the ball, which the long High Pass borrows."""
+    """The contest for the ball, which the long High Ball borrows."""
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
     if choice == "boost":
@@ -1648,7 +1648,7 @@ def _answer_low_pass_choice(
     receiver_id: Optional[str] = None,
 ) -> StepResult:
     """
-    A won Low Pass, Pinpoint, or the free pass a beaten
+    A won Pass, Pinpoint, or the free pass a beaten
     Pinpoint hands the defense -- which card it is and whether it is free
     are the prompt's, read back off the position.
 
@@ -1692,7 +1692,7 @@ def _answer_high_pass_choice(
     runner: bool = False,
 ) -> StepResult:
     """
-    A won High Pass, thrown as far as the coach chose -- one of the
+    A won High Ball, thrown as far as the coach chose -- one of the
     distances that land short of the goal zone, and the tutorial's where it rails
     one. `runner` is Quantor running onto it (`_run_onto`).
     """

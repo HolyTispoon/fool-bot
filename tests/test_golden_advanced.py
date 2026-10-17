@@ -444,7 +444,7 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
         covered only where Dinky happened to pick it.
         """
         for card in (
-            "Low Pass", "Pinpoint", "High Pass", "Cross",
+            "Pass", "Pinpoint", "High Ball", "Cross",
             "Dribble", "Burst", "Deflect", "Clear",
             "Steal", "Intercept", "Pressure", "Double Team",
         ):

@@ -143,12 +143,12 @@ what the ball is left with.
   adds; the Midfielder's +3; the speed modifier for Steal; a tie is
   rolled again at a token each; injury checks when it resolves. (Double
   Team's second skill and Intercept move to Part II.)
-- 6.5 **Low Pass.** Destinations; nearer blocks farther; a different
+- 6.5 **Pass.** Destinations; nearer blocks farther; a different
   player; the passer's step across a shared space; speed +1; the ball
   is left with the receiver; no legal destination; *Winger*.
 - 6.6 **Dribble.** One space with the ball; the speed change;
   *Playmaker*.
-- 6.7 **High Pass.** 2 or 3, a Fullback's 4; offered distances; the
+- 6.7 **High Ball.** 2 or 3, a Fullback's 4; offered distances; the
   three landings (table); a 2 short of range is still received; the
   throw that reaches the goal zone; the passer never receives their own pass; out of play with
   nobody to throw to.
@@ -167,14 +167,14 @@ what the ball is left with.
 lists only the four basic changes.
 
 - 7.1 The speed and its modifier (the speed itself).
-- 7.2 What changes it in training mode: Low Pass, Deflect,
+- 7.2 What changes it in training mode: Pass, Deflect,
   Dribble, Steal.
 - 7.3 Every turnover resets it to 1. (The Burst exception is
   stated at 19.6, not here.)
 - 7.4 Where the modifier is added, and nowhere else: the score attempt,
-  the defense's Steal, the High Pass contest. Never where the ball
+  the defense's Steal, the High Ball contest. Never where the ball
   came to rest.
-- 7.5 A High Pass that reaches the goal zone turns the sign.
+- 7.5 A High Ball that reaches the goal zone turns the sign.
 
 ### Law 8. Scoring opportunities
 
@@ -208,7 +208,7 @@ lists only the four basic changes.
 - 10.2 **The contest.** Offensive against defensive skill; the last
   possessor's side attacks; a tie at a token each; no modifier.
 - 10.3 **A loose ball.** Both send, one sends, neither sends.
-- 10.4 **The High Pass contest.** Three or more onto a teammate; the
+- 10.4 **The High Ball contest.** Three or more onto a teammate; the
   one exemption that allows a send against an occupied space; the
   thrower's modifier, against them when it reached the goal zone; a pass that reaches
   nobody carries none.

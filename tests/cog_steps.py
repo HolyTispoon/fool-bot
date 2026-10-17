@@ -190,7 +190,7 @@ async def resolve_skilled_pass(cog, interaction: discord.Interaction, game: D12B
 
 
 def answered_passer_advance(engine, match: MatchState, result: StepResult, advance: bool=False, game=None) -> StepResult:
-    """`result` with a Low Pass's passer-advance question answered, if
+    """`result` with a Pass's passer-advance question answered, if
     it asked one (Law 6.5.3): its lines and the answer's together, and
     the answer's next step -- so a test about what a pass says and does
     next reads past a question the rule now puts in the middle."""

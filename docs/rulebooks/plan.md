@@ -104,7 +104,7 @@ The conventions:
 
 - **One rule per paragraph.** A paragraph that says two things is two
   paragraphs, because a reference has to be able to point at either.
-  The living rules' long paragraphs on the High Pass overshoot and on
+  The living rules' long paragraphs on the High Ball overshoot and on
   Mind Pull are the ones that split most.
 - **The paragraph states the rule; the reason goes.** Several living-rules
   paragraphs end with why (*"-- a ball that came in too fast to

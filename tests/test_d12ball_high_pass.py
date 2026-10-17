@@ -1,17 +1,17 @@
 """
-A High Pass is not a loose ball.
+A High Ball is not a loose ball.
 
 It borrows the loose-ball contest's machinery -- two players on one
 space, one skill test, one winner -- and shares nothing else with it.
 A loose ball is the ball lying in a space the possessing side doesn't
-hold, and both sides go and get it. A High Pass has already been
+hold, and both sides go and get it. A High Ball has already been
 caught: the receiver holds the ball and is being challenged for it, so
 winning changes nothing and only losing is a turnover. These cover the
 two places that difference is visible -- what the prompts call it, and
 whether anyone runs back afterwards.
 
 See None and contest_noun in cogs/d12ball_helpers.py,
-and "High Pass" and "Loose ball" in docs/living-rules.md.
+and "High Ball" and "Loose ball" in docs/living-rules.md.
 """
 
 import unittest
@@ -150,7 +150,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
     ) -> list[int]:
         """
         Dice that make `winner` ("offense"/"defense") take the test by
-        `by` on skill alone -- a High Pass's thrower adds the ball speed
+        `by` on skill alone -- a High Ball's thrower adds the ball speed
         on top, at least 1, so a defense meant to win one says `by=2`.
         """
         offense_skill = cog.player_catalog.effective_profile(
@@ -220,7 +220,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         """
         The other half of the same distinction. A loose ball is lying
         in a space nothing has named, so it is announced with the board
-        under it; a High Pass is on a receiver both coaches watched
+        under it; a High Ball is on a receiver both coaches watched
         catch it, and paying an upload to say so would say nothing.
         """
         cog, game, match, receiver, _ = self.build_contest(
@@ -364,7 +364,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         # 2026-08-07: the offense carries the ball speed modifier into
-        # a High Pass's contest. These rolls lose by 1 without it.
+        # a High Ball's contest. These rolls lose by 1 without it.
         cog, game, match, receiver, challenger = self.build_fast_contest(
             is_high_pass=True,
         )
@@ -386,7 +386,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
     async def test_an_overshot_receiver_pays_the_speed_modifier_instead(
         self,
     ) -> None:
-        # 2026-08-10: a High Pass that ran out of field arrives too
+        # 2026-08-10: a High Ball that ran out of field arrives too
         # fast to settle, so the modifier that would have helped the
         # receiver keep it counts against them -- in the contest a
         # declined set-up falls into, exactly as it would have in the
@@ -462,7 +462,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
     What the distance prompt offers (2026-08-10): only distances that
     fit on the field, because a longer pass landing where a shorter
     one already would is the same pass at a disadvantage. See
-    D12Ball.high_pass_distance_options and "High Pass" in
+    D12Ball.high_pass_distance_options and "High Ball" in
     docs/living-rules.md.
 
     Board 7, so the flat indices are 0..6 and the home side attacks
@@ -494,7 +494,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             if self.catalog.player_by_id(player_id).role == role
         )
         match.move_meeple(match.active_player_id, zone, space)
-        # A High Pass the handler has won: the menu answers a settled
+        # A High Ball the handler has won: the menu answers a settled
         # maneuver, and every click is checked against that.
         match.challenger_id = match.visiting.field_players[0]
         match.offense_maneuver = "high_pass"
@@ -724,13 +724,13 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
 
 class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
     """
-    A High Pass thrown from the final space moves the ball nowhere and
+    A High Ball thrown from the final space moves the ball nowhere and
     overshoots like any other -- but the passer is not who it reaches
     (2026-08-12). It is the only position where the question comes up:
-    a High Pass moves the ball and not the handler, so nowhere else is
+    a High Ball moves the ball and not the handler, so nowhere else is
     the passer still standing on it when it lands.
 
-    See D12Ball.high_pass_receiver_candidates and "High Pass" in
+    See D12Ball.high_pass_receiver_candidates and "High Ball" in
     docs/living-rules.md.
     """
 
@@ -858,7 +858,7 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_throw_that_moves_nothing_still_costs_its_flat_time(
         self,
     ) -> None:
-        # High Pass's time cost is a flat 2 time regardless of
+        # High Ball's time cost is a flat 2 time regardless of
         # distance (2026-08-16), so the one throw that moves the ball
         # nowhere is not free, and is not discounted either.
         cog, game, match, _, _ = self.build_last_space_pass(teammate=False)
@@ -929,7 +929,7 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
         return DinkyAI(self.catalog, load_maneuver_catalog())
 
     def chosen_distance(self, match: MatchState, distances: list[int]) -> int:
-        """Dinky's answer to a High Pass offering `distances`, asked as
+        """Dinky's answer to a High Ball offering `distances`, asked as
         the prompt asks it (`AIStrategy.choose`)."""
         prompt = PendingPrompt(
             PromptKind.HIGH_PASS_CHOICE,

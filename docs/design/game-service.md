@@ -101,7 +101,7 @@ step's name to decide anything; it asks the `Batching` it was given.
 
 **`carry_from` is the fourth batching decision, and it is per
 call.** A step takes the lines said before it as its `lead_in` and
-*composes* them into its own text -- the Low Pass's line and the
+*composes* them into its own text -- the Pass's line and the
 clock's, one paragraph -- so the presenter cannot join them
 afterwards; they have to go into the run. `apply_action(...,
 carry_from=k)` hands back the first `k` of the answer's lines and

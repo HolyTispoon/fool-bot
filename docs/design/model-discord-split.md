@@ -131,7 +131,7 @@ move had no rules risk to weigh against it.
   one of them cost a persisted field.** `SET_UP_ATTEMPT` and
   `SHOOTER_CHOICE` were `FollowOnStep`s rather than kinds because the
   view carried what match state did not hold: by the time the offer is
-  put, a High Pass into the goal zone and an ordinary 2-space one have
+  put, a High Ball into the goal zone and an ordinary 2-space one have
   left the match in the same position, so `distance_moved` and
   `contest_on_decline` existed only on the view. A game that went down
   inside either came back to the maneuver's *first-stage distance
@@ -204,14 +204,14 @@ move had no rules risk to weigh against it.
 match is waiting on; a flow step is what *changes* it. Each takes the
 engine and the match, mutates, and hands back a `StepResult` -- the
 narration, whether the board moved, and what happens next. Phase 2 cut
-this on Low Pass alone and nothing else; Phase 3 followed a rank at a
+this on Pass alone and nothing else; Phase 3 followed a rank at a
 time, and rank O2 brought the two dribbles, rank D2 the two steals,
 rank D3 the two pressures, rank D1 the two deflections and rank O3 the
 two passes -- so **`effects.py` holds all twelve cards, as nine
 functions** (five of the cards are their rank-mate parameterised) and
 `cogs/d12ball/effects.py` holds none of them. Rank O1
 landed in between and moved none of them: Pinpoint had come across
-with Low Pass already, as the same step under a different `key=`.
+with Pass already, as the same step under a different `key=`.
 
 - **Phase 4 made it five modules, and widened what `FollowOn` means.**
   `arrivals.py` holds the two gates and the five arrival points they
@@ -297,7 +297,7 @@ with Low Pass already, as the same step under a different `key=`.
     in it -- and the whistle needs both to word itself.
     `cogs/d12ball_helpers.py` re-exports all three, so no call site
     moved.
-- **Low Pass was the slice because it is not a toy.** Mid-sized, with a
+- **Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
   somewhere other than `finish_maneuver_resolution`), a continuation
   (the free pass a beaten Pinpoint hands the defense), a shared
@@ -320,7 +320,7 @@ with Low Pass already, as the same step under a different `key=`.
   stayed, because what it records now is where one step ends and the
   next begins, which is what a frontend reads to place a message or
   a picture.
-- **The narration never rides in the follow-on's arguments.** A Low Pass
+- **The narration never rides in the follow-on's arguments.** A Pass
   posts no message of its own: what it says opens the message the next
   step sends. So `StepResult.narration` is a list of blocks, and
   `dispatch_step_result` joins them on a space and passes them as that
@@ -330,7 +330,7 @@ with Low Pass already, as the same step under a different `key=`.
   should not inherit Discord's answer to it. It is also what keeps the
   move from costing a request; see [rate-limits.md](rate-limits.md).
 - **A `PendingPrompt` in `next` renders through `view_for_prompt`**, the
-  same table a restart restores through. No Low Pass branch ends on one
+  same table a restart restores through. No Pass branch ends on one
   today (the receiver pick is asked before the pass is applied), so the
   dispatcher's branch is asserted directly rather than through a
   fixture. It is there from this phase on so the branch Phase 3 needs
@@ -392,14 +392,14 @@ with Low Pass already, as the same step under a different `key=`.
   `tests/test_d12ball_dribble_flow.py` is rank O2's copy of the same
   three files, ten branches over the two cards.
 - **A rank can also turn out to be empty, and O1 did.** Phase 2 cut
-  the slice on Low Pass, and Pinpoint is that same card
+  the slice on Pass, and Pinpoint is that same card
   parameterised -- `low_pass_step(key="skilled_pass")`, with the
   `key=` threaded from `resolve_skilled_pass` through
   `apply_low_pass`. So rank O1 moved no code at all; the `self.persist`
   count in `cogs/` did not change, and neither did the golden
   transcript. What it added is the evidence Phase 2 had no reason to
   write: ten more fixtures in the shared table, all on branches the
-  golden cannot see (the tutorial plays a Low Pass and never a
+  golden cannot see (the tutorial plays a Pass and never a
   Pinpoint), and the one assertion a fixture table cannot make -- that
   `key` survives a save. It is not a field on the match: a restart
   mid-effect reads the card back out of `offense_maneuver`, or out of
@@ -422,7 +422,7 @@ with Low Pass already, as the same step under a different `key=`.
 - **Rank D2 was the first hand-off into the spine, and it cost two
   members.** `steal_step` is a Steal and an Intercept both -- the
   cards differ by the sign of the carry and nothing else, so they are
-  one function and a `direction`, the way Low Pass and Pinpoint
+  one function and a `direction`, the way Pass and Pinpoint
   are one function and a `key`. What it ends on is not
   `OFFER_SPEED_CHOICE`, which rank O2 had expected it to inherit: a
   steal owes the ball-speed choice but reaches it through
@@ -579,7 +579,7 @@ with Low Pass already, as the same step under a different `key=`.
     The brief expected the latter, since the long pass borrows the
     loose ball's machinery and `begin_high_pass_contest` is a
     two-line wrapper over `begin_loose_ball`. What that missed is
-    that the two do different things with the board: a High Pass is
+    that the two do different things with the board: a High Ball is
     not a loose ball, so `begin_loose_ball` announces it plainly and
     draws nothing (see [loose-balls.md](loose-balls.md)), and the
     board the pass moved has to be written **before** it. Naming the
@@ -624,7 +624,7 @@ with Low Pass already, as the same step under a different `key=`.
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
   tests, along with the driver's table covering it exactly -- a
   member with no row raises in the middle of a turn, one card at a
-  time. It started out in Low Pass's module, where every later rank
+  time. It started out in Pass's module, where every later rank
   would have had to edit an assertion about a card it was not
   touching. Through Phase 6 there were **two** tables, the driver's
   and the cog's, disjoint and covering the enum together, and which
@@ -748,7 +748,7 @@ the cog still had a table of its own say so.
   beside `new_play`. Rank D1's rule applied one argument further in.
   Since the last increment it reads the step's own `board_changed`
   instead: `begin_loose_ball` reports the board moved for a genuine
-  loose ball and not for a High Pass, and `stop_draws_the_board`
+  loose ball and not for a High Ball, and `stop_draws_the_board`
   asks that rather than the argument.
   - **What the loop could not run, through the third increment, was
     a step that puts up a picture of its own.** `BEGIN_LOOSE_BALL`
@@ -1052,7 +1052,7 @@ what moved here was *who calls them*.
 
 **The four contested rolls**, which were the largest block of rules
 still written inside a `discord.ui.View`: a maneuver's skill test, the
-contest for a loose ball (which the long High Pass comes through), a
+contest for a loose ball (which the long High Ball comes through), a
 score attempt against the wall of defenders, and a shootout test. Each
 returns `(ContestDice, StepResult)` -- the sentences, and the same
 numbers for the picture -- because the frontend puts the image
@@ -1502,7 +1502,7 @@ merged two messages into one, which the tutorial golden does not reach.
   coaching" wherever a coaching hub offers it -- the hub is the one view in
   the game that can be walked in a circle -- and otherwise a rotation
   (`live[step % len(live)]`) rather than the first enabled button.
-  First-always is deterministic too, and it plays Low Pass and Deflect for
+  First-always is deterministic too, and it plays Pass and Deflect for
   the whole game -- the first card of each hand -- so the script never
   declares a gambit or plays a gambit card, and the only other cards that
   run are whatever Dinky picks.

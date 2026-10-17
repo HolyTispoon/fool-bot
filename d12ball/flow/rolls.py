@@ -2,7 +2,7 @@
 The contested rolls, with no dice image in them.
 
 Four rolls in this game are two-sided -- a maneuver's skill test, the
-contest for a loose ball (which the long High Pass comes through), a
+contest for a loose ball (which the long High Ball comes through), a
 score attempt against the wall of defenders, and a shootout test -- and
 until Phase 6 of docs/design/model-discord-split.md all four lived in a
 `discord.ui.View`. The arithmetic and the verdict were interleaved with
@@ -265,7 +265,7 @@ def pay_contest_tie(
     """
     Charge both contestants the re-roll's exhaustion token and word the
     tie -- shared by the maneuver skill test and the loose ball (which
-    the long High Pass also comes through).
+    the long High Ball also comes through).
 
     The token counts towards Exhausted straight away, so whoever it
     pushes over is already flagged when the test finally resolves and
@@ -413,7 +413,7 @@ def score_skill_test(
         + defense_overdrive
     )
 
-    # Umbrik adds his defensive skill over his own High Pass (Law 21),
+    # Umbrik adds his defensive skill over his own High Ball (Law 21),
     # and the line says which skill it is.
     offense_detail = contestant_detail(
         offense_player,
@@ -435,7 +435,7 @@ def score_skill_test(
     )
 
     # Role ability -- Midfielder: +3 on a skill test when attempting
-    # Low Pass (offense) or Steal (defense).
+    # Pass (offense) or Steal (defense).
     #
     # **Read by rank, so a gambit inherits it.** The Midfielder's +3
     # and the ball speed modifier below are listed against both cards
@@ -735,7 +735,7 @@ def skill_test_step(
     return dice, result
 
 
-# -- The loose ball, and the long High Pass --------------------------
+# -- The loose ball, and the long High Ball --------------------------
 
 
 def score_loose_ball(
@@ -748,7 +748,7 @@ def score_loose_ball(
     """
     Roll the contest for the ball and add what counts towards it, as
     the two sides the dice image draws plus the totals the winner is
-    read off. Serves the loose ball and the long High Pass alike, which
+    read off. Serves the loose ball and the long High Ball alike, which
     is the only contest injury and the ball speed modifier both bite
     in.
 
@@ -830,7 +830,7 @@ def score_loose_ball(
         defense_player.player_id,
     )
 
-    # A High Pass's receiver adds the ball speed modifier to keep what
+    # A High Ball's receiver adds the ball speed modifier to keep what
     # the pass delivered (2026-08-07). A genuine loose ball is nobody's
     # yet, so neither side gets it there.
     #
@@ -845,7 +845,7 @@ def score_loose_ball(
         offense_detail.append(f"{modifier:+d} ball speed modifier")
 
     # Zorch adds the modifier to every roll they make (Law 21), once:
-    # the thrower's side of a High Pass contest already has it, signed.
+    # the thrower's side of a High Ball contest already has it, signed.
     offense_speed, offense_speed_line = (
         (0, "")
         if match.pending_loose_ball_is_high_pass
@@ -958,7 +958,7 @@ def settle_loose_ball_winner(
     if turnover_occurred:
         match.ball.speed = 1
     # Whoever won the contest is holding the ball, and takes the next
-    # turn -- the receiver who kept a long High Pass, or either side's
+    # turn -- the receiver who kept a long High Ball, or either side's
     # contestant who won a loose ball. Confirmed by the author
     # 2026-08-09; see "Choosing the handler" in docs/living-rules.md.
     match.set_ball_carrier(winner_player.player_id)
@@ -1218,7 +1218,7 @@ def score_score_attempt(
     # Two dice, one per human: the attacker adds the shooting player's
     # offensive skill and the ball-speed modifier, the defence adds the
     # defensive skill of every meeple in the way. The speed modifier is
-    # signed -- a High Pass into the goal zone pays it against the
+    # signed -- a High Ball into the goal zone pays it against the
     # shot -- so it
     # is added, never abs()'d.
     attack_roll, defense_roll = scripted_or_random(
@@ -1691,7 +1691,7 @@ def score_shootout_test(
 
     Both sides add their **offensive** skill -- a shootout has no
     defender -- and an injured player adds none at all, the same
-    withholding the loose ball and the long High Pass make. See
+    withholding the loose ball and the long High Ball make. See
     "Extreme shootout" in docs/living-rules.md.
 
     **Volatile fires here too**, on each shooter's own die: the rules

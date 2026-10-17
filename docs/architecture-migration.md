@@ -380,7 +380,7 @@ runs on and `test_d12ball_prompt_mapping` re-arms nothing for.
 `tests/ai_answers.py` is how a test asks Dinky a question -- the
 prompt off the one chain, the answer off `driver.ai_action` -- and
 the Dinky unit tests (substitutions, the time out, the gambit die,
-the High Pass, the run back, the kickoff cover) ask it that way now.
+the High Ball, the run back, the kickoff cover) ask it that way now.
 `tests/test_driver_full_game.play` answers for the AI through the
 same function, so the driver-level tutorial run plays Dinky's turns
 as the service would.

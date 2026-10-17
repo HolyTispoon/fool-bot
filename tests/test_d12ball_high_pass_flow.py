@@ -335,13 +335,13 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
         """
         The other half of the same question, and the reason this rank's
         contest is a member of its own. `begin_loose_ball` draws no
-        board for a High Pass -- the ball is on a receiver both coaches
+        board for a High Ball -- the ball is on a receiver both coaches
         watched catch it -- so the board the pass moved has to be
         written before it, which is what the old cog did.
 
         **Phase 6 kept that write and moved where it is decided.** The
         loop runs the contest and stops on the loose ball, and the
-        dispatcher reads the loose ball's own answer: for a High Pass
+        dispatcher reads the loose ball's own answer: for a High Ball
         it says the board did not move, so the pass's board is written
         and the contest announced plainly over it.
         """

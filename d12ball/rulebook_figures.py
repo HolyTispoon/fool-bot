@@ -327,7 +327,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         ],
     ))
 
-    # Beat 2: Low Pass ties Deflect, the visitors win the skill test,
+    # Beat 2: Pass ties Deflect, the visitors win the skill test,
     # the Deflect knocks the ball back to M3 onto their Midfielder.
     # Home's Playmaker runs back to M2.
     match.set_ball_space(*parse_space("M3"))
@@ -344,7 +344,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         ],
         markers=[Marker("M3", 1), Marker("M2", 2)],
         notes=[
-            "Low Pass and Deflect are both rank 1, so they tie and go to a skill test: d12 + offensive skill "
+            "Pass and Deflect are both rank 1, so they tie and go to a skill test: d12 + offensive skill "
             "against d12 + defensive skill, and a token to each. The visitors won it, and their Deflect knocked "
             "the ball back one space to space 5 - where their Midfielder was already standing. A ball that lands on "
             "one side's player is simply theirs: no roll, and never loose.",
@@ -376,7 +376,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         ],
     ))
 
-    # Beat 4: Steal beats Low Pass. Possession flips, speed resets, the
+    # Beat 4: Steal beats Pass. Possession flips, speed resets, the
     # stealer and the ball go back 1 for home (to M3), then the stealer
     # sets the speed up to their defensive skill (3 -> speed 4).
     match.move_meeple(home_pm, *parse_space("M3"))
@@ -386,7 +386,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
     match.ball.speed = 4
     match.move_meeple(away_mf, *parse_space("M3"))
     sketches.append(Sketch(
-        title="Figure 8 - Beat 4: Steal beats Low Pass, and everyone runs back",
+        title="Figure 8 - Beat 4: Steal beats Pass, and everyone runs back",
         match=MatchState.from_dict(match.to_dict(), load_basic_ruleset()),
         arrows=[
             Arrow("V1", "M3", "Steal: ball and stealer back 1"),
@@ -394,24 +394,24 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         ],
         markers=[Marker("M3", 1)],
         notes=[
-            "The visitors played Low Pass and home played Steal, which beats it. Possession flips and the "
+            "The visitors played Pass and home played Steal, which beats it. Possession flips and the "
             "ball's speed resets to 1; the stealer carries it one space back toward their own goal, to space 5. "
             "Then everyone outside their own zone runs back - the visitors' Midfielder to space 5, two tokens - "
             "and the stealer sets the ball's speed by up to their defensive skill: 1 + 3 = 4, worth +4 on a shot.",
         ],
     ))
 
-    # Beat 5: High Pass of 2 from M3 lands on V2, the Striker, with the
+    # Beat 5: High Ball of 2 from M3 lands on V2, the Striker, with the
     # visitors' Fullback on the same space.
     match.set_ball_space(*parse_space("V2"))
     match.set_ball_carrier(home_st)
     sketches.append(Sketch(
-        title="Figure 9 - Beat 5: a 2-space High Pass sets up the shot",
+        title="Figure 9 - Beat 5: a 2-space High Ball sets up the shot",
         match=MatchState.from_dict(match.to_dict(), load_basic_ruleset()),
-        arrows=[Arrow("M3", "V2", "High Pass, 2 spaces")],
+        arrows=[Arrow("M3", "V2", "High Ball, 2 spaces")],
         markers=[Marker("V2", 1)],
         notes=[
-            "High Pass beats the visitors' Steal. A pass of exactly 2 spaces is caught cleanly, and a catch "
+            "High Ball beats the visitors' Steal. A pass of exactly 2 spaces is caught cleanly, and a catch "
             "inside shooting range is a scoring opportunity: the Striker shoots at once, out of turn. "
             "Attack: d12 + 6 (skill) + 3 (Striker off a set-up) + 4 (ball speed 4). Defense: d12 + 6, "
             "the Fullback standing on the ball adding their whole defensive skill. A tie is a miss.",
@@ -597,7 +597,7 @@ def speed_figure() -> Image.Image:
         text = f"+{modifier}"
         draw.text((left + (cell - draw.textlength(text, font=cell_font)) / 2, y + 24), text, font=cell_font, fill=ACCENT)
     caption = ("The modifier is the speed itself. It is added to a score attempt, "
-               "to a Steal's skill test, and to a High Pass contest - and every turnover resets the speed to 1.")
+               "to a Steal's skill test, and to a High Ball contest - and every turnover resets the speed to 1.")
     cap_font = render.load_font(30)
     y = top + 2 * cell + 2 * gap + 20
     for line in wrap(caption, cap_font, width - 2 * NOTE_MARGIN):

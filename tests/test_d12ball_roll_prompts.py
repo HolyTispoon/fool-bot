@@ -389,7 +389,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
     async def test_an_injured_player_is_never_asked(self) -> None:
         cog, game, match, offense = self.build_skill_test()
         # A decisive win by an injured player is what forces a skill
-        # test at all -- Low Pass beats Pressure on the cards -- so
+        # test at all -- Pass beats Pressure on the cards -- so
         # this is a test the position genuinely owes, unlike the
         # fixture's tie, which an injured participant simply loses.
         match.defense_maneuver = "pressure"
@@ -418,7 +418,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
 class ContestInjuryResumeTests(unittest.IsolatedAsyncioTestCase):
     """
-    A loose ball (and the long High Pass that borrows its machinery)
+    A loose ball (and the long High Ball that borrows its machinery)
     resumes into a run back rather than an effect, and carries the two
     arguments that run back needs through the queue -- nothing left in
     the match still says what they were once the contest is cleared.

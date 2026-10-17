@@ -121,7 +121,7 @@ turn for turn, so the two teach the same five lessons in the same order.
   of one. You set the ball's speed as you go -- pick anything, it will
   not matter yet. You are now in shooting range. (Law 6.6, 2.6)
 
-**Turn 2 -- Figure 6.** Home: Low Pass. Visitors: Deflect. Rolled: home
+**Turn 2 -- Figure 6.** Home: Pass. Visitors: Deflect. Rolled: home
 loses.
 
 ![Beat 2](figures/fig-06-beat-2.png)
@@ -146,22 +146,22 @@ loses.
 - Margin: *push a handler on their last space and the ball reaches
   their own goal zone: they roll for an own goal* (Law 11).
 
-**Turn 4 -- Figure 8.** Visitors: Low Pass. Home: Steal.
+**Turn 4 -- Figure 8.** Visitors: Pass. Home: Steal.
 
 ![Beat 4](figures/fig-08-beat-4.png)
 
-- Steal beats Low Pass: possession flips, the speed resets to 1, your
+- Steal beats Pass: possession flips, the speed resets to 1, your
   stealer carries the ball a space back toward your goal, and everyone
   out of position runs back. (Law 6.9, 12.1, 12.3)
 - Then the stealer sets the ball's speed, up to their defensive skill.
   Take the most: speed 4 is worth +4 on the shot you are about to take.
   (Law 6.9, 7.1)
 
-**Turn 5 -- Figure 9.** Home: High Pass, 2 spaces. Visitors: Steal.
+**Turn 5 -- Figure 9.** Home: High Ball, 2 spaces. Visitors: Steal.
 
 ![Beat 5](figures/fig-09-beat-5.png)
 
-- High Pass beats Steal. A pass of exactly 2 is caught cleanly; 3 or
+- High Ball beats Steal. A pass of exactly 2 is caught cleanly; 3 or
   more has to be won. Caught in shooting range, it is a **scoring
   opportunity**: your Striker shoots at once, out of turn, and adds 3
   for it. (Law 6.7, 8.1-8.3)
@@ -233,7 +233,7 @@ loses.
   loses ties and adds nothing in a contest; only a substitution takes
   them off. Halftime takes a token off everyone. (Law 15)
 - **The clock** -- *art needed*: the jumbotron's clock track with a
-  marker on 14. Every maneuver costs a minute, a High Pass two, a shot
+  marker on 14. Every maneuver costs a minute, a High Ball two, a shot
   one. The clock never stops. When it reaches 15, whoever has the ball
   has *last possession*: the next turnover ends the half. Halftime
   recovers a token and offers both coaches a Coaching Choice; the

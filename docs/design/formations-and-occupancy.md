@@ -88,7 +88,7 @@ stacks.
   own goal, which is why the function took a side at all. Every midfield in
   the ruleset is three spaces deep now, so a two-space zone is always an outer
   zone and both coaches read it the same way.
-- **A Low Pass into a stack asks who receives it.** Several teammates on one
+- **A Pass into a stack asks who receives it.** Several teammates on one
   space is an ordinary arrangement, and the receiver is what a Winger's
   set-up hands the shot to, so `low_pass_receivers` lists them and
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`

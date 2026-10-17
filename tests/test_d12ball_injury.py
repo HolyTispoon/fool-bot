@@ -130,7 +130,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog, game, match = self.build()
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "pressure"  # Low Pass beats Pressure.
+        match.defense_maneuver = "pressure"  # Pass beats Pressure.
 
         await self.resolve(cog, game, match)
 
@@ -158,7 +158,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog, game, match = self.build()
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "steal"  # Beats Low Pass.
+        match.defense_maneuver = "steal"  # Beats Pass.
         match.injured.add(match.challenger_id)
 
         interaction = await self.resolve(cog, game, match)
@@ -398,8 +398,8 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
 class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
     """
     The one place the skill modifier is withheld: a contest -- keeping
-    a long High Pass, or a loose ball. The injured contestant rolls the
-    bare d12, and **only** the skill comes off. A High Pass receiver
+    a long High Ball, or a loose ball. The injured contestant rolls the
+    bare d12, and **only** the skill comes off. A High Ball receiver
     still gets the ball speed modifier, which is the case that killed
     the old "adds nothing" wording.
     """
@@ -535,7 +535,7 @@ class SettledWinnerRestoreTests(unittest.TestCase):
         match.injured.add(match.active_player_id)
 
         self.assertIsNone(cog.engine.settled_maneuver_winner(match))
-        # The ranking says Low Pass won; the turn says roll for it.
+        # The ranking says Pass won; the turn says roll for it.
         self.assertIsNone(build_effect_choice_view(cog, game.game_id, match))
 
     def test_an_auto_loss_restores_the_winners_effect_choice(self) -> None:

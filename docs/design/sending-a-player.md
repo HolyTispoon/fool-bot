@@ -13,7 +13,7 @@ and the pickup after an out-of-bounds ball, a time out, a missed shot or an
 avoided own goal (`begin_ball_recovery` in
 [`d12ball/flow/turnovers.py`](../../d12ball/flow/turnovers.py),
 `recover_out_of_bounds_ball`). It was
-four until 2026-08-18: the long High Pass contest **is** the loose ball now
+four until 2026-08-18: the long High Ball contest **is** the loose ball now
 rather than borrowing it -- see
 [Loose balls and the board](loose-balls.md#loose-balls-and-the-board).
 
@@ -30,7 +30,7 @@ rather than borrowing it -- see
   a coach is offered have to come back in the same order twice.
 - **Anyone already on the space is a candidate at distance 0**, and is never
   actually sent: `automatic_challengers` filters them out of the pool (and
-  would have nothing to filter otherwise), the High Pass contest forces them,
+  would have nothing to filter otherwise), the High Ball contest forces them,
   and `eligible_ball_handlers` catches them before a pickup is asked for at
   all.
 - **A challenge narrows to them, and this is the one place the wider pool is

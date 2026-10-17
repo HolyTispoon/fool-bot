@@ -1,5 +1,5 @@
 """
-What the cog's High Pass and Cross say and do next, recorded off
+What the cog's High Ball and Cross say and do next, recorded off
 the old code.
 
 This is the equivalence half of rank O3 of Phase 3 of
@@ -163,7 +163,7 @@ def posted_messages(interaction) -> list[str]:
 async def drive(cog, fixture, interaction) -> None:
     """
     The fixture's own entry point, which for this rank is one of three:
-    a High Pass, a Cross, or the dead end its menu falls to when it has
+    a High Ball, a Cross, or the dead end its menu falls to when it has
     no distance to offer.
     """
     args = (interaction, fixture.game, fixture.match)

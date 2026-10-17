@@ -36,9 +36,9 @@ pickup use.
   than a lead-in to whatever settles the contest next. The snapshot is drawn
   once and the persistent message is brought in line from the same bytes, so it
   costs the render everything else costs; the callers that used to refresh
-  immediately before it (the receiverless Low Pass) no longer do, or the same
+  immediately before it (the receiverless Pass) no longer do, or the same
   board would be written twice. See "Discord's rate limits" in [rate-limits.md](rate-limits.md).
-- **A High Pass is not a loose ball, here as everywhere else.** It borrows the
+- **A High Ball is not a loose ball, here as everywhere else.** It borrows the
   same contest, but the ball is on a receiver both coaches watched catch it, so
   that branch sends its headline plainly and pays no upload. `is_high_pass` is
   the test, the same one `contest_noun` reads.
@@ -49,7 +49,7 @@ pickup use.
   loose.** `build_loose_ball_headline` words an empty space and an occupied one
   differently, because they are different questions to the two coaches, and
   since 2026-08-18 both are loose. A caller passing its own `headline=` is
-  saying the wording would be a lie, which is the High Pass's case and nobody
+  saying the wording would be a lie, which is the High Ball's case and nobody
   else's.
 - `ball_location_line` and `ball_space_label` in `cogs/d12ball_helpers.py` are
   the wording, over `space_label`. The line spells the zone out beside the
@@ -84,7 +84,7 @@ the two paths that did not pass it kept the old behaviour.
   without a test" machinery with nobody left to contest against. Don't
   reintroduce a parameter for this: a call site that could opt out is exactly
   how the two wrong paths survived 2026-08-24.
-- **A High Pass is the one exemption, and `is_high_pass` is already its flag.**
+- **A High Ball is the one exemption, and `is_high_pass` is already its flag.**
   The ball is high in the air, which gives players time to run at it, so a
   landing space holding only one side may still be contested by the other. That
   is a property of the pass and not of the space, which is why it rides on the
@@ -98,7 +98,7 @@ the two paths that did not pass it kept the old behaviour.
   `RulesEngine.loose_ball_candidates` is `occupants or candidates` -- one of two
   pools and never a mixture, exactly the shape `challenge_candidates` has, and
   for the same reason. The second half is now only ever reached on an empty
-  space or a High Pass.
+  space or a High Ball.
 - **The word is a rule, not decoration.** `contest_noun` answers three ways --
   "high pass", "loose ball", "ball" -- and `build_loose_ball_headline` the same
   three. The message the author caught called every arrival a loose ball *and*
@@ -140,7 +140,7 @@ the two paths that did not pass it kept the old behaviour.
   where the same function used to pick for it.
   `build_loose_ball_prompt` words that case differently, because the question
   is which of them rather than whether to send anybody.
-- **The passer is struck out of the offense's pool in a High Pass contest**,
+- **The passer is struck out of the offense's pool in a High Ball contest**,
   in `loose_ball_occupants` and nowhere else, so the pool, the decline and the
   auto-pick cannot disagree about who is standing there. It can only bite on a
   pass clamped to 0 spaces, which never reaches a contest -- stated anyway, for
