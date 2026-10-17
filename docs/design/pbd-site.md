@@ -523,10 +523,12 @@ Cloudflare account's; the one secret is the R2 token, and it is in the
 `K:\` checkout's `.env` alone** ("Turning it on"). A developer's checkout
 has none, so its test games never reach the bucket.
 
-The address is `codex-pbd.pages.dev`, the name the worksheet chose. It is
-not confirmed until the project is made: where Cloudflare has to add a
-suffix, the address it gives is the one to write here and in the opening
-paragraph.
+The address is `https://codex-pbd.pages.dev/`, the name the worksheet
+chose, which Cloudflare gave without a suffix (the author, 2026-10-17, the
+site live with the games being played and the archive). Written with a
+trailing dot (`codex-pbd.pages.dev.`) it does not open in a phone's
+browser -- Chrome as well as Safari -- though it answers `curl`; the
+address to hand out is the one without.
 
 ### What the repository guarantees the build
 
@@ -543,7 +545,7 @@ paragraph.
 
 ### The checklist
 
-Written 2026-10-17, before it has been run. Cloudflare's dashboard moves
+Written 2026-10-17 and run by the author the same day. Cloudflare's dashboard moves
 its menus around; the names below are the shape, not a promise.
 
 1. **Turn R2 on**: dashboard -> R2 Object Storage. If it asks for a
