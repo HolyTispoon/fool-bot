@@ -2743,7 +2743,7 @@ TWO_HEADED_EDGE = "#8c9aa6"
 #: The shared band across the middle of a two-headed card: one row of
 #: ranks for the half above it and the same row turned for the half
 #: below, each this tall.
-TWO_HEADED_BAND_ROW = 104
+TWO_HEADED_BAND_ROW = 84
 
 #: How much of a card the cream covers where its coach cannot play it
 #: this maneuver -- an advanced card of the other side, in the hand but
@@ -2906,8 +2906,8 @@ def render_two_headed_band(
     the maneuver cards from 1.0"): BEATS / TIES / LOSES TO over the
     opposing rank's badge -- D3 under the offensive half, O3 under the
     defensive one -- in the opposing side's colour, and under it the
-    basic maneuver on that rank and its advanced one, the printed row's
-    two colours, with the same rules between the columns. `reader` is
+    basic maneuver on that rank (never its advanced one: the author,
+    2026-10-17), with the same rules between the columns. `reader` is
     the half's side: the row names what that half is played against.
     """
     reader_card = next(
@@ -2917,7 +2917,6 @@ def render_two_headed_band(
     is_offense = reader == "offense"
     opposing_letter = "D" if is_offense else "O"
     rank_color = DEFENSE_COLOR if is_offense else OFFENSE_COLOR
-    gambit_color = DEFENSE_COLOR_GAMBIT if is_offense else OFFENSE_COLOR_GAMBIT
     groups = matchup_rank_groups(catalog, reader_card, is_offense)
 
     pen = Pen((CARD_WIDTH, TWO_HEADED_BAND_ROW), CARD_FACE)
@@ -2925,12 +2924,11 @@ def render_two_headed_band(
     label_font = font(TWO_HEADED_BAND_LABEL, bold=True)
     value_font = rank_font(TWO_HEADED_BAND_RANK)
     name_font = font(TWO_HEADED_BAND_NAME, bold=True)
-    name_step = matchup_name_step(pen, name_font)
     pen.line(
         [(MARGIN + 10, 1), (CARD_WIDTH - MARGIN - 10, 1)],
         fill=PANEL_EDGE, width=2,
     )
-    for index, (label, (opposing_rank, (basic, gambit))) in enumerate(zip(
+    for index, (label, (opposing_rank, (basic, _))) in enumerate(zip(
         ("BEATS", "TIES", "LOSES TO"), groups,
     )):
         cx = MARGIN + column_width * (index + 0.5)
@@ -2939,10 +2937,7 @@ def render_two_headed_band(
             (cx, 39), f"{opposing_letter}{opposing_rank}", value_font,
             rank_color, anchor="mm",
         )
-        name_y = 64
-        for name, color in ((basic.name, rank_color), (gambit.name, gambit_color)):
-            pen.text((cx, name_y), name, name_font, color, anchor="mm")
-            name_y += name_step
+        pen.text((cx, 64), basic.name, name_font, rank_color, anchor="mm")
         if index:
             pen.line(
                 [

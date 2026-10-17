@@ -99,7 +99,7 @@ moves (`ROLE_MOVE_LABELS`) and the tokens they land. **The matchups are one band
 middle** (`render_two_headed_band`): two rows in the printed card's matchup layout
 (`draw_matchups`) at a size two fit, each read from its own end -- BEATS / TIES / LOSES TO over
 the other side's rank badge (D3 under the offensive half, O3 under the defensive one) and the
-basic and advanced maneuvers on it, the author asking on 2026-10-17 for O1/D1 rather than R1 and
+basic maneuver on it -- not its advanced one -- the author asking on 2026-10-17 for O1/D1 rather than R1 and
 for the band to look like the 1.0 card's row. One band serves both halves because a
 rank's offensive and defensive maneuvers beat, tie and lose to the same ranks
 (`two_headed_ranks`; a test holds the defensive half to the offensive one's). The band is the
