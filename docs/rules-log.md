@@ -165,8 +165,9 @@ Halftime reshuffle."* And: *"The beats band in the middle should say beat R3 rat
 
 - **A two-headed card carries no role abilities** (rules-2.0 1.1a), and its beats / ties /
   loses-to row is **one band across the middle**, read from each end by the half there, by the
-  other side's rank: D3 under the offensive half, O3 under the defensive one, with the two
-  maneuvers on that rank, as the 1.0 card's row reads (the author, 2026-10-17: *"Replace R1
+  other side's rank: D3 under the offensive half, O3 under the defensive one, with the basic
+  maneuver on that rank and not its advanced one (*"don't include the advanced maneuver in the
+  band"*), laid out as the 1.0 card's row (the author, 2026-10-17: *"Replace R1
   with O1/D1 and make the middle band look more similar to the maneuver cards from 1.0"*).
 - **Discard piles are face up** (1.2), where they were counted only.
 - **Halftime reshuffles** (3.3): each coach's hand and discard go back into the deck and a fresh
