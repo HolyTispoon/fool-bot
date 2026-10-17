@@ -32,6 +32,8 @@ from cogs.codex_publish import keys
 from cogs.codex_publish import record as record_module
 from cogs.codex_publish.publisher import Publisher
 from cogs.codex_publish.record import PublishRecord
+from cogs.codex_views import TurnMessageView
+from cogs.codex_views.turn_message import LIVE_BOARD_LABEL
 
 import test_codex_cog_turn as turn_tests
 
@@ -141,6 +143,20 @@ class StartedTests(HooksTestCase):
         await self.settled()
         self.assertEqual(channel_requests(self.table, mark),
                          [("edit", message), ("pin", message), ("send", self.game.turn_message_id)])
+
+    async def test_the_turn_message_links_the_games_page(self) -> None:
+        """**View live board** under the turn message, as posted and as
+        the gate edits it, goes to the game's page; with the publisher
+        off there is no such link."""
+        (view,) = [kwargs["view"] for kind, _, kwargs in self.table.game_channel.requests
+                   if kind == "send" and isinstance(kwargs.get("view"), TurnMessageView)]
+        links = [item.url for item in view.children if item.label == LIVE_BOARD_LABEL]
+        self.assertEqual(links, [f"https://codex-pbd.pages.dev/game/{self.game.game_id}"])
+        self.assertEqual(links, [item.url for item in self.table.cog.boards.keep_view(self.game).children
+                                 if item.label == LIVE_BOARD_LABEL])
+        self.table.cog.publisher = None
+        view = TurnMessageView(self.table.cog, self.game.game_id)
+        self.assertNotIn(LIVE_BOARD_LABEL, [item.label for item in view.children])
 
     async def test_show_board_moves_nothing_on_the_site(self) -> None:
         updated = self.published.updated

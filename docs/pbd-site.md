@@ -321,7 +321,7 @@ worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 | ~~2~~ | ~~The store and the queue: R2 behind `CODEX_PUBLISH_*`, a fake for the tests, the put order, the deletes, the lists' own queue~~ -- landed; `botkit/objectstore.py`, `cogs/codex_publish/queue.py` and `config.py`, [design/pbd-site.md](design/pbd-site.md), "The store" and "The queue" | ~~medium~~ |
 | ~~3~~ | ~~The hooks: the Codex cog publishes every change, every turn's end, every undo, every ending~~ -- landed; `cogs/codex_publish/publisher.py`, [design/pbd-site.md](design/pbd-site.md), "The hooks" | ~~medium~~ |
 | ~~4~~ | ~~The site: `pbd/`, the two lists, the game, the log column, the history, the viewer, the Function~~ -- landed; `pbd/public/`, `pbd/functions/data/[[path]].js`, `scripts/serve_pbd.py`, [design/pbd-site.md](design/pbd-site.md), "The page" | ~~medium~~ |
-| 5 | Deploy: the bucket, the token, the Pages project and its binding, the `.env` on `K:\` -- **the dashboard half is the author's** | small, half of it in dashboards |
+| ~~5~~ | ~~Deploy: the bucket, the token, the Pages project and its binding, the `.env` on `K:\`~~ -- landed; live at `https://codex-pbd.pages.dev/` (2026-10-17), [design/pbd-site.md](design/pbd-site.md), "Deploying" | ~~small, half of it in dashboards~~ |
 | 6 | The old turns, from the pins | small |
 
 Steps 1 to 4 need no Cloudflare: the store has a fake, and the site is
