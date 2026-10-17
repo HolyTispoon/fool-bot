@@ -439,8 +439,11 @@ lists nothing.
   names it. A board that fails to download leaves the game's import
   undone, for the next start, rather than a history with a hole in it.
 - **A channel that is gone, or that the bot may not read** (`NotFound`,
-  `Forbidden`), marks the import done with nothing imported: no later
-  start would find more. Any other failure leaves it for the next start.
+  `Forbidden`), marks the import done with nothing imported, for good
+  (the author, 2026-10-17): no later start would find more, and a
+  `here` game in a channel the bot may not read the pins of is not
+  worth a request every start. Any other failure leaves it for the next
+  start.
 - **The requests are counted** -- the fetch, each listing, each download
   -- and said once a channel at INFO, with the turns imported.
 

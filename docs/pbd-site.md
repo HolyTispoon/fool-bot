@@ -704,6 +704,9 @@ Raised in review on 2026-10-16 and answered the same day.
    on `pages.dev` with a private bucket behind a Function (decision 1).
 3. **A game abandoned in its lobby** (raised on step 1's PR): not
    archived. A game is on the site only once it has started (decision 3).
+4. **A channel whose pins the bot may not read** (raised on step 6's
+   PR, 2026-10-17): its import is marked done for good, not retried
+   every start.
 
 ## What is not in these prompts, on purpose
 
