@@ -19,13 +19,9 @@ opened it, so nobody else can see it to press it. The lobby asks no
 confirmation (`confirms_helper_clicks = False`).
 """
 
-import asyncio
-import contextlib
-import contextvars
 import hashlib
 import io
 import logging
-import time
 from typing import Optional, Sequence, Union
 
 import discord
@@ -41,7 +37,6 @@ from cogs.game_auth import (
 )
 from cogs.game_auth import may_act_in_game as user_may_act_in_game
 from botkit.views import GameLockedView
-from gamelocks import GameLocks
 from gamesaves.codex.service import GameResult
 
 LOGGER = logging.getLogger(__name__)
@@ -92,137 +87,20 @@ async def acknowledge(interaction: discord.Interaction) -> None:
 async def edit_clicked(interaction: discord.Interaction, **fields) -> None:
     """Edit the message clicked: the click's own response, or, on a
     click answered already, the interaction's original message -- which
-    for a button is the message it is on. A new picture in an ephemeral
-    message is drawn again a moment later (`redraw_pictures`)."""
+    for a button is the message it is on."""
     if interaction.response.is_done():
-        message = await interaction.edit_original_response(**fields)
+        await interaction.edit_original_response(**fields)
     else:
-        message = _resource(await interaction.response.edit_message(**fields))
-    redraw_pictures(interaction, message, fields)
+        await interaction.response.edit_message(**fields)
 
 
-async def send_answer(interaction: discord.Interaction, content: Optional[str], **fields) -> None:
+async def send_answer(interaction: discord.Interaction, content: str, **fields) -> None:
     """A message of the click's own: its response, or a follow-up on a
-    click answered already. A new picture in an ephemeral message is
-    drawn again a moment later (`redraw_pictures`)."""
+    click answered already."""
     if interaction.response.is_done():
-        message = await interaction.followup.send(content, **fields)
-        redraw_pictures(interaction, message, fields, followup=True)
+        await interaction.followup.send(content, **fields)
     else:
-        message = _resource(await interaction.response.send_message(content, **fields))
-        redraw_pictures(interaction, message, fields)
-
-
-#: How long after an ephemeral message goes up with a new picture it is
-#: edited again with the attachments it already carries. Discord's apps
-#: show a new picture in an ephemeral message as a grey box of its size
-#: and never fetch it, for everybody, whatever the format or the size --
-#: while the same picture in a public message loads -- until the message
-#: is drawn again, which an edit that keeps the picture does (seen by
-#: both developers, 2026-10-15). A guess at how long Discord needs
-#: before a second drawing loads; tune it from what the players see.
-#: 1 s did not show the picture reliably (2026-10-16), where a click
-#: seconds later always had: 3 s, to learn whether it is the wait.
-PICTURE_REDRAW_DELAY = 3.0
-
-#: The game's lock around the click being answered, so a redraw it
-#: schedules waits behind any click after it (`SafeView._scheduled_task`).
-_CLICK_LOCK: contextvars.ContextVar[Optional[asyncio.Lock]] = contextvars.ContextVar(
-    "codex_click_lock", default=None,
-)
-
-#: The one redraw waiting on each ephemeral message, by the message's
-#: id -- **the record of what the message carries**: while it waits,
-#: nothing has been written to the message since its picture went up,
-#: because every write that changes an ephemeral message's pictures is
-#: `edit_clicked`'s or `send_answer`'s, and each drops the redraw
-#: waiting on the message it writes. Held here, too, so the event loop
-#: does not lose the task.
-_PENDING: dict[int, asyncio.Task] = {}
-
-
-def _resource(callback) -> Optional[discord.Message]:
-    """The message a response made or edited, off discord.py's
-    `InteractionCallbackResponse` -- `None` where there is none."""
-    return getattr(callback, "resource", None)
-
-
-def _uploads(fields: dict) -> bool:
-    """Whether a write uploads a picture rather than keeping one."""
-    sent = [fields.get("file"), *(fields.get("files") or ()), *(fields.get("attachments") or ())]
-    return any(isinstance(one, discord.File) for one in sent)
-
-
-def redraw_pictures(interaction: discord.Interaction, message: Optional[discord.Message],
-                    fields: dict, *, followup: bool = False) -> None:
-    """
-    After `message` was written with `fields`. The redraw waiting on it,
-    if any, is dropped: what this write put up is the message's now, and
-    a write that keeps the picture is itself a redraw. Where the message
-    is ephemeral and this write uploaded a picture, it is edited again
-    `PICTURE_REDRAW_DELAY` later with the attachments it carries and
-    nothing else, so Discord's apps draw it again and load the picture.
-    `followup`: the message is a follow-up of the click rather than its
-    original. Never waits: the redraw is a task of its own.
-    """
-    message_id = getattr(message, "id", None)
-    if message_id is None:
-        if _uploads(fields):
-            # Discord handed no message back: no redraw, and the picture
-            # may stay grey. Said, so the console can tell this from a
-            # redraw that ran and did not help.
-            LOGGER.info("A picture went up with no message handed back: nothing to redraw")
-        return
-    waiting = _PENDING.pop(message_id, None)
-    # `cancel()` is True only for a redraw still to come, not one that
-    # finished before its `forget` ran.
-    if waiting is not None and waiting.cancel():
-        LOGGER.info("A picture's redraw dropped: its message was written again first")
-    # `is True`: a test's Mock message is truthy everywhere.
-    ephemeral = getattr(getattr(message, "flags", None), "ephemeral", None)
-    if ephemeral is not True or not _uploads(fields):
-        return
-    task = asyncio.create_task(
-        _redraw(interaction, message, followup, _CLICK_LOCK.get(), time.perf_counter()))
-    _PENDING[message_id] = task
-
-    def forget(done: asyncio.Task) -> None:
-        if _PENDING.get(message_id) is done:
-            del _PENDING[message_id]
-
-    task.add_done_callback(forget)
-
-
-async def _redraw(interaction: discord.Interaction, message: discord.Message,
-                  followup: bool, lock: Optional[asyncio.Lock], went_up: float) -> None:
-    """
-    The redraw itself: one edit, with the attachments `message` went up
-    with, under the game's lock where a click scheduled it -- so no click
-    can write the message between the redraw's turn coming and its edit
-    landing, and put up a picture the edit would take back. A write
-    since cancels it (`redraw_pictures`). Each one made is a console
-    line, when it landed and what its edit took, so a picture still grey
-    can be told from a redraw that never ran. Anything that goes wrong is
-    a console warning: the picture is shown or it is not.
-    """
-    await asyncio.sleep(PICTURE_REDRAW_DELAY)
-    try:
-        async with lock if lock is not None else contextlib.nullcontext():
-            started = time.perf_counter()
-            if followup:
-                await interaction.followup.edit_message(message.id, attachments=message.attachments)
-            else:
-                await interaction.edit_original_response(attachments=message.attachments)
-        done = time.perf_counter()
-        LOGGER.info("An ephemeral picture redrawn %.1f s after it went up (the edit %d ms)",
-                    done - went_up, round((done - started) * 1000))
-    except discord.NotFound as error:
-        # Dismissed since, the click's token expired, or its webhook
-        # unknown: nothing to draw, and nobody to act -- INFO, with the
-        # code that tells the three apart.
-        LOGGER.info("An ephemeral picture's redraw found its message gone (%s)", error.code)
-    except Exception as error:  # noqa: BLE001 -- a redraw is best effort
-        LOGGER.warning("Could not redraw an ephemeral picture: %r", error)
+        await interaction.response.send_message(content, **fields)
 
 
 async def send_ephemeral(interaction: discord.Interaction, message: str) -> None:
@@ -249,17 +127,6 @@ class SafeView(GameLockedView):
     #: confirmation; the lobby turns it off. Until step 4 builds the
     #: confirmation, a view that would ask lets the players alone through.
     confirms_helper_clicks = True
-
-    async def _scheduled_task(self, item: discord.ui.Item, interaction: discord.Interaction) -> None:
-        """`GameLockedView`'s dispatch, with the game's lock named for a
-        redraw the click schedules to wait on (`redraw_pictures`)."""
-        locks = getattr(self.cog, "locks", None)
-        held = locks.hold(self.game_id) if isinstance(locks, GameLocks) and self.game_id else None
-        token = _CLICK_LOCK.set(held)
-        try:
-            await super()._scheduled_task(item, interaction)
-        finally:
-            _CLICK_LOCK.reset(token)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Every click on a game played in a thread first takes the

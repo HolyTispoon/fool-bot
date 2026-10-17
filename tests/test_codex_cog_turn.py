@@ -631,50 +631,6 @@ class PanelTests(TurnTestCase):
                     )
 
 
-class PictureRedrawTests(TurnTestCase):
-    """
-    **A new picture in an ephemeral message is drawn again once**, by an
-    edit of its attachments alone, on the click's own webhook -- Discord's
-    apps leave it a grey box until then (`redraw_pictures`). A picture
-    kept is not, and nothing public is (docs/design/codex.md, "The
-    requests per click").
-    """
-
-    def assertRedrawn(self, call, kind: str = "original.edit") -> None:
-        self.assertEqual([redraw[0] for redraw in call.redraws], [kind])
-        self.assertEqual(set(call.redraws[0][2]), {"attachments"})
-
-    async def test_my_hand_is_drawn_again_once(self) -> None:
-        call, _ = await self.table.panel()
-        self.assertRedrawn(call)
-        (shown,) = call.redraws[0][2]["attachments"]
-        self.assertEqual(shown.filename, call.last()[2]["files"][0].filename)
-
-    async def test_an_action_that_changes_the_hand_draws_it_again(self) -> None:
-        _, view = await self.table.panel()
-        call = await self.table.press(view, ("play", playable(view)[0]))
-        self.assertEqual([answer[0] for answer in call.answers], PANEL_EDITED)
-        self.assertRedrawn(call)
-
-    async def test_a_kept_picture_is_not_drawn_again(self) -> None:
-        _, view = await self.table.panel()
-        hiring = (await self.table.press(view, "Hire worker")).view()
-        back = await self.table.press(hiring, "Back")
-        self.assertNotIsInstance(back.last("response.edit")[2]["attachments"][0], discord.File)
-        self.assertEqual(back.redraws, [])
-
-    async def test_a_follow_up_is_drawn_again_as_a_follow_up(self) -> None:
-        _, view = await self.table.panel()
-        _, call = await self.table.press_while_busy(view, "My deck")
-        self.assertEqual([answer[0] for answer in call.answers], ["response.defer", "followup.send"])
-        self.assertRedrawn(call, "followup.edit")
-
-    async def test_a_click_that_puts_no_picture_up_draws_nothing_again(self) -> None:
-        _, view = await self.table.panel()
-        call = await self.table.press(view, "End main phase")
-        self.assertEqual(call.redraws, [])
-
-
 class ShowBoardTests(TurnTestCase):
     """**Show board**, under a hand and on the panel: the turn message
     posted again at the foot of the channel, the old one deleted and
@@ -1145,7 +1101,6 @@ class WholeGameTests(TurnTestCase):
         """
         table = self.table
         budget = {"click": 2, "turn": 3, "end": 3}
-        redrawn = 0
         with mock.patch("cogs.codex_views.turn_message.render_hand", return_value=b"hand"), \
                 mock.patch("cogs.codex.core.render_codex", return_value=b"codex") as codex_pictures, \
                 mock.patch("cogs.codex.core.render_hand", return_value=b"hand") as hand_pictures:
@@ -1164,11 +1119,6 @@ class WholeGameTests(TurnTestCase):
                     self.assertLessEqual(spent, allowed)
                     kinds = [answer[0] for answer in call.answers]
                     self.assertEqual(kinds == PANEL_EDITED, spent > 0, kinds)
-                    # A new picture's redraw: one edit at most, of its
-                    # attachments alone, on the click's webhook.
-                    self.assertLessEqual(len(call.redraws), 1, call.redraws)
-                    self.assertTrue(all(set(kwargs) == {"attachments"} for _, _, kwargs in call.redraws))
-                    redrawn += len(call.redraws)
                     if match.turn != turn:
                         # The tech picker the Lock sent: its owner's
                         # clicks, each held to the click's budget.
@@ -1184,7 +1134,6 @@ class WholeGameTests(TurnTestCase):
         self.assertIn("wins", sent[-1]["content"])
         self.assertTrue(hand_pictures.called)
         self.assertTrue(codex_pictures.called)
-        self.assertGreater(redrawn, 0)
 
     async def policy(self, view):
         table = self.table
