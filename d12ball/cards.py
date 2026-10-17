@@ -2743,7 +2743,7 @@ TWO_HEADED_EDGE = "#8c9aa6"
 #: The shared band across the middle of a two-headed card: one row of
 #: ranks for the half above it and the same row turned for the half
 #: below, each this tall.
-TWO_HEADED_BAND_ROW = 78
+TWO_HEADED_BAND_ROW = 104
 
 #: How much of a card the cream covers where its coach cannot play it
 #: this maneuver -- an advanced card of the other side, in the hand but
@@ -2890,53 +2890,70 @@ def render_two_headed_half(
     )
 
 
+#: The band's row, laid out as the printed card's matchup row
+#: (`draw_matchups`) at a size two of them fit across a card's middle.
+TWO_HEADED_BAND_LABEL = 16
+TWO_HEADED_BAND_RANK = 30
+TWO_HEADED_BAND_NAME = 19
+
+
 def render_two_headed_band(
     catalog: ManeuverCatalog, rank: int, reader: str,
 ) -> Image.Image:
     """
-    The band's row as the half above it reads it: **BEATS R3 -- TIES
-    R1 -- LOSES TO R2**, each rank with **the maneuver of the other side
-    on it** beside it (the author, 2026-10-16/17): the row the defensive
-    half reads names the offense's maneuvers, in red, and the row the
-    offensive half reads the defense's, in green -- what the half
-    above it is played against. `reader` is that half's side.
+    The band's row as the half above it reads it, **in the printed
+    card's matchup layout** (the author, 2026-10-17: "more similar to
+    the maneuver cards from 1.0"): BEATS / TIES / LOSES TO over the
+    opposing rank's badge -- D3 under the offensive half, O3 under the
+    defensive one -- in the opposing side's colour, and under it the
+    basic maneuver on that rank and its advanced one, the printed row's
+    two colours, with the same rules between the columns. `reader` is
+    the half's side: the row names what that half is played against.
     """
-    opposing = "defense" if reader == "offense" else "offense"
-    width = CARD_WIDTH - MARGIN * 2
-    pen = Pen((width, TWO_HEADED_BAND_ROW), CARD_FACE)
-    column = width / 3
-    label_font = font(18, bold=True)
-    value_font = rank_font(34)
-    name_font = font(22, bold=True)
-    gap = 10
-    for index, (label, value) in enumerate(zip(
-        ("BEATS", "TIES", "LOSES TO"), two_headed_ranks(catalog, rank),
-    )):
-        centre = column * index + column / 2
-        pen.text((centre, 6), label, label_font, MUTED, anchor="ma")
-        names = [(
-            next(
-                maneuver.name
-                for maneuver in catalog.for_tier(opposing, MANEUVER_TIER_BASIC)
-                if maneuver.rank == value
-            ),
-            SIDE_COLORS[opposing],
-        )]
-        rank_text = f"R{value}"
-        rank_width = pen.text_size(rank_text, value_font)[0]
-        names_width = max(pen.text_size(name, name_font)[0] for name, _ in names)
-        left = centre - (rank_width + gap + names_width) / 2
-        middle = 6 + 22 + (TWO_HEADED_BAND_ROW - 6 - 22 - 6) / 2
-        pen.text((left, middle), rank_text, value_font, INK, anchor="lm")
-        for line, (name, colour) in enumerate(names):
-            pen.text(
-                (left + rank_width + gap, middle),
-                name, name_font, colour, anchor="lm",
-            )
-    row = pen.image.resize(
-        (width, TWO_HEADED_BAND_ROW), Image.Resampling.LANCZOS,
+    reader_card = next(
+        maneuver for maneuver in catalog.for_tier(reader, MANEUVER_TIER_BASIC)
+        if maneuver.rank == rank
     )
-    return row
+    is_offense = reader == "offense"
+    opposing_letter = "D" if is_offense else "O"
+    rank_color = DEFENSE_COLOR if is_offense else OFFENSE_COLOR
+    gambit_color = DEFENSE_COLOR_GAMBIT if is_offense else OFFENSE_COLOR_GAMBIT
+    groups = matchup_rank_groups(catalog, reader_card, is_offense)
+
+    pen = Pen((CARD_WIDTH, TWO_HEADED_BAND_ROW), CARD_FACE)
+    column_width = (CARD_WIDTH - MARGIN * 2) / 3
+    label_font = font(TWO_HEADED_BAND_LABEL, bold=True)
+    value_font = rank_font(TWO_HEADED_BAND_RANK)
+    name_font = font(TWO_HEADED_BAND_NAME, bold=True)
+    name_step = matchup_name_step(pen, name_font)
+    pen.line(
+        [(MARGIN + 10, 1), (CARD_WIDTH - MARGIN - 10, 1)],
+        fill=PANEL_EDGE, width=2,
+    )
+    for index, (label, (opposing_rank, (basic, gambit))) in enumerate(zip(
+        ("BEATS", "TIES", "LOSES TO"), groups,
+    )):
+        cx = MARGIN + column_width * (index + 0.5)
+        pen.text((cx, 15), label, label_font, MUTED, anchor="mm")
+        pen.text(
+            (cx, 39), f"{opposing_letter}{opposing_rank}", value_font,
+            rank_color, anchor="mm",
+        )
+        name_y = 64
+        for name, color in ((basic.name, rank_color), (gambit.name, gambit_color)):
+            pen.text((cx, name_y), name, name_font, color, anchor="mm")
+            name_y += name_step
+        if index:
+            pen.line(
+                [
+                    (MARGIN + column_width * index, 8),
+                    (MARGIN + column_width * index, TWO_HEADED_BAND_ROW - 14),
+                ],
+                fill=PANEL_EDGE, width=2,
+            )
+    return pen.image.resize(
+        (CARD_WIDTH, TWO_HEADED_BAND_ROW), Image.Resampling.LANCZOS,
+    )
 
 
 def render_two_headed_card(
@@ -2979,20 +2996,13 @@ def render_two_headed_card(
         catalog, players, faces[other], other == "offense",
     ).rotate(180)
     card.paste(top, (0, 0))
-    card.paste(
-        render_two_headed_band(catalog, rank, upright), (MARGIN, half_height),
-    )
+    card.paste(render_two_headed_band(catalog, rank, upright), (0, half_height))
     card.paste(
         render_two_headed_band(catalog, rank, other).rotate(180),
-        (MARGIN, half_height + TWO_HEADED_BAND_ROW),
+        (0, half_height + TWO_HEADED_BAND_ROW),
     )
     card.paste(bottom, (0, CARD_HEIGHT - bottom.height))
     draw = ImageDraw.Draw(card)
-    for y in (half_height, CARD_HEIGHT - half_height):
-        draw.line(
-            (MARGIN + 10, y, CARD_WIDTH - MARGIN - 10, y),
-            fill=PANEL_EDGE, width=2,
-        )
     draw.rounded_rectangle(
         (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
         radius=CORNER, outline=TWO_HEADED_EDGE, width=EDGE_WIDTH,
