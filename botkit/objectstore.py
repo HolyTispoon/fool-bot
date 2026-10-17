@@ -1,6 +1,8 @@
 """
-An object store a bot writes into: `put` and `delete`, by key, and
-nothing that reads or lists (docs/design/pbd-site.md, "The store").
+An object store a bot writes into: `put` and `delete`, by key, and --
+for keeping the bucket inside R2's free plan alone -- `list`, every key
+and its size, and `get`, an object's bytes (docs/design/pbd-site.md,
+"The store", "The free plan").
 
 - `R2Store` is Cloudflare R2 over its S3 API, through boto3. Every call
   runs in `asyncio.to_thread`, since boto3 blocks, and boto3 is imported
@@ -21,7 +23,7 @@ from typing import Callable, Optional, Protocol
 
 
 class ObjectStore(Protocol):
-    """Where a publisher writes. Both calls raise on a failure; the
+    """Where a publisher writes. Every call raises on a failure; the
     caller decides what a failure means."""
 
     async def put(self, key: str, body: bytes, content_type: str, cache_control: str) -> None:
@@ -29,6 +31,23 @@ class ObjectStore(Protocol):
 
     async def delete(self, key: str) -> None:
         ...
+
+    async def list(self, prefix: str = "") -> dict[str, int]:
+        """Every key under `prefix`, with its size in bytes."""
+        ...
+
+    async def get(self, key: str) -> bytes:
+        ...
+
+
+#: The most keys one listing hands back: S3's `ListObjectsV2` page,
+#: which R2 keeps. Each page is one Class A operation.
+LIST_PAGE = 1000
+
+
+def list_pages(count: int) -> int:
+    """How many listings `count` keys took -- one even for none."""
+    return max(1, -(-count // LIST_PAGE))
 
 
 def r2_endpoint(account_id: str) -> str:
@@ -80,6 +99,24 @@ class R2Store:
     async def delete(self, key: str) -> None:
         await asyncio.to_thread(self._client.delete_object, Bucket=self.bucket, Key=key)
 
+    async def list(self, prefix: str = "") -> dict[str, int]:
+        return await asyncio.to_thread(self._list, prefix)
+
+    def _list(self, prefix: str) -> dict[str, int]:
+        found: dict[str, int] = {}
+        pages = self._client.get_paginator("list_objects_v2").paginate(
+            Bucket=self.bucket, Prefix=prefix, PaginationConfig={"PageSize": LIST_PAGE})
+        for page in pages:
+            for entry in page.get("Contents", []):
+                found[entry["Key"]] = int(entry["Size"])
+        return found
+
+    async def get(self, key: str) -> bytes:
+        return await asyncio.to_thread(self._get, key)
+
+    def _get(self, key: str) -> bytes:
+        return self._client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+
 
 @dataclass(frozen=True)
 class StoredObject:
@@ -91,7 +128,8 @@ class StoredObject:
 class MemoryStore:
     """
     The tests' store. `objects` holds what is up; `calls` every call made,
-    in order, as `("put", key)` or `("delete", key)`, failed ones included.
+    in order, as `("put", key)`, `("delete", key)`, `("list", prefix)` or
+    `("get", key)`, failed ones included.
     `fail` decides, per call, whether it raises: a bool for every call, or
     a function of `(operation, key)`.
     """
@@ -123,6 +161,17 @@ class MemoryStore:
     async def delete(self, key: str) -> None:
         await self._call("delete", key)
         self.objects.pop(key, None)
+
+    async def list(self, prefix: str = "") -> dict[str, int]:
+        await self._call("list", prefix)
+        return {key: len(stored.body) for key, stored in self.objects.items()
+                if key.startswith(prefix)}
+
+    async def get(self, key: str) -> bytes:
+        await self._call("get", key)
+        if key not in self.objects:
+            raise KeyError(key)
+        return self.objects[key].body
 
     def puts(self) -> list[str]:
         return [key for operation, key in self.calls if operation == "put"]
