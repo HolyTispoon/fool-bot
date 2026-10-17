@@ -102,6 +102,15 @@ from d12ball.render import (
     VISITING_MEEPLE_TOP,
     PORTRAIT_IMAGE_SIZE,
     ball_token_x,
+    meeple_marks,
+    meeple_mark_top,
+    meeple_mark_height,
+    meeple_condition,
+    layout_meeple_marks,
+    MeepleMark,
+    MEEPLE_MARK_GAP,
+    CONDITION_TAGS,
+    CONDITION_TAG_INKS,
     fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
@@ -1568,6 +1577,139 @@ class D12BallComponentTests(unittest.TestCase):
                     )
                     seen += 1
         self.assertEqual(seen, 3)
+
+    def test_every_cog_render_says_who_draws_a_cyborgs_marks(self) -> None:
+        # Every board image now draws an exhaustion count on the
+        # meeples, field strip included, and the default is nobody --
+        # so a render site that forgets the ids draws a Cyborg's teal
+        # drain as the amber exhaustion token on the field while its
+        # card says otherwise. Nothing else in the suite can see that.
+        renderers = (
+            "render_match_image", "render_field_image",
+            "render_coaching_image",
+        )
+        expected = "cyborg_ids=self.engine.cyborg_condition_ids(game, match)"
+        seen = 0
+        for path in Path("cogs").glob("**/*.py"):
+            source = path.read_text()
+            for renderer in renderers:
+                for index in [
+                    m.end() for m in re.finditer(
+                        rf"to_thread\(\s*{renderer},", source,
+                    )
+                ]:
+                    call = source[index:source.index("\n        )", index)]
+                    self.assertIn(
+                        expected, call,
+                        f"{path}: {renderer} is called without the ids",
+                    )
+                    seen += 1
+        self.assertEqual(seen, 3)
+
+    def test_a_meeples_marks_sit_off_its_feet_as_the_page_puts_them(
+        self,
+    ) -> None:
+        # The condition tag off a piece's bottom left and the count off
+        # its bottom right, as the web page draws them; the suite cannot
+        # see the image, so this checks the placement.
+        draw = ImageDraw.Draw(Image.new("RGBA", (10, 10)))
+        token_x = 500
+        tag, count = meeple_marks(
+            draw, [(token_x, 3, "injured", False)], 0, 10_000,
+        )
+        self.assertEqual(tag.condition, "injured")
+        self.assertLess(tag.left, token_x)
+        self.assertEqual(count.count, 3)
+        self.assertGreater(count.left, token_x + MEEPLE_SIZE / 2)
+        self.assertGreater(count.left + count.width, token_x + MEEPLE_SIZE)
+        self.assertLess(
+            meeple_mark_top(200) + meeple_mark_height(),
+            200 + MEEPLE_SIZE + 7,  # where the names start
+        )
+
+    def test_a_meeples_marks_move_rather_than_overlap(self) -> None:
+        # Side by side, a piece's condition tag would land on its left
+        # neighbour's count, and the last count runs past the room the
+        # ball or the frame leaves -- so each moves as little as keeps
+        # the strip apart and inside.
+        draw = ImageDraw.Draw(Image.new("RGBA", (10, 10)))
+        left, right = 500, 500 + 2 * MEEPLE_SIZE + 3 + 4
+        marks = meeple_marks(
+            draw,
+            [(502, 1, None, False), (502 + MEEPLE_SIZE + 3, 2, "exhausted", False)],
+            left, right,
+        )
+        for before, after in zip(marks, marks[1:]):
+            self.assertGreaterEqual(
+                after.left, before.left + before.width + MEEPLE_MARK_GAP,
+            )
+        self.assertLessEqual(marks[-1].left + marks[-1].width, right)
+        self.assertGreaterEqual(marks[0].left, left)
+
+        # One alone keeps the page's place where nothing is in the way.
+        alone = layout_meeple_marks(
+            [MeepleMark(600, 40), MeepleMark(700, 40)], 0, 10_000,
+        )
+        self.assertEqual([mark.left for mark in alone], [600, 700])
+
+    def test_a_meeple_is_tagged_with_the_condition_its_card_shows(
+        self,
+    ) -> None:
+        # Injured wins the slot, and a Cyborg's are its own words --
+        # the choice draw_card and the web page make.
+        cyborgs = frozenset({"c"})
+        self.assertEqual(meeple_condition("a", {"a"}, {"a"}, cyborgs), "injured")
+        self.assertEqual(meeple_condition("a", {"a"}, set(), cyborgs), "exhausted")
+        self.assertEqual(meeple_condition("c", {"c"}, set(), cyborgs), "drained")
+        self.assertEqual(meeple_condition("c", set(), {"c"}, cyborgs), "damaged")
+        self.assertIsNone(meeple_condition("a", set(), set(), cyborgs))
+        self.assertEqual(set(CONDITION_TAGS), set(CONDITION_TAG_INKS))
+
+    def test_an_exhausted_meeple_carries_its_count_on_every_board(
+        self,
+    ) -> None:
+        # The count is drawn wherever the meeple is -- the match image,
+        # the field strip cut from it, and a coach's half -- and an
+        # unexhausted piece is drawn exactly as before.
+        catalog = load_player_catalog()
+        match = MatchState.standard(
+            catalog=catalog,
+            ruleset=load_basic_ruleset(),
+            board_size=7,
+            home_team=Team.PURPLE,
+            visiting_team=Team.TEAL,
+        )
+        before = render_field_image(match, catalog).getvalue()
+        before_coaching = render_coaching_image(
+            match, catalog, TeamSide.HOME, "Home",
+        ).getvalue()
+        match.exhaustion[fielded(match, PlayerRole.PLAYMAKER)] = 2
+        counted = render_field_image(match, catalog).getvalue()
+        self.assertNotEqual(counted, before)
+        match.injured.add(fielded(match, PlayerRole.PLAYMAKER))
+        self.assertNotEqual(
+            render_field_image(match, catalog).getvalue(), counted,
+        )
+        match.injured.clear()
+        self.assertNotEqual(
+            render_coaching_image(
+                match, catalog, TeamSide.HOME, "Home",
+            ).getvalue(),
+            before_coaching,
+        )
+        # The visitors' half shows none of home's pieces, so nothing
+        # of home's count either.
+        match.exhaustion.clear()
+        visiting_before = render_coaching_image(
+            match, catalog, TeamSide.VISITING, "Visitors",
+        ).getvalue()
+        match.exhaustion[fielded(match, PlayerRole.PLAYMAKER)] = 2
+        self.assertEqual(
+            render_coaching_image(
+                match, catalog, TeamSide.VISITING, "Visitors",
+            ).getvalue(),
+            visiting_before,
+        )
 
     def test_a_loose_ball_is_drawn_inside_its_own_space(self) -> None:
         # A space with none of the possessing side's meeples on it is
