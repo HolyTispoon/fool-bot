@@ -47,7 +47,7 @@ from codex.formatting import codex_view_name, team_name
 from codex.game import GameStatus, RuleRefusal, by_variant
 from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import elapsed_ms, pictures_size, seat_label
-from cogs.codex_views.base import SafeView, edit_clicked, kept_pictures, picture_file, send_ephemeral
+from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
 from cogs.codex_views.turn import UndoView, opponent_started
 
 LOGGER = logging.getLogger(__name__)
@@ -504,7 +504,9 @@ class CodexBrowser(SafeView):
         pictures = kept_pictures([await self.picture(match, view)], interaction.message)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
-        await edit_clicked(interaction, content=self.caption(view), attachments=pictures, view=self)
+        await interaction.response.edit_message(
+            content=self.caption(view), attachments=pictures, view=self,
+        )
         LOGGER.info("Codex game #%s: the codex's %s drawn in %d ms (%d KB), shown in place in %d ms",
                     game.game_number, codex_view_name(view), drawn,
                     pictures_size(pictures) // 1024, elapsed_ms(started))
