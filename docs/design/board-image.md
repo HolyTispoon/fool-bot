@@ -300,7 +300,13 @@ the picture and the sentence beside it cannot disagree
   numbered 0. Boards 7 and 9 have a middle space, space 0, and no line.
 
 The web page draws the same number the same way in its own CSS (`.space-code`,
-sized to the space's width in container units, and `.halfway-line`).
+sized to the space's width in container units, and `.halfway-line`), with one
+difference: **a kickoff space's number is a white disc with the number in
+black** (`.space-code.kickoff`, the author, 2026-10-17). It was a faint ring
+round the number, drawn as a second element centred on the space while the
+number was centred on its own line box, and the two visibly missed each other;
+as one element the disc cannot miss. The PNG has never marked the kickoff
+space, so it has no disc.
 
 ## The web page's board
 

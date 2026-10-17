@@ -1460,17 +1460,23 @@ button.goal { display: block; }
   border-radius: 2px;
   pointer-events: none;
 }
-.kickoff-ring {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  /* Round the space's number, which sits in the middle with it. */
-  width: min(86cqw, 150px);
-  height: min(86cqw, 150px);
-  border: 2px solid rgba(255, 255, 255, 0.12);
+/* The kickoff space's number is a white disc with the number in black
+   (the author, 2026-10-17): one element, so the circle is centred on
+   the number by construction -- a ring drawn beside the number was
+   centred on the space and the glyph on its line box, and the two
+   never quite met. `text-box` trims the line box to the digits, so
+   flex centres the glyph itself rather than its ascent and descent. */
+.space-code.kickoff {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(80cqw, 140px);
+  height: min(80cqw, 140px);
   border-radius: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+  background: #fff;
+  color: #000;
+  font-size: min(36cqw, 64px);
+  text-box: trim-both cap alphabetic;
 }
 .lane { display: flex; min-height: 140px; min-width: 0; }
 .lane.visiting { justify-content: flex-end; align-items: flex-start; padding-top: 12px; }
@@ -1900,7 +1906,6 @@ button.goal { display: block; }
   }
   .stage.narrow .space.lit { border-width: 1.5px; }
   .stage.narrow .halfway-line { flex-basis: 2px; margin: 0 -2px; }
-  .stage.narrow .kickoff-ring { border-width: 1.5px; }
   .stage.narrow .lane { min-height: 0; flex: 1 1 0; }
   .stage.narrow .lane.visiting { padding-top: 0; }
   .stage.narrow .badge img { width: 9px; height: 9px; }
