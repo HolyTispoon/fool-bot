@@ -1,9 +1,11 @@
-# The D12 Ball games on the web: on `propheticfools.com`
+# The D12 Ball games on the web: `pbd.d12ball.com`
 
 **This is a worksheet, not a specification.** It was written on
 2026-10-17 from the author's ask: a website for D12 Ball's Discord games
 "just like we have for Codex" ([docs/pbd-site.md](pbd-site.md)), except on
-the studio's domain. Every D12 Ball game being played on the Discord, an
+a domain of the studio's own; the author named the address,
+`pbd.d12ball.com`, in review the same day. Every D12 Ball game being
+played on the Discord, an
 archive of the rest, and each game's current board -- zoomable, kept in
 view as it updates -- with its log beside it and its history play by
 play. Each step below has a prompt a Claude Code session is started with.
@@ -14,33 +16,33 @@ Strike a step when it lands and move what it settled into
 The Codex site is the model throughout, and its design note
 ([design/pbd-site.md](design/pbd-site.md)) is where most of the reasoning
 already lives. This worksheet says what carries over unchanged, what D12
-Ball does differently, and what the studio's domain changes. Where it says
+Ball does differently, and what its own domain changes. Where it says
 "as the Codex site does", the Codex note's section of that name is the
 reasoning.
 
 ## What was found, and what it settles
 
-**The studio's domain rules out a path; it allows a subdomain.** The
-`propheticfoolsgames` Pages project serves `propheticfools.com` and builds
+**A subdomain, because a path on `d12ball.com` cannot carry a
+Function.** The `d12ball` Pages project serves `d12ball.com` and builds
 from the repository's root ([design/landing-pages.md](design/landing-pages.md),
-"Deploying": "Root directory: blank"), and so does `d12ball`. Pages looks
+"Deploying": "Root directory: blank"), and so does the studio's. Pages looks
 for `functions/` at a project's root, so a Function for this site at the
 repository's root would be compiled into **both** landing sites, and on
 `d12ball.com`, whose output has no `_routes.json`, it would answer every
 path. A `_redirects` rule cannot proxy to another host either (a 200 rewrite
 takes a path on the same site). So the site is a Pages project of its own,
-rooted in its own folder as `pbd/` is, with a **custom domain on a
-subdomain of `propheticfools.com`** -- a setting on the project, with the
-zone already on the same account, and nothing under `landing/` changed.
-The zone already has *Respect Existing Headers* on (landing-pages.md, the
-2026-09-30 run), so the JSON's `no-cache` reaches the browser rather than
-the zone's `max-age=14400`.
+rooted in its own folder as `pbd/` is, with the **custom domain
+`pbd.d12ball.com`** -- a setting on the project, with the zone already on
+the same account. `play.d12ball.com` is the tunnel's, for the web app, and
+is not touched. The zone already has *Respect Existing Headers* on
+(landing-pages.md, the 2026-09-30 run), so the JSON's `no-cache` reaches
+the browser rather than the zone's `max-age=14400`.
 
-**What kept Codex off the studio's domain does not apply.** The Codex site
-is on `pages.dev` because its board is Sirlin Games' art
-([pbd-site.md](pbd-site.md), "What was found"). D12 Ball's board is the
-studio's own game drawn by the studio's own renderer, so the studio's
-domain is where it belongs.
+**What kept Codex off the studio's domains does not apply.** The Codex site
+is on `pages.dev` because its board is Sirlin Games' art, and
+`d12ball.com` was ruled out for it by name ([pbd-site.md](pbd-site.md),
+"What was found"). D12 Ball's board is the studio's own game drawn by the
+studio's own renderer, so the game's own domain is where it belongs.
 
 **The board is drawn, but not cached.** `D12Ball.render_match_png`
 (`cogs/d12ball/presentation.py`) draws the board as PNG, 2200 x 1302 scaled
@@ -123,10 +125,11 @@ uuid4 hex string, the key the bucket and the page use.
 **A D12 Ball channel is private; a Codex channel is not.**
 `game_channel_overwrites` (`cogs/d12ball/slash_commands.py`) gives a game's
 channel to its coaches and the bot, "and nobody else" (and the lobby's
-observers). The Codex site's argument -- the board and the lines are
-already public in the channel -- is weaker here: they are already shown to
-the two coaches. Publishing every game to anyone with the link is a change
-in who sees a game, which is the author's to decide (question 1).
+observers). So the Codex site's argument -- the board and the lines are
+already public in the channel -- does not carry over: here they are shown
+to the two coaches. The author settled it in review (2026-10-17): every
+D12 Ball game may be on the site, though its channel is not listed
+(decision 3). The site does not change who sees the channel.
 
 **What a game is.** `GameStatus` is `SETUP` (a lobby is `in_lobby` on
 one), `IN_PROGRESS` and `FINISHED`; an abandoned game is a `FINISHED` game
@@ -151,19 +154,19 @@ the game's own.
 
 ## The decisions
 
-Proposed 2026-10-17, for the author's review. Each is the Codex site's
-where it says so.
+Proposed 2026-10-17; the author's answers in review the same day are
+written in (decisions 1, 2, 3, 12 and 15). Each is the Codex site's where
+it says so.
 
-1. **A Pages project of its own, on a subdomain of the studio's domain,
-   reading a bucket of its own.** The project `d12ball-pbd`, rooted in
-   `pbd-d12ball/` (static files in `pbd-d12ball/public/`, one Function in
+1. **A Pages project of its own, at `pbd.d12ball.com`, reading a bucket
+   of its own.** The project `d12ball-pbd`, rooted in `pbd-d12ball/`
+   (static files in `pbd-d12ball/public/`, one Function in
    `pbd-d12ball/functions/data/`), with the custom domain
-   **`games.propheticfools.com`** -- the name is the author's
-   (question 2), and is one setting. Its `pages.dev` address stays
-   reachable; the pages' canonical link names the subdomain, as the
-   landing pages' do.
+   **`pbd.d12ball.com`** (the author, 2026-10-17). Its `pages.dev`
+   address stays reachable; the pages' canonical link names
+   `pbd.d12ball.com`, as the landing pages' name their own domains.
    - **A bucket of its own, `d12ball-pbd`, not a prefix in `pbd`.** The
-     site on the studio's domain must not be able to serve Codex's art,
+     site on the game's own domain must not be able to serve Codex's art,
      and a Function bound to the Codex bucket could, given one wrong
      pattern. A bucket of its own makes that impossible rather than
      checked; it is a second token and a second binding, and costs the
@@ -176,16 +179,21 @@ where it says so.
      Codex project's root, and a second project rooted there would compile
      the Codex Function. A sibling folder keeps the two sites' builds apart
      as their watch paths (`pbd/*`, `pbd-d12ball/*`).
-2. **Unlisted at first** (question 3). `noindex` as the Codex site has it
-   -- the meta tag, `_headers`, the Function -- and no link from either
-   landing site. A link from the studio page's D12 Ball card, and dropping
-   the `noindex`, is a later change in `landing/` and this folder, once
-   the author has seen it running.
-3. **Which games are on the site** (question 1). Proposed: **every started
-   game, except a tutorial** -- a lobby is not listed, a game abandoned in
-   its lobby is never archived (as Codex's `on_site`), and a tutorial is
-   five scripted turns somebody plays to learn, not a game anybody would
-   watch. A game against Dinky is on the site.
+2. **Linked from `d12ball.com`** (the author, 2026-10-17: "It can be
+   linked on the website"). The D12 Ball page gets a link to
+   `pbd.d12ball.com` once the site is live (step 6), worded as the
+   address it opens, as the page's other links are
+   ([design/landing-pages.md](design/landing-pages.md), "The D12 Ball
+   page"). Whether search engines index it is the one question left
+   (below); the worksheet keeps the Codex site's `noindex` -- the meta
+   tag, `_headers`, the Function -- until the author says otherwise,
+   since a linked page is found without a search engine anyway.
+3. **Every D12 Ball game is on the site** (the author, 2026-10-17: "All
+   d12ball games can be on the website even if the channels aren't
+   listed") -- a game against Dinky and a tutorial among them, with no
+   opt-out. Only what has nothing to show is left off, as Codex's
+   `on_site` leaves it: a lobby, which has no board yet, and a game
+   abandoned in its lobby.
 4. **The site mirrors the board message.** The board is the persistent
    board message's, the bytes `refresh_match_image` is handed or draws,
    taken in the cog's own forwarder and never in `BoardRefresher`, which
@@ -231,20 +239,29 @@ where it says so.
 11. **It runs only where `FOOLBOT_PUBLISH_*` is set**: the `K:\`
     checkout's `.env`, beside `FOOLBOT_LOG_*` and `FOOLBOT_WEB_*`. A
     developer's test games never reach the site.
-12. **The players are named as the bot names them**: `coach_name` off the
+12. **The coaches are named as the bot names them** (the author,
+    2026-10-17: their Discord names are fine): `coach_name` off the
     record, behind the team's mark, as a message names a side
-    (CLAUDE.md, "A side is named by its coach") -- on a page anyone with
-    the link can read, on the studio's domain (question 4).
+    (CLAUDE.md, "A side is named by its coach").
 13. **A game stays on the site when its channel goes.** The site is the
     archive that outlives `/debug export_archived_games`: the archive list
     is built from the publisher's record, so an exported game's entry,
     board and history stay. `/debug reset_channels`, which drops games
     from the record, takes them off the site and out of the bucket, as
     Codex's reset does.
-14. **The look is the studio's.** The night palette's values and the
+14. **The look is `d12ball.com`'s.** The night palette's values and the
     bundled IBM Plex from `landing/shared/`, copied into the folder as
     `pbd/` copies the palette -- this is not the landing build -- so the
-    page reads as the studio's site it sits under.
+    page reads as the site that links to it.
+15. **The old games are imported from the pins, as the last step** (the
+    author, 2026-10-17). Every game played before the site went live
+    gets its history from its channel's pinned new-play boards, each with
+    its one-line caption, as the Codex site's import does (step 8).
+16. **The web app's games are not on this site** (the author,
+    2026-10-17: "it's separate"). The web app has its own `/archive`;
+    nothing here reads `data/d12ball_web_games.json`, and nothing in
+    `webapp/` learns this site exists -- the two systems share the model
+    and nothing at runtime ([docs/web-app-next.md](web-app-next.md)).
 
 ## What it costs
 
@@ -273,7 +290,7 @@ the two sites together hold roughly fifteen pages open around the clock.
 ## The bucket's layout
 
 Under `d12ball/` in the private bucket `d12ball-pbd`, read by the Function
-at `https://games.propheticfools.com/data/d12ball/...`; the Codex site's
+at `https://pbd.d12ball.com/data/d12ball/...`; the Codex site's
 rules on whole keys, `ETag`, `304` and `404` hold.
 
 | Key | What | Cache-Control |
@@ -308,7 +325,7 @@ publisher's.
 
 The publisher's own record is `data/d12ball_pbd.json`, keyed by `game_id`:
 each game's current play (heading, lines, board key), its history, the
-board keys already up, the history's version, whether step 7's import has
+board keys already up, the history's version, whether step 8's import has
 run, and when it last changed. The bucket is the copy; the file is the
 source.
 
@@ -326,13 +343,15 @@ is empty. A step lands by striking its row below
 | 3 | The store, the queue and `FOOLBOT_PUBLISH_*`; a board and a game measured | medium |
 | 4 | The hooks: the listener, the boards, the lifecycle, the startup publish, **View live board** | medium |
 | 5 | The page: `pbd-d12ball/`, the two lists, the game, the viewer, the Function | medium |
-| 6 | Deploy: the bucket, the token, the Pages project, its binding and the subdomain | small, most of it in dashboards |
-| 7 | The old plays, from the pins (optional; question 5) | small |
-| 8 | Look back once: what the two publishers turned out to share, moved to `botkit/` | small |
+| 6 | Deploy: the bucket, the token, the Pages project, its binding, `pbd.d12ball.com`, and the link from `d12ball.com` | small, most of it in dashboards |
+| 7 | Look back once: what the two publishers turned out to share, moved to `botkit/` | small |
+| 8 | The old plays, from the pins | small |
 
 Steps 1 to 5 need no Cloudflare: the store has a fake, and the site is
 looked at through `scripts/serve_pbd.py --site d12ball` (step 5). Nothing
-goes public until step 6.
+goes public until step 6. Step 8 is last because the import runs behind
+everything else -- the startup publish, the queue, the live site -- and is
+the one step that spends Discord requests.
 
 ### Claiming a step
 
@@ -365,13 +384,14 @@ public lines (step 1's reading over a GameResult) and the board's bytes
 (the cog's render_match_png) -- and nothing secret: never a GameResult's
 raw answer, never Narration.board's dict, never a pick, a hand or a
 shootout order. Publishing never fails a turn, never blocks a click, and
-spends no Discord request except in step 7. It runs only where
-FOOLBOT_PUBLISH_* is set.
+spends no Discord request except in step 8. It runs only where
+FOOLBOT_PUBLISH_* is set. The web app's games are not on the site: nothing
+reads the web app's files, and nothing in webapp/ learns the site exists.
 
 The site is its own Cloudflare Pages project rooted in pbd-d12ball/
 (static files in pbd-d12ball/public/, one Function in
-pbd-d12ball/functions/), never under pbd/ or landing/, served on a
-subdomain of propheticfools.com. Plain HTML, CSS and JavaScript, no
+pbd-d12ball/functions/), never under pbd/ or landing/, served at
+pbd.d12ball.com. Plain HTML, CSS and JavaScript, no
 framework, no CDN, no build step. Every line is built with textContent,
 never innerHTML.
 
@@ -429,7 +449,7 @@ publisher's file, not the game's".
 
 Create cogs/d12ball_publish/ (a package the cog calls, not a mixin),
 copying the shapes of cogs/codex_publish/ rather than importing them --
-the worksheet's step 8 looks back once both exist:
+the worksheet's step 7 looks back once both exist:
 - record.py: PublishRecord over data/d12ball_pbd.json through
   gamekit/storage.py, its own two failure flags; per game (PublishedGame,
   to_dict/from_dict, every field defaulted): the current play's heading,
@@ -437,10 +457,10 @@ the worksheet's step 8 looks back once both exist:
   board), the board keys up, the history's version, imported, updated.
   Keyed by game_id. No mkdir on load; a save never raises.
 - keys.py: every key under d12ball/, the board as board-<sha256>.png,
-  the site's address as one constant (https://games.propheticfools.com
-  until the author names another).
-- shapes.py: on_site (started, not a tutorial -- decision 3; and the
-  author's answer to question 1 if it differs), index_entry, archive
+  the site's address as one constant, https://pbd.d12ball.com.
+- shapes.py: on_site (every game that has started, a tutorial and a game
+  against Dinky included; a lobby and a game abandoned in its lobby
+  left off -- decision 3), index_entry, archive
   (finished and abandoned), live, history. Sides by coach_name and
   team_display_name, never a team's name alone where a coach holds the
   side; the score, the half and the clock as values; mode by
@@ -461,8 +481,8 @@ the worksheet's step 8 looks back once both exist:
 
 Tests: tests/test_d12ball_publish_shapes.py -- a staged match's shapes
 (tests/roster.py names players by role), a line with every token kind,
-a coach's name holding < and ** coming through as text, a tutorial and a
-lobby off the site, nothing in any shape that names a pick, a hand or a
+a coach's name holding < and ** coming through as text, a tutorial on
+the site and a lobby off it, nothing in any shape that names a pick, a hand or a
 shootout order, the record's round trip and a corrupt file.
 
 Create docs/design/d12ball-pbd-site.md, the design note, and add the
@@ -550,9 +570,10 @@ Tests, through the real cog as EveryMatchupResolvesTests and
 TutorialPlaythroughTests drive it, with a MemoryStore and
 tests/save_patches.py: a seeded game publishing one history entry per
 new play, each with the board the pin carried; the shootout's orders
-never in any object; an AI game's answers in the log; a finished game
-and an abandoned one in the archive; a reset taking games off; a
-tutorial sending nothing; the publisher off sending nothing; and the
+never in any object; an AI game's answers in the log; a tutorial
+published like any other game; a finished game and an abandoned one in
+the archive; a reset taking games off; the publisher off sending
+nothing; and the
 requests a click spends unchanged.
 ```
 
@@ -562,7 +583,7 @@ requests a click spends unchanged.
 Step 5 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
 page", "The viewer", "The Function" and "Looking at it", and
 docs/design/landing-pages.md at "The night palette, because a page is a
-screen" and "The studio page".
+screen" and "The D12 Ball page".
 
 Add pbd-d12ball/, the Pages project's root, as pbd/ is: index.html (the
 games being played, then the archive's finished and abandoned),
@@ -570,9 +591,9 @@ game.html at /game/<game_id> by a _redirects rewrite, d12ball.js,
 viewer.js, d12ball.css, _headers (noindex), _routes.json (/data/* alone),
 and functions/data/[[path]].js answering only the layout's keys under
 d12ball/. viewer.js is pbd/public/viewer.js byte for byte. The look is
-the studio's: the night palette's values and IBM Plex copied from
-landing/shared/, a header naming the studio, each page's canonical link
-on the subdomain.
+d12ball.com's: the night palette's values and IBM Plex copied from
+landing/shared/, a header linking back to d12ball.com, each page's
+canonical link on https://pbd.d12ball.com.
 
 The game page: the board in the viewer; above it, the score, the half
 and the clock as the jumbotron would say them, from live.json; the log
@@ -611,13 +632,14 @@ the Codex site's checklist ([design/pbd-site.md](design/pbd-site.md),
 4. **The binding** `PBD` to the bucket `d12ball-pbd`, for Production, and
    the deployment retried after adding it.
 5. **The custom domain**: Custom domains -> *Set up a custom domain* ->
-   `games.propheticfools.com` (or the author's name for it). The zone is
-   on the same account, so Cloudflare adds the record; a record made by
-   hand first gets a 522.
-6. **Check** from a phone off the home Wi-Fi: the subdomain loads, a game
-   changes as it is played, `/data/d12ball/index.json` answers,
+   `pbd.d12ball.com`. The zone is on the same account, so Cloudflare adds
+   the record; a record made by hand first gets a 522.
+   `play.d12ball.com`'s record is the tunnel's and is not touched.
+6. **Check** from a phone off the home Wi-Fi: `pbd.d12ball.com` loads, a
+   game changes as it is played, `/data/d12ball/index.json` answers,
    `/data/codex/index.json` and `/data/anything-else` answer `404`, and
-   `propheticfools.com` and `d12ball.com` are as they were.
+   `d12ball.com`, `play.d12ball.com` and `propheticfools.com` are as
+   they were.
 7. **Restart fool-bot** (`update_main_bot.ps1`); its log says the games
    are published, or names the missing variable.
 
@@ -625,18 +647,45 @@ the Codex site's checklist ([design/pbd-site.md](design/pbd-site.md),
 Step 6 of docs/d12ball-pbd-site.md.
 
 Write the checklist into docs/design/d12ball-pbd-site.md, "Deploying",
-with the address the project was given, as docs/design/pbd-site.md's is
-written. Nothing else; the dashboard half is the author's.
+as docs/design/pbd-site.md's is written.
+
+Link the site from d12ball.com (decision 2): read
+docs/design/landing-pages.md at "The D12 Ball page" and "Redirects", and
+add a link to https://pbd.d12ball.com on the D12 Ball page, worded as
+the address it opens, as the page's other links are. Build the site
+(python3 scripts/build_landing.py --only d12ball) and look at it at
+desktop and phone widths; tests/test_landing_build.py stays green. The
+landing site's own rules hold: no rule worded, nothing drawn.
+
+The dashboard half is the author's; the link lands only once the site
+answers, so this step's PR merges after the checklist has been run.
 ```
 
-### 7. The old plays, from the pins (optional)
+### 7. Look back once
 
-Only if the author wants the games already played before the site went
-live to have a history (question 5). The pins hold boards with a one-line
+```text
+Step 7 of docs/d12ball-pbd-site.md. Read docs/design/codex.md at "What
+the two games share".
+
+Compare cogs/codex_publish/ with cogs/d12ball_publish/. What turned out
+the same apart from names -- most likely the queue's machinery, the
+record's file handling, the config reader, serve_pbd.py's server, and
+the pins' reading, which step 8 then writes against --
+moves to botkit/publish/ (it knows neither game), each package keeping
+its own names by re-export, both sites' tests unchanged. What differs by
+game stays each game's. Byte for byte what each bucket receives is
+unchanged; the queue tests of both prove it. If less than a module's
+worth is shared, say so and move nothing.
+```
+
+### 8. The old plays, from the pins
+
+The last step (decision 15): every game played before the site went
+live gets a history from its pins. The pins hold boards with a one-line
 caption and no log, so an imported play is its board and that line.
 
 ```text
-Step 7 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
+Step 8 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
 old turns".
 
 On startup, after step 4's publish, for every game on the site whose
@@ -651,48 +700,27 @@ good, as on the Codex site. One channel at a time, behind the queue,
 never during a click; the requests counted at INFO.
 ```
 
-### 8. Look back once
+## Questions the author answered
 
-```text
-Step 8 of docs/d12ball-pbd-site.md. Read docs/design/codex.md at "What
-the two games share".
+Raised in this worksheet's review and answered on 2026-10-17.
 
-Compare cogs/codex_publish/ with cogs/d12ball_publish/. What turned out
-the same apart from names -- most likely the queue's machinery, the
-record's file handling, the config reader and serve_pbd.py's server --
-moves to botkit/publish/ (it knows neither game), each package keeping
-its own names by re-export, both sites' tests unchanged. What differs by
-game stays each game's. Byte for byte what each bucket receives is
-unchanged; the queue tests of both prove it. If less than a module's
-worth is shared, say so and move nothing.
-```
+1. **Which games go on the site**: every D12 Ball game, though its
+   channel is private (decision 3).
+2. **The address**: `pbd.d12ball.com` (decision 1), not a subdomain of
+   `propheticfools.com`.
+3. **Unlisted or linked**: linked from `d12ball.com` (decision 2).
+4. **The coaches' Discord names**: fine (decision 12).
+5. **The games already played**: imported from the pins, as the last
+   step (decision 15).
+6. **The web app's games**: not on this site; it is separate
+   (decision 16).
 
-## Questions for the author
+## The question still open
 
-1. **Which games go on the site?** A D12 Ball game's channel is private
-   to its coaches. Proposed: every started game but a tutorial, with no
-   opt-out (decision 3). The alternatives are a setting on
-   `/d12ball create_game` (published by default, or not), or only games
-   whose coaches both agree. A game against Dinky is proposed in.
-2. **The subdomain's name.** Proposed `games.propheticfools.com`. Others:
-   `pbd.propheticfools.com` (the bot's own word, but jargon on the
-   studio's site), `live.propheticfools.com`, `d12ball.propheticfools.com`.
-   `play.d12ball.com` is the web app's and is not a candidate.
-3. **Unlisted, or linked from the studio page?** Proposed unlisted until
-   the author has seen it running, then a link from the D12 Ball card on
-   `propheticfools.com` and the `noindex` dropped, if wanted.
-4. **The coaches' Discord display names on the studio's domain.** The
-   Codex site names players this way on `pages.dev` (the author,
-   2026-10-16). On the studio's own domain, with private channels behind
-   it, is that still fine?
-5. **The games already played**: imported from the pins as boards with
-   their one-line captions (step 7), or the site starting from the day it
-   goes live, with older games in the archive with their final board only?
-6. **The web app's own games** (`play.d12ball.com`) are not on this site;
-   the web app has its own `/archive`. Should this site list them too, in
-   a later step? That would be the one place the two systems meet, which
-   [docs/web-app-next.md](web-app-next.md) has so far kept to the
-   statistics alone.
+1. **Search engines.** The site is linked from `d12ball.com`; should its
+   pages be indexed? The worksheet keeps the Codex site's `noindex` until
+   the author says otherwise -- coaches' Discord names on a page a search
+   engine files are one step further than a page a link opens.
 
 ## What is not in these prompts, on purpose
 
@@ -705,4 +733,5 @@ worth is shared, say so and move nothing.
 - **Per-maneuver history.** Decision 5 leaves room for it.
 - **Statistics.** `d12ball/stats.py` reads the event log for
   `/d12ball stats`; a page of them is a later step if wanted.
-- **Who is looking.** No sign-in; unlisted, not private.
+- **The web app's games.** Decision 16.
+- **Who is looking.** No sign-in; linked, not private.
