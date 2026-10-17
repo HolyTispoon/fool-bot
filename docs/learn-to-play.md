@@ -23,11 +23,11 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 ![Figure 1 - The field at kickoff](rulebooks/figures/fig-01-the-field.png)
 
-**The zones.** The field is a row of spaces, numbered 1 to 7 from the home end, in three zones: the Home Zone (spaces 1-2), Midfield (spaces 3-5) and the Visitors Zone (spaces 6-7). Beyond each end is a goal zone, the Home Goal on the left and the Visitors Goal on the right: nobody ever stands in one, but the ball can reach it. Home attacks the Visitors Goal and the visitors attack the Home Goal, so *forward* and *back* point opposite ways for the two coaches. Any number of players may stand on one space. *(Law 2.1, 2.2)*
+**The zones.** The field is a row of spaces, numbered like a number line: 0 in the middle, −1 to −3 toward the home end and 1 to 3 toward the visitors'. They are in three zones: the Home Zone (spaces −3 and −2), Midfield (spaces −1, 0 and 1) and the Visitors Zone (spaces 2 and 3). Beyond each end is a goal zone, the Home Goal on the left and the Visitors Goal on the right: nobody ever stands in one, but the ball can reach it. Home attacks the Visitors Goal and the visitors attack the Home Goal, so *forward* and *back* point opposite ways for the two coaches. Any number of players may stand on one space. *(Law 2.1, 2.2)*
 
-**Shooting range.** The dashed band under the field. Home may shoot from space 5 onward and the visitors from space 3 back; the middle space, space 4, is in neither range. This is the one time this book says what you cannot do: **you cannot shoot from outside your range.** *(Law 2.3)*
+**Shooting range.** The dashed band under the field. Home may shoot from space 1 onward and the visitors from space −1 back; the middle space, space 0, is in neither range. This is the one time this book says what you cannot do: **you cannot shoot from outside your range.** *(Law 2.3)*
 
-**The kickoff space** is space 4. Both sides kick off from it on this board. *(Law 2.4)*
+**The kickoff space** is space 0. Both sides kick off from it on this board. *(Law 2.4)*
 
 **The players.** Every player has an **offensive skill** and a **defensive skill**, printed on their card, and the two always total 7. Every player has a **role**, and every role has one ability -- the Fullback throws a longer pass, the Striker adds 3 to a shot off a set-up. The role table is on the back page. *(Law 2.6)*
 
@@ -37,7 +37,7 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 1. Choose the 7-space board and flip the coin: a fortune face wins the toss, and the winner picks home or the visitors. *(Law 3.1)*
 2. Deal both sides 2-2-2, exactly as Figure 1 shows.
-3. Put the ball on space 4 showing **1** -- that is its speed -- in home's hands, and the clock marker on 00. *(Law 3.4)*
+3. Put the ball on space 0 showing **1** -- that is its speed -- in home's hands, and the clock marker on 00. *(Law 3.4)*
 4. Skip the setup Coaching Choice for your first game. The Charter offers one before kickoff *(Law 3.3)*; you will meet it on page 11.
 
 
@@ -70,11 +70,11 @@ The board is set up as in Figure 1. You play home, purple. A friend, or your oth
 
 ### Turn 1: Dribble beats Deflect
 
-Your Playmaker, Emberdash, is on the ball at space 4, with the visitors' Playmaker standing on the same space -- so they challenge. **You play Dribble. The visitors play Deflect.**
+Your Playmaker, Emberdash, is on the ball at space 0, with the visitors' Playmaker standing on the same space -- so they challenge. **You play Dribble. The visitors play Deflect.**
 
 ![Figure 5 - Beat 1](rulebooks/figures/fig-05-beat-1.png)
 
-Dribble beats Deflect on rank alone, so nothing is rolled. Your Playmaker carries the ball forward -- **two spaces**, space 4 to space 6, which is the Playmaker's own ability; anyone else moves one -- and then sets the ball's speed by up to their offensive skill. Pick any speed you like this turn; it will not survive to matter. *(Law 6.6, 2.6)*
+Dribble beats Deflect on rank alone, so nothing is rolled. Your Playmaker carries the ball forward -- **two spaces**, space 0 to space 2, which is the Playmaker's own ability; anyone else moves one -- and then sets the ball's speed by up to their offensive skill. Pick any speed you like this turn; it will not survive to matter. *(Law 6.6, 2.6)*
 
 You are standing in your shooting range now, so next turn a shot would be offered.
 
@@ -84,39 +84,39 @@ You are standing in your shooting range now, so next turn a shot would be offere
 
 ![Figure 6 - Beat 2](rulebooks/figures/fig-06-beat-2.png)
 
-The visitors' Deflect knocks the ball **one space back** for you, from space 6 to space 5 -- and their Midfielder is already standing on space 5. A ball that lands on one side's players is simply theirs: no roll, and never loose. *(Law 6.8, 10.1)*
+The visitors' Deflect knocks the ball **one space back** for you, from space 2 to space 1 -- and their Midfielder is already standing on space 1. A ball that lands on one side's players is simply theirs: no roll, and never loose. *(Law 6.8, 10.1)*
 
-That is a **turnover**, and a turnover by steal makes everyone outside their own zone **run back**: your Playmaker walks from space 6 to space 4 and exhausts 2, one for each space. The ball's speed resets to 1. *(Law 12.4)*
+That is a **turnover**, and a turnover by steal makes everyone outside their own zone **run back**: your Playmaker walks from space 2 to space 0 and exhausts 2, one for each space. The ball's speed resets to 1. *(Law 12.4)*
 
 > A ball only comes **loose** when it lands on an empty space. Page 12 shows all three cases.
 
 ### Turn 3: a challenger is sent, and Pressure beats Dribble
 
-The visitors have the ball on space 5 and nobody of yours is standing there, so before they play you are asked to **send a challenger**: your Playmaker on space 4 or your Winger on space 6, one space and exhaust 1 either way. Send the Playmaker. **The visitors play Dribble. You play Pressure.**
+The visitors have the ball on space 1 and nobody of yours is standing there, so before they play you are asked to **send a challenger**: your Playmaker on space 0 or your Winger on space 2, one space and exhaust 1 either way. Send the Playmaker. **The visitors play Dribble. You play Pressure.**
 
 ![Figure 7 - Beat 3](rulebooks/figures/fig-07-beat-3.png)
 
-Pressure beats Dribble. Their handler and the ball are **shoved one space back** for them, to space 6, and your challenger moves forward onto the same space. Possession does not change -- they still have the ball -- but they have lost ground, and you are standing on it. *(Law 6.10, Law 9)*
+Pressure beats Dribble. Their handler and the ball are **shoved one space back** for them, to space 2, and your challenger moves forward onto the same space. Possession does not change -- they still have the ball -- but they have lost ground, and you are standing on it. *(Law 6.10, Law 9)*
 
 > Push a handler who is already on their last space and the ball reaches their own goal zone: they roll to avoid an **own goal** *(Law 11)*.
 
 ### Turn 4: Steal beats Pass, and everyone runs back
 
-The visitors' Midfielder has the ball on space 6 with your Playmaker and Winger standing on it, so one of yours challenges; choose the Playmaker. **The visitors play Pass. You play Steal.**
+The visitors' Midfielder has the ball on space 2 with your Playmaker and Winger standing on it, so one of yours challenges; choose the Playmaker. **The visitors play Pass. You play Steal.**
 
 ![Figure 8 - Beat 4](rulebooks/figures/fig-08-beat-4.png)
 
-Steal beats Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to space 5. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to space 5 and exhausts 2. *(Law 6.9, 12.1, 12.4)*
+Steal beats Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to space 1. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to space 1 and exhausts 2. *(Law 6.9, 12.1, 12.4)*
 
 Last, the stealer **sets the ball's speed**, up or down by up to their defensive skill. Take the most: 1 + 3 = **4**. The speed is added to a shot -- speed 4 is worth **+4** on the one you are about to take. *(Law 6.9, 7.1)*
 
 ### Turn 5: a 2-space High Ball sets up the shot
 
-Your Playmaker has the ball on space 5, in range, with the visitors' Midfielder standing on it to challenge. **You play High Ball. The visitors play Steal.** High Ball beats Steal.
+Your Playmaker has the ball on space 1, in range, with the visitors' Midfielder standing on it to challenge. **You play High Ball. The visitors play Steal.** High Ball beats Steal.
 
 ![Figure 9 - Beat 5](rulebooks/figures/fig-09-beat-5.png)
 
-You are asked how far to throw: **2 spaces** lands on space 7, where your Striker has been standing all game. A pass of exactly 2 is caught cleanly; a pass of 3 or more has to be won by the receiver. And a catch inside shooting range is a **scoring opportunity**: the Striker shoots at once, out of turn, and the Striker's ability adds 3 to exactly that shot. *(Law 6.7, 8.1, 8.3)*
+You are asked how far to throw: **2 spaces** lands on space 3, where your Striker has been standing all game. A pass of exactly 2 is caught cleanly; a pass of 3 or more has to be won by the receiver. And a catch inside shooting range is a **scoring opportunity**: the Striker shoots at once, out of turn, and the Striker's ability adds 3 to exactly that shot. *(Law 6.7, 8.1, 8.3)*
 
 **Roll the shot.** Attack: d12 + 6 (the Striker's skill) + 3 (a Striker off a set-up) + 4 (ball speed 4). Defense: d12 + 6 -- the visitors' Fullback is standing on the ball and adds their whole defensive skill. **The attack has to be higher; a tie is a miss.** About nine times in ten, that is a goal. *(Law 5.2, 5.3)*
 

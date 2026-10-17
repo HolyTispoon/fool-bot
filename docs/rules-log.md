@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-16.
+**As of:** 2026-10-17.
 
 ## Where the rules come from
 
@@ -154,6 +154,29 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-17 -- author, a space is numbered like a number line
+
+**A name changed, nothing else.** The author: *"I want the numbering system to be zero in the
+middle and then positive numbers going to the right and negative numbers going to the left. So
+it's like the numbers line. For the nine space board, it'll be zero is the kickoff space, and
+then the others are 1, 2, 3. And for the 10 space board, it will be, there will be no space with
+the zero. It'll just be the kickoff line right in the middle. It will be the half court line.
+And then the numbers go in each direction. 1, 2, 3, 4, 5, -1, -2, -3, -4, -5. This is for both
+[D12 Ball] 1.0 and 2.0."* In the same message: *"I want it to be large number in the middle of
+each space rather than small number hiding in the corner."*
+
+- **Law 2.1.3** names a space by its place on that line: board 7 runs −3 to 3 and board 9 −4
+  to 4, the kickoff space being space 0; board 10's middle is the **halfway line** between its
+  two kickoff spaces, so it has no space 0 and runs −5 to −1 and 1 to 5. The author named the
+  9- and 10-space boards; board 7 follows the same rule, its kickoff space 0.
+- Every Law that named a space by its old number says the new one -- 2.1.4 (the goal zones
+  beyond the first and the last space), 2.4.1 (board 10 kicks off from −1 and 1), 3.2.2 and the
+  figure note beside it (the deal on boards 9 and 10) -- and the Learn to Play, the tutorial's
+  lessons and the rulebook figures' notes with them. Where every space is, who stands where and
+  every distance are unchanged; only what a space is called moved.
+- **Negative numbers take the minus sign** ("−2"), never the hyphen, which joins a range.
+- Applies to 1.0 and 2.0 alike: `docs/rules-2.0.md` names no space by number, so it is unchanged.
 
 ### 2026-10-16 -- sheet and author, Low Pass is Pass and High Pass is High Ball
 
