@@ -16,14 +16,17 @@ or a game moves between the lists:
 - `head_noted`: the turn's first lines, as the cog notes them;
 - `game_over`: a game finished or abandoned, with its last board;
 - `dropped`: games `/codex admin reset_channels` forgot;
-- `start`: the startup publish, as a task off `cog_load`.
+- `start`: the startup publish, as a task off `cog_load`, and after it
+  the old turns' import from the pins (`import_old_turns`).
 
 Each hook changes the publisher's record at once -- the lines are the
 cog's at that moment, and some are gone a line later -- and leaves the
 rest to the game's own task: drawing a board where the hook had none,
 saving the record, and naming the game to the queue. **Nothing raises
 out of a hook, and no hook awaits anything**, so publishing never fails
-or slows a click, and spends no Discord request.
+or slows a click, and spends no Discord request. The only Discord
+requests the publisher makes are the old turns' import's: once a game,
+at startup, behind the queue.
 
 **The lines after a restart.** `Codex.turn_lines` is in memory, so a
 restarted process has not seen the current turn's lines; where it then
@@ -37,14 +40,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Callable, Iterable, Optional
+
+import discord
 
 from codex.components import MatchState
 from codex.formatting import turn_heading
 from codex.game import GameStatus
 from cogs.codex_helpers import TOKEN_EMOJI
-from cogs.codex_publish import keys, shapes
+from cogs.codex_publish import keys, pins, shapes
 from cogs.codex_publish.queue import ENDED, PublishQueue
 from cogs.codex_publish.record import PublishedGame, PublishRecord
 from gamekit.storage import PROJECT_ROOT
@@ -59,6 +65,9 @@ LOGGER = logging.getLogger(__name__)
 #: (`TOKEN_EMOJI`'s files).
 EMOJI_FOLDER = PROJECT_ROOT / "codex" / "images" / "emoji"
 
+#: The most pins one listing hands back (Discord's cap on the endpoint).
+PIN_PAGE = 50
+
 
 def now() -> str:
     """When a game last changed: ISO 8601 in UTC, to the second."""
@@ -69,7 +78,8 @@ class Publisher:
     """
     One per cog, over the cog's games, its turn's lines and its board
     renderer. `cog` is read for `games`, `turn_lines`, `turn_heads`,
-    `service` and `render_match_png` and nothing else.
+    `service` and `render_match_png` and nothing else -- and `bot`, by
+    the old turns' import alone.
     """
 
     def __init__(self, cog, store: "ObjectStore", record: Optional[PublishRecord] = None, *,
@@ -283,12 +293,17 @@ class Publisher:
 
     def _owe(self, game_id: str, boards: Iterable[bytes], draw: bool = False) -> None:
         self._changes[game_id] = self._changes.get(game_id, 0) + 1
-        self._boards.setdefault(game_id, []).extend(boards)
         if draw:
             self._draw.add(game_id)
         else:
             # The board handed over is the newest: nothing to draw.
             self._draw.discard(game_id)
+        self._owe_send(game_id, boards)
+
+    def _owe_send(self, game_id: str, boards: Iterable[bytes]) -> None:
+        """The game owes a send, with `boards` handed over -- and no
+        change to its current board, so a drawing under way stands."""
+        self._boards.setdefault(game_id, []).extend(boards)
         self._owed.add(game_id)
         if game_id not in self._tasks:
             self._tasks[game_id] = asyncio.create_task(self._run(game_id))
@@ -357,6 +372,143 @@ class Publisher:
             self.queue.lists_changed()
         except Exception:
             LOGGER.exception("Could not publish the Codex games at startup.")
+        try:
+            await self._settled()
+            await self.import_old_turns()
+        except Exception:
+            LOGGER.exception("Could not import the Codex games' old turns from their pins.")
+
+    async def _settled(self) -> None:
+        """Wait until the games' tasks and the queue are idle: the
+        import goes behind what the startup publish sent."""
+        while self._tasks and not self._closed:
+            await asyncio.gather(*self._tasks.values(), return_exceptions=True)
+        await self.queue.drain()
+
+    # -- The old turns, from the pins ---------------------------------------
+
+    async def import_old_turns(self) -> None:
+        """
+        Every game on the site whose import has not run -- being played,
+        finished or abandoned, every one the bot has and not only the
+        ones the record already had -- gets the turns its channel's pins
+        hold before the earliest the record has: one channel at a time,
+        its pins listed once for every game in it (a Rematch's earlier
+        game, or several `here` games, share one).
+        """
+        bot = self.cog.bot
+        await bot.wait_until_ready()
+        bot_id = bot.user.id
+        owed: dict[Optional[int], list["CodexGame"]] = defaultdict(list)
+        for game in self.cog.games.values():
+            if not shapes.on_site(game) or game.status not in (GameStatus.PLAYING, *ENDED):
+                continue
+            published = self.record.games.get(game.game_id)
+            if published is None or not published.imported:
+                owed[game.channel_id].append(game)
+        for channel_id, games in owed.items():
+            if self._closed:
+                return
+            if channel_id is None:
+                self._imported(games, {})
+                continue
+            await self._import_channel(bot, bot_id, channel_id, games)
+
+    async def _import_channel(self, bot, bot_id: int, channel_id: int,
+                              games: list["CodexGame"]) -> None:
+        requests = 0
+        numbers = ", ".join(f"#{game.game_number}" for game in games)
+        try:
+            channel = bot.get_channel(channel_id)
+            if channel is None:
+                # An archived thread is not in the cache.
+                requests += 1
+                channel = await bot.fetch_channel(channel_id)
+            pinned = []
+            before = None
+            while True:
+                requests += 1
+                page = [message async for message in channel.pins(limit=PIN_PAGE, before=before)]
+                pinned.extend(page)
+                before = page[-1].pinned_at if page else None
+                if len(page) < PIN_PAGE or before is None:
+                    break
+        except (discord.NotFound, discord.Forbidden) as error:
+            # Gone, or not the bot's to read: there is nothing to import,
+            # and nothing a later start would find.
+            LOGGER.info("No old turns to import for Codex games %s: their channel %s cannot be "
+                        "read (%s); %d requests.", numbers, channel_id, type(error).__name__,
+                        requests)
+            self._imported(games, {})
+            return
+        except discord.HTTPException as error:
+            LOGGER.warning("Could not list the pins of channel %s for Codex games %s: %s; the next "
+                           "start tries again.", channel_id, numbers, error)
+            return
+        pinned.sort(key=lambda message: message.id)
+
+        found: dict[str, list[pins.PinnedTurn]] = {}
+        boards: dict[str, list[bytes]] = {}
+        for game in games:
+            turns: dict[int, pins.PinnedTurn] = {}
+            for message in pinned:
+                turn = pins.read_turn(message, game, bot_id)
+                if turn is not None:
+                    # A turn pinned twice -- an undo to it, played again --
+                    # is its later pin.
+                    turns[turn.turn] = turn
+            limit = self._earliest(game.game_id)
+            kept = [turns[turn] for turn in sorted(turns) if limit is None or turn < limit]
+            try:
+                read = []
+                for turn in kept:
+                    requests += 1
+                    read.append(await turn.board.read())
+            except (discord.HTTPException, OSError) as error:
+                LOGGER.warning("Could not download a pinned board of Codex game #%s: %s; the next "
+                               "start tries again.", game.game_number, error)
+                continue
+            found[game.game_id] = kept
+            boards[game.game_id] = read
+        self._imported([game for game in games if game.game_id in found], found, boards)
+        LOGGER.info("Read the pins of channel %s for Codex games %s: %d old turns imported, "
+                    "%d requests.", channel_id, numbers,
+                    sum(len(kept) for kept in found.values()), requests)
+
+    def _earliest(self, game_id: str) -> Optional[int]:
+        """The earliest turn the record holds -- its history's first, or
+        the current turn's -- before which the pins are imported."""
+        published = self.record.games.get(game_id)
+        if published is None:
+            return None
+        held = [entry["turn"] for entry in published.history if isinstance(entry.get("turn"), int)]
+        if published.turn is not None:
+            held.append(published.turn)
+        return min(held, default=None)
+
+    def _imported(self, games: list["CodexGame"], found: dict[str, list["pins.PinnedTurn"]],
+                  boards: Optional[dict[str, list[bytes]]] = None) -> None:
+        """Write each game's pinned turns before the earliest the record
+        holds now -- a turn may have ended while the boards downloaded --
+        and mark its import done."""
+        for game in games:
+            if self.cog.games.get(game.game_id) is not game:
+                # Dropped while its pins were read.
+                continue
+            published = self.record.game(game.game_id)
+            limit = self._earliest(game.game_id)
+            entries = [
+                ({"turn": turn.turn, "heading": turn.heading, "lines": turn.lines,
+                  "board": keys.board_key(game.game_id, board)}, board)
+                for turn, board in zip(found.get(game.game_id, []),
+                                       (boards or {}).get(game.game_id, []))
+                if limit is None or turn.turn < limit
+            ]
+            published.imported = True
+            if entries:
+                published.history = [entry for entry, _ in entries] + published.history
+                published.history_version += 1
+            self._owe_send(game.game_id, [board for _, board in entries])
 
     async def _put_emoji(self) -> None:
         for name in sorted(set(TOKEN_EMOJI.values())):
