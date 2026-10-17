@@ -27,7 +27,11 @@ class BoardViewer {
     frame.addEventListener("pointermove", (event) => this.move(event));
     frame.addEventListener("pointerup", (event) => this.up(event));
     frame.addEventListener("pointercancel", (event) => this.up(event));
-    frame.addEventListener("dblclick", (event) => this.toggle(this.point(event)));
+    // A double click on a zoom button is two zooms, never fit and full size.
+    frame.addEventListener("dblclick", (event) => {
+      if (event.target.closest("button")) return;
+      this.toggle(this.point(event));
+    });
     frame.addEventListener("keydown", (event) => this.key(event));
     new ResizeObserver(() => this.resized()).observe(frame);
   }
@@ -46,6 +50,8 @@ class BoardViewer {
       this.keep = next.naturalWidth === this.image.naturalWidth && !this.fitted;
       this.image.src = src;
     };
+    // A board that did not load is asked for again on the next poll.
+    next.onerror = () => { if (this.wanted === src) this.wanted = null; };
     next.src = src;
   }
 

@@ -14,8 +14,9 @@ const GAME_POLL = 15 * 1000;
 const LIST_POLL = 60 * 1000;
 const LOG_HIDDEN = "codex-pbd-log-hidden";
 
-// What a game's mode and variant are called: codex/game.py's VARIANT_LABELS,
-// held to it by tests/test_pbd_site.py.
+// What a game's mode and variant are called: cogs/codex_views/lobby.py's
+// MODE_LABELS and codex/game.py's VARIANT_LABELS, held to both by
+// tests/test_pbd_site.py.
 const MODE_LABELS = { basic: "Basic game", standard: "Standard game" };
 const VARIANT_LABELS = {
   duel: "Duel",
@@ -100,7 +101,11 @@ function sidesNode(entry) {
   const node = element("span", "sides");
   const sides = entry.sides && entry.sides.length ? entry.sides : entry.seats.map((seat) => [seat.seat]);
   sides.forEach((side, index) => {
-    if (index > 0) node.append(element("span", "versus", " vs "));
+    // A free-for-all's seats are a list, as /codex games names them; a duel's
+    // and a dragon's two sides are one against the other.
+    if (index > 0) {
+      node.append(entry.variant === "free_for_all" ? ", " : element("span", "versus", " vs "));
+    }
     seatNames(entry, side).forEach((seat, at) => {
       if (at > 0) node.append(" and ");
       node.append(element("span", "player", seat.name));
@@ -248,9 +253,11 @@ class GamePage {
 
   async refresh() {
     const live = await fetchData(`codex/games/${this.id}/live.json`);
+    // Not final: a list can name a game before its first live.json is up,
+    // and a deploy can miss a poll. So the page keeps asking.
     if (live === null) {
-      say("This game is not on the site.");
-      return false;
+      say("This game is not on the site (yet).");
+      return true;
     }
     this.live = live;
     this.showGame(live);

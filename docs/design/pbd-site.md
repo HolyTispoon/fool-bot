@@ -416,12 +416,15 @@ framework") and a page anyone can open should call no other host.
   turns newest first, each its heading, its lines and its board as a
   thumbnail that opens in the viewer under a caption with **Back to the
   current board**. While an old board is open, a new current board is
-  fetched but not swapped in.
+  neither fetched nor swapped in until **Back to the current board**.
 - **Polling** is `live.json` every 15 seconds while the tab is visible,
   stopped while it is hidden and taken up again when it shows; the board is
   fetched only when its key changes, and `history.json` only when
   `history_version` does. A game that is no longer `playing` says how it
-  ended and stops polling. The browser revalidates the JSON with its
+  ended and stops polling. A `404` is not final: the lists are on a queue
+  of their own, so `index.json` can name a game before its first
+  `live.json` is up, and a deploy can miss a poll -- the page says the game
+  is not on the site yet and keeps asking. The browser revalidates the JSON with its
   `ETag` on its own, since the objects are `no-cache`.
 - **Every line is built with `textContent`** from its segments (`codex.js`,
   `segmentNode`): a name, a card and a glyph each a node, bold and italic
@@ -429,8 +432,10 @@ framework") and a page anyone can open should call no other host.
   with its `alt`, and its word where the picture does not load. No file
   under `pbd/public/` uses `innerHTML` (the test).
 - **What a mode and a variant are called** is a copy in `codex.js` of
-  `codex/game.py`'s `VARIANT_LABELS`, held to it by the test: three words
-  are not worth a field in every list entry.
+  `cogs/codex_views/lobby.py`'s `MODE_LABELS` and `codex/game.py`'s
+  `VARIANT_LABELS`, held to both by the test: five words are not worth a
+  field in every list entry. A free-for-all's seats are joined with ", ",
+  a duel's and a dragon's sides with " vs ", as `/codex games` joins them.
 - **The look is the night palette's values**, typed into `codex.css`'s
   `:root` from `box_art.NIGHT_COVER`: this is not the landing build, so it
   borrows the values rather than the generated `colours.css`.
@@ -446,7 +451,7 @@ framework") and a page anyone can open should call no other host.
 transform on the picture. The wheel (a trackpad's pinch is a wheel with
 `ctrlKey`) and a two-finger pinch zoom toward the pointer; a drag pans; a
 double click or a double tap switches between fit and full size about the
-point; the **-**, **Fit** and **+** buttons and the `+`, `-` and `0` keys do
+point (never one on a button, so a fast **+ +** is two zooms); the **-**, **Fit** and **+** buttons and the `+`, `-` and `0` keys do
 the same. The zoom runs from the smaller of fit and full size to twice
 full size or the fit, whichever is larger: the picture's own pixels are the
 limit. A board narrower than the frame sits in its middle; a wider one
@@ -459,7 +464,8 @@ the table (a row of units more, measured 1986 against 2362 pixels in one
 staged game), and refitting on that would throw the viewer's zoom away most
 turns. A new width is **Swap view** between stacked and side by side, a new
 picture, and is fitted afresh. The new picture is loaded off screen and
-swapped in whole, so the viewer never shows half a board.
+swapped in whole, so the viewer never shows half a board; one that fails
+to load is asked for again on the next poll.
 
 ### The Function
 

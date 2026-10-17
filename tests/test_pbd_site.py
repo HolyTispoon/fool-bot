@@ -15,7 +15,8 @@ import re
 import unittest
 from pathlib import Path
 
-from codex.game import VARIANT_LABELS, VARIANTS
+from codex.game import MODES, VARIANT_LABELS, VARIANTS
+from cogs.codex_views.lobby import MODE_LABELS
 from cogs.codex_publish import keys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -73,8 +74,10 @@ class FilesTests(unittest.TestCase):
         for name in ("codex.js", "viewer.js"):
             self.assertNotIn("innerHTML", (PUBLIC / name).read_text(encoding="utf-8"), name)
 
-    def test_the_variants_are_named_as_the_game_names_them(self):
+    def test_modes_and_variants_are_named_as_the_bot_names_them(self):
         text = (PUBLIC / "codex.js").read_text(encoding="utf-8")
+        for mode in MODES:
+            self.assertIn(f'{mode}: "{MODE_LABELS[mode]}"', text)
         for variant in VARIANTS:
             self.assertIn(f'{variant}: "{VARIANT_LABELS[variant]}"', text)
 

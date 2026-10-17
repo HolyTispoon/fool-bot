@@ -133,6 +133,11 @@ def make_app(data: Path):
             if request.headers.get("If-None-Match") == etag:
                 return web.Response(status=304, headers=sent)
             return web.Response(body=body, headers=sent)
+        # Pages serves a page at its name without .html and redirects the
+        # .html name there; /index.html is /.
+        if path.endswith(".html"):
+            bare = path[:-len(".html")]
+            raise web.HTTPPermanentRedirect(bare[:-len("index")] if bare.endswith("/index") else bare)
         found = static_file(path)
         if found is None:
             return web.Response(status=404, text="Not found", headers=extra)
@@ -141,7 +146,8 @@ def make_app(data: Path):
                                      "Cache-Control": "no-cache"})
 
     app = web.Application()
-    app.router.add_route("GET", "/{tail:.*}", serve)
+    # GET and HEAD, as the Function answers both.
+    app.router.add_get("/{tail:.*}", serve)
     return app
 
 
