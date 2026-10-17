@@ -148,11 +148,11 @@ the case the width was chosen for is gone, so `COACHING_WIDTH`'s note now
 states the meeple it does fit. Widening the image, or shrinking the tokens in
 a stacked space, is an open rendering question rather than a regression.
 
-**The cards and the two benches are on it for a reason.** Exhaustion counts and
-the Exhausted and Injured badges are drawn nowhere else, and which pool a
-player is in is the whole of who may come on -- so without them the flow would
-be asking a coach to remember numbers off a board they cannot see while the
-menu is up.
+**The cards and the two benches are on it for a reason.** The Exhausted and
+Injured badges are drawn nowhere else, nor a benched player's exhaustion count,
+and which pool a player is in is the whole of who may come on -- so without
+them the flow would be asking a coach to remember numbers off a board they
+cannot see while the menu is up.
 
 **A card carries its player's species icon, stacked under the role initials
 on the stats row** -- the same pairing a meeple makes (below), so a coach
@@ -272,6 +272,42 @@ question is where the ball is lying, was the one thing the board did not show.
 With nobody of that side there it is centred in the space instead. The suite
 cannot see the image, so `D12BallComponentTests` asserts the placement rule
 rather than the pixels.
+
+## Exhaustion on the meeples
+
+**A meeple carries its exhaustion count, as the web page's does** (the
+author, 2026-10-17). Before, the count was on the cards alone, under the
+board, and a coach reading the field had to match a piece to its card to
+know who was tired; the web page has drawn it on the piece since its
+redesign. Every board image draws it -- the match image, the field strip
+(it is the same `draw_board`) and a coach's half -- through
+`draw_meeple_group`, so there is no image a meeple is drawn on without it.
+
+- **It is the web page's badge, scaled, not a second design**: the token
+  and the count in one dark pill off the piece's bottom right
+  (`badges` in `webapp/static/app.js`, `.badge.tokens` in `app.css`),
+  every size multiplied from the page's 50px meeple to this one's 76px
+  and placed at the page's own shares of the piece (`MEEPLE_BADGE_*`).
+  The count is drawn at 1 too, as the page draws it.
+- **A Cyborg's is the teal token**, picked by `cyborg_ids` as the card
+  picks it, so every renderer takes the ids now -- the field strip
+  included, which used to need none. The suite checks each cog render
+  passes `cyborg_condition_ids`, since the default draws the amber token
+  and nothing else would notice.
+- **Drawn after the whole row**, because a badge runs past its own piece
+  onto the next one, which would otherwise be painted over it.
+- **It moves left, never over something.** The home row has the ball
+  tucked against its right (`ball_token_x`), so its last badge ends
+  clear of the ball; every other badge stops at the space's frame. The
+  web page has its own answer for its own ball, which sits elsewhere.
+- **The conditions stay on the cards.** The page also tags Exhausted and
+  Injured off a piece's bottom left; this does not, yet -- the count was
+  what was asked for, and the bottom left is where the home row's
+  neighbour stands closest.
+- **The badge clips the foot of the role initials**, as it does on the
+  page at the same shares. Moving it lower runs it into the names under
+  the row, which start 7px under the piece; it is left at the page's
+  position so the two pictures agree.
 
 ## The web page's board
 

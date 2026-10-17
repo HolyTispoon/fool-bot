@@ -102,6 +102,7 @@ from d12ball.render import (
     VISITING_MEEPLE_TOP,
     PORTRAIT_IMAGE_SIZE,
     ball_token_x,
+    meeple_badge_box,
     fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
@@ -1568,6 +1569,97 @@ class D12BallComponentTests(unittest.TestCase):
                     )
                     seen += 1
         self.assertEqual(seen, 3)
+
+    def test_every_cog_render_says_who_draws_a_cyborgs_marks(self) -> None:
+        # Every board image now draws an exhaustion count on the
+        # meeples, field strip included, and the default is nobody --
+        # so a render site that forgets the ids draws a Cyborg's teal
+        # drain as the amber exhaustion token on the field while its
+        # card says otherwise. Nothing else in the suite can see that.
+        renderers = (
+            "render_match_image", "render_field_image",
+            "render_coaching_image",
+        )
+        expected = "cyborg_ids=self.engine.cyborg_condition_ids(game, match)"
+        seen = 0
+        for path in Path("cogs").glob("**/*.py"):
+            source = path.read_text()
+            for renderer in renderers:
+                for index in [
+                    m.end() for m in re.finditer(
+                        rf"to_thread\(\s*{renderer},", source,
+                    )
+                ]:
+                    call = source[index:source.index("\n        )", index)]
+                    self.assertIn(
+                        expected, call,
+                        f"{path}: {renderer} is called without the ids",
+                    )
+                    seen += 1
+        self.assertEqual(seen, 3)
+
+    def test_a_meeples_exhaustion_badge_stays_clear_of_ball_and_frame(
+        self,
+    ) -> None:
+        # The badge sits off the piece's bottom right, as the web
+        # page's does, and runs past the piece -- so where something
+        # is in the way it moves left rather than over it: the ball
+        # tucked against a home row's right, or the space's frame. The
+        # suite cannot see the image, so this checks the placement.
+        draw = ImageDraw.Draw(Image.new("RGBA", (10, 10)))
+        token_x, token_y = 500, 200
+        free = meeple_badge_box(draw, token_x, token_y, 3)
+        self.assertGreater(free[0], token_x + MEEPLE_SIZE / 2)
+        self.assertGreater(free[2], token_x + MEEPLE_SIZE)
+        self.assertLess(free[3], token_y + MEEPLE_SIZE + 7)  # the names
+
+        limit = token_x + MEEPLE_SIZE + 4
+        held = meeple_badge_box(draw, token_x, token_y, 3, limit)
+        self.assertEqual(held[2], limit)
+        self.assertEqual(held[2] - held[0], free[2] - free[0])
+        self.assertEqual(held[1], free[1])
+
+    def test_an_exhausted_meeple_carries_its_count_on_every_board(
+        self,
+    ) -> None:
+        # The count is drawn wherever the meeple is -- the match image,
+        # the field strip cut from it, and a coach's half -- and an
+        # unexhausted piece is drawn exactly as before.
+        catalog = load_player_catalog()
+        match = MatchState.standard(
+            catalog=catalog,
+            ruleset=load_basic_ruleset(),
+            board_size=7,
+            home_team=Team.PURPLE,
+            visiting_team=Team.TEAL,
+        )
+        before = render_field_image(match, catalog).getvalue()
+        before_coaching = render_coaching_image(
+            match, catalog, TeamSide.HOME, "Home",
+        ).getvalue()
+        match.exhaustion[fielded(match, PlayerRole.PLAYMAKER)] = 2
+        self.assertNotEqual(
+            render_field_image(match, catalog).getvalue(), before,
+        )
+        self.assertNotEqual(
+            render_coaching_image(
+                match, catalog, TeamSide.HOME, "Home",
+            ).getvalue(),
+            before_coaching,
+        )
+        # The visitors' half shows none of home's pieces, so nothing
+        # of home's count either.
+        match.exhaustion.clear()
+        visiting_before = render_coaching_image(
+            match, catalog, TeamSide.VISITING, "Visitors",
+        ).getvalue()
+        match.exhaustion[fielded(match, PlayerRole.PLAYMAKER)] = 2
+        self.assertEqual(
+            render_coaching_image(
+                match, catalog, TeamSide.VISITING, "Visitors",
+            ).getvalue(),
+            visiting_before,
+        )
 
     def test_a_loose_ball_is_drawn_inside_its_own_space(self) -> None:
         # A space with none of the possessing side's meeples on it is

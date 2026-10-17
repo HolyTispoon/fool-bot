@@ -143,10 +143,11 @@ COACHING_BOARD_RIGHT = COACHING_WIDTH - 40
 COACHING_BOARD_TOP = 64
 COACHING_BOARD_BOTTOM = COACHING_BOARD_TOP + 250
 # The card rows below the board: each zone's assigned cards under that
-# zone, then the two benches. Cards are the only place exhaustion
-# counts and the Exhausted and Injured badges are drawn, and all three
-# decide what a coach does with this menu, so the flow would be asking
-# them to remember numbers off a board they cannot see otherwise.
+# zone, then the two benches. Cards are the only place the Exhausted
+# and Injured badges are drawn and the only place a benched player's
+# exhaustion count is (a meeple carries a fielded one's), and all of
+# them decide what a coach does with this menu, so the flow would be
+# asking them to remember numbers off a board they cannot see otherwise.
 #
 # **No shooting-range bracket here, unlike the match image.** A
 # Coaching Choice happens with play stopped and shows only one side's
@@ -340,6 +341,9 @@ FONT_TOKEN_ROLE = load_font(18, bold=True)
 # than).
 FONT_TOKEN_SOLO = load_font(20, bold=True)
 FONT_BADGE_COUNT = load_font(16, bold=True)
+# The exhaustion count on a meeple's badge: the web page's 12px on its
+# 50px piece, at this one's 76px (see MEEPLE_BADGE_ICON_SIZE).
+FONT_MEEPLE_BADGE = load_font(18, bold=True)
 # The reference hexagon's rank badges, in the face the maneuver cards
 # draw their ranks in (see `load_rank_font`).
 FONT_MANEUVER_RANK = load_rank_font(34)
@@ -452,6 +456,26 @@ EXHAUST_CYBORG_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhaust_cyborg.png"
 )
 EXHAUST_CYBORG_ICON_SIZE = 26
+
+# **A meeple carries its exhaustion count, as the web page's does**
+# (the author, 2026-10-17): the token and the number in one dark pill
+# off the piece's bottom right, so a coach reads who is tired off the
+# field rather than off the cards under it. Every number is the web
+# page's badge (`badges` in webapp/static/app.js, `.badge.tokens` in
+# app.css) scaled from its 50px meeple to this one's 76px: the 16px
+# icon, the 12px count, where it sits as shares of the piece's width
+# and height, and the page's own --deep, --line and --gold. The count
+# is drawn at 1 too -- the page shows it, and a bare token on a piece
+# would read as a mark rather than a number. See "Exhaustion on the
+# meeples" in docs/design/board-image.md.
+MEEPLE_BADGE_ICON_SIZE = 24
+MEEPLE_BADGE_ACROSS = 0.62
+MEEPLE_BADGE_DOWN = 0.68
+MEEPLE_BADGE_PADDING = (3, 2, 8, 2)  # left, top, right, bottom
+MEEPLE_BADGE_GAP = 2
+MEEPLE_BADGE_FILL = "#1e1f22"
+MEEPLE_BADGE_OUTLINE = "#3f4147"
+MEEPLE_BADGE_INK = "#f0b232"
 
 EXHAUSTED_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhausted.png"
@@ -1459,6 +1483,7 @@ def draw_space(
     space_left: int,
     space_right: int,
     species_icons: bool = False,
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> None:
     """
     One space: its frame and code, the visiting side's meeples on the
@@ -1514,6 +1539,8 @@ def draw_space(
         # Stop above the home side's own tokens.
         label_bottom=HOME_MEEPLE_TOP - 5,
         species_icons=species_icons,
+        exhaustion=match.exhaustion,
+        cyborg_ids=cyborg_ids,
     )
     home_bounds = draw_meeple_group(
         canvas,
@@ -1531,6 +1558,8 @@ def draw_space(
         ),
         label_bottom=BOARD_BOTTOM - 16,
         species_icons=species_icons,
+        exhaustion=match.exhaustion,
+        cyborg_ids=cyborg_ids,
     )
 
     if ball_is_here:
@@ -1568,6 +1597,7 @@ def draw_board(
     match: MatchState,
     players: dict[str, PlayerDefinition],
     species_icons: bool = False,
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> dict[Zone, tuple[int, int]]:
     bounds = zone_bounds(match)
     draw.rounded_rectangle(
@@ -1591,6 +1621,7 @@ def draw_board(
             draw_space(
                 canvas, draw, match, players, zone, space_index, occupants,
                 space_left, space_right, species_icons=species_icons,
+                cyborg_ids=cyborg_ids,
             )
 
     draw_end_zone(
@@ -2055,10 +2086,13 @@ def draw_meeple_group(
     reserve_ball: bool,
     label_bottom: int,
     species_icons: bool = False,
+    exhaustion: Mapping[str, int] = {},
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> tuple[int, int]:
     """
     One team's meeples on one space: a row of tokens, with their names
-    listed under them, one per line.
+    listed under them, one per line, and each piece's exhaustion count
+    off its bottom right (`draw_meeple_exhaustion`).
 
     **A token is the species icon over the role initials.** The icon is
     the bigger of the two and sits on the meeple's chest, in the same
@@ -2081,6 +2115,10 @@ def draw_meeple_group(
     width (fit_meeple_labels), because a formation can put a whole
     zone's players on one space and a size that suits one name is
     unreadable spread over four.
+
+    `exhaustion` is the match's own count by player and `cyborg_ids`
+    who draws a Cyborg's teal token instead of the amber one -- the two
+    `draw_card` is handed, so a piece and its card never disagree.
     """
     if not occupants:
         return space_left, space_right
@@ -2146,7 +2184,121 @@ def draw_meeple_group(
         )
         token_x += token_size + gap
 
-    return group_left, group_left + total_width
+    # The badges go on after the whole row, because one runs past its
+    # own piece's right edge onto the next, which would otherwise be
+    # drawn over it. A row the ball is tucked against on its right --
+    # the home side's, which reads left to right (`ball_token_x`) --
+    # keeps its last badge clear of the ball; anything else stops at
+    # the space's own frame.
+    group_right = group_left + total_width
+    ball_on_right = reserve_ball and alignment == "left"
+    badge_right_limit = group_right + 4 if ball_on_right else space_right - 4
+    for player_index, player_id in enumerate(occupants):
+        count = exhaustion.get(player_id, 0)
+        if count > 0:
+            draw_meeple_exhaustion(
+                canvas,
+                draw,
+                group_left + player_index * (token_size + gap),
+                token_y,
+                count,
+                cyborg=player_id in cyborg_ids,
+                right_limit=badge_right_limit,
+            )
+
+    return group_left, group_right
+
+
+def meeple_badge_box(
+    draw: ImageDraw.ImageDraw,
+    token_x: int,
+    token_y: int,
+    count: int,
+    right_limit: Optional[float] = None,
+) -> tuple[float, float, float, float]:
+    """
+    Where a meeple's exhaustion badge goes: `(left, top, right,
+    bottom)`. At the web page's shares of the piece -- across from its
+    left edge, down from the top of the piece itself rather than of the
+    square it stands in, since the meeple is shorter than it is wide --
+    and moved left, never shrunk, when `right_limit` would cut it.
+    """
+    padding_left, padding_top, padding_right, padding_bottom = (
+        MEEPLE_BADGE_PADDING
+    )
+    label = str(count)
+    label_width = draw.textlength(label, font=FONT_MEEPLE_BADGE)
+    width = (
+        padding_left + MEEPLE_BADGE_ICON_SIZE + MEEPLE_BADGE_GAP
+        + label_width + padding_right
+    )
+    height = padding_top + MEEPLE_BADGE_ICON_SIZE + padding_bottom
+    piece_width, piece_height = meeple_size()
+    drawn_height = MEEPLE_SIZE * piece_height / piece_width
+    left = token_x + MEEPLE_SIZE * MEEPLE_BADGE_ACROSS
+    top = token_y + MEEPLE_SIZE - drawn_height * (1 - MEEPLE_BADGE_DOWN)
+    if right_limit is not None and left + width > right_limit:
+        left = right_limit - width
+    return left, top, left + width, top + height
+
+
+def draw_meeple_exhaustion(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    token_x: int,
+    token_y: int,
+    count: int,
+    cyborg: bool = False,
+    right_limit: Optional[float] = None,
+) -> None:
+    """
+    A meeple's exhaustion: the token and its count in one dark pill
+    (see MEEPLE_BADGE_ICON_SIZE), the Cyborg's teal token for a Cyborg
+    playing its own drain, as the card picks it. A missing token file
+    leaves the count alone in the pill -- the loader is silent, as it
+    is for the card's badge.
+    """
+    left, top, right, bottom = meeple_badge_box(
+        draw, token_x, token_y, count, right_limit,
+    )
+    draw.rounded_rectangle(
+        (left, top, right, bottom),
+        radius=(bottom - top) / 2,
+        fill=MEEPLE_BADGE_FILL,
+        outline=MEEPLE_BADGE_OUTLINE,
+        width=1,
+    )
+    padding_left, padding_top, _, _ = MEEPLE_BADGE_PADDING
+    icon = (
+        _load_icon(
+            EXHAUST_CYBORG_ICON_PATH, MEEPLE_BADGE_ICON_SIZE,
+            "exhaust_cyborg_meeple",
+        )
+        if cyborg
+        else _load_icon(
+            EXHAUST_ICON_PATH, MEEPLE_BADGE_ICON_SIZE, "exhaust_meeple",
+        )
+    )
+    icon_left = round(left + padding_left)
+    icon_top = round(top + padding_top)
+    if icon is not None:
+        canvas.alpha_composite(
+            icon,
+            (
+                icon_left + (MEEPLE_BADGE_ICON_SIZE - icon.width) // 2,
+                icon_top + (MEEPLE_BADGE_ICON_SIZE - icon.height) // 2,
+            ),
+        )
+    draw.text(
+        (
+            icon_left + MEEPLE_BADGE_ICON_SIZE + MEEPLE_BADGE_GAP,
+            (top + bottom) / 2,
+        ),
+        str(count),
+        font=FONT_MEEPLE_BADGE,
+        fill=MEEPLE_BADGE_INK,
+        anchor="lm",
+    )
 
 
 def meeple_points(token_x: int, token_y: int) -> list[tuple[float, float]]:
@@ -5648,6 +5800,8 @@ def draw_coaching_space(
     space_right: int,
     board: Optional[BoardState] = None,
     species_icons: bool = False,
+    exhaustion: Mapping[str, int] = {},
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> None:
     """
     One space on a coach's own half: its frame and code, and that
@@ -5689,6 +5843,8 @@ def draw_coaching_space(
         reserve_ball=False,
         label_bottom=COACHING_BOARD_BOTTOM - 14,
         species_icons=species_icons,
+        exhaustion=exhaustion,
+        cyborg_ids=cyborg_ids,
     )
 
 
@@ -5780,6 +5936,7 @@ def render_coaching_image(
                 canvas, draw, players, team_players, setup.team, side,
                 zone, space_index, occupants, space_left, space_right,
                 board=match.board, species_icons=species_icons,
+                exhaustion=match.exhaustion, cyborg_ids=cyborg_ids,
             )
 
     draw_assignment_cards(
@@ -5898,6 +6055,7 @@ def render_field_image(
     match: MatchState,
     catalog: PlayerCatalog,
     species_icons: bool = False,
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> BytesIO:
     """
     The field on its own -- both sides' meeples, the ball, the space
@@ -5926,7 +6084,10 @@ def render_field_image(
         "#111820",
     )
     draw = ImageDraw.Draw(canvas)
-    draw_board(canvas, draw, match, players, species_icons=species_icons)
+    draw_board(
+        canvas, draw, match, players, species_icons=species_icons,
+        cyborg_ids=cyborg_ids,
+    )
 
     field = canvas.crop(
         (
@@ -6000,7 +6161,10 @@ def render_match_image(
         cyborg_ids=cyborg_ids,
         card_skills=card_skills,
     )
-    draw_board(canvas, draw, match, players, species_icons=species_icons)
+    draw_board(
+        canvas, draw, match, players, species_icons=species_icons,
+        cyborg_ids=cyborg_ids,
+    )
     draw_assignment_cards(
         canvas,
         draw,
