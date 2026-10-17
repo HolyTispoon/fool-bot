@@ -13,6 +13,10 @@ const ARCHIVE = "codex/archive.json";
 const GAME_POLL = 15 * 1000;
 const LIST_POLL = 60 * 1000;
 const LOG_HIDDEN = "codex-pbd-log-hidden";
+const LOG_WIDTH = "codex-pbd-log-width";
+// The log is never narrower than this, and never leaves the board less.
+const LOG_MIN = 240;
+const BOARD_MIN = 240;
 
 // What a game's mode and variant are called: cogs/codex_views/lobby.py's
 // MODE_LABELS and codex/game.py's VARIANT_LABELS, held to both by
@@ -230,6 +234,7 @@ class GamePage {
     document.getElementById("zoom-fit").addEventListener("click", () => { this.viewer.fit(); this.viewer.draw(); });
     document.getElementById("back-to-current").addEventListener("click", () => this.lookAt(null));
     this.logToggle();
+    this.splitter();
   }
 
   logToggle() {
@@ -248,6 +253,62 @@ class GamePage {
       hidden = !hidden;
       set(hidden);
       try { localStorage.setItem(LOG_HIDDEN, hidden ? "1" : "0"); } catch (error) { /* no storage */ }
+    });
+  }
+
+  // The divider between the board and the log: dragged, or moved with the
+  // arrow keys, it sets the log's width, remembered like the toggle;
+  // double-clicked, it puts the width back. The viewer refits itself, since
+  // it watches its own size.
+  splitter() {
+    const handle = document.getElementById("splitter");
+    const main = document.getElementById("game-main");
+    const log = document.getElementById("log");
+    const clamp = (width) => Math.round(Math.max(LOG_MIN, Math.min(width, main.clientWidth - BOARD_MIN)));
+    const set = (width) => {
+      if (width === null) main.style.removeProperty("--log-width");
+      else main.style.setProperty("--log-width", `${clamp(width)}px`);
+    };
+    const save = () => {
+      const width = main.style.getPropertyValue("--log-width");
+      try {
+        if (width) localStorage.setItem(LOG_WIDTH, width);
+        else localStorage.removeItem(LOG_WIDTH);
+      } catch (error) { /* no storage */ }
+    };
+    let stored = null;
+    try { stored = localStorage.getItem(LOG_WIDTH); } catch (error) { /* no storage */ }
+    if (stored && /^\d+px$/.test(stored)) set(parseInt(stored, 10));
+
+    let dragging = false;
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      dragging = true;
+      handle.setPointerCapture(event.pointerId);
+      handle.classList.add("dragging");
+      document.body.classList.add("resizing");
+      event.preventDefault();
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (dragging) set(main.getBoundingClientRect().right - event.clientX);
+    });
+    const stop = () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove("dragging");
+      document.body.classList.remove("resizing");
+      save();
+    };
+    handle.addEventListener("pointerup", stop);
+    handle.addEventListener("pointercancel", stop);
+    handle.addEventListener("dblclick", () => { set(null); save(); });
+    handle.addEventListener("keydown", (event) => {
+      const step = event.shiftKey ? 96 : 24;
+      if (event.key === "ArrowLeft") set(log.offsetWidth + step);
+      else if (event.key === "ArrowRight") set(log.offsetWidth - step);
+      else return;
+      event.preventDefault();
+      save();
     });
   }
 

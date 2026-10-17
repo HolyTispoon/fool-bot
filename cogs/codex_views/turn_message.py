@@ -47,10 +47,14 @@ from codex.formatting import codex_view_name, team_name
 from codex.game import GameStatus, RuleRefusal, by_variant
 from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import elapsed_ms, pictures_size, seat_label
+from cogs.codex_publish import keys
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
 from cogs.codex_views.turn import UndoView, opponent_started
 
 LOGGER = logging.getLogger(__name__)
+
+#: The link to the game's page on the site, beside **View full image**.
+LIVE_BOARD_LABEL = "View live board"
 
 NOT_YOUR_TABLE = "This table is not yours: only its players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
@@ -129,6 +133,15 @@ class TurnMessageView(SafeView):
             )
             button.callback = getattr(self, action)
             self.add_item(button)
+        if game is not None and getattr(cog, "publisher", None) is not None:
+            # The game's page on the site, beside the full-image link the
+            # board gate puts after it -- only where this process
+            # publishes, since elsewhere the page would not follow this
+            # game (docs/design/pbd-site.md, "The hooks"). A link, so it
+            # spends nothing and routes no click.
+            self.add_item(discord.ui.Button(
+                label=LIVE_BOARD_LABEL, style=discord.ButtonStyle.link, url=keys.game_page(game_id),
+            ))
 
     async def _seat(self, interaction: discord.Interaction):
         game, match = await self.require_match(interaction)
