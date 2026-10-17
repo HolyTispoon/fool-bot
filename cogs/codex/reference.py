@@ -22,7 +22,6 @@ from codex.cards import Card, Hero, catalog
 from codex.render import bundled, bundled_bytes
 from codex.rulings import Ruling, keyword_entry, keywords, rulings_for
 from cogs.codex_helpers import elapsed_ms
-from cogs.codex_views.base import redraw_pictures
 
 LOGGER = logging.getLogger(__name__)
 
@@ -209,9 +208,9 @@ class ReferenceMixin:
         data = await asyncio.to_thread(bundled_bytes, picture)
         read = elapsed_ms(started)
         started = time.perf_counter()
-        fields = {"file": discord.File(io.BytesIO(data), filename=picture.name), "ephemeral": ephemeral}
-        sent = await interaction.response.send_message(**fields)
-        redraw_pictures(interaction, getattr(sent, "resource", None), fields)
+        await interaction.response.send_message(
+            file=discord.File(io.BytesIO(data), filename=picture.name), ephemeral=ephemeral,
+        )
         LOGGER.info("Codex card %s: %d KB read in %d ms, sent in %d ms",
                     slug, len(data) // 1024, read, elapsed_ms(started))
         if words:
