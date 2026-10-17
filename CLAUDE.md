@@ -181,6 +181,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 
 **Git and collaboration** -- [collaboration.md](docs/design/collaboration.md)
 - **Every task starts on a fresh branch off an up-to-date `main`** -- `git checkout main && git pull --ff-only && git checkout -b <topic>` before the first edit, never on `main` itself and never on the last task's branch, which may already be merged or still in review.
+- **A branch is named for the work done on it** -- `pbd-step-6`, `codex-remove-picture-redraw` -- so the branch list reads as what is in flight. Never a generated name like `claude/lucid-fermi-6lcgfk`: a session handed one creates and pushes a branch named for its task instead, and this line is the author's standing permission to do so (the author, 2026-10-17). A worksheet step's branch is the one its claim script names.
 - **Never force-push a branch that has been pushed.** Feature branches are short-lived and land on `main` by PR. Either developer may be running the bot from the working tree at any time.
 - **When a task is done, open its PR and watch it without asking**: push, open the PR, and subscribe to its activity, so CI failures and review comments are answered as they come (the author, 2026-10-17).
 - **The live bot is the Windows checkout at `K:\...\fool-bot`**; a traceback from a `K:\` path is it, and a fix on the Mac has not reached it until that checkout has pulled and restarted. `.env`, `data/` and saved games are per checkout. One bot per token.
