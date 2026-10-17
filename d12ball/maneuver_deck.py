@@ -6,14 +6,14 @@ made on it. See docs/design/maneuver-deck.md and docs/rules-2.0.md.
 **The cards.** Nine are **two-headed basic cards**, three copies of each
 rank, whose top half is the basic offensive maneuver of that rank and
 whose bottom half, upside down, is the basic defensive maneuver of the
-same rank: one card plays Low Pass on offense and Deflect on defense.
+same rank: one card plays Pass on offense and Deflect on defense.
 The other six are the **advanced maneuvers**, one card each, and an
 advanced card plays on its own side alone. Three are offense and three
 defense, so a hand of four always holds at least one card either side
 can play.
 
 **A card is named by an id**, never by what it plays: a basic card is
-`basic_<rank>` (`basic_1` is the Low Pass / Deflect card), an advanced
+`basic_<rank>` (`basic_1` is the Pass / Deflect card), an advanced
 card its maneuver key (`skilled_pass`, `intercept`). Which maneuver a
 card plays is `plays_as`, asked with the side it is played on, because
 a two-headed card is two maneuvers and the side decides which.

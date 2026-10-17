@@ -2743,7 +2743,7 @@ TWO_HEADED_EDGE = "#8c9aa6"
 #: The shared band across the middle of a two-headed card: one row of
 #: ranks for the half above it and the same row turned for the half
 #: below, each this tall.
-TWO_HEADED_BAND_ROW = 84
+TWO_HEADED_BAND_ROW = 92
 
 #: How much of a card the cream covers where its coach cannot play it
 #: this maneuver -- an advanced card of the other side, in the hand but
@@ -2757,7 +2757,7 @@ def two_headed_ranks(
     """
     The ranks a two-headed card of `rank` beats, ties and loses to --
     **the same whichever half is played**, which is what lets one band
-    across the card serve both: Low Pass and Deflect both beat rank 3,
+    across the card serve both: Pass and Deflect both beat rank 3,
     tie rank 1 and lose to rank 2 (Law 6.3). Read off the offensive
     card's matchups; `tests/test_maneuver_deck.py` holds the defensive
     half to the same three.
@@ -2777,7 +2777,7 @@ def two_headed_ranks(
 TWO_HEADED_HEADER = 84
 TWO_HEADED_BADGE = 32
 TWO_HEADED_LEGEND_ROOM = 40
-TWO_HEADED_LEGEND_SIZE = 20
+TWO_HEADED_LEGEND_SIZE = 22
 TWO_HEADED_GAP = 10
 #: How much further in a half's badge and time chip sit than the printed
 #: card's: its header is the top 84 pixels of a corner 106 round.
@@ -2892,9 +2892,9 @@ def render_two_headed_half(
 
 #: The band's row, laid out as the printed card's matchup row
 #: (`draw_matchups`) at a size two of them fit across a card's middle.
-TWO_HEADED_BAND_LABEL = 16
-TWO_HEADED_BAND_RANK = 30
-TWO_HEADED_BAND_NAME = 19
+TWO_HEADED_BAND_LABEL = 19
+TWO_HEADED_BAND_RANK = 36
+TWO_HEADED_BAND_NAME = 25
 
 
 def render_two_headed_band(
@@ -2934,10 +2934,10 @@ def render_two_headed_band(
         cx = MARGIN + column_width * (index + 0.5)
         pen.text((cx, 15), label, label_font, MUTED, anchor="mm")
         pen.text(
-            (cx, 39), f"{opposing_letter}{opposing_rank}", value_font,
+            (cx, 42), f"{opposing_letter}{opposing_rank}", value_font,
             rank_color, anchor="mm",
         )
-        pen.text((cx, 64), basic.name, name_font, rank_color, anchor="mm")
+        pen.text((cx, 72), basic.name, name_font, rank_color, anchor="mm")
         if index:
             pen.line(
                 [
@@ -3097,7 +3097,7 @@ def render_discard_piles(
     **The 2.0 discard piles, face up**, for the public maneuver prompt
     (the author, 2026-10-16: the discard is visible to both coaches).
     `piles` is one `(heading, colour, card ids)` per coach. Copies of a
-    card are drawn once with a count on them -- three basic Low Pass /
+    card are drawn once with a count on them -- three basic Pass /
     Deflect cards are one face marked x3 -- so a pile of eleven stays
     one or two rows. An empty pile says so.
     """
