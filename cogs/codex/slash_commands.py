@@ -17,7 +17,7 @@ from discord import app_commands
 from codex.game import VARIANT_LABELS, GameStatus, RuleRefusal
 from cogs.codex.turns import split_at_turn_end
 from cogs.codex_helpers import is_game_helper
-from cogs.codex_views import NOT_YOUR_TABLE, send_ephemeral
+from cogs.codex_views import NOT_YOUR_TABLE, redraw_pictures, send_ephemeral
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,7 +58,9 @@ class SlashCommandsMixin:
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         png = await self.render_match_png(game)
-        await interaction.followup.send(file=self.match_file_from_png(game, png), ephemeral=True)
+        fields = {"file": self.match_file_from_png(game, png), "ephemeral": True}
+        message = await interaction.followup.send(**fields)
+        redraw_pictures(interaction, message, fields, followup=True)
 
     @app_commands.command(name="hand", description="Show your hand and discard pile in this channel's game.")
     async def hand(self, interaction: discord.Interaction) -> None:
