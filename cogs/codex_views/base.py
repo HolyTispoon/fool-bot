@@ -174,8 +174,10 @@ def redraw_pictures(interaction: discord.Interaction, message: Optional[discord.
             LOGGER.info("A picture went up with no message handed back: nothing to redraw")
         return
     waiting = _PENDING.pop(message_id, None)
-    if waiting is not None:
-        waiting.cancel()
+    # `cancel()` is True only for a redraw still to come, not one that
+    # finished before its `forget` ran.
+    if waiting is not None and waiting.cancel():
+        LOGGER.info("A picture's redraw dropped: its message was written again first")
     # `is True`: a test's Mock message is truthy everywhere.
     ephemeral = getattr(getattr(message, "flags", None), "ephemeral", None)
     if ephemeral is not True or not _uploads(fields):
@@ -214,9 +216,11 @@ async def _redraw(interaction: discord.Interaction, message: discord.Message,
         done = time.perf_counter()
         LOGGER.info("An ephemeral picture redrawn %.1f s after it went up (the edit %d ms)",
                     done - went_up, round((done - started) * 1000))
-    except discord.NotFound:
-        # Gone since, or the click's token expired: nothing to draw.
-        pass
+    except discord.NotFound as error:
+        # Dismissed since, the click's token expired, or its webhook
+        # unknown: nothing to draw, and nobody to act -- INFO, with the
+        # code that tells the three apart.
+        LOGGER.info("An ephemeral picture's redraw found its message gone (%s)", error.code)
     except Exception as error:  # noqa: BLE001 -- a redraw is best effort
         LOGGER.warning("Could not redraw an ephemeral picture: %r", error)
 

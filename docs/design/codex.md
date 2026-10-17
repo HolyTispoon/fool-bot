@@ -2394,11 +2394,16 @@ too, asked with `gate` for the two kinds a turn may open on
   - **Anything that goes wrong is a console warning** -- the picture
     is shown or it is not -- and a message gone since says nothing; no
     exception leaves the task, where asyncio would log it at ERROR to
-    #logs. **Each redraw made is an INFO line** -- how long after the
-    picture went up it landed, and what its edit took -- and a picture
-    that went up with no message handed back, so nothing to redraw, is
-    one too: console only, so a picture still grey can be told from a
-    redraw that never ran.
+    #logs. **Every new ephemeral picture ends in one console line**, so
+    a picture still grey can be traced to what became of its redraw:
+    **redrawn** (how long after the picture went up it landed, and what
+    its edit took), **dropped** (its message written again first --
+    gated on `cancel()`, so a redraw already finished is not said
+    dropped), **gone** (a `NotFound`, with its code: dismissed, an
+    expired token, an unknown webhook), **no message handed back**
+    (nothing to redraw), or the warning above. All INFO but the
+    warning, console only: nobody can act on any of them (the
+    review of #616, 2026-10-17).
   - The delay is a guess: whether a second drawing that soon loads,
     and how much sooner would, is Discord's, measured by playing. It
     was 1 s until 2026-10-16, when the author found the pictures still
