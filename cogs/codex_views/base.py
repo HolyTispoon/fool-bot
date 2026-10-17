@@ -25,6 +25,7 @@ import contextvars
 import hashlib
 import io
 import logging
+import time
 from typing import Optional, Sequence, Union
 
 import discord
@@ -120,7 +121,9 @@ async def send_answer(interaction: discord.Interaction, content: Optional[str], 
 #: is drawn again, which an edit that keeps the picture does (seen by
 #: both developers, 2026-10-15). A guess at how long Discord needs
 #: before a second drawing loads; tune it from what the players see.
-PICTURE_REDRAW_DELAY = 1.0
+#: 1 s did not show the picture reliably (2026-10-16), where a click
+#: seconds later always had: 3 s, to learn whether it is the wait.
+PICTURE_REDRAW_DELAY = 3.0
 
 #: The game's lock around the click being answered, so a redraw it
 #: schedules waits behind any click after it (`SafeView._scheduled_task`).
@@ -164,6 +167,11 @@ def redraw_pictures(interaction: discord.Interaction, message: Optional[discord.
     """
     message_id = getattr(message, "id", None)
     if message_id is None:
+        if _uploads(fields):
+            # Discord handed no message back: no redraw, and the picture
+            # may stay grey. Said, so the console can tell this from a
+            # redraw that ran and did not help.
+            LOGGER.info("A picture went up with no message handed back: nothing to redraw")
         return
     waiting = _PENDING.pop(message_id, None)
     if waiting is not None:
@@ -172,7 +180,8 @@ def redraw_pictures(interaction: discord.Interaction, message: Optional[discord.
     ephemeral = getattr(getattr(message, "flags", None), "ephemeral", None)
     if ephemeral is not True or not _uploads(fields):
         return
-    task = asyncio.create_task(_redraw(interaction, message, followup, _CLICK_LOCK.get()))
+    task = asyncio.create_task(
+        _redraw(interaction, message, followup, _CLICK_LOCK.get(), time.perf_counter()))
     _PENDING[message_id] = task
 
     def forget(done: asyncio.Task) -> None:
@@ -183,22 +192,28 @@ def redraw_pictures(interaction: discord.Interaction, message: Optional[discord.
 
 
 async def _redraw(interaction: discord.Interaction, message: discord.Message,
-                  followup: bool, lock: Optional[asyncio.Lock]) -> None:
+                  followup: bool, lock: Optional[asyncio.Lock], went_up: float) -> None:
     """
     The redraw itself: one edit, with the attachments `message` went up
     with, under the game's lock where a click scheduled it -- so no click
     can write the message between the redraw's turn coming and its edit
     landing, and put up a picture the edit would take back. A write
-    since cancels it (`redraw_pictures`). Anything that goes wrong is a
-    console warning: the picture is shown or it is not.
+    since cancels it (`redraw_pictures`). Each one made is a console
+    line, when it landed and what its edit took, so a picture still grey
+    can be told from a redraw that never ran. Anything that goes wrong is
+    a console warning: the picture is shown or it is not.
     """
     await asyncio.sleep(PICTURE_REDRAW_DELAY)
     try:
         async with lock if lock is not None else contextlib.nullcontext():
+            started = time.perf_counter()
             if followup:
                 await interaction.followup.edit_message(message.id, attachments=message.attachments)
             else:
                 await interaction.edit_original_response(attachments=message.attachments)
+        done = time.perf_counter()
+        LOGGER.info("An ephemeral picture redrawn %.1f s after it went up (the edit %d ms)",
+                    done - went_up, round((done - started) * 1000))
     except discord.NotFound:
         # Gone since, or the click's token expired: nothing to draw.
         pass

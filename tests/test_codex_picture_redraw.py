@@ -94,6 +94,32 @@ class RedrawTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.kinds(interaction), ["response.edit", "original.edit"])
         self.assertEqual(interaction.log[-1][1], {"attachments": sent.attachments})
 
+    async def test_each_redraw_is_a_console_line(self) -> None:
+        """When it landed and what its edit took, at INFO: the console's
+        answer to "did the redraw run?" for a picture still grey."""
+        interaction = FakeInteraction(message(7))
+        with self.assertLogs("cogs.codex_views.base", level="INFO") as logs:
+            await edit_clicked(interaction, attachments=[picture()])
+            await redraws_done()
+        self.assertEqual(len(logs.records), 1)
+        self.assertEqual(logs.records[0].levelname, "INFO")
+        self.assertRegex(logs.output[0],
+                         r"An ephemeral picture redrawn \d+\.\d s after it went up \(the edit \d+ ms\)$")
+
+    async def test_a_picture_with_no_message_handed_back_says_so(self) -> None:
+        """Discord handed no message back for the write: nothing to
+        redraw, and the console says so rather than nothing."""
+        interaction = FakeInteraction(None)
+        with self.assertLogs("cogs.codex_views.base", level="INFO") as logs:
+            await edit_clicked(interaction, attachments=[picture()])
+        self.assertIn("no message handed back", logs.output[0])
+        self.assertEqual(base._PENDING, {})
+
+    async def test_a_write_with_no_picture_and_no_message_says_nothing(self) -> None:
+        interaction = FakeInteraction(None)
+        with self.assertNoLogs("cogs.codex_views.base", level="INFO"):
+            await edit_clicked(interaction, content="Waiting.")
+
     async def test_a_new_hand_is_drawn_again(self) -> None:
         interaction = FakeInteraction(message(7))
         await send_answer(interaction, "Your hand", file=picture(), ephemeral=True)
