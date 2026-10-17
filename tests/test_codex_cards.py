@@ -167,6 +167,18 @@ class CodexCardDataTests(unittest.TestCase):
         self.assertEqual(card_label(self.catalog.by_slug("spark")), "Spark")
         self.assertEqual(self.catalog.name("regularsized_rhinoceros"), "Regular-sized Rhinoceros")
 
+    def test_ref_label_shows_the_elites_atk(self):
+        """A button names a patroller by the numbers the board shows it
+        with: the elite's +1 ATK in them (UMR p. 10)."""
+        from codex_positions import new_game, put
+        from codex.formatting import ref_label
+
+        engine, _, match = new_game()
+        elite = put(match, 1, "iron_man", patrol="elite")
+        squad = put(match, 1, "iron_man", patrol="squad_leader")
+        self.assertEqual(ref_label(engine, match, 1, elite.ref, "patroller"), "Iron Man #1 4/4 (patroller)")
+        self.assertEqual(ref_label(engine, match, 1, squad.ref), "Iron Man #2 3/4")
+
 
 BOARD_DIR = IMAGE_DIR / "board"
 
