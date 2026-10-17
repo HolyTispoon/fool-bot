@@ -122,8 +122,10 @@ async def send_answer(interaction: discord.Interaction, content: Optional[str], 
 #: both developers, 2026-10-15). A guess at how long Discord needs
 #: before a second drawing loads; tune it from what the players see.
 #: 1 s did not show the picture reliably (2026-10-16), where a click
-#: seconds later always had: 3 s, to learn whether it is the wait.
-PICTURE_REDRAW_DELAY = 3.0
+#: seconds later always had; 3 s did not either (2026-10-17), the edit
+#: landing and the picture still grey -- so it is not the wait, and the
+#: redraw is back at 1 s.
+PICTURE_REDRAW_DELAY = 1.0
 
 #: The game's lock around the click being answered, so a redraw it
 #: schedules waits behind any click after it (`SafeView._scheduled_task`).

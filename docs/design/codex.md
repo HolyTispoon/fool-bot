@@ -2372,7 +2372,7 @@ too, asked with `gate` for the two kinds a turn may open on
   ephemeral message until the message is drawn again. So every write
   of `edit_clicked` and `send_answer` that uploads a picture into an
   ephemeral message -- and `/codex card` and `/codex board` beside
-  them -- schedules one more edit `PICTURE_REDRAW_DELAY` (3 s) later,
+  them -- schedules one more edit `PICTURE_REDRAW_DELAY` (1 s) later,
   with the attachments the message went up with and nothing else:
   **one request** on the click's own webhook, none in the channel's
   bucket (the table below).
@@ -2408,10 +2408,13 @@ too, asked with `gate` for the two kinds a turn may open on
     and how much sooner would, is Discord's, measured by playing. It
     was 1 s until 2026-10-16, when the author found the pictures still
     grey often enough to see, while switching channels and back, or a
-    click seconds later, always showed them: 3 s since, to learn
-    whether the wait is what matters -- the other reading being that
-    an edit of the attachments alone does not make the apps draw the
-    picture again, however late. The
+    click seconds later, always showed them; then 3 s, to learn
+    whether the wait is what matters. It is not: at 3 s the edit landed
+    and the picture stayed grey (the author, 2026-10-17), so an edit of
+    the attachments alone does not make the apps draw the picture
+    again, however late, and the delay is back at 1 s. What a click
+    does that the redraw does not is change the message's words or
+    buttons. The
     fakes report which of their messages are ephemeral, so every click
     of the whole-game test counts its redraw (`FakeInteraction.redraws`,
     kept apart from what the click answered).
