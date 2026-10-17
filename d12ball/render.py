@@ -4019,7 +4019,7 @@ class MatchupNote:
     """
     A special ability that bears on a matchup from somebody who is not
     rolling -- Quantor, while a teammate is on the ball, may run onto
-    their High Pass or Cross -- drawn in a row under both groups, as
+    their High Ball or Cross -- drawn in a row under both groups, as
     the web page's situation window says it under its row: whose it
     is (`who`, the player with their role), edged in their team's
     colour, and the card's own sentence (`text`).

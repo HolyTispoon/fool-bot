@@ -4178,7 +4178,17 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
     def test_a_special_ability_names_a_card_as_the_sheet_words_it(self) -> None:
         names = present._names_card
         self.assertTrue(names(
-            "When high passing for 3: speed ball to 12.", "High Pass",
+            "When High Balling for 3: speed ball to 12.", "High Ball",
+            "offense", False,
+        ))
+        # Pass is also the ordinary word, so only the card's own
+        # capitalised name names it.
+        self.assertTrue(names(
+            "May set up a scoring opportunity with a Pass.", "Pass",
+            "offense", False,
+        ))
+        self.assertFalse(names(
+            "Gets a scoring opportunity when receiving any pass.", "Pass",
             "offense", False,
         ))
         self.assertTrue(names(

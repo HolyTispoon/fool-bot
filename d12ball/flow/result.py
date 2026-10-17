@@ -144,7 +144,7 @@ class FollowOnStep(Enum):
     RESOLVE_MANEUVER = auto()
     BEGIN_EFFECT_RESOLUTION = auto()
     #: What a gambit's effect still owes once its last prompt has been
-    #: answered -- Pinpoint's free Low Pass, Cross's scoring
+    #: answered -- Pinpoint's free Pass, Cross's scoring
     #: opportunity. `speed_choice_step` reads whether a continuation is
     #: outstanding, which is a rule, and the two prompts it dispatches
     #: to are effect menus the frontend builds. See
@@ -192,7 +192,7 @@ class FollowOnStep(Enum):
     #: Pass of 3 or 4 landed still has to win a skill test to keep it.
     #: A member of its own rather than `BEGIN_LOOSE_BALL` with a
     #: `headline=` and `is_high_pass=True`, because the two steps do
-    #: different things with the board: a High Pass is on a receiver
+    #: different things with the board: a High Ball is on a receiver
     #: both coaches watched catch it, so the contest is announced
     #: plainly and the board the pass moved has to be written
     #: **before** it. Folding it into the loose ball's member would

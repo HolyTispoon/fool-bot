@@ -13,7 +13,7 @@ from pathlib import Path
 
 from codex.components import PATROL_SLOTS
 from codex.engine import GOLD_CAP, RulesEngine
-from codex.flow import StepResult, actions, board, combat, turn
+from codex.flow import StepResult, actions, board, combat, resolve, turn
 from codex.flow import driver
 from codex.game import RuleRefusal
 from codex.prompts import Action, PromptKind, pending_prompt
@@ -83,7 +83,7 @@ class EconomyTests(unittest.TestCase):
         run = to_their_turn(engine, game, match)
         self.assertEqual(match.player(2).gold, GOLD_CAP)
         said = " ".join(run.result.narration)
-        self.assertIn("collects {gold:2} from 5 workers and hits the gold cap: {gold:20}.", said)
+        self.assertIn("collects {gold:2} from 5 workers and hits the gold cap: now {gold:20}.", said)
 
     def test_a_worker_is_hired_once_a_turn_and_its_card_is_gone(self) -> None:
         """A gold and a card from the hand, trashed unseen, once a turn
@@ -104,6 +104,49 @@ class EconomyTests(unittest.TestCase):
                              Action(PromptKind.MAIN_ACTION, "hire", {"slug": "tenderfoot"}))
         self.assertIsInstance(again, driver.Refusal)
 
+    def test_an_action_that_spends_gold_says_what_is_left(self) -> None:
+        """The gold left after every action that spends it, on the end of
+        the action's last line (the author, 2026-10-16); an action that
+        spends nothing says nothing of gold."""
+        engine, game, match = main_phase()
+        hand(match, 1, "tenderfoot")
+        run = driver.apply(engine, game, match,
+                           Action(PromptKind.MAIN_ACTION, "play", {"slug": "tenderfoot"}))
+        self.assertTrue(run.result.narration[-1].endswith(" {gold:3} left."))
+        run = driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
+        self.assertNotIn("left.", " ".join(run.result.narration))
+
+    def test_resist_is_said_with_its_target_its_spell_and_what_is_left(self) -> None:
+        """Gold paid for resist is a line of its own: what it targets, with
+        what, and the gold left (the author, 2026-10-16: "resist for spells
+        needs to be spelled out")."""
+        engine, game, match = main_phase()
+        hero_in_play(match, 1, patrol="elite")
+        thief = put(match, 2, "brick_thief", patrol="elite")
+        hand(match, 1, "spark")
+        match.player(1).gold = 4
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "spark"}))
+        run = driver.apply(engine, game, match,
+                           Action(PromptKind.TARGET, arguments={"target": f"2:{thief.ref}"}))
+        self.assertNotIsInstance(run, driver.Refusal)
+        self.assertIn(
+            "{player:1} pays {gold:1} for resist to target {player:2}'s {card:brick_thief} "
+            "with {card:spark}. {gold:2} left.",
+            run.result.narration,
+        )
+
+
+    def test_a_steal_says_both_sides(self) -> None:
+        """"{player:1} steals {gold:1} from {player:2} and is now at
+        {gold:4}; {player:2} has {gold:0} left" (the author, 2026-10-16)."""
+        engine, game, match = main_phase()
+        match.player(1).gold, match.player(2).gold = 3, 1
+        taken = resolve.steal_gold(match, 1, 2, 1)
+        self.assertEqual(
+            turn.stolen(match, 1, 2, taken),
+            "{player:1} steals {gold:1} from {player:2} and is now at {gold:4}; "
+            "{player:2} has {gold:0} left",
+        )
 
 class OwnDeckTests(unittest.TestCase):
     """`own_deck`: every card a player owns, wherever it is -- the

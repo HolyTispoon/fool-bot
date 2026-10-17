@@ -139,8 +139,8 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   - **Losing it must not lose the pick**, which is already up and clickable by
     then, so the send is wrapped the way `add_full_image_button`'s is.
   - **Every distance prompt carries one too**, as an attachment on the prompt
-    rather than a message of its own -- the High Pass, the Cross, both
-    dribbles, the Low Pass and the run back. There is no second image on those
+    rather than a message of its own -- the High Ball, the Cross, both
+    dribbles, the Pass and the run back. There is no second image on those
     messages for Discord to lay it out beside, and riding on the prompt is
     what lets the click take it away again. See
     [Choosing a distance, and the field under it](maneuver-prompt.md#choosing-a-distance-and-the-field-under-it).
@@ -181,7 +181,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 - **A basic card lists the role abilities that change it, under its
   effect; a gambit lists none** (the author, 2026-09-28). The rows are
   `role_abilities`: the roles whose sentence names the maneuver, matched on
-  whole words, then `EXTRA_ROLES` (the Striker on High Pass) and
+  whole words, then `EXTRA_ROLES` (the Striker on High Ball) and
   `EXTRA_NOTES` (the ball speed modifier on Steal, Law 6.4). The Playmaker's
   extra space was a note there too while its sentence said "Dribble
   maneuvers" and named neither card; since the 2026-09-28 renames it says
@@ -252,7 +252,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 - **The strip diagram is what a card can say that a die face cannot**, so it
   carries the geometry and the effect text carries the wording. A basic card is
   drawn on the standard seven-space board with the ball on the third space,
-  which is the only position from which every basic maneuver fits: a High Pass
+  which is the only position from which every basic maneuver fits: a High Ball
   of 4 lands on the last space and a Fullback's Deflect of 2 on the
   first. **A gambit is drawn on the nine-space board** with the ball on
   the fourth, because Clear drives the ball back 3 and Burst runs it 4
@@ -260,7 +260,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   strip has no room for. `STRIP_GEOMETRY` is the pair, per tier, and the nine-space board is a
   real board rather than a strip invented to fit.
   - **A dashed arc is a role's variant and a solid one is the ordinary move.**
-    That is the only thing the dashes mean, which is why Low Pass's backward
+    That is the only thing the dashes mean, which is why Pass's backward
     option is solid -- it is a choice any passer has, not an ability.
   - **A move's offset is along the offense's attacking direction, never
     "forward" or "back".** Those two words mean opposite things to the two
@@ -272,7 +272,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     the ball travels the way the offense was going. Both are verified against
     `move_player_relative` rather than reasoned about -- run it and read the
     flat indices before redrawing an arrow.
-  - **Distances are labelled under the space they land on.** High Pass throws
+  - **Distances are labelled under the space they land on.** High Ball throws
     three arcs out of one space, and labelling those at their peaks stacked
     three captions on top of each other. A caption's font is sized to the gap
     to the next caption on its row (21 at most), and ability variants get a

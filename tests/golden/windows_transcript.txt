@@ -91,7 +91,7 @@ You chose **Steal**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Low Pass**.
+🟣 Dinky AI chose **Pass**.
 🟠 Player 1 chose **Steal**.
 
 ## **Steal** wins!
@@ -182,10 +182,10 @@ You chose **Deflect**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Low Pass**.
+🟣 Dinky AI chose **Pass**.
 🟠 Player 1 chose **Deflect**.
 
-**Low Pass** ties with **Deflect** — skill test!
+**Pass** ties with **Deflect** — skill test!
 
 🟣 Hellguard [FB]: offense skill 1
 🟠 Acidel [SK]: defense skill 1
@@ -231,7 +231,7 @@ You chose **Deflect**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **High Pass**.
+🟣 Dinky AI chose **High Ball**.
 🟠 Player 1 chose **Deflect**.
 
 ## **Deflect** wins!
@@ -258,10 +258,10 @@ You chose **Pressure**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **High Pass**.
+🟣 Dinky AI chose **High Ball**.
 🟠 Player 1 chose **Pressure**.
 
-**High Pass** ties with **Pressure** — skill test!
+**High Ball** ties with **Pressure** — skill test!
 
 🟣 Glompex [MF]: offense skill 3
 🟠 Flickerwing [WG]: defense skill 2
@@ -272,12 +272,12 @@ You chose **Pressure**.
 Either player can roll:
 === press 22: SkillTestView -> 'Roll the skill test'
 --- message
-## **High Pass** wins the skill test!
+## **High Ball** wins the skill test!
 Time has advanced 2, now at 10.
 --- message
-**High Pass:** the ball moves 3 spaces forward.
+**High Ball:** the ball moves 3 spaces forward.
 
-**High Pass:** the receiving player must win a skill test to keep possession.
+**High Ball:** the receiving player must win a skill test to keep possession.
 --- message
 🟠 Blazebulk [DD] (defense skill 5) challenges 🟣 Quantor [WG] (offense skill 5) for the high pass -- the receiver must win this skill test to keep possession!
 
@@ -373,16 +373,16 @@ Glompex has moved 1 space.
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 30: ManeuverActionPromptView -> 'High Pass'
+=== press 30: ManeuverActionPromptView -> 'High Ball'
 --- message
-You chose **High Pass**.
+You chose **High Ball**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **High Pass**.
+🟠 Player 1 chose **High Ball**.
 🟣 Dinky AI chose **Pressure**.
 
-**High Pass** ties with **Pressure** — skill test!
+**High Ball** ties with **Pressure** — skill test!
 
 🟠 Blazebulk [DD]: offense skill 2
 🟣 Glompex [MF]: defense skill 4
@@ -416,16 +416,16 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 34: ManeuverActionPromptView -> 'Low Pass'
+=== press 34: ManeuverActionPromptView -> 'Pass'
 --- message
-You chose **Low Pass**.
+You chose **Pass**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Low Pass**.
+🟠 Player 1 chose **Pass**.
 🟣 Dinky AI chose **Deflect**.
 
-**Low Pass** ties with **Deflect** — skill test!
+**Pass** ties with **Deflect** — skill test!
 
 🟠 Blazebulk [DD]: offense skill 2
 🟣 Glompex [MF]: defense skill 4
@@ -548,15 +548,15 @@ You chose **Steal**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **High Pass**.
+🟣 Dinky AI chose **High Ball**.
 🟠 Player 1 chose **Steal**.
 
-## **High Pass** wins!
+## **High Ball** wins!
 Time has advanced 2, now at 17.
 --- message
-**High Pass:** the ball moves 3 spaces forward.
+**High Ball:** the ball moves 3 spaces forward.
 
-**High Pass:** the receiving player must win a skill test to keep possession.
+**High Ball:** the receiving player must win a skill test to keep possession.
 --- message
 🟠 Goopkeeper [FB] (defense skill 6) challenges 🟣 Tachyon [SK] (offense skill 6) for the high pass -- the receiver must win this skill test to keep possession!
 
@@ -696,7 +696,7 @@ You chose **Deflect**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **High Pass**.
+🟣 Dinky AI chose **High Ball**.
 🟠 Player 1 chose **Deflect**.
 
 ## **Deflect** wins!
@@ -734,13 +734,13 @@ You chose **Pressure**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Low Pass**.
+🟣 Dinky AI chose **Pass**.
 🟠 Player 1 chose **Pressure**.
 
-## **Low Pass** wins!
+## **Pass** wins!
 Time has advanced 1, now at 24.
 --- message
-**Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
+**Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
 --- message
 🟣 Emberdash [PM] moves a space forward.
 --- message
@@ -755,7 +755,7 @@ You chose **Deflect**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **High Pass**.
+🟣 Dinky AI chose **High Ball**.
 🟠 Player 1 chose **Deflect**.
 
 ## **Deflect** wins!
@@ -785,24 +785,24 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 64: ManeuverActionPromptView -> 'Low Pass'
+=== press 64: ManeuverActionPromptView -> 'Pass'
 --- message
-You chose **Low Pass**.
+You chose **Pass**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Low Pass**.
+🟠 Player 1 chose **Pass**.
 🟣 Dinky AI chose **Pressure**.
 
-## **Low Pass** wins!
+## **Pass** wins!
 Time has advanced 1, now at 26.
 --- message
-🟠 <@111>, choose your Low Pass:
+🟠 <@111>, choose your Pass:
 === press 65: LowPassChoiceView -> 'Blazebulk [DD] -- space 2'
 --- message
 **🟠 Coach** chose to pass the ball to 🟠 Blazebulk [DD] at space 2.
 --- message
-**Low Pass:** the ball moves 1 space backward. Ball speed is now 2.
+**Pass:** the ball moves 1 space backward. Ball speed is now 2.
 
 <@111> 🟠 Spectra [MF] may move a space forward, or stay where they are:
 === press 66: PasserAdvanceView -> 'Spectra [MF] stays'
@@ -861,19 +861,19 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 72: ManeuverActionPromptView -> 'High Pass'
+=== press 72: ManeuverActionPromptView -> 'High Ball'
 --- message
-You chose **High Pass**.
+You chose **High Ball**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **High Pass**.
+🟠 Player 1 chose **High Ball**.
 🟣 Dinky AI chose **Steal**.
 
-## **High Pass** wins!
+## **High Ball** wins!
 Time has advanced 2, now at 29.
 --- message
-🟠 <@111>, choose your High Pass distance:
+🟠 <@111>, choose your High Ball distance:
 === press 73: HighPassChoiceView -> '2 spaces (space 5, no teammate)'
 --- message
 Chose **2 spaces**.
@@ -924,10 +924,10 @@ You chose **Deflect**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Low Pass**.
+🟣 Dinky AI chose **Pass**.
 🟠 Player 1 chose **Deflect**.
 
-**Low Pass** ties with **Deflect** — skill test!
+**Pass** ties with **Deflect** — skill test!
 
 🟣 Gurgoth [DD]: offense skill 2
 🟠 Noxar [SK]: defense skill 1
@@ -973,10 +973,10 @@ You chose **Pressure**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **High Pass**.
+🟣 Dinky AI chose **High Ball**.
 🟠 Player 1 chose **Pressure**.
 
-**High Pass** ties with **Pressure** — skill test!
+**High Ball** ties with **Pressure** — skill test!
 
 🟣 Hellguard [FB]: offense skill 1
 🟠 Acidel [SK]: defense skill 1
@@ -987,7 +987,7 @@ You chose **Pressure**.
 Either player can roll:
 === press 82: SkillTestView -> 'Roll the skill test'
 --- message
-## **High Pass** wins the skill test!
+## **High Ball** wins the skill test!
 Time has advanced 2, now at 33.
 --- message
 <@111>, 🟠 Acidel [SK] is exhausted and owes an injury test: a d12 that has to beat their 3 exhaustion tokens.
@@ -996,9 +996,9 @@ Time has advanced 2, now at 33.
 🟠 Acidel [SK] is exhausted and rolls an injury test: 7 beats their 3 exhaustion tokens.
 🟠 Acidel [SK] is **safe**.
 --- message
-**High Pass:** the ball moves 4 spaces forward (Fullback ability).
+**High Ball:** the ball moves 4 spaces forward (Fullback ability).
 
-**High Pass:** the receiving player must win a skill test to keep possession.
+**High Ball:** the receiving player must win a skill test to keep possession.
 --- message
 🟠 Spectra [MF] (defense skill 4) challenges 🟣 Emberdash [PM] (offense skill 4) for the high pass -- the receiver must win this skill test to keep possession!
 

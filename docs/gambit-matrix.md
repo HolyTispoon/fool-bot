@@ -46,7 +46,7 @@ they already know.
 
 ### Cross × Intercept may be inert
 
-Intercept's cost removes a High Pass reception's contest, but a Cross that beat it
+Intercept's cost removes a High Ball reception's contest, but a Cross that beat it
 produces a **set-up**, not a contested reception. There is nothing there to skip, so the cost
 does nothing in that one cell. It is written that way deliberately rather than special-cased —
 worth a look in play, in case the author wants something else to happen there.
@@ -72,7 +72,7 @@ Kept because it is the map of where advanced mode touches the code, and the next
 changing any of it should know these are load-bearing.
 
 - **A maneuver's identity is no longer its printed name.** `match.offense_maneuver` held the
-  string `"Low Pass"` and a dozen sites compared against those literals. It holds a **key**
+  string `"Pass"` and a dozen sites compared against those literals. It holds a **key**
   now (`low_pass`, `double_team`), and `legacy_maneuver_key` translates a game saved before
   that. This was the first step and it shrank every step after it.
 - **Relations are by rank, not by name.** `defeats_rank` replaced `defeats`, because each rank
@@ -81,7 +81,7 @@ changing any of it should know these are load-bearing.
   counterpart's faces (one face each since 2026-10-03). The die has been off the rules since
   2026-08-17.
 - **`pending_effect_continuation`** is what lets an effect reach past its own maneuver: a
-  beaten Pinpoint hands the defense a Low Pass once the steal has settled. (Cross used to set
+  beaten Pinpoint hands the defense a Pass once the steal has settled. (Cross used to set
   the speed and *then* pick the pass out, until 2026-10-03.) It also holds a Double Team's
   partner once known, for the rest of that maneuver.
 - **`pending_double_team`** carries a won Double Team's partner into the following maneuver,

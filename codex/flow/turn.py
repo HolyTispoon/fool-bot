@@ -69,6 +69,34 @@ def gain_gold(match: MatchState, seat: int, amount: int) -> int:
     return player.gold - before
 
 
+# Every line that moves a player's gold says why, and where it now stands:
+# "{gold:3} left" where it went down, "now {gold:5}" where it went up (the
+# author, 2026-10-16) -- docs/design/codex.md, "What the narration may say".
+
+
+def gold_left(match: MatchState, seat: int, spent: int) -> str:
+    """" {gold:3} left." -- a sentence of its own, after the one that
+    spent `spent`; empty where that was 0, so a line paying nothing says
+    no more."""
+    return f" {tokens.gold(match.player(seat).gold)} left." if spent > 0 else ""
+
+
+def gold_now(match: MatchState, seat: int) -> str:
+    """"now {gold:5}" -- the total after a gain, on the gain's own clause."""
+    return f"now {tokens.gold(match.player(seat).gold)}"
+
+
+def stolen(match: MatchState, seat: int, other: int, taken: int, by: str = "") -> str:
+    """A steal and where it leaves both sides, as one clause: "{player:1}
+    steals {gold:1} from {player:2} and is now at {gold:4}; {player:2} has
+    {gold:0} left" (the author, 2026-10-16) -- `by`, "with {card:...}",
+    where the line has not already said what steals."""
+    by = f" with {by}" if by else ""
+    return (f"{tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}{by} "
+            f"and is now at {tokens.gold(match.player(seat).gold)}; {tokens.player(other)} has "
+            f"{tokens.gold(match.player(other).gold)} left")
+
+
 def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
                 by: Optional[int] = None) -> None:
     """Damage onto `seat`'s base; at 0 it is destroyed and the game ends
@@ -389,13 +417,13 @@ def _begin_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState, s
     )
     if produced < player.workers:
         collected += f", held to {tokens.gold(produced)} by {tokens.card('slowtime_generator')}: "
-        collected += f"{tokens.gold(player.gold)}."
+        collected += f"now {tokens.gold(player.gold)}."
     elif gained < player.workers:
         # Said where it bites, so a short income is not read as a slip
         # (the author, 2026-10-08).
-        collected += f" and hits the gold cap: {tokens.gold(player.gold)}."
+        collected += f" and hits the gold cap: now {tokens.gold(player.gold)}."
     else:
-        collected += f": {tokens.gold(player.gold)}."
+        collected += f": now {tokens.gold(player.gold)}."
     result.narration.append(collected)
     # One summoning rune off each hero (UMR p. 5).
     for hero in player.heroes:
@@ -660,7 +688,7 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
         gained = gain_gold(match, seat, owls)
         result.narration.append(
             f"{tokens.player(seat)} gains {tokens.gold(gained)} from "
-            f"{tokens.card('gemscout_owl')}."
+            f"{tokens.card('gemscout_owl')}: {gold_now(match, seat)}."
         )
     elif kind == "galina":
         green = sum(
@@ -670,7 +698,7 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
         gained = gain_gold(match, seat, green // 2)
         result.narration.append(
             f"{tokens.player(seat)} gains {tokens.gold(gained)} from "
-            f"{tokens.card('galina_glimmer')}: {green} green units."
+            f"{tokens.card('galina_glimmer')}, for {green} green units: {gold_now(match, seat)}."
         )
     elif kind == "octopus":
         card = player.instance(int(ident))
@@ -792,7 +820,8 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
     if player.gold >= owed:
         player.gold -= owed
         result.narration.append(
-            f"{tokens.player(seat)} pays {tokens.gold(owed)} for {tokens.card('promise_of_payment')}."
+            f"{tokens.player(seat)} pays the {tokens.gold(owed)} owed for "
+            f"{tokens.card('promise_of_payment')}.{gold_left(match, seat, owed)}"
         )
         return
     if match.winner is not None:

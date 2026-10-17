@@ -7,8 +7,8 @@
     "fullback": {
       "offense": 1,
       "defense": 6,
-      "ability": "Deflect/High Pass: +1 distance.",
-      "ability_short": "Deflect/High Pass: +1 distance"
+      "ability": "Deflect/High Ball: +1 distance.",
+      "ability_short": "Deflect/High Ball: +1 distance"
     },
     "defender": {
       "offense": 2,
@@ -19,8 +19,8 @@
     "midfielder": {
       "offense": 3,
       "defense": 4,
-      "ability": "Add +3 to skill tests for steal and low pass.",
-      "ability_short": "+3 for low pass and steal"
+      "ability": "Add +3 to skill tests for steal and pass.",
+      "ability_short": "+3 for Pass and Steal"
     },
     "playmaker": {
       "offense": 4,
@@ -31,8 +31,8 @@
     "winger": {
       "offense": 5,
       "defense": 2,
-      "ability": "May set up a scoring opportunity with a Low Pass.",
-      "ability_short": "May set up with Low Pass"
+      "ability": "May set up a scoring opportunity with a Pass.",
+      "ability_short": "May set up with Pass"
     },
     "striker": {
       "offense": 6,
@@ -209,7 +209,7 @@
       "role": "winger",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Before resolving High Pass or Cross, drain 3 to move to the pass's target space. Quantor gains possession without contest.",
+      "advanced_ability": "Before resolving High Ball or Cross, drain 3 to move to the pass's target space. Quantor gains possession without contest.",
       "advanced_skills": {}
     },
     "quillon_playmaker": {
@@ -249,7 +249,7 @@
       "role": "striker",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "Auto wins contests for ball including high pass and loose ball.",
+      "advanced_ability": "Auto wins contests for ball including High Ball and loose ball.",
       "advanced_skills": {}
     },
     "spectra_midfielder": {
@@ -291,7 +291,7 @@
       "role": "fullback",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "Uses dSkill for high pass skill tests and when avoiding own goals.",
+      "advanced_ability": "Uses dSkill for High Ball skill tests and when avoiding own goals.",
       "advanced_skills": {}
     },
     "viscor_defender": {
@@ -315,7 +315,7 @@
       "role": "defender",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "When high passing for 3: speed ball to 12 and set up a scoring opportunity without contest.",
+      "advanced_ability": "When High Balling for 3: speed ball to 12 and set up a scoring opportunity without contest.",
       "advanced_skills": {}
     },
     "zenith_winger": {

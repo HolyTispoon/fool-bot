@@ -162,7 +162,7 @@ def dispatch_injury_resume(
     Pick the turn back up where the injury tests interrupted it.
     The kinds are the contests that hand them out: a maneuver's
     skill test goes on to the winner's effect, a loose ball (or
-    the long High Pass that borrows its machinery) goes on to its
+    the long High Ball that borrows its machinery) goes on to its
     run back, and a shootout skill test goes on to the next one --
     or to the end of the game.
 

@@ -184,7 +184,7 @@ def roles(player_ids: Iterable[str]) -> tuple[PlayerRole, ...]:
 def display_name(player_id: str) -> str:
     """
     The name a coach is shown, for a test asserting a label the bot
-    builds out of one -- a High Pass distance button, say. The wording
+    builds out of one -- a High Ball distance button, say. The wording
     around it is the thing under test; the name inside it is not.
     """
     return catalog().player_by_id(player_id).name

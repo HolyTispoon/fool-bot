@@ -169,7 +169,7 @@ FIELD_PROMPT_KINDS = frozenset({
     PromptKind.RUN_BACK_PLAYER,
     # Zenith's Fly picks a space anywhere on the field (Law 21).
     PromptKind.FLY,
-    # Whether a Low Pass's passer steps forward is a question about
+    # Whether a Pass's passer steps forward is a question about
     # where they would stand, asked once the ball has gone (Law 6.5.3).
     PromptKind.PASSER_ADVANCE,
 })
@@ -340,7 +340,7 @@ class DiscordBatching(Batching):
         """
         A new play is drawn, posted and pinned. A loose ball is drawn
         where it is genuine (the step moved the ball and has something
-        to say); a long High Pass's contest is a plain message over
+        to say); a long High Ball's contest is a plain message over
         the board the pass already wrote. The tail of a maneuver draws
         when it hands the offensive choice back, and carries its lines
         on into whatever else it hands to -- the whistle, a gate.

@@ -364,7 +364,7 @@ class RepairTests(unittest.IsolatedAsyncioTestCase):
         match = self.table.match
         self.assertEqual((match.base_of(seat), match.player(seat).gold), (16, 4))
         self.assertEqual(match.journal[-1]["action"]["choice"], "repair")
-        self.assertIn("repairs the base: 16 HP.", self.table.game_channel.texts[old])
+        self.assertIn("repairs the base for (3): 16 HP. (4) left.", self.table.game_channel.texts[old])
         # The panel edited in place offers it again, 4 gold being enough;
         # after the second, 1 gold is not, and the button says so.
         self.assertFalse(find_button(call.view(), ("repair",)).disabled)

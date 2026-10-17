@@ -224,9 +224,24 @@ def play(seed: int = SEED, *, say=None, teams=None, players=None, dragon=None,
     match = MatchState.from_dict(game.match_state)
     transcript: list[str] = []
 
-    def heard(run) -> None:
+    def golds() -> dict[int, int]:
+        return {player.seat: player.gold for player in match.players}
+
+    def heard(run, before: dict[int, int]) -> None:
         lines = [line for group in run.groups for line in group.narration]
         lines += run.result.narration
+        # Every change to a player's gold is said with where it now
+        # stands -- "{gold:3} left", "now {gold:5}", or a steal's "is now
+        # at {gold:5}" (the author, 2026-10-16): the last line that moved
+        # it ends on the total.
+        said = " ".join(lines)
+        for seat, gold in golds().items():
+            if gold != before.get(seat, gold):
+                assert any(said_as in said for said_as in (
+                    f"{{gold:{gold}}} left", f"now {{gold:{gold}}}", f"now at {{gold:{gold}}}",
+                )), (
+                    f"seat {seat}'s gold went from {before[seat]} to {gold} unsaid: {lines}"
+                )
         for line in lines:
             if line:
                 plain = tokens.render(line, plain_token)
@@ -247,15 +262,17 @@ def play(seed: int = SEED, *, say=None, teams=None, players=None, dragon=None,
         assert steps < 20000, "the game is not making progress"
         owed = owed_step(engine, game, match)
         if owed is not None:
-            heard(driver.advance(engine, game, match, StepResult(next=owed)))
+            before = golds()
+            heard(driver.advance(engine, game, match, StepResult(next=owed)), before)
             match = reload(match)
             continue
         # The other player's tech choice, answered once it is offered.
         for standing in standing_prompts(engine, match, game):
             if match.player(standing.asked_player).tech_choice is None:
+                before = golds()
                 run = driver.apply(engine, game, match, choose(engine, match, standing))
                 assert not isinstance(run, driver.Refusal), run
-                heard(run)
+                heard(run, before)
                 match = reload(match)
         if match.dragons:
             # Both teammates are asked at once; the policy answers them in
@@ -265,9 +282,10 @@ def play(seed: int = SEED, *, say=None, teams=None, players=None, dragon=None,
         else:
             prompt = pending_prompt(engine, game, match)
         action = answer(engine, match, prompt)
+        before = golds()
         run = driver.apply(engine, game, match, action)
         assert not isinstance(run, driver.Refusal), (prompt.kind, run)
-        heard(run)
+        heard(run, before)
         match = reload(match)
     game.match_state = match.to_dict()
     return engine, game, match, transcript

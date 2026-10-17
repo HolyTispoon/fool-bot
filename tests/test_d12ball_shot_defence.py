@@ -303,7 +303,7 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_setup_shot_adds_its_minute_to_the_makers_cost(
         self,
     ) -> None:
-        # A High Pass's own flat cost is 2, charged when it won; taking
+        # A High Ball's own flat cost is 2, charged when it won; taking
         # the set-up shot it offers adds the shot's own 1 once the shot
         # resolves -- 3 in all, not one or the other.
         cog = build_cog()
@@ -325,7 +325,7 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         # A game saved at the offer under the old rule never charged
-        # the High Pass, so its shot charges the two stacked.
+        # the High Ball, so its shot charges the two stacked.
         cog = build_cog()
         game, match = self.build_shot(cog, [])
         match.pending_shot_is_set_up = True
@@ -362,7 +362,7 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         # offer_scoring_attempt_choice's AI branch and
         # SetUpAttemptChoiceView.attempt both pass the maneuver's own
-        # distance_moved through explicitly -- 2 for a High Pass.
+        # distance_moved through explicitly -- 2 for a High Ball.
         cog = build_cog()
         game, match = self.build_shot(cog, [])
         cog.begin_score_attempt = mock.AsyncMock()

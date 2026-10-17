@@ -145,7 +145,7 @@ class PromptKind(Enum):
 
     # The effect a settled maneuver owes
     LOW_PASS_CHOICE = "low_pass_choice"
-    # Whether a Low Pass's passer moves 1 space forward once the ball
+    # Whether a Pass's passer moves 1 space forward once the ball
     # has gone (Law 6.5.3, 6.5.5).
     PASSER_ADVANCE = "passer_advance"
     HIGH_PASS_CHOICE = "high_pass_choice"
@@ -193,7 +193,7 @@ class PendingPrompt:
     #: is put, which is why it is on the match -- see
     #: `MatchState.pending_scoring_opportunity`.
     distance_moved: int = 1
-    #: SET_UP_ATTEMPT: a High Pass into the goal zone is a shot or a
+    #: SET_UP_ATTEMPT: a High Ball into the goal zone is a shot or a
     #: contest, both at the same disadvantage, so declining lands in the long-pass contest
     #: rather than settling the ball (2026-08-10).
     contest_on_decline: bool = False
@@ -414,7 +414,7 @@ class SpaceOptions:
 @dataclass(frozen=True)
 class DistanceOptions:
     """
-    How far: a High Pass, a Cross, a Dribble, a Burst. `railed` is
+    How far: a High Ball, a Cross, a Dribble, a Burst. `railed` is
     the one distance the tutorial allows, or `None`.
     """
 
@@ -463,7 +463,7 @@ class DistanceOptions:
 
 @dataclass(frozen=True)
 class PassOption:
-    """One Low Pass on offer: the distance, and who is standing there
+    """One Pass on offer: the distance, and who is standing there
     to receive it (several where teammates share the space)."""
 
     distance: int
@@ -1237,7 +1237,7 @@ def passer_advance_prompt(
     match: MatchState,
 ) -> Optional[PendingPrompt]:
     """
-    Whether a Low Pass's passer moves 1 space forward (Law 6.5.3), read
+    Whether a Pass's passer moves 1 space forward (Law 6.5.3), read
     off `MatchState.pending_passer_advance`, which holds the question
     from the moment the ball goes until the coach answers. Shared by
     the live offer (`d12ball.flow.effects.offer_passer_advance`) and a
@@ -1470,9 +1470,9 @@ def effect_choice_prompt(
     (distance, then speed) with nothing in match state to tell them
     apart, so a restart in that narrow window guesses the first one --
     the same class of crash-window gap as the unrecognized-winner case
-    above. A won Low Pass or High Pass that has moved on to its
+    above. A won Pass or High Ball that has moved on to its
     scoring-opportunity attempt/decline choice
-    (`SetUpAttemptChoiceView`) has the same gap, as does a Low Pass
+    (`SetUpAttemptChoiceView`) has the same gap, as does a Pass
     waiting on which of several teammates on the destination space
     receives it (`LowPassReceiverView`): this always reconstructs the
     first-stage distance choice instead. Nothing has been applied by
@@ -1480,7 +1480,7 @@ def effect_choice_prompt(
     """
     # **An effect continuation is read first**, because it says the
     # effect is already past the prompt its winner would restore: a
-    # beaten Pinpoint's Low Pass belongs to the *defense* -- reading
+    # beaten Pinpoint's Pass belongs to the *defense* -- reading
     # the winner there would put the steal's speed choice back up and
     # let a coach answer it twice. See `continue_effect` for why the
     # field outlives its dispatch. (A game saved with Cross's old
@@ -2144,7 +2144,7 @@ def _pending(
     if match.pending_loose_ball:
         # Named off the position like every other message on this
         # path: only a ball lying where nobody stands is loose, and
-        # a resume that calls a contest -- or a High Pass -- a
+        # a resume that calls a contest -- or a High Ball -- a
         # loose ball misreads it in front of the coach about to
         # act on it. See contest_noun.
         noun = contest_noun(match)
@@ -2331,7 +2331,7 @@ OVERDRIVE_ROLLERS = {
 
 #: The rolls a **Merge** is declared on (Law 20.5), and the sides that
 #: may, attacker first, each with the skill it adds: a maneuver's skill
-#: test and a contest for the ball (the High Pass contest among them)
+#: test and a contest for the ball (the High Ball contest among them)
 #: both sides, a score attempt the attack alone (Law 20.5.3). Each
 #: side's rollers are struck out of it by `OVERDRIVE_ROLLERS`. Never an
 #: own-goal roll, a shootout test or an injury check: nothing there is

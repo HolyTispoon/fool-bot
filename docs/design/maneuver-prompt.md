@@ -125,8 +125,8 @@ extra click bought a round trip and nothing else.
 **Six prompts ask a version of one question** -- how far does the ball or its
 handler go, and who ends up with it -- and all of them are posted over
 [the field strip](board-image.md#working-on-the-board-image).
-`D12Ball.send_field_prompt` is the funnel for five of them: the Low Pass and
-Pinpoint destination (`LowPassChoiceView`), the High Pass and Cross
+`D12Ball.send_field_prompt` is the funnel for five of them: the Pass and
+Pinpoint destination (`LowPassChoiceView`), the High Ball and Cross
 distance, and both dribbles' run. The sixth is the run back, which asks the
 same question either side of a turnover and carries the same picture through
 `send_run_back_prompt` -- see
@@ -149,7 +149,7 @@ same question either side of a turnover and carries the same picture through
   differ from the board both of them are already looking at.
   - This was got backwards once: the first build of these prompts used
     `render_coaching_image` and gave `render_coaching_image` a `show_ball` to
-    make it fit, which also took the strip *off* the High Pass and Cross
+    make it fit, which also took the strip *off* the High Ball and Cross
     prompts that already had it. The half-field is the Coaching Choice's and
     nothing else's; `coaching_file` says so.
 - **One attachment, on the prompt rather than beside it.** Discord lays two
@@ -157,7 +157,7 @@ same question either side of a turnover and carries the same picture through
   strip under the maneuver *cards* is a message of its own and these are not.
   Riding on the prompt is what lets the click that answers take the picture
   away with `attachments=[]`: it shows the position the effect was chosen
-  against, and that position has just moved. The Low Pass's receiver pick is
+  against, and that position has just moved. The Pass's receiver pick is
   the one step that *keeps* it -- the ball has not moved between the two
   questions -- and so has to rebuild the full-image link onto the new view by
   hand, the way `RunBackPlayerChoiceView` does.

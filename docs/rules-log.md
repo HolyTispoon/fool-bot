@@ -155,6 +155,22 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-16 -- sheet and author, Low Pass is Pass and High Pass is High Ball
+
+**Two names changed, nothing else.** A pull of the `maneuvers` tab renamed the two passes and
+shortened High Ball's card text to *"Ball forward 2-3 spaces. 2: may set up scoring. 3+:
+receiver must win a contest, adding ball speed."* The author: *"I renamed 'low pass' to 'pass'
+and 'high pass' to 'high ball' and wrote a briefer description for high ball"*, and, asked
+whether 1.0 changes too: *"The rename of the maneuvers and the shorter description of high ball
+should applied to d12ball 1.0 as well."*
+
+- **Every Law says Pass and High Ball** (6.5, 6.7, 7.5, 10.4 and every reference to them), and
+  the Learn to Play with them. What each maneuver does is unchanged; the card's sentence is a
+  shorter wording of 6.7, not a new rule.
+- **The keys stay `low_pass` and `high_pass`** (`PINNED_MANEUVER_KEYS`), as the 2026-09-28
+  renames kept theirs, so no saved game moves.
+- The same pull reworded Slimey's sheet text to name score attempts, which 20.5.3 already says.
+
 ### 2026-10-16 (later) -- author, 2.0: the two-headed card, face-up discards, a halftime reshuffle
 
 Three answers to the questions the first 2.0 PR asked. The author: *"Need to remake the two

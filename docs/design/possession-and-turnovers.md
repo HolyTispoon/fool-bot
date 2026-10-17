@@ -50,7 +50,7 @@ ball's space -- see "Choosing the handler" in the living rules.
   `dribble_advance_step`, `take_ball_by_steal`, `shove_pressured_handler`
   and `apply_pressure_turnover` (the handler, then the Defender's steal
   over the top of it),
-  `send_low_pass`, the two High Pass branches where a pass of 2 is received,
+  `send_low_pass`, the two High Ball branches where a pass of 2 is received,
   the two unopposed branches of `resolve_loose_ball`, and
   `LooseBallSkillTestView.roll`. There is no single "who has the ball now" to
   derive it from after the fact, which is why each says so itself. A new
@@ -71,7 +71,7 @@ ball's space -- see "Choosing the handler" in the living rules.
   `BEGIN_OWN_GOAL_ROLL` without deciding anything about the carry.
 - **A contest names its winner**, so `begin_loose_ball` clears the carry when
   the ball comes free and the resolution sets it again to whoever won -- on
-  the roll, or unopposed. That covers the long High Pass, which routes through
+  the roll, or unopposed. That covers the long High Ball, which routes through
   the same machinery. The out-of-bounds branch is the exception: nobody
   contested it, so it stays clear and the pickup is an ordinary placement.
   Deflect sets nothing either -- it makes a loose ball, and the contest
@@ -82,11 +82,11 @@ ball's space -- see "Choosing the handler" in the living rules.
   the ball does not run back, whoever they are, because running them back
   would move them off the ball and charge them for it. It used to be a
   `stays_player_id` argument that only the two steals passed, which left a
-  loose-ball or High Pass winner being run back off the ball they had just
+  loose-ball or High Ball winner being run back off the ball they had just
   won. Deriving it is what stops a new resolution naming a carrier and
   forgetting the exemption; **don't reintroduce the parameter.**
 - **A new play exempts nobody**, so `begin_run_back` clears the carry before
-  reading it. A goal scored off a High Pass set-up still has the receiver
+  reading it. A goal scored off a High Ball set-up still has the receiver
   recorded as carrying, and they are not -- the ball is on its way back to the
   kickoff space. `announce_new_play_reset` clears it too; that one is for the
   reset, this one is for the exemption two lines below it.

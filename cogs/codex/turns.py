@@ -618,6 +618,9 @@ class TurnsMixin:
                     game, ended, [*self.turn_lines[game.game_id], *closing], footer=False,
                 )
             await self.stand_turn_message(channel, game, game.turn_message_id, png, text)
+            if self.publisher is not None:
+                # The ended turn's entry: the pin's lines whole, and its board.
+                self.publisher.turn_ended(game, ended, closing, png)
         self.turn_lines[game.game_id] = opening
         # The turn's first lines: what it said before its snapshot, which
         # the journal does not hold -- the ready phase's where no tech
@@ -641,6 +644,8 @@ class TurnsMixin:
         if channel is None:
             return
         png = await self.render_match_png(game, match)
+        if self.publisher is not None:
+            self.publisher.game_over(game, match, png)
         if game.turn_message_id is not None:
             await self.stand_turn_message(channel, game, game.turn_message_id, png,
                                           self.turn_text(game, match))
@@ -719,6 +724,8 @@ class TurnsMixin:
         restored = result.match
         head = self.turn_heads.get(game.game_id, {}).get(restored.turn, [])
         self.turn_lines[game.game_id] = [*head, *result.lines]
+        if self.publisher is not None:
+            self.publisher.turn_undone(game, restored.turn)
         # The acknowledgement goes out beside the board, not before it
         # (`TurnPanelView.act`).
         await asyncio.gather(acknowledge(interaction), self.refresh_match_image(game))
@@ -836,6 +843,8 @@ class TurnsMixin:
         # The turn before the restored one has no message the record
         # knows, so a second such undo in a row has nothing to delete.
         game.previous_turn_message_id = None
+        if self.publisher is not None:
+            self.publisher.previous_turn_back(game, restored)
         await self.post_turn_message(channel, game, restored, replace=True)
         if previous is not None and previous != game.turn_message_id:
             await self.delete_table_message(channel, game, previous)

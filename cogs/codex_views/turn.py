@@ -603,8 +603,8 @@ class TurnPanelView(PanelView):
         if self.mode == "detect":
             return "**Detect with your tower**: which of theirs?"
         if self.mode == "hire":
-            return (f"**Hire a worker** for {self.prompt.options.hire.cost} gold: "
-                    "which card goes? It is trashed unseen.")
+            return ("Pick a card to trash in order to **hire a worker** for "
+                    f"{self.prompt.options.hire.cost} gold.")
         if self.mode == "attack":
             return "**Attack** with which?"
         if self.mode == "boost":

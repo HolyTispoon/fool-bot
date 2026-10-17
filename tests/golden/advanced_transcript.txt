@@ -95,10 +95,10 @@ You chose **Double Team**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **High Pass**.
+🔥 Dinky AI chose **High Ball**.
 🔮 Player 1 chose **Double Team**.
 
-**High Pass** ties with **Double Team** — skill test!
+**High Ball** ties with **Double Team** — skill test!
 
 🔥 Sizzifizik [PM]: offense skill 4
 🔮 Zenith [WG]: defense skill 2
@@ -163,12 +163,12 @@ Ball is now in space 7, 🔥 Dinky AI (Visitors) has possession.
 --- message
 **Unchallenged!** 🔮 Player 1 (Home) has sent nobody in to challenge 🔥 Hellguard [FB], so whichever maneuver the offense picks succeeds.
 --- message
-🔥 Dinky AI chose **Low Pass**, unchallenged.
+🔥 Dinky AI chose **Pass**, unchallenged.
 
-## **Low Pass** succeeds!
+## **Pass** succeeds!
 Time has advanced 1, now at 04.
 --- message
-**Low Pass:** the ball moves 1 space forward. Ball speed is now 4.
+**Pass:** the ball moves 1 space forward. Ball speed is now 4.
 --- message
 🔥 Hellguard [FB] moves a space forward.
 --- message
@@ -203,13 +203,13 @@ You chose **Pressure**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **Low Pass**.
+🔥 Dinky AI chose **Pass**.
 🔮 Player 1 chose **Pressure**.
 
-## **Low Pass** wins!
+## **Pass** wins!
 Time has advanced 1, now at 05.
 --- message
-**Low Pass:** the ball goes to a teammate in the same space. Ball speed is now 5.
+**Pass:** the ball goes to a teammate in the same space. Ball speed is now 5.
 --- message
 🔥 Sizzifizik [PM] moves a space forward.
 --- message
@@ -279,10 +279,10 @@ You chose **Clear**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **Low Pass**.
+🔥 Dinky AI chose **Pass**.
 🔮 Player 1 chose **Clear**.
 
-**Low Pass** ties with **Clear** — skill test!
+**Pass** ties with **Clear** — skill test!
 
 🔥 Blazebulk [DD]: offense skill 2
 🔮 Noxar [SK]: defense skill 1
@@ -295,7 +295,7 @@ Either player can roll:
 --- message
 🔥 **Volatile** — 🔥 Blazebulk [DD] rolled a natural 7, so **the ball ignites**. The second d12 comes up **8**, and they always blaze: **+8** to their roll.
 --- message
-## **Low Pass** wins the skill test!
+## **Pass** wins the skill test!
 🔥 **Volatile** — the blaze raises it to **Pinpoint**.
 Time has advanced 1, now at 07.
 --- message
@@ -337,7 +337,7 @@ You chose **Deflect**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **High Pass**.
+🔥 Dinky AI chose **High Ball**.
 🔮 Player 1 chose **Deflect**.
 
 ## **Deflect** wins!
@@ -578,24 +578,24 @@ Out of shooting range, and no time out available. Maneuver:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔥 Dinky AI holds the coin, 🪙 Doom up, and may declare a gambit.
-=== press 54: ManeuverActionPromptView -> 'High Pass'
+=== press 54: ManeuverActionPromptView -> 'High Ball'
 --- message
-You chose **High Pass**.
+You chose **High Ball**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **High Pass**.
+🔮 Player 1 chose **High Ball**.
 🔥 Dinky AI chose **Steal**.
 
-## **High Pass** wins!
+## **High Ball** wins!
 Time has advanced 2, now at 16. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
 --- message
-🔮 <@111>, choose your High Pass distance:
+🔮 <@111>, choose your High Ball distance:
 === press 55: HighPassChoiceView -> '2 spaces (space 3, Spectra [MF])'
 --- message
 Chose **2 spaces**.
 --- message
-**High Pass:** the ball moves 2 spaces forward.
+**High Ball:** the ball moves 2 spaces forward.
 
 Ball is now in space 3, 🔮 Player 1 (Home) has possession.
 --- message
@@ -639,7 +639,7 @@ Time has advanced 1, now at 17.
 # Turnover!
 🔥 Sizzifizik [PM] steals the ball. 🔥 Dinky AI (Visitors) now has possession, then carries it 1 space forward, toward the goal they now attack.
 
-**Pinpoint** was beaten -- the defense gets an unopposed Low Pass once everyone is back in position.
+**Pinpoint** was beaten -- the defense gets an unopposed Pass once everyone is back in position.
 
 **End of the first half!** The ball turns over at 17 under last possession -- the period ends. The second half starts at 15.
 --- message
@@ -733,10 +733,10 @@ You chose **Intercept**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **High Pass**.
+🔥 Dinky AI chose **High Ball**.
 🔮 Player 1 chose **Intercept**.
 
-## **High Pass** wins!
+## **High Ball** wins!
 Time has advanced 2, now at 18.
 --- message
 <@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
@@ -744,7 +744,7 @@ Time has advanced 2, now at 18.
 --- message
 🔮 Umbrik [FB] declines to Mind Pull.
 --- message
-**High Pass:** the ball moves 1 space forward. The ball reaches the goal zone -- a scoring opportunity! The ball comes in too fast to settle -- the ball speed modifier counts **against** what follows (-5).
+**High Ball:** the ball moves 1 space forward. The ball reaches the goal zone -- a scoring opportunity! The ball comes in too fast to settle -- the ball speed modifier counts **against** what follows (-5).
 --- message
 🔥 Brightburn [SK] takes the shot off the set-up.
 --- message

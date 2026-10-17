@@ -1335,9 +1335,9 @@ class SkilledPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        What the card buys over a Low Pass: the nearest-each-way rule
+        What the card buys over a Pass: the nearest-each-way rule
         taken off. A teammate 1 ahead hides a teammate 2 ahead from a
-        Low Pass and hides nobody from this.
+        Pass and hides nobody from this.
 
         Asserted on the distances offered rather than on who is named
         at each one -- the standard deal has already put somebody on
@@ -1679,7 +1679,7 @@ class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     async def test_it_drives_the_ball_back_three_and_drops_speed_by_three(
         self,
     ) -> None:
-        # Against the *basic* High Pass, so nothing but Clear's own
+        # Against the *basic* High Ball, so nothing but Clear's own
         # benefit is in force -- Cross would add its cost on top.
         cog, game, match = self.build("high_pass", "clear", board_size=9)
         match.ball.speed = 8
@@ -1695,7 +1695,7 @@ class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         # Clear is Deflect's own landing rule, just at 3 (or 4) spaces
         # instead of 1 (or 2). Occupancy decides how it is won, which
         # since 2026-08-26 is every arrival's rule -- so what this
-        # asserts is that the one exemption, a High Pass, is not taken.
+        # asserts is that the one exemption, a High Ball, is not taken.
         # See OccupancyDecidesTests in test_d12ball_loose_ball.py for
         # the three-way behavior itself.
         self.assertFalse(
@@ -1952,7 +1952,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
 
     def test_a_fullback_may_also_set_up_at_four(self) -> None:
         """
-        The same +1 the Fullback brings to a High Pass and a Clear, on
+        The same +1 the Fullback brings to a High Ball and a Clear, on
         the card its sentence does not name. It is **appended** rather
         than replacing the 3: the ability adds a distance, it does not
         move one.

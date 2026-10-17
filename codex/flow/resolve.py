@@ -33,7 +33,7 @@ from codex.components import CardInstance, MatchState, hero_ref
 from codex.engine import WORKERS, parse_target, target_key
 from codex.flow import board
 from codex.flow.result import StepResult
-from codex.flow.turn import damage_base, draw_cards, gain_gold
+from codex.flow.turn import damage_base, draw_cards, gain_gold, gold_left, gold_now, stolen
 from codex.game import RuleRefusal
 from codex.prompts import pending
 
@@ -476,8 +476,13 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
     seat = top["seat"]
     if row.resist:
         match.player(seat).gold -= row.resist
+        # Said with what is targeted and why it costs, ahead of what the
+        # spell or ability then does (the author, 2026-10-16: "resist for
+        # spells needs to be spelled out").
         result.narration.append(
-            f"{tokens.player(seat)} pays {tokens.gold(row.resist)} for its resist."
+            f"{tokens.player(seat)} pays {tokens.gold(row.resist)} for resist to target "
+            f"{board.named(match, row.seat, row.ref)} with {top['by']}."
+            + gold_left(match, seat, row.resist)
         )
     body = board.body_of(match, row.seat, row.ref)
     if part.targeted and row.seat != seat and body is not None and engine.is_flagbearer(body.slug):
@@ -939,7 +944,9 @@ def _stop_music(engine, match, top, part, target, result) -> None:
 def _gain_gold(engine, match, top, part, target, result) -> None:
     seat = top["seat"]
     gained = gain_gold(match, seat, part.amount)
-    result.narration.append(f"{tokens.player(seat)} gains {tokens.gold(gained)} from {top['by']}.")
+    result.narration.append(
+        f"{tokens.player(seat)} gains {tokens.gold(gained)} from {top['by']}: {gold_now(match, seat)}."
+    )
 
 
 def steal_gold(match: MatchState, seat: int, other: int, amount: int) -> int:
@@ -996,7 +1003,7 @@ def _pillage(engine, match, top, part, target, result) -> None:
     taken = steal_gold(match, seat, other, steal) if other != seat else 0
     if taken:
         result.narration.append(
-            f"{tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}."
+            f"{stolen(match, seat, other, taken, by=top['by'])}."
         )
 
 
@@ -1784,8 +1791,8 @@ def _play_buried(engine, match, top, part, target, result) -> None:
     card.owner = entry["owner"]
     atk, hp = engine.unit_stats(card, match)
     result.narration.append(
-        f"{tokens.player(seat)} plays {tokens.card(slug)} from their {tokens.card(effects.GRAVEYARD)} "
-        f"for {tokens.gold(cost)}{', boosted' if boosted else ''}: {atk}/{hp}."
+        f"{tokens.player(seat)} plays {tokens.card(slug)} {atk}/{hp} from their {tokens.card(effects.GRAVEYARD)} "
+        f"for {tokens.gold(cost)}{', boosted' if boosted else ''}.{gold_left(match, seat, cost)}"
     )
     board.arrive(engine, match, card, boosted=boosted)
 
@@ -1966,7 +1973,7 @@ def _gain_levels(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{_thing(match, target)} gains no level.")
         return
     line = f"{top['by']} raises {_thing(match, target)} to level {hero.level}"
-    result.narration.append(line + (", a new band, and healed." if reached else "."))
+    result.narration.append(line + (board.new_band(engine, hero, match) if reached else "."))
     board.max_level_reached(engine, match, seat, hero, result)
 
 
@@ -2611,7 +2618,7 @@ def _max_level(engine, match, top, part, target, result) -> None:
         return
     result.narration.append(
         f"{top['by']} levels {_thing(match, target)} to {hero.level}"
-        + (", a new band, and healed." if reached else ".")
+        + (board.new_band(engine, hero, match) if reached else ".")
     )
     board.max_level_reached(engine, match, seat, hero, result)
 
@@ -2791,7 +2798,7 @@ def _codex_spell(engine, match, top, part, target, result) -> None:
     spend_promise(engine, match, seat, slug, result)
     result.narration.append(
         f"{top['by']}: {tokens.player(seat)} plays {tokens.card(slug)} from their codex "
-        f"for {tokens.gold(cost)}."
+        f"for {tokens.gold(cost)}.{gold_left(match, seat, cost)}"
     )
     spell = frame(slug, seat, tokens.card(slug), spell=slug, origin=slug)
     harmonies = [
@@ -2878,7 +2885,7 @@ def _steal_gold(engine, match, top, part, target, result) -> None:
     taken = steal_gold(match, seat, other, part.amount)
     if taken:
         result.narration.append(
-            f"{top['by']}: {tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}."
+            f"{top['by']}: {stolen(match, seat, other, taken)}."
         )
     else:
         result.narration.append(f"{tokens.player(other)} has no gold for {top['by']} to steal.")

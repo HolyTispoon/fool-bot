@@ -237,7 +237,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
                 build_interaction(), "offense", "low_pass",
             )
 
-        # Low Pass ties Deflect, which is what the defense would
+        # Pass ties Deflect, which is what the defense would
         # have had to pick for a tie -- there is no defense, so the
         # effect runs and nobody rolls.
         cog.begin_effect_resolution.assert_awaited_once()

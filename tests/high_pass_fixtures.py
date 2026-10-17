@@ -1,5 +1,5 @@
 """
-A match standing in each branch a High Pass or a Cross resolves
+A match standing in each branch a High Ball or a Cross resolves
 through, and what that resolution should produce.
 
 Rank O3 of Phase 3 of docs/design/model-discord-split.md moves the two cards'
@@ -27,7 +27,7 @@ one new thing agreeing with each other. Its commit is the first on the
 branch for exactly that reason.
 
 **This rank has four entry points, not one**, which is the first way it
-differs from every rank before it. A High Pass resolves through one
+differs from every rank before it. A High Ball resolves through one
 function; a Cross is two prompts -- the speed first, the
 destination after -- and its out-of-play ending is reachable from the
 menu that never offered a distance as well as from the pass itself. So
@@ -136,11 +136,11 @@ HIGH_PASS_CONTEST = "BEGIN_HIGH_PASS_CONTEST"
 #: the resolution.
 BEATEN_BASIC = "steal"
 
-#: The gambit on that rank, and the only cost a High Pass can ever
+#: The gambit on that rank, and the only cost a High Ball can ever
 #: collect: an Intercept it beat leaves the reception uncontested.
 BEATEN_ADVANCED = "intercept"
 
-#: High Pass's own clock cost -- a flat 2 time whatever the
+#: High Ball's own clock cost -- a flat 2 time whatever the
 #: pass did (2026-08-16), which is why it is apart from the distance
 #: the ball actually travelled. Cross's is the same 2, as
 #: `SETUP_PASS_CLOCK_COST` in `d12ball/components.py`.
@@ -413,7 +413,7 @@ def gaining_side_label(match: MatchState) -> str:
 
 def high_pass_text(actual_distance: int, fullback: bool = False) -> str:
     """
-    The line every branch of a High Pass opens with. The distance is
+    The line every branch of a High Ball opens with. The distance is
     the one the board allowed rather than the one the coach asked for,
     which is what makes the clamped fixtures worth having -- and a
     throw that moved the ball no distance at all says so in words
@@ -421,20 +421,20 @@ def high_pass_text(actual_distance: int, fullback: bool = False) -> str:
     """
     if not actual_distance:
         return (
-            "**High Pass:** the ball is thrown from the last space into "
+            "**High Ball:** the ball is thrown from the last space into "
             "the goal zone and comes straight back down on it."
         )
     space_word = "space" if actual_distance == 1 else "spaces"
     ability_note = " (Fullback ability)" if fullback else ""
     return (
-        f"**High Pass:** the ball moves {actual_distance} "
+        f"**High Ball:** the ball moves {actual_distance} "
         f"{space_word} forward{ability_note}."
     )
 
 
 def out_of_play_text(match: MatchState, lead_in: str) -> str:
     """
-    A High Pass with nowhere left to put it. The passer is on the
+    A High Ball with nowhere left to put it. The passer is on the
     space closest to the goal they attack and nobody shares it, so
     there is no field to overshoot onto and no teammate to land
     beside: it goes out rather than staying quietly with the passer.
@@ -455,7 +455,7 @@ def setup_pass_out_text(match: MatchState) -> str:
     )
 
 
-# -- High Pass: the set-ups --------------------------------------------
+# -- High Ball: the set-ups --------------------------------------------
 
 
 def two_spaces_into_a_set_up() -> PassFixture:
@@ -539,7 +539,7 @@ def two_spaces_short_of_shooting_range() -> PassFixture:
     )
 
 
-# -- High Pass: the overshoot ------------------------------------------
+# -- High Ball: the overshoot ------------------------------------------
 
 
 def an_overshoot_into_a_set_up() -> PassFixture:
@@ -635,7 +635,7 @@ def nowhere_left_to_throw_it() -> PassFixture:
     """
     **A passer never receives their own pass, and since 2026-08-24
     that is no longer a free ride.** The exclusion can only bite on a
-    throw the field clamped to nothing -- a High Pass moves the ball
+    throw the field clamped to nothing -- a High Ball moves the ball
     and not the handler -- and with nobody else on the space there is
     no field left to put it on and no teammate to put it to. So it
     goes out exactly as a Cross with no legal destination does,
@@ -664,12 +664,12 @@ def nowhere_left_to_throw_it() -> PassFixture:
     )
 
 
-# -- High Pass: the long pass ------------------------------------------
+# -- High Ball: the long pass ------------------------------------------
 
 
 def a_long_pass_into_a_contest() -> PassFixture:
     """
-    **A long High Pass still forces a skill test to keep the ball**,
+    **A long High Ball still forces a skill test to keep the ball**,
     unlike any other maneuver: the teammate standing where it landed
     has to win it. A pass of 2 with a teammate there took a set-up
     branch above -- both ask
@@ -694,7 +694,7 @@ def a_long_pass_into_a_contest() -> PassFixture:
 def a_long_pass_onto_nobody() -> PassFixture:
     """
     The same throw with nobody standing where it came down. There is
-    no receiver to force a contest for, so it is not the High Pass
+    no receiver to force a contest for, so it is not the High Ball
     contest at all -- just a pass into empty field, which the
     maneuver's ordinary tail settles.
     """
@@ -736,7 +736,7 @@ def a_fullback_throws_four() -> PassFixture:
 
 def a_beaten_intercept_leaves_the_reception_alone() -> PassFixture:
     """
-    **Intercept's cost**: beaten by a High Pass, the reception is not
+    **Intercept's cost**: beaten by a High Ball, the reception is not
     contested and the receiver simply keeps it. It is the one of the
     six costs that can be inert, and this is the only branch it is
     not -- a pass of 2, an overshoot's set-up and a pass reaching
@@ -888,7 +888,7 @@ def setup_pass_at_zero_with_nobody_there() -> PassFixture:
     Only reachable from a stale click -- 0 is offered while a teammate
     shares the passer's space, and every other distance only where it
     fits -- so nothing legal clamps to standing still. A ball that
-    never left the passer is the High Pass's own dead end, and it goes
+    never left the passer is the High Ball's own dead end, and it goes
     out for the same reason rather than settling under their feet.
     """
     match, passer = stand_a_pass("setup_pass", passer_flat=4, speed=4)

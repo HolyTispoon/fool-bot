@@ -190,7 +190,7 @@ class ShortAbilityTests(unittest.TestCase):
         importer was only half wrong: it stripped the abbreviations and
         not the sentences, so every test about it passed while the
         Striker's sentence shipped as "`+3 for scoring off a set up."
-        and printed that way on the High Pass card.
+        and printed that way on the High Ball card.
 
         This is the assertion that would have caught it, and it catches
         the next column somebody adds without asking.

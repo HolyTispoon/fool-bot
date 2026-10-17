@@ -833,7 +833,7 @@ class ScorchitTests(unittest.TestCase):
         self.defense = self.match.visiting.field_players[0]
         self.match.active_player_id = self.offense
         self.match.challenger_id = self.defense
-        # Steal beats Low Pass on the cards: the offense lost.
+        # Steal beats Pass on the cards: the offense lost.
         self.match.offense_maneuver = "low_pass"
         self.match.defense_maneuver = "steal"
 
@@ -907,7 +907,7 @@ class ScorchitTests(unittest.TestCase):
             self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
 
     def test_nothing_once_the_stealer_has_the_ball(self) -> None:
-        # A beaten Pinpoint owes the stealer a free Low Pass, which
+        # A beaten Pinpoint owes the stealer a free Pass, which
         # makes them the handler: the cards now name one player twice,
         # and the settled maneuver must stay settled.
         self.match.offense_maneuver = "skilled_pass"
@@ -957,7 +957,7 @@ class UmbrikTests(unittest.TestCase):
             self.match.offense_maneuver = "high_pass"
             self.assertEqual(self.asked("skill_test"), self.skills.defense)
             self.assertEqual(self.asked("contest"), self.skills.offense)
-            # Not the High Pass contest (the author, 2026-09-26).
+            # Not the High Ball contest (the author, 2026-09-26).
             self.match.pending_loose_ball_is_high_pass = True
             self.assertEqual(self.asked("contest"), self.skills.offense)
 
@@ -1025,7 +1025,7 @@ class KindlefingerTests(unittest.TestCase):
 
 
 class SlitheronTests(unittest.TestCase):
-    """Slitheron takes a High Pass or loose ball without a roll."""
+    """Slitheron takes a High Ball or loose ball without a roll."""
 
     def setUp(self) -> None:
         self.game = advanced()
@@ -1641,7 +1641,7 @@ class LongPassTests(unittest.TestCase):
         self.assertEqual(result.next.kwargs["shooter_id"], receiver)
 
     def passed(self, distance: int):
-        """A Low Pass played, and its passer kept where they are when
+        """A Pass played, and its passer kept where they are when
         asked (Law 6.5.3): what the pass leads to after that."""
         result = low_pass_step(ENGINE, self.match, distance, game=self.game)
         if (

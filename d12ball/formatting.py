@@ -84,7 +84,7 @@ def contest_noun(match: MatchState) -> str:
       ball", not "contests the contest". Where only one side is
       standing there nobody contests anything -- it is simply theirs,
       and no prompt is built at all.
-    - A **High Pass** is a completed pass to a player already standing
+    - A **High Ball** is a completed pass to a player already standing
       there, defending the ball they just received; losing it is a
       turnover, winning it changes nothing.
 
@@ -579,7 +579,7 @@ def format_goal_time(goal: GoalRecord) -> str:
     )
 
 
-# A High Pass *is* the loose-ball contest (see begin_loose_ball) -- a
+# A High Ball *is* the loose-ball contest (see begin_loose_ball) -- a
 # 3+ space pass, or a declined 2-space one, makes the receiver win a
 # skill test to keep the ball, and since 2026-08-18 that is the
 # ordinary rule rather than this maneuver's own: they contest because
@@ -589,7 +589,7 @@ def format_goal_time(goal: GoalRecord) -> str:
 # nobody being sent because both sides usually have their contestant
 # standing there already.
 HIGH_PASS_CONTEST_HEADLINE = (
-    "**High Pass:** the receiving player must win a skill test to keep "
+    "**High Ball:** the receiving player must win a skill test to keep "
     "possession."
 )
 
@@ -880,7 +880,7 @@ def contestant_detail(
     rolling, and what they add to it.
 
     `injured` is only ever passed by the contests injury actually bites
-    in -- the loose ball, the long High Pass and the shootout, where an
+    in -- the loose ball, the long High Ball and the shootout, where an
     injured contestant's own skill stays off the roll and nothing else
     does. A maneuver's skill test and a score attempt are untouched by
     it and pass nothing, which is the rule rather than an omission; see

@@ -477,7 +477,7 @@ def fitted_title(
 # A role whose ability does not name the maneuver but belongs on its
 # card anyway. The Striker's +3 is for scoring off a set-up, one step
 # removed from the maneuver that produced the set-up -- three maneuvers
-# can produce one, and the author's ruling is that a High Pass is much
+# can produce one, and the author's ruling is that a High Ball is much
 # the most common way it happens, so it goes there and nowhere else.
 # The sentence still comes from players.json; only the placement is
 # here.
@@ -583,7 +583,7 @@ class Move(NamedTuple):
 def arc_rise(move: Move) -> float:
     """
     How far above the strip a move's arc peaks. It grows with the
-    distance so a High Pass's three throws out of one space stay told
+    distance so a High Ball's three throws out of one space stay told
     apart, and the diagram is laid out around the tallest of them --
     which is why this is a function and not a number inside the drawing
     loop.
@@ -605,7 +605,7 @@ def draw_arrowhead(
 
 
 # A dashed arc is a role's variant rather than the ordinary move, and
-# that is the only thing the dashes mean -- Low Pass's backward option
+# that is the only thing the dashes mean -- Pass's backward option
 # is solid because it is a choice any passer has.
 STRIP_MOVES: dict[str, tuple[Move, ...]] = {
     "low_pass": (
@@ -726,7 +726,7 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
 #
 # **The basic strip is the standard seven-space board with the ball on
 # the third space, which is the only position from which every basic
-# maneuver fits**: a High Pass of 4 lands on the last space and a
+# maneuver fits**: a High Ball of 4 lands on the last space and a
 # Fullback's Deflect of 2 on the first. The gambits do not fit
 # it -- a Fullback's Clear drives the ball back 4 and a Burst
 # runs it 4 forward -- so they are drawn on the **nine-space board**,
@@ -755,7 +755,7 @@ class StripGeometry(NamedTuple):
     geometries.
 
     The strip floats inside its panel rather than sitting on the
-    floor, and where it floats to depends on the maneuver: High Pass's
+    floor, and where it floats to depends on the maneuver: High Ball's
     longest arc rises four spaces' worth above the strip and says two
     lines about its landing, where Steal's one arc barely leaves it.
     So `strip_top` is set from the tallest arc and the caption rows
@@ -803,7 +803,7 @@ def strip_geometry(
     """
     Where the strip and its captions go for this maneuver's panel.
 
-    How deep the caption block is depends on the maneuver: High Pass
+    How deep the caption block is depends on the maneuver: High Ball
     says two lines about its 2-space landing and still needs a row
     below for the Fullback's. The strip floats up to make room rather
     than the captions being squeezed. The diagram is then centred in
@@ -1014,13 +1014,13 @@ def draw_strip_caption(
 ) -> None:
     """
     Hung under the space the move lands on -- or between two of them,
-    where one caption covers both, as a High Pass's contested 3 and 4
+    where one caption covers both, as a High Ball's contested 3 and 4
     do. A second row keeps two captions on neighbouring spaces off each
     other; a role's variant takes it by default.
     """
     cx, _ = geo.space_center(move.caption_space)
     # How much room this caption has is how far the next caption on
-    # its row is: High Pass lands on consecutive spaces and gets a
+    # its row is: High Ball lands on consecutive spaces and gets a
     # space's width each, while a lone caption may run wide.
     neighbours = [
         abs(other.caption_space - move.caption_space)
@@ -1110,7 +1110,7 @@ def draw_strip_landings(
         else:
             # Nothing lands here but the ball, so the space carries how
             # far it came instead -- the distance is the choice on a
-            # High Pass and the ability on a Deflect.
+            # High Ball and the ability on a Deflect.
             cx, cy = geo.space_center(move.offset)
             pen.text(
                 (cx, cy + 1),
@@ -1226,7 +1226,7 @@ def draw_strip(
     effect text below carries the wording.
 
     Distances are labelled under the space they land on rather than on
-    the arc itself. High Pass draws three arcs out of one space, and
+    the arc itself. High Ball draws three arcs out of one space, and
     labelling those at their peaks stacked three captions on top of
     each other; hung off the destination they cannot collide, because
     no two of a maneuver's moves land on the same space.

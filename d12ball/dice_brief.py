@@ -328,7 +328,7 @@ def challenge_noted(
     """
     Who has a special ability that bears on the maneuver challenge
     without being in it: Quantor, while a teammate is on the ball,
-    since he may run onto their High Pass or Cross and the coach is
+    since he may run onto their High Ball or Cross and the coach is
     choosing the card (`pass_runner_on_field`; the author, 2026-09-28
     on the page, 2026-10-02 on Discord). Both frontends say it -- the
     page's window as a note, the bot's image in its notes row.

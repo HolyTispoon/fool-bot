@@ -18,12 +18,12 @@ which side of the seam a function has ended up on, and it is
 greppable.
 
 **A rank's two cards are one function wherever they differ by a
-parameter**: Low Pass and Pinpoint by `key`, Steal and Intercept
+parameter**: Pass and Pinpoint by `key`, Steal and Intercept
 by the sign of the carry, Pressure and Double Team by the push and the
 partner it brings in, Deflect and Clear by the distance and the speed
 drop. The dribbles needed two, because they have different costs
 rather than different signs -- and so does rank O3, whose two cards
-share a landing space and nothing else: a High Pass throws forward and
+share a landing space and nothing else: a High Ball throws forward and
 may reach the goal zone, a Cross picks the ball out and never does, and the
 Cross is two steps because its speed choice comes first.
 
@@ -89,7 +89,7 @@ from d12ball.prompts import (
 )
 
 
-#: How far a Low Pass with nobody to receive it rolls the ball (Law
+#: How far a Pass with nobody to receive it rolls the ball (Law
 #: 6.5.5, the author 2026-10-07). A Pinpoint's rolls its reach,
 #: `SKILLED_PASS_REACH`.
 LOW_PASS_NOBODY_ROLL = 2
@@ -269,7 +269,7 @@ def low_pass_step(
     game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
-    Play a won Low Pass -- or a Pinpoint, which is the same card
+    Play a won Pass -- or a Pinpoint, which is the same card
     with more reach and a bigger bonus, or the unopposed pass
     Pinpoint's own cost hands the defense.
 
@@ -320,7 +320,7 @@ def low_pass_step(
     # played it and the teammate who would have joined them are
     # each shoved a space forward, away from their own goal.
     content += pay_double_team_cost(engine, match, key, double_team_partner)
-    # Low Pass's own cost is a flat 1 time regardless of
+    # Pass's own cost is a flat 1 time regardless of
     # distance (2026-08-16), the same as every maneuver but High
     # Pass. A pass granted by Pinpoint's cost is not this
     # side's maneuver and charges nothing: the clock was already
@@ -328,7 +328,7 @@ def low_pass_step(
     distance_moved = 0 if free else 1
 
     # **The passer may move 1 space forward** once the ball has gone
-    # (Law 6.5.3, the author 2026-10-07) -- a Low Pass's, never a
+    # (Law 6.5.3, the author 2026-10-07) -- a Pass's, never a
     # Pinpoint's. Asked before the tail below, which is what the
     # answer runs.
     advance = offer_passer_advance(
@@ -370,7 +370,7 @@ def low_pass_tail(
     #
     # Role ability -- Winger: the receiving player may attempt a
     # scoring opportunity right where the pass lands, whatever the
-    # distance -- unlike High Pass's set-up, this doesn't require
+    # distance -- unlike High Ball's set-up, this doesn't require
     # reaching the space nearest the goal. It does require shooting
     # range, like any other shot: the ability frees the set-up from
     # a distance, not from where a goal can be scored from.
@@ -418,7 +418,7 @@ def offer_passer_advance(
     then: dict,
 ) -> Optional[PendingPrompt]:
     """
-    Ask whether a Low Pass's passer moves 1 space forward (Law 6.5.3,
+    Ask whether a Pass's passer moves 1 space forward (Law 6.5.3,
     6.5.5), recording the question and what the pass does once it is
     answered (`MatchState.pending_passer_advance`); `None` where there
     is nothing to ask -- a Pinpoint, whose passer never moves (Law
@@ -831,7 +831,7 @@ def steal_step(
         )
 
     # **Pinpoint's cost**: beaten by a steal, the passing side
-    # hands the defender an unopposed Low Pass once the steal has
+    # hands the defender an unopposed Pass once the steal has
     # settled. It is said here and played later, because the steal is
     # not finished: the run back and then the speed choice both come
     # first, and the pass is played from wherever that leaves the
@@ -843,7 +843,7 @@ def steal_step(
         content += (
             f"\n\n**{engine.maneuver_name('skilled_pass')}** was beaten "
             "-- the defense gets an "
-            "unopposed Low Pass once everyone is back in position."
+            "unopposed Pass once everyone is back in position."
         )
 
     # Ball-speed manipulation is offered after run-back finishes,
@@ -1005,7 +1005,7 @@ def pressure_step(
     Play a won Pressure -- or a Double Team, which is the same card
     with a partner brought in free of exhaustion, who Merges through
     the *following* maneuver (Law 19.10). The two differ only by that
-    partner, so they are one function and a `key`, the way Low Pass
+    partner, so they are one function and a `key`, the way Pass
     and Pinpoint are.
 
     Rank D3 has no unchallenged branch: a defense card only resolves
@@ -1577,7 +1577,7 @@ def deflection_lands(
     # already there. See `d12ball.flow.arrivals.begin_loose_ball`.
     #
     # A deflection's time cost is a fixed 1 time per the rules
-    # table, not "distance traveled" like Low/High Pass, so this
+    # table, not "distance traveled" like Low/High Ball, so this
     # doesn't shrink if the ball reached the goal zone (or grow with
     # the Fullback's extra distance, or Clear's, or a chosen one).
     return StepResult(
@@ -1620,7 +1620,7 @@ def throw_high_pass(
     if actual_distance:
         space_word = "space" if actual_distance == 1 else "spaces"
         content = (
-            f"**High Pass:** the ball moves {actual_distance} "
+            f"**High Ball:** the ball moves {actual_distance} "
             f"{space_word} forward{ability_note}."
         )
     else:
@@ -1629,7 +1629,7 @@ def throw_high_pass(
         # as "moves 0 spaces forward", which reads as a bug -- and
         # a coach sees it now that the passer cannot shoot off it.
         content = (
-            "**High Pass:** the ball is thrown from the last space into "
+            "**High Ball:** the ball is thrown from the last space into "
             "the goal zone and comes straight back down on it."
         )
 
@@ -1709,7 +1709,7 @@ def high_pass_step(
     game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
-    Play a won High Pass: put the ball in the air and settle what it
+    Play a won High Ball: put the ball in the air and settle what it
     found where it came down.
 
     **The hardest card of the twelve, and it is the landing space that
@@ -1737,7 +1737,7 @@ def high_pass_step(
         match, offense_side, distance, handler,
     )
 
-    # High Pass's own cost is a flat 2 time regardless of
+    # High Ball's own cost is a flat 2 time regardless of
     # distance (2026-08-16) -- the one maneuver that isn't 1. Kept
     # apart from `actual_distance`, which is what the pass actually
     # did and what the result says.
@@ -1790,7 +1790,7 @@ def high_pass_step(
 
     # A pass of 2 is received cleanly: no contest at all
     # (2026-08-07), and it may set up a scoring opportunity for
-    # whoever it lands on -- unlike the old fixed-2 High Pass,
+    # whoever it lands on -- unlike the old fixed-2 High Ball,
     # this no longer requires reaching the goal zone. A longer
     # pass never offers it, whether or not it reaches the goal zone.
     #
@@ -1875,7 +1875,7 @@ def high_pass_step(
         # **A passer never receives their own pass, and since
         # 2026-08-24 that is no longer a free ride.** The exclusion
         # above can only bite when a throw from the last space reached
-        # the goal zone and came back down on it -- a High Pass moves
+        # the goal zone and came back down on it -- a High Ball moves
         # the ball, not the handler, so
         # that is the only way the passer is still standing where
         # it lands. With nobody else there either, this is a throw
@@ -1921,7 +1921,7 @@ def high_pass_step(
             match, runner_id, distance_moved, content,
         )
 
-    # **Intercept's cost**: beaten by a High Pass, the reception is
+    # **Intercept's cost**: beaten by a High Ball, the reception is
     # not contested -- the receiver simply keeps it. It is the one
     # of the six costs that can be inert, and this is the only
     # branch it is not: a pass of 2, the goal zone's set-up and a
@@ -1947,7 +1947,7 @@ def high_pass_step(
     # pass went 3 or more -- a distance of 2 with a teammate there
     # took the set-up branch above, since both branches ask
     # high_pass_receiver_candidates the same question. A long
-    # High Pass still forces a skill test to keep the ball, unlike
+    # High Ball still forces a skill test to keep the ball, unlike
     # any other maneuver.
     return StepResult(
         narration=[content],
@@ -1992,8 +1992,8 @@ def offer_goal_zone_set_up(
     lead_in: str,
 ) -> StepResult:
     """
-    The scoring opportunity a High Pass that reached the goal zone
-    sets up (2026-08-10) -- see "High Pass" in the living rules.
+    The scoring opportunity a High Ball that reached the goal zone
+    sets up (2026-08-10) -- see "High Ball" in the living rules.
 
     The pass arrived faster than the receiver could settle it, so
     `pending_high_pass_overshoot` (the saved key keeps the old word)
@@ -2077,7 +2077,7 @@ def setup_pass_step(
             # while a teammate shares the passer's space, and every
             # other distance is offered only where it lands short of
             # the goal zone, so nothing legal comes to a standstill.
-            # A ball that never left the passer is the High Pass's
+            # A ball that never left the passer is the High Ball's
             # own 0-space case -- nowhere to throw it and nobody to
             # throw it to -- so it goes out rather than settling
             # under the passer's own feet.
@@ -2288,7 +2288,7 @@ def speed_choice_step(
 
     A gambit's effect can reach past its own maneuver, and a speed
     choice is the last human step of the one that does: the
-    unopposed Low Pass a beaten Pinpoint hands the side that stole
+    unopposed Pass a beaten Pinpoint hands the side that stole
     it. (Cross's own pass followed a speed choice too, until the
     2026-10-03 card dropped the speed.) **What is still owed is written down
     here**, at the moment the effect has nothing left in front of it,
@@ -2375,13 +2375,13 @@ def offer_low_pass(
     lead_in: str = "",
 ) -> StepResult:
     """
-    A won Low Pass or Pinpoint: who it can reach, and whether
+    A won Pass or Pinpoint: who it can reach, and whether
     anybody chooses.
 
-    Pinpoint is a Low Pass with the nearest-each-way rule taken
+    Pinpoint is a Pass with the nearest-each-way rule taken
     off, a space more reach, and the speed bonus tripled; every other
-    thing about it is a Low Pass's, which is why the two share one
-    function. `free` marks the unopposed Low Pass **Pinpoint's
+    thing about it is a Pass's, which is why the two share one
+    function. `free` marks the unopposed Pass **Pinpoint's
     cost** hands the defense: it is not this side's maneuver, so it
     charges no further clock and cannot be a Pinpoint.
 
@@ -2390,7 +2390,7 @@ def offer_low_pass(
     Pass, 3 for a Pinpoint (the author, 2026-10-07; Law 6.5.5,
     19.5.3) -- and settles where it lands, and its speed still rises
     (2026-08-07): the maneuver's speed bonus doesn't depend on the
-    pass finding anyone. A Low Pass's passer may still move, and is
+    pass finding anyone. A Pass's passer may still move, and is
     asked before the ball settles. No headline of its own
     for that loose ball: the ball may well roll onto somebody, so what
     to call it is a question about the space it stopped on rather than
@@ -2534,7 +2534,7 @@ def offer_high_pass(
     lead_in: str = "",
 ) -> StepResult:
     """
-    A won High Pass: how far to throw.
+    A won High Ball: how far to throw.
 
     There is nothing to choose when even the shortest pass reaches the
     goal zone -- 2, 3 and 4 all come to rest on the last space before
@@ -2559,7 +2559,7 @@ def offer_high_pass(
         next=PendingPrompt(
             PromptKind.HIGH_PASS_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose your "
-            "High Pass distance:",
+            "High Ball distance:",
         ),
     )
 
@@ -2786,7 +2786,7 @@ def continue_effect(
 
     if continuation.get("kind") == "free_low_pass":
         # **Pinpoint's cost.** The defense stole the ball and now
-        # plays a Low Pass with it, unopposed. The passer is whoever
+        # plays a Pass with it, unopposed. The passer is whoever
         # took it -- named when the cost was recorded, and re-derived
         # from the ball if a run back has moved things since.
         passer_id = continuation.get("player_id")

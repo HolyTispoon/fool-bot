@@ -226,10 +226,10 @@ class TutorialScriptTests(unittest.TestCase):
         # settle -- its dice do, which is what `rolls` is for.
         expected = {
             1: "offense",   # Dribble over Deflect
-            2: "tie",       # Low Pass and Deflect, both rank 1
+            2: "tie",       # Pass and Deflect, both rank 1
             3: "defense",   # the coach's Pressure over Dribble
-            4: "defense",   # the coach's Steal Intercept over Low Pass
-            5: "offense",   # High Pass over Steal Intercept
+            4: "defense",   # the coach's Steal Intercept over Pass
+            5: "offense",   # High Ball over Steal Intercept
         }
         for beat in tutorial.BEATS:
             with self.subTest(beat=beat.step):
@@ -568,7 +568,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         """
         The whole pipeline: five turns played, a shot taken off beat
         5's set-up, and whatever it produced credited to the
-        possession -- and so to the High Pass that made it.
+        possession -- and so to the High Ball that made it.
 
         **The shot's outcome is not asserted, because the script does
         not fix it.** It is deliberately left to the dice (see "The
@@ -685,7 +685,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_script_ends_in_a_goal_at_the_minute_it_should(
         self,
     ) -> None:
-        # Five beats charge four maneuvers, a High Pass and the shot.
+        # Five beats charge four maneuvers, a High Ball and the shot.
         # The shot is real dice, so this is the position doing the
         # work: a striker's +9 against a lone halved +3.
         with mock.patch(

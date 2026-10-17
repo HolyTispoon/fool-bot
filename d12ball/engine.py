@@ -314,7 +314,7 @@ class IgnitedRoll:
 # extra-exhaustion-token choice and its own Coaching Choice, **the
 # visitors first** throughout: they kick off the second half, so they
 # are the side whose arrangement the restart depends on.
-#: The one distance a Fullback's reach adds to a High Pass or a Setup
+#: The one distance a Fullback's reach adds to a High Ball or a Setup
 #: Pass menu -- "High pass up to 4", read as a number (the author,
 #: 2026-08-19). `pass_ability_note` names it on the button.
 FULLBACK_PASS_REACH = 4
@@ -2281,11 +2281,11 @@ class RulesEngine:
     def maneuver_clock_cost(self, match: MatchState, winner_key: str) -> int:
         """
         What the clock is charged when `winner_key` wins (Law 16.2):
-        2 for a High Pass or a Cross, 1 for every other maneuver.
+        2 for a High Ball or a Cross, 1 for every other maneuver.
 
         **It is the card that resolves**, `resolving_maneuver`'s answer,
-        and never the loser's (Law 16.2.3): a High Pass beaten by a
-        Deflect costs the Deflect's 1. A High Pass and a Cross are
+        and never the loser's (Law 16.2.3): a High Ball beaten by a
+        Deflect costs the Deflect's 1. A High Ball and a Cross are
         the one rank, so a tier raised or lowered on the dice never
         changes the answer -- asking the resolving card is only the
         honest question.
@@ -2697,7 +2697,7 @@ class RulesEngine:
             else (match.challenger_id, match.active_player_id)
         )
         # **The handler can change after the cards resolve** -- the
-        # stealer takes the free Low Pass a beaten Pinpoint owes, a
+        # stealer takes the free Pass a beaten Pinpoint owes, a
         # shooter takes a set-up -- so the two ids can come to name one
         # player. That is a maneuver already settled, and nothing here
         # is owed.
@@ -2918,8 +2918,8 @@ class RulesEngine:
         The skill `player_id` adds on the attacking side of `roll`:
         their offensive skill, except **Umbrik's** defensive one
         (Law 21) in an own-goal roll and a maneuver skill test over
-        Umbrik's own High Pass. A contest is always offensive -- the
-        High Pass contest too, which the author ruled out (2026-09-26)
+        Umbrik's own High Ball. A contest is always offensive -- the
+        High Ball contest too, which the author ruled out (2026-09-26)
         -- and is asked here so every attacking roll reads one place.
 
         `roll` is `"own_goal"`, `"skill_test"` (the handler's side of a
@@ -2956,7 +2956,7 @@ class RulesEngine:
         roll: str,
     ) -> bool:
         """Umbrik's swap (Law 21): his defensive skill on the attack in
-        an own-goal roll and a skill test over his own High Pass."""
+        an own-goal roll and a skill test over his own High Ball."""
         if not self.has_special_ability(
             game, player_id, SpecialAbility.DEFENSIVE_THROW,
         ):
@@ -2994,9 +2994,9 @@ class RulesEngine:
         The caller asks only where the roll does not already add the
         modifier to Zorch's side -- Zorch shooting, contesting a
         maneuver with Steal or Intercept, or holding the thrower's side
-        of a High Pass contest -- because Zorch adds it once, not twice
+        of a High Ball contest -- because Zorch adds it once, not twice
         (the author, 2026-09-27) -- and there the full modifier is what
-        is added, not this. It is never signed: a High Pass that reaches the goal zone counts the
+        is added, not this. It is never signed: a High Ball that reaches the goal zone counts the
         modifier against itself, and Zorch's own bonus is not that
         pass's.
         """
@@ -3065,7 +3065,7 @@ class RulesEngine:
         match: MatchState,
     ) -> list[tuple[int, str]]:
         """
-        A Low Pass has at most two destinations, as (distance,
+        A Pass has at most two destinations, as (distance,
         receiver) pairs ordered back-to-front for display: the nearest
         teammate behind the ball within 2 spaces, and the nearest one
         ahead of it within 2. The ball can only be passed to a space
@@ -3086,7 +3086,7 @@ class RulesEngine:
         candidate only when a *second* offensive player is standing on
         the ball's space, and the receiver named for it is that other
         player. A handler with nobody within two spaces has no legal
-        Low Pass at all -- see `offer_low_pass`, which is where that
+        Pass at all -- see `offer_low_pass`, which is where that
         case is handled rather than here.
 
         The receiver named here is only the *first* teammate on that
@@ -3143,7 +3143,7 @@ class RulesEngine:
         inherits** (the author, 2026-08-19). Its sentence reads "High
         pass up to 4", which read as a number is a fourth distance
         against a card that offers 0, 1 and 3 -- and read as the rule
-        behind the number is the same +1 that takes a basic High Pass
+        behind the number is the same +1 that takes a basic High Ball
         from 3 to 4 and a Clear from 3 to 4. The rule is what carries,
         so the extra distance is appended rather than replacing the 3.
         """
@@ -3273,7 +3273,7 @@ class RulesEngine:
 
     def pass_speed_bonus(self, maneuver_key: str) -> int:
         """
-        What a pass adds to ball speed: Low Pass's +1, or
+        What a pass adds to ball speed: Pass's +1, or
         Pinpoint's +3. Both are capped at 12 by the caller, the way every
         speed change is.
         """
@@ -3289,7 +3289,7 @@ class RulesEngine:
         receiver) pairs ordered back-to-front, rather than the nearest
         one each way within two spaces.
 
-        That is the whole of what the card buys over a Low Pass -- a
+        That is the whole of what the card buys over a Pass -- a
         teammate the nearest-each-way rule hides, and one space more
         of it -- so it is written as the same shape:
         `LowPassChoiceView`, the receiver pick behind it and `DinkyAI`
@@ -3353,7 +3353,7 @@ class RulesEngine:
     ) -> list[tuple[int, str]]:
         """
         The destinations the pass being resolved actually offers --
-        Pinpoint's any-teammate-within-3, or a Low Pass's nearest
+        Pinpoint's any-teammate-within-3, or a Pass's nearest
         each way. Asked in one place so the buttons, the AI and the
         click that answers cannot disagree about what was on offer.
         """
@@ -3371,7 +3371,7 @@ class RulesEngine:
         distance: int,
     ) -> list[str]:
         """
-        Every teammate a Low Pass of `distance` could be played to --
+        Every teammate a Pass of `distance` could be played to --
         the offensive players standing on that space, minus the
         handler, who cannot pass to themselves.
 
@@ -3407,7 +3407,7 @@ class RulesEngine:
 
     def high_pass_distance_options(self, match: MatchState) -> list[int]:
         """
-        The distances this High Pass may be thrown at: the handler's
+        The distances this High Ball may be thrown at: the handler's
         maximum -- 4 for a Fullback, 3 for everyone else -- less any
         that reach the goal zone. Empty when even the shortest does,
         which is the case where it reaches the goal zone before anyone
@@ -3427,7 +3427,7 @@ class RulesEngine:
     def pass_ability_note(self, distance: int) -> str:
         """
         " (Fullback ability)" for the one distance only a Fullback's
-        reach puts on a High Pass or Cross menu, else "". Which
+        reach puts on a High Ball or Cross menu, else "". Which
         distance that is, is a rule (`high_pass_distance_options`,
         `setup_pass_distances`), so the menu asks here rather than
         knowing the number.
@@ -3461,7 +3461,7 @@ class RulesEngine:
     ) -> Optional[str]:
         """
         **Quantor** (Law 21): the player of the side on the ball who
-        could run onto a teammate's High Pass or Cross, whichever
+        could run onto a teammate's High Ball or Cross, whichever
         distance it goes -- never the handler, who is the one passing,
         and never an injured player -- or `None`. `pass_runner` narrows
         it to the distances a pass is offered; a frontend saying the
@@ -3492,11 +3492,11 @@ class RulesEngine:
     ) -> tuple[Optional[str], tuple[int, ...]]:
         """
         **Quantor** (Law 21): the passing side's player who may drain 3
-        to run onto a teammate's High Pass or Cross, and the
+        to run onto a teammate's High Ball or Cross, and the
         distances they may run onto -- or `(None, ())`.
 
         Never the passer, never an injured player, and only a distance
-        that lands on a space: a High Pass that reaches the goal zone
+        that lands on a space: a High Ball that reaches the goal zone
         comes to rest short of where it was aimed, so there is no target
         space to run to. The distances are the prompt's own, so this
         narrows what is already offered rather than offering anything
@@ -3508,7 +3508,7 @@ class RulesEngine:
             return None, ()
         side = match.ball.possession
         # A Cross only offers distances on the field already, so
-        # the test only ever removes a High Pass into the goal zone; it is
+        # the test only ever removes a High Ball into the goal zone; it is
         # asked of both so a Cross that grew one could not slip by.
         reachable = tuple(
             distance
@@ -3583,9 +3583,9 @@ class RulesEngine:
         offense_side: TeamSide,
     ) -> list[str]:
         """
-        Who a High Pass reached: the offense on the space it landed
+        Who a High Ball reached: the offense on the space it landed
         on, less the passer -- **a passer never receives their own
-        pass** (2026-08-12). See "High Pass" in the living rules.
+        pass** (2026-08-12). See "High Ball" in the living rules.
 
         It is the one reading of that, asked by the goal zone's
         set-up, the ordinary 2-space one, and the long-pass contest
@@ -3594,9 +3594,9 @@ class RulesEngine:
         the occupant list is in no particular order.
 
         **The exclusion can only ever bite on a pass the field clamped
-        to 0 spaces**, since a High Pass moves the ball and not the
+        to 0 spaces**, since a High Ball moves the ball and not the
         handler -- that is the only way the passer is still standing on
-        it when it lands. It is written as a rule about every High Pass
+        it when it lands. It is written as a rule about every High Ball
         rather than about that one case so a later maneuver that moves
         a handler cannot reopen the hole quietly. With nobody else on
         the space the pass reaches no one: not a loose ball, since the
@@ -3622,8 +3622,8 @@ class RulesEngine:
     ) -> list[str]:
         """
         Offensive players occupying the ball's current space (the
-        last one, where a High Pass reached the goal zone) -- the field of shooter candidates a set-up offers,
-        shared by High Pass and a Winger's Low Pass.
+        last one, where a High Ball reached the goal zone) -- the field of shooter candidates a set-up offers,
+        shared by High Ball and a Winger's Pass.
         """
         offense_setup = match.setup_for_side(offense_side)
         occupants = match.board.spaces[match.ball.zone][
@@ -3653,7 +3653,7 @@ class RulesEngine:
         standing there the coach picks between them -- the author,
         2026-08-18, the same call as the maneuver challenge's.
 
-        The passer is struck out of the offense's pool in a High Pass
+        The passer is struck out of the offense's pool in a High Ball
         contest -- see MatchState.loose_ball_occupants, which is the one
         reading of who is standing on the ball here.
 
@@ -3771,7 +3771,7 @@ class RulesEngine:
 
         It is asked before anybody has been sent, which is the only
         moment the space still holds what the ball came down on.
-        A High Pass never reaches here: it carries its own headline,
+        A High Ball never reaches here: it carries its own headline,
         because the ball is on a receiver both coaches watched catch
         it.
 

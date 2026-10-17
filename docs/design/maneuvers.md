@@ -237,7 +237,7 @@ behind survives as the condition for **answering** a gambit.
   A change to what a deflection *is* reaches Clear for free, which is
   the point -- the two differ by a distance and a speed drop and
   nothing else.
-  - **Low Pass's own resolution is not in the cog any more.**
+  - **Pass's own resolution is not in the cog any more.**
     `d12ball/flow/effects.py`'s `low_pass_step` moves the ball, words
     it, charges a beaten Double Team, and decides between the ordinary
     tail and a Winger's set-up; `D12Ball.apply_low_pass` is four lines
@@ -253,7 +253,7 @@ behind survives as the condition for **answering** a gambit.
   - **The passer's step forward is a question, and a saved one**
     (the author, 2026-10-07; Law 6.5.3). It used to be automatic and
     only on a pass across a shared space, so `send_low_pass` did it.
-    Now any Low Pass's passer *may* move 1 space forward, so
+    Now any Pass's passer *may* move 1 space forward, so
     `low_pass_step` puts `PromptKind.PASSER_ADVANCE` once the ball has
     gone, and `answer_passer_advance` moves them or not and runs the
     tail the step would have run (`low_pass_tail`: the Winger's or
@@ -310,7 +310,7 @@ behind survives as the condition for **answering** a gambit.
   - **Both steals followed them (rank D2).** `steal_step` is the
     whole of a Steal and of an Intercept -- the two differ by the
     sign of the carry and nothing else, so they are one function and
-    a `direction`, the way Low Pass and Pinpoint are one function
+    a `direction`, the way Pass and Pinpoint are one function
     and a `key`. `take_ball_by_steal` and `steal_result_text` went
     with it as free functions, and `D12Ball.apply_steal` is four
     lines around it. Nothing either card says changed.
@@ -428,7 +428,7 @@ behind survives as the condition for **answering** a gambit.
 - **`pending_effect_continuation` is what lets an effect reach past
   its own maneuver**, as `{"kind": ...}` -- the same shape
   `pending_injury_resume` uses and for the same reason. One needs it
-  now: a beaten Pinpoint hands the defense an unopposed Low Pass once
+  now: a beaten Pinpoint hands the defense an unopposed Pass once
   the steal has settled (Cross needed it too, while it set the speed
   before the pass). A speed choice had always been the *last* human
   step of an effect, leading straight into
@@ -501,7 +501,7 @@ behind survives as the condition for **answering** a gambit.
     the goal zone -- the one place even 1 space reaches it -- with no
     teammate beside them. The other three call sites are the score
     attempt, a conceded own goal and the out-of-bounds loose ball.
-  - **Dinky answers the distance as it answers a High Pass's**
+  - **Dinky answers the distance as it answers a High Ball's**
     (`DinkyAI._longest_reaching_pass`, on both prompts), which is the
     same question now that a bad pass costs the ball: the longest that
     reaches a teammate, otherwise the longest available. A second
@@ -514,7 +514,7 @@ behind survives as the condition for **answering** a gambit.
   is a fourth number against a card offering 0/1/3, and a Playmaker's
   "may advance 2" was no bonus at all on a run to the last space before the
   goal zone. The author settled all three on 2026-08-19 -- **the Fullback's
-  ability is +1 distance** (High Pass 3->4, Deflect 1->2, Clear
+  ability is +1 distance** (High Ball 3->4, Deflect 1->2, Clear
   3->4, Cross gains a 4), and **the Playmaker's is one exhaustion
   token off a Burst**, kept on 2026-08-26 once the burst was
   bounded (below). The Midfielder's +3 and the rank-D2 ball speed
@@ -599,7 +599,7 @@ rules for why the ranking is no longer the whole story.
 - **Injury separately withholds the skill modifier in a *contest*** -- a
   different thing this predicate has nothing to do with. It changes totals, not
   winners, and lives in `LooseBallSkillTestView.roll`, which covers both the
-  loose ball and the long High Pass. An injured contestant rolls the bare d12:
+  loose ball and the long High Ball. An injured contestant rolls the bare d12:
   their offensive or defensive skill is left off, and **only** that. Ball speed
   and role abilities still apply, and a maneuver's skill test and a score
   attempt are untouched -- so the Midfielder's +3 and the Striker's +3 are both

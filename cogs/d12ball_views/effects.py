@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 class LowPassChoiceView(SafeView):
     """
-    Which teammate-occupied space to pass to -- Low Pass has no fixed
+    Which teammate-occupied space to pass to -- Pass has no fixed
     distance anymore, only the nearest teammate each way within 2
     spaces and one sharing the ball's space, each of which must be a
     *different* player, so the destination is usually the whole choice.
@@ -392,7 +392,7 @@ class SetupPassChoiceView(SafeView):
                 if distance == 0
                 else cog.engine.high_pass_destination_note(match, distance)
             )
-            # 1 is a distance this card offers and the High Pass does
+            # 1 is a distance this card offers and the High Ball does
             # not, so this is the one pass menu that can read "1
             # spaces" if nothing here says otherwise.
             space_word = "space" if distance == 1 else "spaces"
@@ -534,7 +534,7 @@ class DoubleTeamPartnerView(SafeView):
 
 class HighPassChoiceView(SafeView):
     """
-    Distance for a won High Pass -- 2 or 3 spaces, or up to 4 for a
+    Distance for a won High Ball -- 2 or 3 spaces, or up to 4 for a
     Fullback (their ability extends the max, not the min).
     Reconstructible on restart purely from match state, the same
     pattern every other persistent view in this cog follows.
@@ -641,7 +641,7 @@ class HighPassChoiceView(SafeView):
 
 class PasserAdvanceView(SafeView):
     """
-    Whether a Low Pass's passer moves 1 space forward once the ball has
+    Whether a Pass's passer moves 1 space forward once the ball has
     gone, or stays (Law 6.5.3). The passer is the prompt's, read back
     off `MatchState.pending_passer_advance` by the driver; the view
     holds it only to name them on the buttons.
@@ -711,10 +711,10 @@ class PasserAdvanceView(SafeView):
 class SetUpAttemptChoiceView(SafeView):
     """
     Whether to take an offered scoring-opportunity shot -- a High
-    Pass's own 2-space pass, a High Pass that reaches the goal zone, or
-    a Winger's Low Pass ability -- or let the maneuver resolve as a
+    Pass's own 2-space pass, a High Ball that reaches the goal zone, or
+    a Winger's Pass ability -- or let the maneuver resolve as a
     normal pass instead. Declining meant the same thing everywhere
-    between 2026-08-07, when a 2-space High Pass stopped forcing a
+    between 2026-08-07, when a 2-space High Ball stopped forcing a
     contest for the ball it had just delivered, and 2026-08-10, when a
     pass into the goal zone started offering a shot *or* a contest, both at the same
     disadvantage: `contest_on_decline` is that one case, and the button

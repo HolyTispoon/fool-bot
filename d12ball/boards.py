@@ -256,7 +256,7 @@ JUMBOTRON_HEADER = JUMBOTRON_TITLE_SIZE * 1.1
 # 16.2 and 16.3 said the way a coach at the table needs them; a change
 # to either Law is a change here.
 CLOCK_NOTES = (
-    "Maneuvers move the clock by 1, except for High Pass and Cross that "
+    "Maneuvers move the clock by 1, except for High Ball and Cross that "
     "take 2. A scoring Attempt and a Time Out each move the clock by 1.",
     "Last possession is declared when the clock reaches the last time "
     "box of the period. The team that holds the ball after the maneuver "
