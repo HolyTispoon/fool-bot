@@ -18,7 +18,7 @@ from d12ball.game import (
 )
 from gamesaves.d12ball.service import GameResult
 from cogs.d12ball_helpers import (
-    HAND_BUTTON_LABELS,
+    HAND_BUTTON_LABEL,
     add_full_image_button_to_response,
     player_with_role,
     refresh_player_names,
@@ -788,33 +788,21 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
 
         # **D12 Ball 2.0: the hand is a secret** (the author,
         # 2026-10-16), so the public message carries no card at all --
-        # one button a side, which shows its coach their own hand,
+        # one button, which shows whoever presses it their own hand,
         # ephemerally, with the cards to play under it
-        # (`ManeuverHandView`). The custom_id names the side alone, so
-        # a restored prompt dispatches the same buttons.
+        # (`ManeuverHandView`). One rather than one a side (the author,
+        # 2026-10-17): the clicker already says which hand is theirs.
+        # The custom_id names the game alone, so a restored prompt
+        # dispatches the same button.
         deck = game is not None and cog.engine.maneuver_deck_applies(game)
-        if deck:
-            buttons = []
-            for hand in hands:
-                button = discord.ui.Button(
-                    label=HAND_BUTTON_LABELS[hand.side],
-                    style=(
-                        discord.ButtonStyle.danger
-                        if hand.side == "offense"
-                        else discord.ButtonStyle.success
-                    ),
-                    custom_id=f"d12ball:maneuver_hand:{game_id}:{hand.side}",
-                )
-
-                async def open_hand(
-                    interaction: discord.Interaction,
-                    chosen_side: str = hand.side,
-                ) -> None:
-                    await self.show_hand(interaction, chosen_side)
-
-                button.callback = open_hand
-                buttons.append(button)
-            rows.append(buttons)
+        if deck and hands:
+            button = discord.ui.Button(
+                label=HAND_BUTTON_LABEL,
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:maneuver_hand:{game_id}",
+            )
+            button.callback = self.show_hand
+            rows.append([button])
 
         for hand in () if deck else hands:
             side = hand.side
@@ -952,44 +940,55 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
             reference.row if reference in rows[-1] else None
         )
 
-    async def show_hand(
-        self, interaction: discord.Interaction, side: str,
-    ) -> None:
+    async def show_hand(self, interaction: discord.Interaction) -> None:
         """
         A 2.0 coach's own hand, to them alone: the four cards as a
         picture, how many are in their deck and discard, and a button
-        for each maneuver the hand can play on this side. Who may look
-        is the pick's own gate, answered first, so the other coach
-        learns nothing from pressing it.
+        for each maneuver the hand can play on its side.
+
+        **Whose hand is the clicker's**: the side or sides they coach --
+        both, for somebody coaching themselves. Somebody coaching
+        neither is asked the pick's own gate a side at a time, so a
+        helper is confirmed first and then shown every hand on the
+        prompt, and anybody else is refused without learning anything.
         """
         game, match = await self.require_match(interaction)
         if game is None:
             return
-        refusal = self.pick_refusal(game, match, side, interaction)
-        if refusal is not None:
-            await interaction.response.send_message(refusal, ephemeral=True)
-            return
         options = self.prompt_options(game, match, PromptKind.MANEUVER_ACTION)
-        hand = next(
-            (
-                hand for hand in (options.hands if options else ())
-                if hand.side == side
-            ),
-            None,
-        )
-        if hand is None:
+        hands = options.hands if options is not None else ()
+        if not hands:
             await interaction.response.send_message(
-                "That side has nothing to pick right now.", ephemeral=True,
+                "There is nothing to pick right now.", ephemeral=True,
+            )
+            return
+        engine = self.cog.engine
+        coaches = {
+            "offense": engine.possession_user_id(game, match),
+            "defense": engine.defending_user_id(game, match),
+        }
+        shown = [
+            hand for hand in hands
+            if coaches[hand.side] == interaction.user.id
+        ] or [
+            hand for hand in hands
+            if self.pick_refusal(game, match, hand.side, interaction) is None
+        ]
+        if not shown:
+            await interaction.response.send_message(
+                "Only the coaches in this game can see a hand.",
+                ephemeral=True,
             )
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
-        file = await self.cog.build_deck_hand_file(hand.held, side)
-        await interaction.followup.send(
-            describe_secret_hand(hand),
-            file=file,
-            view=ManeuverHandView(self.cog, self.game_id, hand),
-            ephemeral=True,
-        )
+        for hand in shown:
+            file = await self.cog.build_deck_hand_file(hand.held, hand.side)
+            await interaction.followup.send(
+                describe_secret_hand(hand, named=len(shown) > 1),
+                file=file,
+                view=ManeuverHandView(self.cog, self.game_id, hand),
+                ephemeral=True,
+            )
 
     async def show_reference(self, interaction: discord.Interaction) -> None:
         """
@@ -1090,18 +1089,22 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
         await self.cog.present(interaction, game, result)
 
 
-def describe_secret_hand(hand) -> str:
-    """What a 2.0 coach reads over their own hand."""
+def describe_secret_hand(hand, named: bool = False) -> str:
+    """
+    What a 2.0 coach reads over their own hand -- `named` with its side
+    where the clicker is shown both.
+    """
     count = (
         f"{hand.deck_count} in your deck, {hand.discard_count} in your "
         "discard."
     )
+    title = f"Your hand on {hand.side}" if named else "Your hand"
     if hand.picked:
         return (
-            f"Your hand ({count}) You have picked; press another card to "
+            f"{title} ({count}) You have picked; press another card to "
             "change it while the other side is still choosing."
         )
-    return f"Your hand ({count}) Play one:"
+    return f"{title} ({count}) Play one:"
 
 
 class ManeuverHandView(ManeuverPicking, SafeView):

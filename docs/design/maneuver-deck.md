@@ -74,11 +74,14 @@ answer). A reshuffle is said, since it is public.
 ## On Discord: the hand is secret
 
 1.0's prompt puts both hands' buttons on one public message, which works because every coach
-holds the same three cards. A 2.0 hand is a secret, so **the public prompt carries one button
-a side and no card** (`d12ball:maneuver_hand:<game>:<side>`, `HAND_BUTTON_LABELS`), and no
-hand image. Pressing it is gated as a pick is -- the coach of that side, or a helper -- and
-answers ephemerally with the coach's four cards (`render_deck_hand`) and `ManeuverHandView`,
-one button a playable maneuver. A pick from there is the 1.0 pick exactly
+holds the same three cards. A 2.0 hand is a secret, so **the public prompt carries one
+**My hand** button and no card** (`d12ball:maneuver_hand:<game>`, `HAND_BUTTON_LABEL`), and no
+hand image. One button rather than one a side (the author, 2026-10-17): who presses it says
+whose hand it is. It answers ephemerally with the hand of each side the clicker coaches --
+both, named by side, for somebody coaching themselves -- as the four cards
+(`render_deck_hand`) and `ManeuverHandView`, one button a playable maneuver. Somebody coaching
+neither side is put through the pick's own gate a side at a time, so a helper is confirmed and
+then shown every hand on the prompt, and anybody else is refused. A pick from there is the 1.0 pick exactly
 (`ManeuverPicking`, the mixin both views share): the same action, the same ephemeral "You
 chose", the prompt deleted once both are in. The public message is never edited, as in 1.0,
 and a restart re-arms it from the custom ids; the ephemeral hand is not persistent, and
