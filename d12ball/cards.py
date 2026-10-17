@@ -2743,7 +2743,7 @@ TWO_HEADED_EDGE = "#8c9aa6"
 #: The shared band across the middle of a two-headed card: one row of
 #: ranks for the half above it and the same row turned for the half
 #: below, each this tall.
-TWO_HEADED_BAND_ROW = 70
+TWO_HEADED_BAND_ROW = 78
 
 #: How much of a card the cream covers where its coach cannot play it
 #: this maneuver -- an advanced card of the other side, in the hand but
@@ -2891,27 +2891,48 @@ def render_two_headed_half(
 
 
 def render_two_headed_band(
-    catalog: ManeuverCatalog, rank: int,
+    catalog: ManeuverCatalog, rank: int, reader: str,
 ) -> Image.Image:
     """
     The band's row as the half above it reads it: **BEATS R3 -- TIES
-    R1 -- LOSES TO R2**, by rank alone, because the names differ by
-    side and the ranks do not.
+    R1 -- LOSES TO R2**, each rank with **the maneuver of the other side
+    on it** beside it (the author, 2026-10-16/17): the row the defensive
+    half reads names the offense's maneuvers, in red, and the row the
+    offensive half reads the defense's, in green -- what the half
+    above it is played against. `reader` is that half's side.
     """
+    opposing = "defense" if reader == "offense" else "offense"
     width = CARD_WIDTH - MARGIN * 2
     pen = Pen((width, TWO_HEADED_BAND_ROW), CARD_FACE)
     column = width / 3
     label_font = font(18, bold=True)
-    value_font = rank_font(30)
+    value_font = rank_font(34)
+    name_font = font(22, bold=True)
+    gap = 10
     for index, (label, value) in enumerate(zip(
         ("BEATS", "TIES", "LOSES TO"), two_headed_ranks(catalog, rank),
     )):
         centre = column * index + column / 2
         pen.text((centre, 6), label, label_font, MUTED, anchor="ma")
-        pen.text(
-            (centre, TWO_HEADED_BAND_ROW - 6), f"R{value}", value_font,
-            INK, anchor="md",
-        )
+        names = [(
+            next(
+                maneuver.name
+                for maneuver in catalog.for_tier(opposing, MANEUVER_TIER_BASIC)
+                if maneuver.rank == value
+            ),
+            SIDE_COLORS[opposing],
+        )]
+        rank_text = f"R{value}"
+        rank_width = pen.text_size(rank_text, value_font)[0]
+        names_width = max(pen.text_size(name, name_font)[0] for name, _ in names)
+        left = centre - (rank_width + gap + names_width) / 2
+        middle = 6 + 22 + (TWO_HEADED_BAND_ROW - 6 - 22 - 6) / 2
+        pen.text((left, middle), rank_text, value_font, INK, anchor="lm")
+        for line, (name, colour) in enumerate(names):
+            pen.text(
+                (left + rank_width + gap, middle),
+                name, name_font, colour, anchor="lm",
+            )
     row = pen.image.resize(
         (width, TWO_HEADED_BAND_ROW), Image.Resampling.LANCZOS,
     )
@@ -2951,7 +2972,6 @@ def render_two_headed_card(
     half_height = two_headed_half_height()
 
     card = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
-    band = render_two_headed_band(catalog, rank)
     top = render_two_headed_half(
         catalog, players, faces[upright], upright == "offense",
     )
@@ -2959,8 +2979,13 @@ def render_two_headed_card(
         catalog, players, faces[other], other == "offense",
     ).rotate(180)
     card.paste(top, (0, 0))
-    card.paste(band, (MARGIN, half_height))
-    card.paste(band.rotate(180), (MARGIN, half_height + TWO_HEADED_BAND_ROW))
+    card.paste(
+        render_two_headed_band(catalog, rank, upright), (MARGIN, half_height),
+    )
+    card.paste(
+        render_two_headed_band(catalog, rank, other).rotate(180),
+        (MARGIN, half_height + TWO_HEADED_BAND_ROW),
+    )
     card.paste(bottom, (0, CARD_HEIGHT - bottom.height))
     draw = ImageDraw.Draw(card)
     for y in (half_height, CARD_HEIGHT - half_height):

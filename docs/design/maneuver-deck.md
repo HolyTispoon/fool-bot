@@ -96,7 +96,9 @@ defaults are the printed card's, so the 1.0 faces and hands are byte-identical (
 and after). And **nothing about roles**: no
 ability box, and the strip drawn with `draw_strip(roles=False)`, which drops the role's dashed
 moves (`ROLE_MOVE_LABELS`) and the tokens they land. **The matchups are one band across the
-middle, by rank** (`render_two_headed_band`, "BEATS R3 / TIES R1 / LOSES TO R2"), because a
+middle, by rank** (`render_two_headed_band`, "BEATS R3 / TIES R1 / LOSES TO R2", each rank
+with the other side's maneuver on it beside it -- the row the offensive half reads names the
+defense's, the row the defensive half reads the offense's), because a
 rank's offensive and defensive maneuvers beat, tie and lose to the same ranks
 (`two_headed_ranks`; a test holds the defensive half to the offensive one's). The band is the
 row once for the half above it and the same row turned for the half below, so the card is one
