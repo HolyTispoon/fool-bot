@@ -670,7 +670,7 @@ def maneuver_pick_refusal(
     The rest are rules. A prompt can still be sitting in the
     channel from an earlier turn, so the tutorial's rail and the hand
     are both re-read here rather than trusted from whatever built the
-    buttons -- exactly as the distances are re-read in a High Pass's
+    buttons -- exactly as the distances are re-read in a High Ball's
     own menu.
 
     **A side that has picked may pick again while the other side is

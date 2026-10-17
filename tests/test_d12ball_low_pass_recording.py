@@ -1,5 +1,5 @@
 """
-What the cog's Low Pass says and does next, recorded off the old code.
+What the cog's Pass says and does next, recorded off the old code.
 
 This is the equivalence half of Phase 2 of docs/design/model-discord-split.md.
 It drives `None` over `tests/low_pass_fixtures.py`
@@ -16,7 +16,7 @@ itself. `tests/prompt_fixtures.py` and
 Phase 1; this is the same shape on the write side.
 
 The narration is read out of the follow-on step's `lead_in` rather than
-off a message, because a Low Pass posts nothing of its own: what it
+off a message, because a Pass posts nothing of its own: what it
 says is the opening of the message the next step sends. Keeping it that
 way is also what keeps the move from costing a Discord request -- see
 "Discord's rate limits" in docs/design/rate-limits.md.
@@ -133,7 +133,7 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(kwargs[name], value, name)
 
         # The board moved, so the persistent message is redrawn. Every
-        # Low Pass branch does; the flag is carried anyway because a
+        # Pass branch does; the flag is carried anyway because a
         # step that does not is the reason `StepResult` has it.
         self.assertEqual(
             cog.refresh_match_image.await_count, 1 if fixture.board_changed
@@ -252,7 +252,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
 
         cog.send_field_prompt.assert_awaited_once()
         content, view = cog.send_field_prompt.await_args.args[3:5]
-        self.assertIn("Low Pass", content)
+        self.assertIn("Pass", content)
         self.assertNotIn("Pinpoint", content)
         prompt = driver.MODEL_STEPS[FollowOnStep.CONTINUE_EFFECT](
             cog.engine, fixture.game, match,

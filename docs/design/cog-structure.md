@@ -14,7 +14,7 @@ design.
   explicit dependencies on collaborator objects is a far larger change and a
   different one -- don't start it by halves.
 - **The seams are the author's, not invented.** The single file carried sixteen
-  `# -- Low Pass ---` banners, and the split follows them. Each mixin is a
+  `# -- Pass ---` banners, and the split follows them. Each mixin is a
   contiguous run of the old file, so the moves are readable as moves.
 - **The mixin order carries no resolution.** It is the order the file read in.
   No method is defined by two mixins, and `test_no_method_is_defined_by_two_mixins`

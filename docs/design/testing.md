@@ -201,7 +201,7 @@ fielded rather than who.
   palette moved and nothing noticed, because it was only ever passed to a
   renderer as a string. See "Team colors" in [teams-and-players.md](teams-and-players.md).
 - **A test asserting a label the bot builds out of a name puts the name in
-  by lookup**, rather than baking the whole string. The High Pass distance
+  by lookup**, rather than baking the whole string. The High Ball distance
   buttons (`test_d12ball_high_pass.py`) read
   `f"3 spaces ({code(match.board, 'V2')}, {striker} [SK])"` off
   `display_name(fielded(...))`: the wording, the space's name and the role

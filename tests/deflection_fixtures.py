@@ -105,7 +105,7 @@ LOOSE_BALL = "BEGIN_LOOSE_BALL"
 SHOOTER_CHOICE = "BEGIN_SHOOTER_CHOICE"
 
 #: The offense card a basic deflection beats. Deflect and Clear beat
-#: High Pass and Cross and tie with both passes on rank O1, so a
+#: High Ball and Cross and tie with both passes on rank O1, so a
 #: fixture that wants "no advanced cost in this" plays the basic one
 #: of the two the card actually beats.
 BEATEN_BASIC = "high_pass"
@@ -432,7 +432,7 @@ def deflect_that_overshoots_into_a_shot() -> DeflectionFixture:
 def deflect_beats_a_setup_pass() -> DeflectionFixture:
     """
     **A failed Cross gambit**, and the only one either card of
-    this rank can ever collect: Deflect and Clear beat High Pass and
+    this rank can ever collect: Deflect and Clear beat High Ball and
     Cross and tie with both passes on rank O1, so Cross is the
     one advanced maneuver they ever see lose.
 

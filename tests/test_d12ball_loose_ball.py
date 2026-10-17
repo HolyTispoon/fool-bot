@@ -795,7 +795,7 @@ class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
     - a space both occupy is a **contest** between the players already
       there.
 
-    A High Pass is the one exemption: the ball is in the air, which
+    A High Ball is the one exemption: the ball is in the air, which
     gives players time to run at it, so a landing space holding only
     one side's players may still be contested by the other.
 
@@ -900,7 +900,7 @@ class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_high_pass_may_still_be_run_at(self) -> None:
         """
-        **The one exemption** (the author, 2026-08-26): a High Pass is
+        **The one exemption** (the author, 2026-08-26): a High Ball is
         high in the air, which gives players time to run towards it,
         so the other side gets a chance at a landing space holding
         only the passer's own teammates. Every other arrival on that

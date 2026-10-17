@@ -196,7 +196,7 @@ def begin_run_back(
     if new_play:
         # The ball is dead. Clearing here as well as in
         # `announce_new_play_reset` is what keeps the exemption below
-        # honest: a goal scored off a High Pass set-up leaves the
+        # honest: a goal scored off a High Ball set-up leaves the
         # receiver still recorded as carrying it, and they are not --
         # the ball is on its way back to the kickoff space.
         match.clear_ball_carrier()

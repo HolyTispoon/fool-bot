@@ -429,14 +429,14 @@ Play now; there is no Books entry.
 2. "How a turn goes": heading "Maneuver around each other in a spicy
    Rock, Paper, Scissors game". Three cards, each a maneuver card face
    from cards.py over one of the author's paragraphs:
-   1. "The offense chooses its action", over the Low Pass card: "When
+   1. "The offense chooses its action", over the Pass card: "When
       you're close enough to the opponent's goal you can try to score,
       but for most of the game players maneuver: choosing one of three
       possible actions to handle the ball."
    2. "The defense challenges", over the Intercept card: "The
       defending coach secretly picks a maneuver of their own. Both
       sides reveal their choice simultaneously."
-   3. "Resolution", over the High Pass card: "The maneuvers relate to
+   3. "Resolution", over the High Ball card: "The maneuvers relate to
       each other in a rock-paper-scissors cycle of priority: a low
       pass beats pressure, which beats a dribble, and so forth.
       In case of a tie in rank, players engage in an exhausting skill

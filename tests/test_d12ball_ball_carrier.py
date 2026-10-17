@@ -466,7 +466,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
 class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
     """
     A contest is won by a player, not by a team: the winner of a loose
-    ball or a long High Pass carries it into the next turn, however the
+    ball or a long High Ball carries it into the next turn, however the
     contest was settled (author, 2026-08-09). Both run through the same
     machinery, so `is_high_pass` is the only thing that differs.
     """
@@ -505,7 +505,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
     ) -> list[int]:
         """
         Dice that make `winner` ("offense"/"defense") take the test by
-        `by` on skill alone -- a High Pass's thrower adds the ball speed
+        `by` on skill alone -- a High Ball's thrower adds the ball speed
         on top, at least 1, so a defense meant to win one says `by=2`.
         """
         offense_skill = cog.player_catalog.effective_profile(
@@ -709,7 +709,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_new_play_exempts_nobody(self) -> None:
         """
-        A goal scored off a High Pass set-up leaves the receiver still
+        A goal scored off a High Ball set-up leaves the receiver still
         recorded as carrying it. They are not -- the ball went dead,
         and the reset moves both sides whatever they were doing.
         """

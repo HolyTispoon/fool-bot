@@ -211,7 +211,7 @@ PRINTED_ADDRESSES = (PAGE_URL, SURVEY_URL)
 # All three are basic cards -- the beats describe a basic turn, and a
 # gambit is held only by a coach who is behind (the author, 2026-09-27);
 # the build refuses one that is not. Pressure under the defence's beat
-# is the card the Resolution beat names ("a low pass beats pressure").
+# is the card the Resolution beat names ("a pass beats pressure").
 TURN_CARDS = ("low_pass", "pressure", "high_pass")
 
 
@@ -731,7 +731,7 @@ TURN_BEATS = (
      "sides reveal their choice simultaneously."),
     ("Resolution",
      "The maneuvers relate to each other in a rock-paper-scissors cycle of "
-     "priority: a low pass beats pressure, which beats a dribble, and "
+     "priority: a pass beats pressure, which beats a dribble, and "
      "so forth. In case of a tie in rank, players engage in an exhausting "
      "skill test, rolling d12s until one side gains the upper hand, or "
      "tentacle!"),

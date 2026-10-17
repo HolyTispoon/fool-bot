@@ -161,7 +161,7 @@ written as words by `number_word`.
 
 **The pictures are rendered by the build**, so a merge that changes a card
 changes the page: the three maneuver cards under the beats are
-`cards.render_maneuver_card` (`TURN_CARDS`: Low Pass, Pressure, High Pass),
+`cards.render_maneuver_card` (`TURN_CARDS`: Pass, Pressure, High Ball),
 and the four player cards `player_cards.render_player_card` in the basic face.
 
 - **The turn cards are basic cards, and the build refuses one that is not.**

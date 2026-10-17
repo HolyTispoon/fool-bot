@@ -192,7 +192,7 @@ def check_for_mind_pull(
     top of the five functions that settle an arrival:
     `finish_maneuver_resolution` (the tail of every ordinary path,
     receptions included), `begin_loose_ball` (a Deflect, which calls it
-    directly, and the High Pass contest, which comes through it),
+    directly, and the High Ball contest, which comes through it),
     `offer_scoring_attempt_choice` (a set-up), `begin_run_back` (a
     turnover a maneuver settles for itself) and `begin_own_goal_roll`
     (a shove into the goal zone). See "Mind Pull, and the arrival gate" in
@@ -631,11 +631,11 @@ def offer_scoring_attempt_choice(
     """
     Offer the offense a chance to attempt a scoring-opportunity shot
     instead of letting a maneuver resolve normally -- used by a High
-    Pass's 2-space pass, a High Pass that reaches the goal zone, and a
-    Winger's Low Pass.
+    Pass's 2-space pass, a High Ball that reaches the goal zone, and a
+    Winger's Pass.
 
     Declining nearly always resolves the maneuver as a normal pass; a
-    2-space High Pass stopped forcing a contest instead on 2026-08-07.
+    2-space High Ball stopped forcing a contest instead on 2026-08-07.
     `contest_on_decline` is the one exception: a pass into the goal
     zone is a shot or a contest, both at the same disadvantage, so declining lands in
     the contest rather than settling the ball (2026-08-10). It is
@@ -703,7 +703,7 @@ def decline_scoring_attempt(
     Let go of a scoring opportunity: the maneuver that offered it
     resolves as it otherwise would have.
 
-    For a High Pass into the goal zone that is the long-pass contest, not a
+    For a High Ball into the goal zone that is the long-pass contest, not a
     settled ball -- the shot and the contest are the two halves of one
     choice. See `offer_scoring_attempt_choice`.
 
@@ -744,7 +744,7 @@ def begin_high_pass_contest(
     Since 2026-08-18 this is a loose ball and nothing else -- the
     receiver contests because they are standing on the ball, which is
     the ordinary rule, and so does a defender sharing the space. The
-    one thing still peculiar to a High Pass is the ball speed modifier,
+    one thing still peculiar to a High Ball is the ball speed modifier,
     which `is_high_pass` carries.
 
     Two paths reach it, and callers of both have already found the
@@ -809,7 +809,7 @@ def begin_loose_ball(
     side with nobody there is pre-declined before either side is put on
     the clock.
 
-    **A High Pass is the one exemption**, and `is_high_pass` is already
+    **A High Ball is the one exemption**, and `is_high_pass` is already
     the flag for it: the ball is high in the air, which gives players
     time to run at it, so a landing space holding only one side's
     players may still be contested by the other.
@@ -818,7 +818,7 @@ def begin_loose_ball(
     # offer goes out before any of this side's state is set.
     # `finish_maneuver_resolution` has usually gated already and spent
     # the path; the callers that reach here directly -- a Deflect, and
-    # the High Pass contest -- have not.
+    # the High Ball contest -- have not.
     taken = check_for_ball_arrival(
         engine,
         game,
@@ -836,7 +836,7 @@ def begin_loose_ball(
 
     match.begin_loose_ball(distance_moved, is_high_pass=is_high_pass)
     # The ball is free and about to be contested, so nobody is carrying
-    # it -- including the long High Pass, where a receiver who has to
+    # it -- including the long High Ball, where a receiver who has to
     # win a test to keep it is not yet in possession of anything.
     match.clear_ball_carrier()
 
@@ -855,7 +855,7 @@ def begin_loose_ball(
         headline = engine.build_loose_ball_headline(match, game)
     prefix = f"{lead_in}\n\n" if lead_in else ""
     if is_high_pass:
-        # A High Pass is not a loose ball: the ball is on a player
+        # A High Ball is not a loose ball: the ball is on a player
         # everyone can already see, and the board it is standing on was
         # posted by the pass itself.
         announcement = f"{prefix}{headline}"
@@ -908,7 +908,7 @@ def resolve_loose_ball(
     match: MatchState,
 ) -> StepResult:
     """
-    Settle a loose ball (or a long High Pass, which comes through the
+    Settle a loose ball (or a long High Ball, which comes through the
     same machinery) once both sides have answered: out of bounds when
     neither sent anybody, an unopposed take when only one did, and a
     skill test when both did.
@@ -1206,7 +1206,7 @@ def begin_loose_ball_skill_test(
     )
     defense_skill = engine.skills(game, defense_player.player_id).defense
 
-    # Who is defending what differs between the two: a High Pass's
+    # Who is defending what differs between the two: a High Ball's
     # receiver already has the ball and is being challenged for it,
     # where a loose ball belongs to nobody yet and both sides are going
     # for it.
@@ -1503,8 +1503,8 @@ def take_scoring_opportunity(
     Take the scoring opportunity: this player shoots.
 
     `maneuver_cost` is the flat cost of the maneuver that offered the
-    set-up -- 2 for a High Pass and for a Cross, the advanced
-    High Pass (`SETUP_PASS_CLOCK_COST`), and 1 for everything else,
+    set-up -- 2 for a High Ball and for a Cross, the advanced
+    High Ball (`SETUP_PASS_CLOCK_COST`), and 1 for everything else,
     which is why it defaults to 1. Stored
     so the score attempt can charge it on top of the shot's own extra
     minute (2026-08-16): the two stack, instead of the shot's cost

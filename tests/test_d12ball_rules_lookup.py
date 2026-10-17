@@ -324,10 +324,10 @@ class RulesSearchCommandTests(unittest.TestCase):
         return interaction
 
     def test_the_section_is_the_response_not_a_deferral(self) -> None:
-        interaction = self.run_search("low-pass")
+        interaction = self.run_search("6.5")
         content, ephemeral = interaction.response.sent[0]
         # Headed with its Charter number, as the file writes it.
-        self.assertRegex(content, r"^### \d+\.\d+ Low Pass\n")
+        self.assertRegex(content, r"^### \d+\.\d+ Pass\n")
         self.assertFalse(ephemeral)
 
     def test_a_long_section_continues_in_followups(self) -> None:
@@ -355,10 +355,10 @@ class RulesSearchCommandTests(unittest.TestCase):
         self.assertEqual(interaction.followup.sent, [])
 
     def test_an_ambiguous_query_suggests_headings(self) -> None:
-        interaction = self.run_search("pass")
+        interaction = self.run_search("ball")
         content, ephemeral = interaction.response.sent[0]
         self.assertIn("Did you mean", content)
-        self.assertIn("Low Pass", content)
+        self.assertIn("High Ball", content)
         self.assertTrue(ephemeral)
 
 

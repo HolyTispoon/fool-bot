@@ -1143,7 +1143,7 @@ def _smooth(asked: Asked) -> list:
 
 def _passer_advance(asked: Asked) -> list:
     """
-    Whether a Low Pass's passer steps a space forward (Law 6.5.3): the
+    Whether a Pass's passer steps a space forward (Law 6.5.3): the
     yes lights the passer, and both answers name them, as the Discord
     buttons do.
     """
@@ -1893,7 +1893,7 @@ def maneuver_pill(
         aids.game_tiers(engine, game),
     )
     # An advanced card's tag names the basic card of its rank --
-    # "advanced Low Pass" on Pinpoint (the author, 2026-10-07), the
+    # "advanced Pass" on Pinpoint (the author, 2026-10-07), the
     # catalog's own pairing (`counterpart`). Wording alone.
     card["tier_word"] = (
         f"{card['tier_word']} "
@@ -3068,7 +3068,7 @@ def _challenge_situation(
             ),
         ],
         "roll": None,
-        # Quantor may run onto any teammate's High Pass or Cross,
+        # Quantor may run onto any teammate's High Ball or Cross,
         # so while a teammate is on the ball and he is on the field the
         # coach choosing the card is told (the author, 2026-09-28).
         "notes": _notes(
@@ -3174,7 +3174,7 @@ def _contest_situation(
 ) -> Optional[dict]:
     """
     A contest for the ball about to be rolled (Law 10) -- a loose
-    ball's, or a long High Pass's (Law 10.4): the two sent, each with
+    ball's, or a long High Ball's (Law 10.4): the two sent, each with
     what the roll adds for them, as `score_loose_ball` adds it. The
     side on the ball adds offensive skill and the other defensive,
     nothing for an injured contestant; the thrower's side of a High
@@ -3232,7 +3232,7 @@ def _contest_situation(
         return side
 
     return {
-        "title": "High Pass contest" if high_pass else "Contest for the ball",
+        "title": "High Ball contest" if high_pass else "Contest for the ball",
         "where": _where(match, match.ball.zone, match.ball.space_index),
         "sides": [
             contestant(
@@ -3258,7 +3258,7 @@ def _set_up_situation(
     A scoring opportunity offered off a pass, where it is Zytheris's
     special ability that offered it (Law 21; the author, 2026-09-28):
     the shooter, with the ability named. Any other set-up -- a Winger's,
-    a High Pass reaching the goal -- is the ask's to say and has none.
+    a High Ball reaching the goal -- is the ask's to say and has none.
     """
     shooter = prompt.player_id
     if shooter is None or not engine.has_special_ability(

@@ -93,7 +93,7 @@ BEARINGS: Mapping[str, Bearing] = {
             SpecialAbility.DEFENSIVE_THROW,
             SpecialAbility.SPEED_ROLLS,
             # What an attacking card does once won -- the dribble, the
-            # High Pass, the Pressure into the goal zone -- since the
+            # High Ball, the Pressure into the goal zone -- since the
             # coach is choosing it (the author, 2026-09-28).
             SpecialAbility.FREE_BURST,
             SpecialAbility.LONG_SET_UP,
@@ -113,7 +113,7 @@ BEARINGS: Mapping[str, Bearing] = {
         "defense",
         skill_test=True,
     ),
-    # A contest for the ball -- a loose ball's, or a long High Pass's:
+    # A contest for the ball -- a loose ball's, or a long High Ball's:
     # the same dice as a skill test's, and Slitheron's win without one
     # is the reason there was no roll when a contest is skipped.
     "contest_attack": Bearing(

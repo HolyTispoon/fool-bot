@@ -1,5 +1,5 @@
 """
-Low Pass as a flow step, and the cog wrapper around it.
+Pass as a flow step, and the cog wrapper around it.
 
 The model half of Phase 2 of docs/design/model-discord-split.md.
 `tests/test_d12ball_low_pass_recording.py` asked the cog what a Low
@@ -120,7 +120,7 @@ class LowPassStepTests(unittest.TestCase):
         self,
     ) -> None:
         """
-        Low Pass ends on one of exactly these two, and both are real
+        Pass ends on one of exactly these two, and both are real
         members rather than strings this module happens to agree with
         itself about.
 
@@ -193,7 +193,7 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_board_that_did_not_move_is_not_redrawn(self) -> None:
         """
         `board_changed` is what `refresh_match_image` used to decide
-        at the call site. Every Low Pass branch moves the ball, so the
+        at the call site. Every Pass branch moves the ball, so the
         False case has no fixture yet and is asserted directly -- the
         ranks Phase 3 lifts are what will bring one.
         """
@@ -223,7 +223,7 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         resume comes to offer a different question from the one a
         restart restores.
 
-        No Low Pass branch ends on a prompt today -- the receiver pick
+        No Pass branch ends on a prompt today -- the receiver pick
         is asked before the pass is applied -- so this is asserted on
         the dispatcher directly, which is where Phase 3's effects will
         meet it.
@@ -236,11 +236,11 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         cog.games[fixture.game.game_id] = fixture.game
         prompt = PendingPrompt(
             kind=PromptKind.LOW_PASS_CHOICE,
-            ask="Choose your Low Pass:",
+            ask="Choose your Pass:",
             maneuver_key="low_pass",
         )
 
-        # A Low Pass is asked over the field strip, so the prompt goes
+        # A Pass is asked over the field strip, so the prompt goes
         # through `send_field_prompt` -- keyed on the kind by
         # `render_prompt`, which is the frontend's half of principle 2.
         cog.send_field_prompt = mock.AsyncMock()
@@ -250,7 +250,7 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
                 fixture.game,
                 fixture.match,
                 StepResult(
-                    narration=["**Low Pass:** the ball moves 2 spaces "
+                    narration=["**Pass:** the ball moves 2 spaces "
                                "forward."],
                     board_changed=True,
                     next=prompt,
@@ -270,8 +270,8 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(mention.startswith("<@"))
         self.assertEqual(
             content,
-            "**Low Pass:** the ball moves 2 spaces forward.\n\n"
-            f"{mention} Choose your Low Pass:",
+            "**Pass:** the ball moves 2 spaces forward.\n\n"
+            f"{mention} Choose your Pass:",
         )
         self.assertIsInstance(view, LowPassChoiceView)
 
@@ -348,7 +348,7 @@ class LowPassRestartTests(unittest.TestCase):
     receiver is picked before the pass is applied -- so what a restart
     can land in the middle of is the choice **before** the step runs.
     The thing worth asserting there is the one the two cards share:
-    `key` is what tells a Pinpoint from a Low Pass all the way
+    `key` is what tells a Pinpoint from a Pass all the way
     down to `low_pass_step`, and it is not a field on the match. It is
     read back out of `offense_maneuver` (or, for the free pass, out of
     `pending_effect_continuation`), so a save round trip is the whole
@@ -401,7 +401,7 @@ if __name__ == "__main__":
 
 class PasserAdvanceTests(unittest.TestCase):
     """
-    A Low Pass's passer may move 1 space forward once the ball has gone
+    A Pass's passer may move 1 space forward once the ball has gone
     (Law 6.5.3, the author 2026-10-07): asked, saved, and answered
     through the same step whether the pass reached anybody or not.
     """

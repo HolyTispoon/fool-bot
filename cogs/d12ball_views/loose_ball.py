@@ -1,6 +1,6 @@
 """
 A ball nobody is holding, the pickup after one goes out, and the
-contest that settles either -- which the long High Pass borrows. See
+contest that settles either -- which the long High Ball borrows. See
 "Where the ball comes to rest" in docs/design/loose-balls.md.
 """
 
@@ -294,7 +294,7 @@ class BallRecoveryView(SafeView):
 
 class LooseBallSkillTestView(SafeView):
     """
-    The roll that settles a loose ball -- or a High Pass, which runs
+    The roll that settles a loose ball -- or a High Ball, which runs
     the same contest for an entirely different reason (see
     contest_noun). The custom_id stays `loose_ball_test` either way,
     since it's what already-posted messages are keyed on.
@@ -347,7 +347,7 @@ class LooseBallSkillTestView(SafeView):
 
         # **The rule is `d12ball.flow.rolls.loose_ball_test_step`**
         # since Phase 6: the roll, what injury withholds, the ball
-        # speed modifier a High Pass adds, Merge, the tie's two tokens
+        # speed modifier a High Ball adds, Merge, the tie's two tokens
         # and who comes away with the ball are all the model's, and the
         # whole of them used to be in this method and the two above it.
         # What is left here is the picture and where it goes; a contest
@@ -425,7 +425,7 @@ class LooseBallSkillTestView(SafeView):
         await self.cog.refresh_match_image(interaction, game)
 
         # Winning a live ball off the other side -- a loose ball or a
-        # long High Pass -- is a steal however it was contested, so no
+        # long High Ball -- is a steal however it was contested, so no
         # substitution window either way. The run back waits behind
         # whatever injury tests this contest owes; the service ran what
         # the roll handed back.

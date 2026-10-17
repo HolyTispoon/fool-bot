@@ -544,7 +544,7 @@ class D12BallComponentTests(unittest.TestCase):
         match.pending_action = "maneuver"
         challenger_id = match.eligible_challengers()[0]
         match.choose_challenger(challenger_id)
-        match.choose_offense_maneuver("Low Pass")
+        match.choose_offense_maneuver("Pass")
         match.choose_defense_maneuver("Steal Intercept")
 
         # Simulate a turnover moving the ball away from both players.
@@ -1098,11 +1098,11 @@ class D12BallComponentTests(unittest.TestCase):
             home_team=Team.SLIME,
             visiting_team=Team.TEAL,
         )
-        match.choose_offense_maneuver("Low Pass")
+        match.choose_offense_maneuver("Pass")
         match.choose_defense_maneuver("Pressure")
 
         with self.assertRaises(ValueError):
-            match.choose_offense_maneuver("High Pass")
+            match.choose_offense_maneuver("High Ball")
         with self.assertRaises(ValueError):
             match.choose_defense_maneuver("Deflect")
 
@@ -3250,9 +3250,9 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
 
 class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
     """
-    Post-playtest revision: Low Pass has no fixed distance (the nearest
+    Post-playtest revision: Pass has no fixed distance (the nearest
     teammate each way within 2 spaces, or one sharing the ball's space)
-    and High Pass has a 2-4 space choice instead of a fixed 2. These drive low_pass_candidates(),
+    and High Ball has a 2-4 space choice instead of a fixed 2. These drive low_pass_candidates(),
     apply_low_pass(), apply_high_pass() and the Fullback's Block
     Deflect bonus directly against a real MatchState, mocking out only
     the Discord-facing/persistence side effects -- the same pattern
@@ -3571,7 +3571,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.offer_scoring_attempt_choice.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
         _, kwargs = cog.finish_maneuver_resolution.await_args
-        # Low Pass's own clock cost is a flat 1 time regardless
+        # Pass's own clock cost is a flat 1 time regardless
         # of distance (2026-08-16), even though the ball moved 2.
         self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn("moves 2 spaces forward", kwargs["lead_in"])
@@ -3580,7 +3580,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         # Distance 0 is a pass to a teammate sharing the space, not a
-        # hold: the ball doesn't travel, but Low Pass's flat 1 space
+        # hold: the ball doesn't travel, but Pass's flat 1 space
         # minute (2026-08-16) is charged regardless.
         cog = self.build_cog()
         match = self.build_match()
@@ -3721,7 +3721,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_low_pass_with_nobody_to_pass_to_goes_loose(
         self,
     ) -> None:
-        # Winning Low Pass with no teammate in reach is not a licence
+        # Winning Pass with no teammate in reach is not a licence
         # to keep the ball by passing to yourself: the ball rolls 2
         # spaces forward (Law 6.5.5, the author 2026-10-07) and is
         # loose, and still picks up the maneuver's +1 speed on the way.
@@ -3828,8 +3828,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         """
         No offense player standing where the pass lands means there's
-        no receiver to force a High Pass skill test for -- this isn't
-        the High Pass contest at all, just an ordinary overshoot that
+        no receiver to force a High Ball skill test for -- this isn't
+        the High Ball contest at all, just an ordinary overshoot that
         finish_maneuver_resolution's own loose-ball detour handles,
         same as any other maneuver.
         """

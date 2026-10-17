@@ -1054,7 +1054,7 @@ def rules_html(document: RulesDocument, offered: dict) -> str:
       <div class="topbar-end">
         <form class="rules-search" role="search" data-rules-search>
           <input class="search-input" type="search"
-                 placeholder="Search everything: High Pass, own goal, Volatile…"
+                 placeholder="Search everything: High Ball, own goal, Volatile…"
                  aria-label="Search the rules" autocomplete="off" />
           <ol class="rules-results" hidden></ol>
         </form>

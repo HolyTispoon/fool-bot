@@ -212,11 +212,11 @@ BEATS: tuple[TutorialBeat, ...] = (
             "A maneuver is a fight for the ball between two players, "
             "and both sides pick a card **secretly and at the same "
             "time**. Your hand holds three:\n\n"
-            "- **Low Pass** -- ball to the nearest teammate ahead or "
+            "- **Pass** -- ball to the nearest teammate ahead or "
             "behind, up to 2 spaces. Ball speed +1.\n"
             "- **Dribble** -- your player *and* the ball move "
             "forward, and you may change the ball's speed.\n"
-            "- **High Pass** -- the ball flies 2 or more spaces "
+            "- **High Ball** -- the ball flies 2 or more spaces "
             "forward.\n\n"
             "Which card wins is not a roll. The six form a **cycle**, "
             "like rock-paper-scissors with six hands: each beats one of "
@@ -266,7 +266,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "the Playmaker role ability. **Every player has a role and every "
             "role has an ability**, printed on their card and worth "
             "reading before you pick a maneuver -- the Fullback throws "
-            "a longer High Pass, the Midfielder gets +3 on a Low Pass "
+            "a longer High Ball, the Midfielder gets +3 on a Pass "
             "or Steal test, the Defender steals the ball off a won "
             "Pressure. Two commands list them whenever you want: "
             "**`/d12ball role_abilities_reference`** for all six, and "
@@ -290,7 +290,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "it, and both players **exhaust 1** for "
             "the effort. Exhaustion is the game's running cost; enough "
             "of it and a player risks getting injured.\n\n"
-            "**Pick Low Pass.** It is rank 1, just like the "
+            "**Pick Pass.** It is rank 1, just like the "
             "Deflect Dinky has played, so this one goes to the dice -- "
             "and Dinky is going to win it. Watch what a won "
             "Deflect does: it knocks the ball back a space, nothing "
@@ -377,7 +377,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         ),
         maneuver_note=(
             "### Turnovers, the run back, and ball speed\n"
-            "**Pick Steal.** Dinky is playing Low Pass, and "
+            "**Pick Steal.** Dinky is playing Pass, and "
             "Steal beats it -- the ball will be yours again!\n\n"
             "Two things happen after it. Your player takes the ball "
             "back a space with them, and **anyone left standing outside "
@@ -398,7 +398,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         # the reset, so it is still on the ball when the striker takes
         # aim a beat later. CHOICE_MAX because the cap is the stealer's
         # own defensive skill, and who does the stealing is not
-        # something the script fixes. (Steal beats Low Pass decisively
+        # something the script fixes. (Steal beats Pass decisively
         # -- there is no loose ball here to rail.)
         choices={"speed": CHOICE_MAX},
     ),
@@ -416,7 +416,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "Look at **space 7** instead. Your striker has been standing "
             "there all game, inside shooting range, offensive skill "
             "**6** -- the best on your team.\n\n"
-            "A High Pass of exactly 2 spaces lands on space 7. A pass that "
+            "A High Ball of exactly 2 spaces lands on space 7. A pass that "
             "reaches a teammate already inside shooting range is a "
             "**scoring opportunity**: they shoot immediately, out of "
             "turn. And the Striker's ability is worth **+3** on "
@@ -424,9 +424,9 @@ BEATS: tuple[TutorialBeat, ...] = (
             "**Press Maneuver.**"
         ),
         maneuver_note=(
-            "### High Pass, and what a shot is up against\n"
-            "**Pick High Pass.** Dinky is playing Steal, and "
-            "High Pass beats it, so the pass gets through.\n\n"
+            "### High Ball, and what a shot is up against\n"
+            "**Pick High Ball.** Dinky is playing Steal, and "
+            "High Ball beats it, so the pass gets through.\n\n"
             "You will be asked how far to throw. **2 spaces** is the "
             "only distance offered here -- a longer throw would reach "
             "the goal zone, and the menu never offers one that "

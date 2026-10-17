@@ -145,7 +145,7 @@ What differs from the web app is only **when the question is asked**,
 and that is decided by what the question is about:
 
 - **A question about the position** -- whose turn it is, what the
-  handler may do, where a Low Pass lands -- has the live match as its
+  handler may do, where a Pass lands -- has the live match as its
   input and can only be asked at runtime. That is the web app's shape,
   and on the table it is TTS's `WebRequest` from the host's Lua to a
   hosted service over `d12ball/flow`, with the Lua reduced to "send the

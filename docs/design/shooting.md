@@ -1,4 +1,4 @@
-# Shooting: range, the wall, and the High Pass that reaches the goal zone
+# Shooting: range, the wall, and the High Ball that reaches the goal zone
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
@@ -22,19 +22,19 @@ whole rule, over `BoardState.is_in_shooting_range`.
   board 10 -- so no restart ever begins in range.
 - **A set-up's shot obeys it too.** A scoring opportunity sends a player into an
   ordinary score attempt, so what it buys is the shot out of turn, not a shot
-  from anywhere. Only the 2-space High Pass's set-up still checks it --
+  from anywhere. Only the 2-space High Ball's set-up still checks it --
   `can_attempt_score` over `high_pass_receiver_candidates`, in `high_pass_step`
   -- because it is the only set-up whose landing space can be short of range.
   There used to be a `set_up_shot_candidates` wrapping the two, which never had
   a second caller.
-- **A 2-space High Pass that lands short of range is still received.** The range
+- **A 2-space High Ball that lands short of range is still received.** The range
   rule takes away the shot, not the catch. The set-up branch and the long-pass
   contest are the same landing space asked two different questions, so a pass of
   2 that is refused a set-up has to resolve as an ordinary pass rather than fall
   through to a contest it has never had to win.
 - **A ball that reaches the goal zone sets up the shot the rule cannot bite**,
   whichever maneuver sent it there. A Deflect's puts the ball on the space
-  closest to the offense's own goal and a High Pass's on the space closest to
+  closest to the offense's own goal and a High Ball's on the space closest to
   the goal they attack; both are as deep into the shooting team's range as the
   field goes. So neither puts a range check over its candidates -- a branch
   that can never be taken reads as if it could.
@@ -52,7 +52,7 @@ whole rule, over `BoardState.is_in_shooting_range`.
   shot is *chosen*: `PlayerActionView` omits the button (and `build_turn_prompt`
   says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots
   from the scoring space (and only where the turn prompt offers the shot
-  live), and the 2-space High Pass's set-up asks `can_attempt_score`.
+  live), and the 2-space High Ball's set-up asks `can_attempt_score`.
 - **The board image draws where range begins**, in `draw_shooting_range_band`
   -- a labelled bracket under the field, one for each side's range and (on
   every board) a third over the middle in nobody's -- one space, or board 10's
@@ -120,9 +120,9 @@ and nothing else** -- "reaches the goal zone" where the rules said
   `relative_flat_index` clamps away. It is read **before** anything moves,
   because after the clamp the ball is on the last space either way.
   `ball_reaches_goal_zone` asks it from the ball's space. Every maneuver that
-  can send the ball there asks it -- High Pass, Deflect and Clear, the Cross's
+  can send the ball there asks it -- High Ball, Deflect and Clear, the Cross's
   distances, Intercept, Pressure and Double Team -- as
-  does a Low Pass's candidate list, which drops a distance with no space at the
+  does a Pass's candidate list, which drops a distance with no space at the
   end of it. Each of them used to compare the clamped distance with the one
   asked for; the answers are the same for every move, which
   `test_a_move_past_the_last_space_reaches_that_end_s_goal_zone` checks
@@ -136,23 +136,23 @@ and nothing else** -- "reaches the goal zone" where the rules said
   before the rules did. The ball is never drawn in one, since it never rests
   there.
 
-## A High Pass that reaches the goal zone
+## A High Ball that reaches the goal zone
 
-A High Pass that reaches the goal zone offers a shot **or** a contest for the
-ball, and pays the ball speed modifier against both -- see "High Pass" and
+A High Ball that reaches the goal zone offers a shot **or** a contest for the
+ball, and pays the ball speed modifier against both -- see "High Ball" and
 "Ball speed" in the living rules. `MatchState.pending_high_pass_overshoot` is
 the flag -- it keeps the old word because it is a saved key -- and
 `MatchState.ball_speed_modifier` is the only place the sign is decided.
 
 - **A passer never receives their own pass**, which is the whole of
   `D12Ball.high_pass_receiver_candidates` -- `scoring_opportunity_candidates`
-  less `active_player_id`. It is asked by all three High Pass branches (the
+  less `active_player_id`. It is asked by all three High Ball branches (the
   goal-zone set-up, the ordinary 2-space one, and the long-pass contest behind
   both), because they have to agree on who the pass reached and the occupant
   list is in no particular order. It can **only bite on a pass clamped to 0
-  spaces**: a High Pass moves the ball and not the handler, so nowhere else is
+  spaces**: a High Ball moves the ball and not the handler, so nowhere else is
   the passer still standing on it when it lands. Stating it as a rule about
-  every High Pass rather than about that one case is deliberate -- see the
+  every High Ball rather than about that one case is deliberate -- see the
   2026-08-12 entry in the rules log.
   - **That is the one pass into the goal zone that can set nothing up while the
     offense is still on the ball, and since 2026-08-24 it is not a free ride
@@ -166,12 +166,12 @@ the flag -- it keeps the old word because it is a saved key -- and
     the field still goes through `finish_maneuver_resolution` as before. It is
     also why that function words a 0-space result rather than reporting "the
     ball moves 0 spaces forward", which no coach saw until this rule.
-  - **It still costs High Pass's own 2 minutes**, which is why `high_pass_step`
+  - **It still costs High Ball's own 2 minutes**, which is why `high_pass_step`
     carries a `distance_moved` apart from the `actual_distance` the result
     reports. Every maneuver's clock cost is flat and distance-independent
-    (2026-08-16) -- 1 for everything but High Pass, 2 for it -- so this is no
+    (2026-08-16) -- 1 for everything but High Ball, 2 for it -- so this is no
     longer a minimum bailing out a clamped throw; it is the same cost every
-    High Pass pays, whatever it moved. **Every clock argument out of that
+    High Ball pays, whatever it moved. **Every clock argument out of that
     function is the first**; only the wording reads the second.
 - **A coach is only offered a distance that fits on the field.**
   `MatchState.high_pass_distances` drops any that would clamp, because a longer
@@ -235,7 +235,7 @@ the flag -- it keeps the old word because it is a saved key -- and
   against it; nothing about a pass into the goal zone settles the ball quietly.
   `begin_high_pass_contest` is that contest -- a flow step in
   [`d12ball/flow/arrivals.py`](../../d12ball/flow/arrivals.py) since
-  Phase 4, which names `BEGIN_LOOSE_BALL` with the High Pass headline
+  Phase 4, which names `BEGIN_LOOSE_BALL` with the High Ball headline
   and flag rather than calling it, so the contest is announced on a
   message of its own. Reached both from the ordinary
   3-or-4 path and from `decline_scoring_attempt(contest=True)`.

@@ -160,9 +160,9 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "windows_final_match.json"
 #: the shortest, at 2-2 and 4-3, and its shootout injures a shooter on
 #: the check.
 #:
-#: **It was 337 until a Low Pass's passer could choose to step forward
+#: **It was 337 until a Pass's passer could choose to step forward
 #: and a pass to nobody rolled 2** (docs/rules-log.md, 2026-10-07): a
-#: new question in every Low Pass moves every game after the first
+#: new question in every Pass moves every game after the first
 #: one, and 337's stopped being level. No seed in 0-399 still did all
 #: three -- eighteen were level and went to sudden death, none had
 #: Dinky substituting at halftime -- so the sweep went on to 400-2399

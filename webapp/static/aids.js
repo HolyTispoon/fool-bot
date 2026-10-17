@@ -270,7 +270,7 @@
     const input = h("input", {
       type: "search",
       class: "search-input",
-      placeholder: "Search the Charter: High Pass, own goal, Law 12…",
+      placeholder: "Search the Charter: High Ball, own goal, Law 12…",
       "aria-label": "Search the Charter",
       autocomplete: "off",
     });

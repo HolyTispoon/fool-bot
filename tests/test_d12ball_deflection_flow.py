@@ -279,7 +279,7 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
     (render once, upload twice, see `announce_board_update`). Whether
     it does is read off what the loose ball's step itself reports: a
     genuine loose ball says the board moved and is drawn; the long
-    High Pass says it did not (the ball is on a receiver both coaches
+    High Ball says it did not (the ball is on a receiver both coaches
     watched catch it) and is announced plainly over the board the pass
     already wrote. That is a Discord economy -- one five-in-five bucket
     for every edit in a channel -- and rate limits are the frontend's
