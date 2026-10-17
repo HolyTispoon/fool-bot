@@ -102,7 +102,15 @@ from d12ball.render import (
     VISITING_MEEPLE_TOP,
     PORTRAIT_IMAGE_SIZE,
     ball_token_x,
-    meeple_badge_box,
+    meeple_marks,
+    meeple_mark_top,
+    meeple_mark_height,
+    meeple_condition,
+    layout_meeple_marks,
+    MeepleMark,
+    MEEPLE_MARK_GAP,
+    CONDITION_TAGS,
+    CONDITION_TAG_INKS,
     fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
@@ -1598,26 +1606,64 @@ class D12BallComponentTests(unittest.TestCase):
                     seen += 1
         self.assertEqual(seen, 3)
 
-    def test_a_meeples_exhaustion_badge_stays_clear_of_ball_and_frame(
+    def test_a_meeples_marks_sit_off_its_feet_as_the_page_puts_them(
         self,
     ) -> None:
-        # The badge sits off the piece's bottom right, as the web
-        # page's does, and runs past the piece -- so where something
-        # is in the way it moves left rather than over it: the ball
-        # tucked against a home row's right, or the space's frame. The
-        # suite cannot see the image, so this checks the placement.
+        # The condition tag off a piece's bottom left and the count off
+        # its bottom right, as the web page draws them; the suite cannot
+        # see the image, so this checks the placement.
         draw = ImageDraw.Draw(Image.new("RGBA", (10, 10)))
-        token_x, token_y = 500, 200
-        free = meeple_badge_box(draw, token_x, token_y, 3)
-        self.assertGreater(free[0], token_x + MEEPLE_SIZE / 2)
-        self.assertGreater(free[2], token_x + MEEPLE_SIZE)
-        self.assertLess(free[3], token_y + MEEPLE_SIZE + 7)  # the names
+        token_x = 500
+        tag, count = meeple_marks(
+            draw, [(token_x, 3, "injured", False)], 0, 10_000,
+        )
+        self.assertEqual(tag.condition, "injured")
+        self.assertLess(tag.left, token_x)
+        self.assertEqual(count.count, 3)
+        self.assertGreater(count.left, token_x + MEEPLE_SIZE / 2)
+        self.assertGreater(count.left + count.width, token_x + MEEPLE_SIZE)
+        self.assertLess(
+            meeple_mark_top(200) + meeple_mark_height(),
+            200 + MEEPLE_SIZE + 7,  # where the names start
+        )
 
-        limit = token_x + MEEPLE_SIZE + 4
-        held = meeple_badge_box(draw, token_x, token_y, 3, limit)
-        self.assertEqual(held[2], limit)
-        self.assertEqual(held[2] - held[0], free[2] - free[0])
-        self.assertEqual(held[1], free[1])
+    def test_a_meeples_marks_move_rather_than_overlap(self) -> None:
+        # Side by side, a piece's condition tag would land on its left
+        # neighbour's count, and the last count runs past the room the
+        # ball or the frame leaves -- so each moves as little as keeps
+        # the strip apart and inside.
+        draw = ImageDraw.Draw(Image.new("RGBA", (10, 10)))
+        left, right = 500, 500 + 2 * MEEPLE_SIZE + 3 + 4
+        marks = meeple_marks(
+            draw,
+            [(502, 1, None, False), (502 + MEEPLE_SIZE + 3, 2, "exhausted", False)],
+            left, right,
+        )
+        for before, after in zip(marks, marks[1:]):
+            self.assertGreaterEqual(
+                after.left, before.left + before.width + MEEPLE_MARK_GAP,
+            )
+        self.assertLessEqual(marks[-1].left + marks[-1].width, right)
+        self.assertGreaterEqual(marks[0].left, left)
+
+        # One alone keeps the page's place where nothing is in the way.
+        alone = layout_meeple_marks(
+            [MeepleMark(600, 40), MeepleMark(700, 40)], 0, 10_000,
+        )
+        self.assertEqual([mark.left for mark in alone], [600, 700])
+
+    def test_a_meeple_is_tagged_with_the_condition_its_card_shows(
+        self,
+    ) -> None:
+        # Injured wins the slot, and a Cyborg's are its own words --
+        # the choice draw_card and the web page make.
+        cyborgs = frozenset({"c"})
+        self.assertEqual(meeple_condition("a", {"a"}, {"a"}, cyborgs), "injured")
+        self.assertEqual(meeple_condition("a", {"a"}, set(), cyborgs), "exhausted")
+        self.assertEqual(meeple_condition("c", {"c"}, set(), cyborgs), "drained")
+        self.assertEqual(meeple_condition("c", set(), {"c"}, cyborgs), "damaged")
+        self.assertIsNone(meeple_condition("a", set(), set(), cyborgs))
+        self.assertEqual(set(CONDITION_TAGS), set(CONDITION_TAG_INKS))
 
     def test_an_exhausted_meeple_carries_its_count_on_every_board(
         self,
@@ -1638,9 +1684,13 @@ class D12BallComponentTests(unittest.TestCase):
             match, catalog, TeamSide.HOME, "Home",
         ).getvalue()
         match.exhaustion[fielded(match, PlayerRole.PLAYMAKER)] = 2
+        counted = render_field_image(match, catalog).getvalue()
+        self.assertNotEqual(counted, before)
+        match.injured.add(fielded(match, PlayerRole.PLAYMAKER))
         self.assertNotEqual(
-            render_field_image(match, catalog).getvalue(), before,
+            render_field_image(match, catalog).getvalue(), counted,
         )
+        match.injured.clear()
         self.assertNotEqual(
             render_coaching_image(
                 match, catalog, TeamSide.HOME, "Home",

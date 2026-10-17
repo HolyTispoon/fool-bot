@@ -143,11 +143,11 @@ COACHING_BOARD_RIGHT = COACHING_WIDTH - 40
 COACHING_BOARD_TOP = 64
 COACHING_BOARD_BOTTOM = COACHING_BOARD_TOP + 250
 # The card rows below the board: each zone's assigned cards under that
-# zone, then the two benches. Cards are the only place the Exhausted
-# and Injured badges are drawn and the only place a benched player's
-# exhaustion count is (a meeple carries a fielded one's), and all of
-# them decide what a coach does with this menu, so the flow would be
-# asking them to remember numbers off a board they cannot see otherwise.
+# zone, then the two benches. The cards are the only place a benched
+# player's exhaustion count and condition are drawn (a meeple carries a
+# fielded one's), and they decide what a coach does with this menu, so
+# the flow would be asking them to remember numbers off a board they
+# cannot see otherwise.
 #
 # **No shooting-range bracket here, unlike the match image.** A
 # Coaching Choice happens with play stopped and shows only one side's
@@ -344,6 +344,8 @@ FONT_BADGE_COUNT = load_font(16, bold=True)
 # The exhaustion count on a meeple's badge: the web page's 12px on its
 # 50px piece, at this one's 76px (see MEEPLE_BADGE_ICON_SIZE).
 FONT_MEEPLE_BADGE = load_font(18, bold=True)
+# A condition tag's word: the page's 10px, scaled the same way.
+FONT_MEEPLE_TAG = load_font(15, bold=True)
 # The reference hexagon's rank badges, in the face the maneuver cards
 # draw their ranks in (see `load_rank_font`).
 FONT_MANEUVER_RANK = load_rank_font(34)
@@ -476,6 +478,28 @@ MEEPLE_BADGE_GAP = 2
 MEEPLE_BADGE_FILL = "#1e1f22"
 MEEPLE_BADGE_OUTLINE = "#3f4147"
 MEEPLE_BADGE_INK = "#f0b232"
+# The condition off the piece's bottom left, as the page tags it
+# (`.badge.condition`): the word short, since the emoji's own word is
+# too small to read at this size, in the emoji's colour -- Damaged
+# lifted from the emoji's #b01848, too dark on the dark ground, as the
+# page lifts it. Injured wins the slot, as on the card. The tag is the
+# count's height so a piece's two marks line up.
+MEEPLE_TAG_ACROSS = -0.1
+MEEPLE_TAG_PADDING = 5
+MEEPLE_TAG_RADIUS = 6
+MEEPLE_MARK_GAP = 2
+CONDITION_TAGS = {
+    "injured": "INJ",
+    "damaged": "DMG",
+    "exhausted": "EXH",
+    "drained": "DRN",
+}
+CONDITION_TAG_INKS = {
+    "injured": "#ff3400",
+    "damaged": "#e8457a",
+    "exhausted": "#ffb000",
+    "drained": "#00b8b8",
+}
 
 EXHAUSTED_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhausted.png"
@@ -1522,6 +1546,9 @@ def draw_space(
         match.ball.zone == zone
         and match.ball.space_index == space_index
     )
+    # Each row's marks, drawn after the ball so a crowded strip that
+    # runs past the ball is read over it (see draw_meeple_group).
+    marks: list = []
     visiting_bounds = draw_meeple_group(
         canvas,
         draw,
@@ -1541,6 +1568,9 @@ def draw_space(
         species_icons=species_icons,
         exhaustion=match.exhaustion,
         cyborg_ids=cyborg_ids,
+        exhausted=match.exhausted,
+        injured=match.injured,
+        deferred=marks,
     )
     home_bounds = draw_meeple_group(
         canvas,
@@ -1560,6 +1590,9 @@ def draw_space(
         species_icons=species_icons,
         exhaustion=match.exhaustion,
         cyborg_ids=cyborg_ids,
+        exhausted=match.exhausted,
+        injured=match.injured,
+        deferred=marks,
     )
 
     if ball_is_here:
@@ -1589,6 +1622,9 @@ def draw_space(
             outline="#243347",
             text_color="#243347",
         )
+
+    for draw_marks in marks:
+        draw_marks()
 
 
 def draw_board(
@@ -2088,11 +2124,15 @@ def draw_meeple_group(
     species_icons: bool = False,
     exhaustion: Mapping[str, int] = {},
     cyborg_ids: frozenset[str] = frozenset(),
+    exhausted: frozenset[str] | set[str] = frozenset(),
+    injured: frozenset[str] | set[str] = frozenset(),
+    deferred: Optional[list] = None,
 ) -> tuple[int, int]:
     """
     One team's meeples on one space: a row of tokens, with their names
-    listed under them, one per line, and each piece's exhaustion count
-    off its bottom right (`draw_meeple_exhaustion`).
+    listed under them, one per line, and each piece's marks: its
+    exhaustion count off its bottom right (`draw_meeple_exhaustion`)
+    and its condition off its bottom left (`draw_condition_tag`).
 
     **A token is the species icon over the role initials.** The icon is
     the bigger of the two and sits on the meeple's chest, in the same
@@ -2116,9 +2156,11 @@ def draw_meeple_group(
     zone's players on one space and a size that suits one name is
     unreadable spread over four.
 
-    `exhaustion` is the match's own count by player and `cyborg_ids`
-    who draws a Cyborg's teal token instead of the amber one -- the two
-    `draw_card` is handed, so a piece and its card never disagree.
+    `exhaustion`, `exhausted` and `injured` are the match's own, and
+    `cyborg_ids` who draws a Cyborg's marks -- what `draw_card` is
+    handed, so a piece and its card never disagree. `deferred`, when
+    given, collects the marks' drawing instead of doing it, for a
+    caller that draws the ball afterwards and wants the marks on top.
     """
     if not occupants:
         return space_left, space_right
@@ -2184,72 +2226,209 @@ def draw_meeple_group(
         )
         token_x += token_size + gap
 
-    # The badges go on after the whole row, because one runs past its
-    # own piece's right edge onto the next, which would otherwise be
-    # drawn over it. A row the ball is tucked against on its right --
-    # the home side's, which reads left to right (`ball_token_x`) --
-    # keeps its last badge clear of the ball; anything else stops at
-    # the space's own frame.
+    # The marks go on after the whole row, because one runs past its
+    # own piece onto the next, which would otherwise be drawn over it,
+    # and they are laid out as one strip across the row
+    # (`layout_meeple_marks`) so a piece's condition tag never lands on
+    # its left neighbour's count. The strip keeps clear of the ball --
+    # tucked against the home row's right and the visiting row's left
+    # (`ball_token_x`) -- and otherwise of the space's own frame.
     group_right = group_left + total_width
     ball_on_right = reserve_ball and alignment == "left"
-    badge_right_limit = group_right + 4 if ball_on_right else space_right - 4
-    for player_index, player_id in enumerate(occupants):
-        count = exhaustion.get(player_id, 0)
-        if count > 0:
-            draw_meeple_exhaustion(
-                canvas,
-                draw,
-                group_left + player_index * (token_size + gap),
-                token_y,
-                count,
-                cyborg=player_id in cyborg_ids,
-                right_limit=badge_right_limit,
-            )
+    ball_on_left = reserve_ball and alignment != "left"
+    pieces = [
+        (
+            group_left + player_index * (token_size + gap),
+            exhaustion.get(player_id, 0),
+            meeple_condition(player_id, exhausted, injured, cyborg_ids),
+            player_id in cyborg_ids,
+        )
+        for player_index, player_id in enumerate(occupants)
+    ]
+    left_limit = group_left - 4 if ball_on_left else space_left + 4
+    right_limit = group_right + 4 if ball_on_right else space_right - 4
+    # A strip with no room beside the ball runs on over the ball's
+    # foot rather than over its own marks, and is drawn after the ball
+    # (`deferred`) -- the ball's number sits above the strip, so it
+    # stays readable, as the page's badge row runs on past its edge.
+    # A strip longer than the space itself -- a stack on one of board
+    # 9's narrow coaching spaces, which the pieces already overfill
+    # (see COACHING_WIDTH) -- is centred under the stack and spills past
+    # both frames evenly rather than hiding one mark under another.
+    length = meeple_marks_length(draw, pieces)
+    if length > right_limit - left_limit:
+        left_limit = space_left + 4
+        right_limit = space_right - 4
+    if length > right_limit - left_limit:
+        left_limit = (group_left + group_right - length) / 2
+        right_limit = left_limit + length
+    marks = meeple_marks(draw, pieces, left_limit, right_limit)
+    top = meeple_mark_top(token_y)
+
+    def draw_marks() -> None:
+        for mark in marks:
+            if mark.condition is not None:
+                draw_condition_tag(draw, mark.left, top, mark.condition)
+            else:
+                draw_meeple_exhaustion(
+                    canvas, draw, mark.left, top, mark.count,
+                    cyborg=mark.cyborg,
+                )
+
+    if deferred is None:
+        draw_marks()
+    else:
+        deferred.append(draw_marks)
 
     return group_left, group_right
 
 
-def meeple_badge_box(
+def meeple_marks_length(
     draw: ImageDraw.ImageDraw,
-    token_x: int,
-    token_y: int,
-    count: int,
-    right_limit: Optional[float] = None,
-) -> tuple[float, float, float, float]:
-    """
-    Where a meeple's exhaustion badge goes: `(left, top, right,
-    bottom)`. At the web page's shares of the piece -- across from its
-    left edge, down from the top of the piece itself rather than of the
-    square it stands in, since the meeple is shorter than it is wide --
-    and moved left, never shrunk, when `right_limit` would cut it.
-    """
-    padding_left, padding_top, padding_right, padding_bottom = (
-        MEEPLE_BADGE_PADDING
+    pieces: list[tuple[int, int, Optional[str], bool]],
+) -> float:
+    """How long a row's marks are laid end to end, gaps included."""
+    marks = meeple_marks(draw, pieces, float("-inf"), float("inf"))
+    if not marks:
+        return 0
+    return (
+        sum(mark.width for mark in marks)
+        + MEEPLE_MARK_GAP * (len(marks) - 1)
     )
-    label = str(count)
-    label_width = draw.textlength(label, font=FONT_MEEPLE_BADGE)
-    width = (
-        padding_left + MEEPLE_BADGE_ICON_SIZE + MEEPLE_BADGE_GAP
-        + label_width + padding_right
-    )
-    height = padding_top + MEEPLE_BADGE_ICON_SIZE + padding_bottom
+
+
+def meeple_condition(
+    player_id: str,
+    exhausted: frozenset[str] | set[str],
+    injured: frozenset[str] | set[str],
+    cyborg_ids: frozenset[str],
+) -> Optional[str]:
+    """
+    The condition a piece is tagged with, as `draw_card` picks it:
+    Injured wins the slot over Exhausted, and a Cyborg's are Damaged
+    and Drained. The same choice as the web page's (`badges` in
+    webapp/board.py).
+    """
+    cyborg = player_id in cyborg_ids
+    if player_id in injured:
+        return "damaged" if cyborg else "injured"
+    if player_id in exhausted:
+        return "drained" if cyborg else "exhausted"
+    return None
+
+
+class MeepleMark(NamedTuple):
+    """One mark under a row of meeples, where `layout_meeple_marks` put it."""
+    left: float
+    width: float
+    count: int = 0
+    condition: Optional[str] = None
+    cyborg: bool = False
+
+
+def meeple_mark_top(token_y: int) -> float:
+    """
+    How far down the marks sit: the web page's share of the piece's
+    own height, measured from the top of the piece rather than of the
+    square it stands in, since the meeple is shorter than it is wide.
+    """
     piece_width, piece_height = meeple_size()
     drawn_height = MEEPLE_SIZE * piece_height / piece_width
-    left = token_x + MEEPLE_SIZE * MEEPLE_BADGE_ACROSS
-    top = token_y + MEEPLE_SIZE - drawn_height * (1 - MEEPLE_BADGE_DOWN)
-    if right_limit is not None and left + width > right_limit:
-        left = right_limit - width
-    return left, top, left + width, top + height
+    return token_y + MEEPLE_SIZE - drawn_height * (1 - MEEPLE_BADGE_DOWN)
+
+
+def meeple_badge_width(draw: ImageDraw.ImageDraw, count: int) -> float:
+    """The exhaustion badge's width: the token, the count and padding."""
+    padding_left, _, padding_right, _ = MEEPLE_BADGE_PADDING
+    return (
+        padding_left + MEEPLE_BADGE_ICON_SIZE + MEEPLE_BADGE_GAP
+        + draw.textlength(str(count), font=FONT_MEEPLE_BADGE) + padding_right
+    )
+
+
+def condition_tag_width(draw: ImageDraw.ImageDraw, condition: str) -> float:
+    """A condition tag's width: its short word and padding."""
+    return (
+        2 * MEEPLE_TAG_PADDING
+        + draw.textlength(CONDITION_TAGS[condition], font=FONT_MEEPLE_TAG)
+    )
+
+
+def meeple_mark_height() -> float:
+    """Both marks are this tall, so a row of them lines up."""
+    _, padding_top, _, padding_bottom = MEEPLE_BADGE_PADDING
+    return padding_top + MEEPLE_BADGE_ICON_SIZE + padding_bottom
+
+
+def meeple_marks(
+    draw: ImageDraw.ImageDraw,
+    pieces: list[tuple[int, int, Optional[str], bool]],
+    left_limit: float,
+    right_limit: float,
+) -> list[MeepleMark]:
+    """
+    Every mark a row of meeples carries, placed: for each piece
+    `(token_x, count, condition, cyborg)`, its condition tag off its
+    bottom left and its exhaustion count off its bottom right, at the
+    web page's shares of the piece (`MEEPLE_TAG_ACROSS`,
+    `MEEPLE_BADGE_ACROSS`), then moved as little as keeps them apart
+    and inside the limits (`layout_meeple_marks`).
+    """
+    wanted = []
+    for token_x, count, condition, cyborg in pieces:
+        if condition is not None:
+            wanted.append(MeepleMark(
+                token_x + MEEPLE_SIZE * MEEPLE_TAG_ACROSS,
+                condition_tag_width(draw, condition),
+                condition=condition,
+            ))
+        if count > 0:
+            wanted.append(MeepleMark(
+                token_x + MEEPLE_SIZE * MEEPLE_BADGE_ACROSS,
+                meeple_badge_width(draw, count),
+                count=count,
+                cyborg=cyborg,
+            ))
+    return layout_meeple_marks(wanted, left_limit, right_limit)
+
+
+def layout_meeple_marks(
+    marks: list[MeepleMark],
+    left_limit: float,
+    right_limit: float,
+) -> list[MeepleMark]:
+    """
+    `marks`, in order along the row, each moved as little as keeps it
+    `MEEPLE_MARK_GAP` clear of the one before and inside the limits: a
+    pass rightward pushes each past its neighbour and the left limit, a
+    pass leftward pulls each back inside the right limit and off the
+    next. A row with more marks than room ends with the left limit
+    winning -- that is crowding the space itself would show, and a
+    coach can still read the marks drawn over one another in order.
+    """
+    lefts = [mark.left for mark in marks]
+    floor = left_limit
+    for index, mark in enumerate(marks):
+        lefts[index] = max(lefts[index], floor)
+        floor = lefts[index] + mark.width + MEEPLE_MARK_GAP
+    ceiling = right_limit
+    for index in reversed(range(len(marks))):
+        right = min(lefts[index] + marks[index].width, ceiling)
+        lefts[index] = right - marks[index].width
+        ceiling = lefts[index] - MEEPLE_MARK_GAP
+    lefts = [max(left, left_limit) for left in lefts]
+    return [
+        mark._replace(left=left) for mark, left in zip(marks, lefts)
+    ]
 
 
 def draw_meeple_exhaustion(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
-    token_x: int,
-    token_y: int,
+    left: float,
+    top: float,
     count: int,
     cyborg: bool = False,
-    right_limit: Optional[float] = None,
 ) -> None:
     """
     A meeple's exhaustion: the token and its count in one dark pill
@@ -2258,9 +2437,8 @@ def draw_meeple_exhaustion(
     leaves the count alone in the pill -- the loader is silent, as it
     is for the card's badge.
     """
-    left, top, right, bottom = meeple_badge_box(
-        draw, token_x, token_y, count, right_limit,
-    )
+    right = left + meeple_badge_width(draw, count)
+    bottom = top + meeple_mark_height()
     draw.rounded_rectangle(
         (left, top, right, bottom),
         radius=(bottom - top) / 2,
@@ -2298,6 +2476,35 @@ def draw_meeple_exhaustion(
         font=FONT_MEEPLE_BADGE,
         fill=MEEPLE_BADGE_INK,
         anchor="lm",
+    )
+
+
+def draw_condition_tag(
+    draw: ImageDraw.ImageDraw,
+    left: float,
+    top: float,
+    condition: str,
+) -> None:
+    """
+    A meeple's condition as the web page tags it: the word short
+    (`CONDITION_TAGS`), in the condition emoji's own colour, on the
+    same dark ground as the count, squarer than its pill.
+    """
+    right = left + condition_tag_width(draw, condition)
+    bottom = top + meeple_mark_height()
+    draw.rounded_rectangle(
+        (left, top, right, bottom),
+        radius=MEEPLE_TAG_RADIUS,
+        fill=MEEPLE_BADGE_FILL,
+        outline=MEEPLE_BADGE_OUTLINE,
+        width=1,
+    )
+    draw.text(
+        ((left + right) / 2, (top + bottom) / 2),
+        CONDITION_TAGS[condition],
+        font=FONT_MEEPLE_TAG,
+        fill=CONDITION_TAG_INKS[condition],
+        anchor="mm",
     )
 
 
@@ -5802,6 +6009,8 @@ def draw_coaching_space(
     species_icons: bool = False,
     exhaustion: Mapping[str, int] = {},
     cyborg_ids: frozenset[str] = frozenset(),
+    exhausted: frozenset[str] | set[str] = frozenset(),
+    injured: frozenset[str] | set[str] = frozenset(),
 ) -> None:
     """
     One space on a coach's own half: its frame and code, and that
@@ -5845,6 +6054,8 @@ def draw_coaching_space(
         species_icons=species_icons,
         exhaustion=exhaustion,
         cyborg_ids=cyborg_ids,
+        exhausted=exhausted,
+        injured=injured,
     )
 
 
@@ -5937,6 +6148,7 @@ def render_coaching_image(
                 zone, space_index, occupants, space_left, space_right,
                 board=match.board, species_icons=species_icons,
                 exhaustion=match.exhaustion, cyborg_ids=cyborg_ids,
+                exhausted=match.exhausted, injured=match.injured,
             )
 
     draw_assignment_cards(
