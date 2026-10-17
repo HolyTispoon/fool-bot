@@ -33,7 +33,7 @@ from d12ball.components import (
 from d12ball import tokens
 from d12ball.space_numbering import flat_space_number
 from d12ball.game import (
-    AIOpponent, BOARD_SIZE_MODES, D12BallGame, GameMode,
+    AIOpponent, BOARD_SIZE_MODES, D12BallGame, Edition, GameMode,
     RECOMMENDED_BOARD_SIZES, Team,
     team_display_name,
 )
@@ -1006,6 +1006,31 @@ GAME_MODE_DEFINITIONS: dict[GameMode, str] = {
         "complexity, variety, and chaos"
     ),
 }
+
+
+#: What each edition is called on a button and in a setup message.
+EDITION_NAMES: dict[Edition, str] = {
+    Edition.ONE: "D12 Ball 1.0",
+    Edition.TWO: "D12 Ball 2.0",
+}
+
+#: What 2.0 changes, for the setup screens (docs/rules-2.0.md).
+EDITION_TWO_DEFINITION = (
+    "each coach plays from their own shuffled deck of 15 maneuver cards "
+    "-- nine two-headed basic cards and the six advanced maneuvers -- "
+    "holding a secret hand of four and drawing one after each card "
+    "played. No coin: an advanced card is played like any other."
+)
+
+
+def describe_edition(game: D12BallGame) -> str:
+    """
+    The setup screens' line for D12 Ball 2.0, or `""` for 1.0 -- the
+    game the rest of the screen already describes, so it adds nothing.
+    """
+    if Edition(game.edition) != Edition.TWO:
+        return ""
+    return f"**{EDITION_NAMES[Edition.TWO]}**: {EDITION_TWO_DEFINITION}"
 
 
 def describe_game_mode(

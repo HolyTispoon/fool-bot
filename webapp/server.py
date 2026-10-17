@@ -128,6 +128,10 @@ from webapp.rooms import WEB_ROOMS_FILE, Rooms
 
 LOGGER = logging.getLogger(__name__)
 
+#: The settings the record has that the page does not offer: D12 Ball
+#: 2.0 is played on Discord alone for now (docs/design/maneuver-deck.md).
+DISCORD_ONLY_SETTINGS = frozenset({"edition"})
+
 STATIC = Path(__file__).resolve().parent / "static"
 
 #: How many rendered boards are kept in hand. A board is ~200KB and a
@@ -1023,6 +1027,11 @@ class WebApp:
         setting = body.get("setting")
         if not isinstance(setting, str):
             raise web.HTTPBadRequest(text="Name the setting.")
+        if setting in DISCORD_ONLY_SETTINGS:
+            # D12 Ball 2.0 is the Discord bot's alone for now (the
+            # author, 2026-10-16; docs/design/maneuver-deck.md): the page
+            # has no secret hand to show.
+            raise web.HTTPBadRequest(text="That is not a setting this game has.")
         try:
             self.service.configure(game.game_id, setting, body.get("value"))
         except RuleRefusal:

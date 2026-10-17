@@ -61,9 +61,11 @@ from d12ball.formatting import (
     challenger_prompt_ask,
     coach_name,
     contest_noun,
+    EDITION_NAMES,
     GAME_MODE_NAMES,
     SETTING_DEFINITIONS,
     board_size_recommendation,
+    describe_edition,
     describe_game_mode,
     contestant_detail,
     destination_display_name,
@@ -91,6 +93,7 @@ from d12ball.game import (
     CoinFace,
     D12BallGame,
     DEFAULT_COIN,
+    Edition,
     GAME_COINS,
     GameMode,
     Team,
@@ -181,6 +184,33 @@ def maneuver_row_instruction(sides: list[str]) -> str:
     )
 
 
+def maneuver_hand_instruction(sides: list[str]) -> str:
+    """
+    `maneuver_row_instruction` for D12 Ball 2.0, where the hand is a
+    secret: the public message carries a button a side that opens the
+    coach's own hand to them alone, so what a coach is told is to
+    press theirs.
+    """
+    if len(sides) == 1:
+        return (
+            f"press **{HAND_BUTTON_LABELS[sides[0]]}** to see your cards "
+            "and play one -- only you can see them."
+        )
+    return (
+        "each press your own hand's button to see your cards and play "
+        "one: red for the offense, green for the defense. Only you can "
+        "see your cards."
+    )
+
+
+#: The public 2.0 prompt's button a side, which opens that coach's
+#: hand to them alone (`ManeuverActionPromptView`).
+HAND_BUTTON_LABELS = {
+    "offense": "Offense: my hand",
+    "defense": "Defense: my hand",
+}
+
+
 def build_maneuver_action_caption(engine, game: D12BallGame, match: MatchState) -> str:
     """
     The whole of what the Discord maneuver prompt says: who is being
@@ -193,8 +223,16 @@ def build_maneuver_action_caption(engine, game: D12BallGame, match: MatchState) 
     sides = list(engine.maneuver_pick_sides(game, match))
     waiting_on, _ = maneuver_prompt_wording(engine, game, match, sides)
     return maneuver_gambit_paragraph(
-        f"{' and '.join(waiting_on)}, {maneuver_row_instruction(sides)}",
-        engine.describe_gambit_access(game, match),
+        f"{' and '.join(waiting_on)}, "
+        + (
+            maneuver_hand_instruction(sides)
+            if engine.maneuver_deck_applies(game)
+            else maneuver_row_instruction(sides)
+        ),
+        "\n".join(filter(None, (
+            engine.describe_gambit_access(game, match),
+            engine.describe_maneuver_decks(game, match),
+        ))),
     )
 
 # contest_noun is imported above, from d12ball.formatting.
@@ -891,6 +929,12 @@ GAME_MODE_BUTTONS: tuple[tuple[str, GameMode], ...] = tuple(
     (GAME_MODE_NAMES[mode], mode) for mode in GameMode
 )
 
+#: The edition's two buttons, on the mode's row: the Discord bot is the
+#: one frontend that offers 2.0 for now (docs/design/maneuver-deck.md).
+EDITION_BUTTONS: tuple[tuple[str, Edition], ...] = tuple(
+    (EDITION_NAMES[edition], edition) for edition in Edition
+)
+
 
 def build_setup_message(
     game: D12BallGame,
@@ -914,6 +958,9 @@ def build_setup_message(
         f"-- {describe_game_mode(game)}\n"
         f"Board size: {game.board_size}\n\n"
     )
+    edition = describe_edition(game)
+    if edition:
+        text += f"{edition}\n\n"
 
     recommendation = board_size_recommendation(game)
     if recommendation:
@@ -1223,6 +1270,9 @@ def build_lobby_message(
         f"-- {describe_game_mode(game)}\n"
         f"Board size: **{game.board_size}** spaces\n"
     )
+    edition = describe_edition(game)
+    if edition:
+        text += f"{edition}\n"
 
     # Shown the whole time the mode is on, not only once the board is
     # off 9 -- picking Standard or Advanced moves the board to 9, and

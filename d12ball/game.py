@@ -147,6 +147,26 @@ class GameMode(str, Enum):
     ADVANCED = "advanced"
 
 
+class Edition(str, Enum):
+    """
+    Which edition of the game a match plays, beside its mode (the
+    author, 2026-10-16). **1.0** is the game the Charter describes: each
+    coach chooses from the same three cards every maneuver. **2.0**
+    gives each coach a shuffled deck of fifteen maneuver cards and a
+    hand of four drawn from it -- see "D12 Ball 2.0" in
+    docs/design/maneuver-deck.md and docs/rules-2.0.md. The mode still
+    says which abilities are played, so either edition goes with any
+    mode.
+
+    The Discord bot alone offers 2.0 for now; the web app's table names
+    the settings it shows and does not name this one. A game saved
+    before the field reads as 1.0.
+    """
+
+    ONE = "1.0"
+    TWO = "2.0"
+
+
 class Formation(str, Enum):
     """
     How many of a team's six fielded cards sit in each zone, read own
@@ -275,7 +295,7 @@ def default_board_size(mode: GameMode) -> int:
 #: setup settings block each offer a subset; the record refuses the
 #: rest by its state (a game past its lobby has no Test game toggle),
 #: never by which screen asked.
-GAME_SETTINGS = ("mode", "board", "ai", "test", "tutorial", "name")
+GAME_SETTINGS = ("mode", "edition", "board", "ai", "test", "tutorial", "name")
 
 #: The settings only a lobby offers, each settled by Start Game.
 LOBBY_SETTINGS = ("test", "tutorial", "name")
@@ -364,6 +384,12 @@ class D12BallGame:
 
     # Game configuration
     mode: GameMode = GameMode.STANDARD
+    # 1.0 or 2.0 (`Edition`): whether each coach plays from a deck of
+    # maneuver cards. Nothing may read it to decide a rule:
+    # `RulesEngine.maneuver_deck_applies` is the answer. Left out of
+    # `to_dict` while it is 1.0, so a 1.0 save is written exactly as it
+    # was before the field.
+    edition: Edition = Edition.ONE
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
@@ -469,6 +495,7 @@ class D12BallGame:
             self.player_2_team = Team(self.player_2_team)
 
         self.mode = GameMode(self.mode)
+        self.edition = Edition(self.edition)
         self.status = GameStatus(self.status)
 
         if self.ai_opponent is not None:
@@ -910,6 +937,7 @@ class D12BallGame:
         self.test_game = False
         self.ai_opponent = AIOpponent.DINKY
         self.mode = GameMode.TRAINING
+        self.edition = Edition.ONE
         self.board_size = 7
 
     def open_settings(self) -> tuple[str, ...]:
@@ -947,7 +975,7 @@ class D12BallGame:
         has no Test game toggle -- is refused with the sentence to
         show.
 
-        `mode`, `board` and `ai` are open for the whole of setup;
+        `mode`, `edition`, `board` and `ai` are open for the whole of setup;
         `test`, `tutorial` and `name` only in the lobby, since each is
         settled by Start Game. Standard and Advanced are recommended
         the large boards (`RECOMMENDED_BOARD_SIZES`), so picking either
@@ -997,6 +1025,14 @@ class D12BallGame:
                 and self.board_size not in LARGE_BOARD_SIZES
             ):
                 self.board_size = default_board_size(self.mode)
+        elif setting == "edition":
+            edition = Edition(value)
+            if self.tutorial and edition != Edition.ONE:
+                raise RuleRefusal(
+                    "The tutorial is played in D12 Ball 1.0. Turn Tutorial "
+                    "off to play 2.0."
+                )
+            self.edition = edition
         elif setting == "board":
             if self.tutorial:
                 raise RuleRefusal(
@@ -1387,6 +1423,8 @@ class D12BallGame:
         data = asdict(self)
         if data.get("ai_seats") is None:
             data.pop("ai_seats", None)
+        if Edition(data.get("edition", Edition.ONE)) == Edition.ONE:
+            data.pop("edition", None)
         return data
 
     @classmethod

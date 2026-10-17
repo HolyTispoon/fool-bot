@@ -18,6 +18,7 @@ from d12ball.game import (
 )
 from gamesaves.d12ball.service import GameResult
 from cogs.d12ball_helpers import (
+    HAND_BUTTON_LABELS,
     add_full_image_button_to_response,
     player_with_role,
     refresh_player_names,
@@ -619,7 +620,107 @@ def even_button_rows(
     ]
 
 
-class ManeuverActionPromptView(SafeView):
+class ManeuverPicking:
+    """
+    A maneuver pick, from whichever message carries the card: the
+    public prompt's buttons in 1.0, a coach's own secret hand in 2.0
+    (`ManeuverHandView`). Mixed in ahead of `SafeView`, whose gates and
+    `apply` it uses.
+    """
+
+    def pick_refusal(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: str,
+        interaction: discord.Interaction,
+    ) -> Optional[str]:
+        """
+        Why this click cannot be taken as a pick, or None.
+
+        **Authorization is answered first**, and that ordering is a
+        rule rather than a habit: the other coach's row is sitting on
+        the same message, so replying "that side has already chosen"
+        to a click on it would say whether they had. It is the half
+        that stays here -- whose Discord account may press a button is
+        a fact about a person (see docs/design/permissions.md) -- and
+        every rule about the pick is
+        `d12ball.flow.turn.maneuver_pick_refusal`'s.
+
+
+        It takes the interaction rather than the clicker's id because a
+        game helper may pick for either side and the permission is on
+        the member -- see "Who may act on a game" in docs/design/permissions.md.
+        """
+        authorized = (
+            self.may_act_for_possession(interaction, game, match)
+            if side == "offense"
+            else self.may_act_for_defense(interaction, game, match)
+        )
+        if not authorized:
+            return "Only the player on that side can choose this maneuver."
+        return None
+
+    async def pick(
+        self,
+        interaction: discord.Interaction,
+        side: str,
+        maneuver_key: str,
+    ) -> None:
+        """
+        One coach's pick, answered **ephemerally** -- which is the whole
+        of what keeps it secret now that the buttons are public. The
+        prompt itself is untouched, so the other coach sees no change of
+        any kind. A second pick is a change, and the reply names the
+        card it changed to; the channel is told only that it changed.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        changing = (
+            match.offense_maneuver if side == "offense"
+            else match.defense_maneuver
+        ) is not None
+
+        refusal = self.pick_refusal(game, match, side, interaction)
+
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
+            return
+
+        # **The rule is `d12ball.flow.turn.maneuver_pick_step`** since
+        # Phase 6: writing the pick down, whether "someone has picked"
+        # is worth saying at all, and whether both sides have answered
+        # -- and `maneuver_pick_refusal`'s three reasons, asked by the
+        # driver after the authorisation above.
+        result = await self.apply(
+            interaction,
+            game,
+            Action(
+                PromptKind.MANEUVER_ACTION,
+                "",
+                {"side": side, "maneuver_key": maneuver_key},
+            ),
+        )
+        if result is None:
+            return
+
+        await interaction.response.send_message(
+            ("You changed your maneuver to " if changing else "You chose ")
+            + f"**{self.cog.engine.maneuver_name(maneuver_key)}**.",
+            ephemeral=True,
+        )
+
+        for line in result.answer:
+            await send_new_prompt(interaction, line)
+
+        await self.cog.close_maneuver_prompt(interaction, game, result.match)
+
+        await self.cog.present(interaction, game, result)
+
+
+
+class ManeuverActionPromptView(ManeuverPicking, SafeView):
     """
     The maneuver pick, on **one public message carrying both sides'
     buttons**.
@@ -685,8 +786,37 @@ class ManeuverActionPromptView(SafeView):
 
         rows: list[list[discord.ui.Button]] = []
 
+        # **D12 Ball 2.0: the hand is a secret** (the author,
+        # 2026-10-16), so the public message carries no card at all --
+        # one button a side, which shows its coach their own hand,
+        # ephemerally, with the cards to play under it
+        # (`ManeuverHandView`). The custom_id names the side alone, so
+        # a restored prompt dispatches the same buttons.
+        deck = game is not None and cog.engine.maneuver_deck_applies(game)
+        if deck:
+            buttons = []
+            for hand in hands:
+                button = discord.ui.Button(
+                    label=HAND_BUTTON_LABELS[hand.side],
+                    style=(
+                        discord.ButtonStyle.danger
+                        if hand.side == "offense"
+                        else discord.ButtonStyle.success
+                    ),
+                    custom_id=f"d12ball:maneuver_hand:{game_id}:{hand.side}",
+                )
 
-        for hand in hands:
+                async def open_hand(
+                    interaction: discord.Interaction,
+                    chosen_side: str = hand.side,
+                ) -> None:
+                    await self.show_hand(interaction, chosen_side)
+
+                button.callback = open_hand
+                buttons.append(button)
+            rows.append(buttons)
+
+        for hand in () if deck else hands:
             side = hand.side
             # **The hand is the engine's answer, not the whole
             # catalog**, and it is asked **per side**: a standard game is
@@ -822,6 +952,45 @@ class ManeuverActionPromptView(SafeView):
             reference.row if reference in rows[-1] else None
         )
 
+    async def show_hand(
+        self, interaction: discord.Interaction, side: str,
+    ) -> None:
+        """
+        A 2.0 coach's own hand, to them alone: the four cards as a
+        picture, how many are in their deck and discard, and a button
+        for each maneuver the hand can play on this side. Who may look
+        is the pick's own gate, answered first, so the other coach
+        learns nothing from pressing it.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        refusal = self.pick_refusal(game, match, side, interaction)
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
+            return
+        options = self.prompt_options(game, match, PromptKind.MANEUVER_ACTION)
+        hand = next(
+            (
+                hand for hand in (options.hands if options else ())
+                if hand.side == side
+            ),
+            None,
+        )
+        if hand is None:
+            await interaction.response.send_message(
+                "That side has nothing to pick right now.", ephemeral=True,
+            )
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        file = await self.cog.build_deck_hand_file(hand.held, side)
+        await interaction.followup.send(
+            describe_secret_hand(hand),
+            file=file,
+            view=ManeuverHandView(self.cog, self.game_id, hand),
+            ephemeral=True,
+        )
+
     async def show_reference(self, interaction: discord.Interaction) -> None:
         """
         The defeat cycle, ephemeral to the coach who asked.
@@ -845,96 +1014,6 @@ class ManeuverActionPromptView(SafeView):
         # view goes with it, so there are no buttons for the edit to
         # drop. Webhook route -- see "Discord's rate limits".
         await add_full_image_button_to_response(interaction)
-
-    def pick_refusal(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        side: str,
-        interaction: discord.Interaction,
-    ) -> Optional[str]:
-        """
-        Why this click cannot be taken as a pick, or None.
-
-        **Authorization is answered first**, and that ordering is a
-        rule rather than a habit: the other coach's row is sitting on
-        the same message, so replying "that side has already chosen"
-        to a click on it would say whether they had. It is the half
-        that stays here -- whose Discord account may press a button is
-        a fact about a person (see docs/design/permissions.md) -- and
-        every rule about the pick is
-        `d12ball.flow.turn.maneuver_pick_refusal`'s.
-
-
-        It takes the interaction rather than the clicker's id because a
-        game helper may pick for either side and the permission is on
-        the member -- see "Who may act on a game" in docs/design/permissions.md.
-        """
-        authorized = (
-            self.may_act_for_possession(interaction, game, match)
-            if side == "offense"
-            else self.may_act_for_defense(interaction, game, match)
-        )
-        if not authorized:
-            return "Only the player on that side can choose this maneuver."
-        return None
-
-    async def pick(
-        self,
-        interaction: discord.Interaction,
-        side: str,
-        maneuver_key: str,
-    ) -> None:
-        """
-        One coach's pick, answered **ephemerally** -- which is the whole
-        of what keeps it secret now that the buttons are public. The
-        prompt itself is untouched, so the other coach sees no change of
-        any kind. A second pick is a change, and the reply names the
-        card it changed to; the channel is told only that it changed.
-        """
-        game, match = await self.require_match(interaction)
-        if game is None:
-            return
-        changing = (
-            match.offense_maneuver if side == "offense"
-            else match.defense_maneuver
-        ) is not None
-
-        refusal = self.pick_refusal(game, match, side, interaction)
-
-        if refusal is not None:
-            await interaction.response.send_message(refusal, ephemeral=True)
-            return
-
-        # **The rule is `d12ball.flow.turn.maneuver_pick_step`** since
-        # Phase 6: writing the pick down, whether "someone has picked"
-        # is worth saying at all, and whether both sides have answered
-        # -- and `maneuver_pick_refusal`'s three reasons, asked by the
-        # driver after the authorisation above.
-        result = await self.apply(
-            interaction,
-            game,
-            Action(
-                PromptKind.MANEUVER_ACTION,
-                "",
-                {"side": side, "maneuver_key": maneuver_key},
-            ),
-        )
-        if result is None:
-            return
-
-        await interaction.response.send_message(
-            ("You changed your maneuver to " if changing else "You chose ")
-            + f"**{self.cog.engine.maneuver_name(maneuver_key)}**.",
-            ephemeral=True,
-        )
-
-        for line in result.answer:
-            await send_new_prompt(interaction, line)
-
-        await self.cog.close_maneuver_prompt(interaction, game, result.match)
-
-        await self.cog.present(interaction, game, result)
 
     async def declare_gambit(
         self, interaction: discord.Interaction, side: str,
@@ -1009,6 +1088,61 @@ class ManeuverActionPromptView(SafeView):
             await send_new_prompt(interaction, line)
         await self.cog.close_maneuver_prompt(interaction, game, result.match)
         await self.cog.present(interaction, game, result)
+
+
+def describe_secret_hand(hand) -> str:
+    """What a 2.0 coach reads over their own hand."""
+    count = (
+        f"{hand.deck_count} in your deck, {hand.discard_count} in your "
+        "discard."
+    )
+    if hand.picked:
+        return (
+            f"Your hand ({count}) You have picked; press another card to "
+            "change it while the other side is still choosing."
+        )
+    return f"Your hand ({count}) Play one:"
+
+
+class ManeuverHandView(ManeuverPicking, SafeView):
+    """
+    **A 2.0 coach's secret hand**, sent ephemerally by the prompt's
+    hand button: one button a maneuver the hand can play on this side
+    -- two copies of a card are one button -- each a pick exactly as
+    the 1.0 prompt's card buttons are (`ManeuverPicking.pick`). Never
+    persistent: it answers one press of the public button, and the
+    public button sends a fresh one after a restart.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, hand) -> None:
+        super().__init__(timeout=15 * 60)
+        self.cog = cog
+        self.game_id = game_id
+        buttons = []
+        for key in hand.maneuver_keys:
+            maneuver = cog.maneuver_catalog.definition(key)
+            button = discord.ui.Button(
+                label=maneuver.name,
+                style=(
+                    discord.ButtonStyle.danger
+                    if hand.side == "offense"
+                    else discord.ButtonStyle.success
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_key: str = key,
+                chosen_side: str = hand.side,
+            ) -> None:
+                await self.pick(interaction, chosen_side, chosen_key)
+
+            button.callback = callback
+            buttons.append(button)
+        for index, row in enumerate(even_button_rows(buttons)):
+            for button in row:
+                button.row = index
+                self.add_item(button)
 
 
 class GambitAnswerView(SafeView):

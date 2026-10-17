@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import Optional
 
 
-from d12ball import tokens, tutorial
+from d12ball import maneuver_deck, tokens, tutorial
 from d12ball.components import (
     DECISION_CARDS,
     DECISION_INJURY_FORFEIT,
@@ -243,12 +243,22 @@ def resolve_maneuver(
         # pick is the winner, and its effect runs the same pipeline a
         # decisive win always does -- the clock charged as it
         # succeeds, like any other win (Law 6.1.4, 16.2.4).
-        succeeds = f"**{offense_name}** succeeds!"
+        # In 2.0 an advanced card may be played against no challenge,
+        # and resolves as the basic maneuver on its rank
+        # (`resolving_maneuver`; the author, 2026-10-16) -- said, since
+        # the coach played one card and another resolves.
+        resolving_key = engine.resolving_maneuver(match, offense_key)
+        resolving_name = engine.maneuver_name(resolving_key)
+        plays_as = (
+            f" With no challenge it plays as **{resolving_name}**."
+            if resolving_key != offense_key else ""
+        )
+        succeeds = f"**{resolving_name}** succeeds!"
         clock = charge_maneuver_clock(engine, match, offense_key)
         return StepResult(
             narration=[
                 f"{offense_display} chose **{offense_name}**, "
-                f"unchallenged.\n\n## {succeeds}"
+                f"unchallenged.{plays_as}\n\n## {succeeds}"
                 + (f"\n{clock}" if clock else "")
             ],
             headlines=(Headline(succeeds, match.ball.possession),),
@@ -792,10 +802,62 @@ def maneuver_pick_step(
 
     if not match.maneuver_selections_complete:
         return StepResult(narration=narration)
+    narration.extend(play_maneuver_cards(engine, game, match))
     return StepResult(
         narration=narration,
         next=FollowOn(FollowOnStep.RESOLVE_MANEUVER),
     )
+
+
+def play_maneuver_cards(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> list[str]:
+    """
+    **D12 Ball 2.0: the cards just revealed leave their hands** (the
+    author, 2026-10-16). Each card played goes to its coach's discard
+    pile and the coach draws back up to four; drawing the last card of
+    a deck shuffles the discard into a new one, which is said out loud
+    because it is public. Nothing in 1.0.
+
+    Played at the reveal -- the moment both picks are in, or the
+    offense's alone against no challenge -- because that is when a
+    card is down for good: until then a pick may still change. The
+    picks themselves stay on the match until `reset_maneuver`, since
+    the effect that follows reads them; only the deck moves.
+    """
+    if not engine.maneuver_deck_applies(game):
+        return []
+    sides = ["offense"]
+    if not match.maneuver_uncontested:
+        sides.append("defense")
+    lines = []
+    for side in sides:
+        key = (
+            match.offense_maneuver if side == "offense"
+            else match.defense_maneuver
+        )
+        team_side = engine.maneuver_side_team(match, side)
+        deck = engine.maneuver_deck(match, team_side)
+        if deck is None or key is None:
+            continue
+        card_id = maneuver_deck.card_for_maneuver(
+            engine.maneuver_catalog, deck[maneuver_deck.HAND], side, key,
+        )
+        if card_id is None:
+            # `maneuver_pick_refusal` read the same hand, so a pick
+            # with no card behind it is a hand edited by hand.
+            continue
+        if maneuver_deck.play_card(deck, card_id, engine.rng):
+            coach = format_player_with_team(
+                game, _maneuver_side_number(engine, game, match, side),
+            )
+            lines.append(
+                f"{coach} draws the last card of their deck and shuffles "
+                "their discard pile into a new one."
+            )
+    return lines
 
 
 def _maneuver_side_number(
@@ -824,8 +886,8 @@ def gambit_declaration_refusal(
     Like `maneuver_pick_refusal`, everything except who is allowed to
     press: that is the frontend's, asked first.
     """
-    if not engine.gambits_apply(game):
-        return "This game is not played with the advanced maneuvers."
+    if not engine.coin_applies(game):
+        return "This game is not played with the coin and its gambits."
     if match.maneuver_uncontested:
         return "A gambit can only be made against a challenge."
     if match.gambit_declared_by is not None:

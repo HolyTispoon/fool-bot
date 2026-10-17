@@ -22,6 +22,7 @@ from d12ball.game import (
     CoinFace,
     DEFAULT_COIN,
     D12BallGame,
+    Edition,
     GameMode,
     GameStatus,
     HomeChoice,
@@ -32,6 +33,7 @@ from d12ball.game import (
 )
 from cogs.d12ball_helpers import (
     AI_OPPONENT_NAMES,
+    EDITION_BUTTONS,
     GAME_MODE_BUTTONS,
     LOGGER,
     build_full_image_button,
@@ -95,6 +97,32 @@ class GameConfigurationView(SafeView):
                 await self.select_mode(interaction, selected_mode)
 
             button.callback = mode_callback
+            self.add_item(button)
+
+        # The edition shares the mode's row: three modes and two
+        # editions are the row's five. A tutorial is 1.0, which the
+        # record refuses to move off (`D12BallGame.configure`).
+        selected_edition = game.edition if game else Edition.ONE
+        for label, edition in EDITION_BUTTONS:
+            button = discord.ui.Button(
+                label=label,
+                style=(
+                    discord.ButtonStyle.secondary
+                    if edition == selected_edition
+                    else discord.ButtonStyle.success
+                ),
+                custom_id=f"d12ball:edition:{self.game_id}:{edition.value}",
+                disabled=configuration_closed or edition == selected_edition,
+                row=first_row,
+            )
+
+            async def edition_callback(
+                interaction: discord.Interaction,
+                chosen: Edition = edition,
+            ) -> None:
+                await self.change_setting(interaction, "edition", chosen)
+
+            button.callback = edition_callback
             self.add_item(button)
 
         for board_size in sorted(VALID_BOARD_SIZES):

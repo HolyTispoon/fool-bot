@@ -20,6 +20,7 @@ from d12ball.components import (
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
+    Edition,
     GameMode,
     GameStatus,
 )
@@ -976,6 +977,7 @@ class CommandsMixin:
         test_game: bool = False,
         created_by: Optional[discord.abc.User] = None,
         mode: GameMode = GameMode.STANDARD,
+        edition: Edition = Edition.ONE,
         board_size: Optional[int] = None,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
@@ -1044,6 +1046,7 @@ class CommandsMixin:
             test_game=test_game,
             game_name=game_name,
             mode=mode,
+            edition=edition,
             board_size=board_size,
             ai_opponent=resolved_ai_opponent,
             tutorial=tutorial,
@@ -1562,6 +1565,7 @@ class CommandsMixin:
             test_game=game.test_game,
             created_by=requested_by,
             mode=game.mode,
+            edition=game.edition,
             board_size=game.board_size,
             ai_opponent=game.ai_opponent,
             game_name=game.game_name,
