@@ -155,7 +155,7 @@ the game's own.
 ## The decisions
 
 Proposed 2026-10-17; the author's answers in review the same day are
-written in (decisions 1, 2, 3, 12 and 15). Each is the Codex site's where
+written in (decisions 1, 2, 3, 12, 15 and 16). Each is the Codex site's where
 it says so.
 
 1. **A Pages project of its own, at `pbd.d12ball.com`, reading a bucket
@@ -184,10 +184,9 @@ it says so.
    `pbd.d12ball.com` once the site is live (step 6), worded as the
    address it opens, as the page's other links are
    ([design/landing-pages.md](design/landing-pages.md), "The D12 Ball
-   page"). Whether search engines index it is the one question left
-   (below); the worksheet keeps the Codex site's `noindex` -- the meta
-   tag, `_headers`, the Function -- until the author says otherwise,
-   since a linked page is found without a search engine anyway.
+   page"). **Linked but not indexed** (the author, 2026-10-17): the
+   Codex site's `noindex` -- the meta tag, `_headers`, the Function --
+   and no `robots.txt`, for the Codex site's reasons (its decision 2).
 3. **Every D12 Ball game is on the site** (the author, 2026-10-17: "All
    d12ball games can be on the website even if the channels aren't
    listed") -- a game against Dinky and a tutorial among them, with no
@@ -714,13 +713,7 @@ Raised in this worksheet's review and answered on 2026-10-17.
    step (decision 15).
 6. **The web app's games**: not on this site; it is separate
    (decision 16).
-
-## The question still open
-
-1. **Search engines.** The site is linked from `d12ball.com`; should its
-   pages be indexed? The worksheet keeps the Codex site's `noindex` until
-   the author says otherwise -- coaches' Discord names on a page a search
-   engine files are one step further than a page a link opens.
+7. **Search engines**: no index (decision 2).
 
 ## What is not in these prompts, on purpose
 
