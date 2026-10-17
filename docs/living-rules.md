@@ -125,11 +125,11 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Role | Offense | Defense | Ability |
 | --- | ---: | ---: | --- |
-| Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Deflect of 2, a Clear of 4, a Cross that may also reach 4. |
+| Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Ball up to 4, a Deflect of 2, a Clear of 4, a Cross that may also reach 4. |
 | Defender | 2 | 5 | A won Pressure also steals the ball. |
-| Midfielder | 3 | 4 | Adds 3 to a skill test for a Low Pass or a Steal. |
+| Midfielder | 3 | 4 | Adds 3 to a skill test for a Pass or a Steal. |
 | Playmaker | 4 | 3 | May advance an additional space when resolving a Dribble or a Burst: 2 spaces with a Dribble, or 5 with a Burst. |
-| Winger | 5 | 2 | A completed Low Pass may set up a scoring opportunity. |
+| Winger | 5 | 2 | A completed Pass may set up a scoring opportunity. |
 | Striker | 6 | 1 | Adds 3 to a score attempt taken off a set-up. |
 
 **2.6.3** Each squad is one Fullback, two Defenders, one Midfielder, two Playmakers, one Winger and two Strikers. Beyond the standard deal, no role belongs to any particular zone.
@@ -228,9 +228,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 **4.2.2** These leave the ball with a particular player:
 
 - **a.** a Dribble, with the player who dribbled it;
-- **b.** a completed Low Pass and a received 2-space High Pass, with the receiver;
+- **b.** a completed Pass and a received 2-space High Ball, with the receiver;
 - **c.** a Steal, with the interceptor;
-- **d.** a ball won where it came to rest, or a won High Pass contest, with the winner;
+- **d.** a ball won where it came to rest, or a won High Ball contest, with the winner;
 - **e.** a Pressure, with the handler who was shoved back still holding it -- including one who has just survived an own-goal roll, and with the Defender instead where their Pressure also stole it.
 
 **4.2.3** These leave it with nobody in particular: a kickoff or any other restart, and a required [pickup](#106-picking-the-ball-up) (10.6). A [Deflect](#68-deflect) (6.8) leaves nobody in possession at all, so who gets it is settled -- by a contest, or automatically if only one side is there -- before anybody handles it.
@@ -311,7 +311,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.2.1** Both coaches secretly choose one of their maneuvers and reveal together.
 
-**6.2.2** The offense chooses from Low Pass, Dribble and High Pass; the defense from Deflect, Steal and Pressure. In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) a coach who makes a gambit chooses from their three advanced maneuvers instead -- see [Law 19](#19-advanced-maneuvers-and-gambits).
+**6.2.2** The offense chooses from Pass, Dribble and High Ball; the defense from Deflect, Steal and Pressure. In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) a coach who makes a gambit chooses from their three advanced maneuvers instead -- see [Law 19](#19-advanced-maneuvers-and-gambits).
 
 ### 6.3 Who wins
 
@@ -319,9 +319,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Offense | Deflect (D1) | Steal (D2) | Pressure (D3) |
 | --- | --- | --- | --- |
-| Low Pass (O1) | Tie | Steal wins | Low Pass wins |
+| Pass (O1) | Tie | Steal wins | Pass wins |
 | Dribble (O2) | Dribble wins | Tie | Pressure wins |
-| High Pass (O3) | Deflect wins | High Pass wins | Tie |
+| High Ball (O3) | Deflect wins | High Ball wins | Tie |
 
 **6.3.2** An [injured](#154-playing-injured) (15.4) participant changes this in both directions: a maneuver they would have won outright goes to a skill test they have to win, and a tie against one healthy opponent is their automatic loss with nothing rolled.
 
@@ -331,7 +331,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.4.2** The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. On top of that:
 
-- **a.** a Midfielder adds 3 more when the maneuver being tested is their own Low Pass or their own Steal;
+- **a.** a Midfielder adds 3 more when the maneuver being tested is their own Pass or their own Steal;
 - **b.** a defense contesting with Steal adds the [ball speed modifier](#7-ball-speed) (7).
 
 **6.4.3** The higher total wins and their maneuver is what resolves.
@@ -340,7 +340,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.4.5** When the test finally resolves, every participant who is Exhausted takes an [injury check](#153-the-injury-check) (15.3).
 
-### 6.5 Low Pass
+### 6.5 Pass
 
 **6.5.1** **Rank O1. Costs 1 time. Beats Pressure, loses to Steal.**
 
@@ -352,7 +352,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.5.5** With no legal destination at all, the maneuver still resolves: the ball rolls **2 spaces** forward, its speed still rises, the passer may still move 1 space forward, and the ball settles [where it lands](#101-where-the-ball-comes-to-rest) (10.1) -- an opponent standing there simply has it, and an empty space leaves it loose.
 
-**6.5.6** *Winger:* a completed Low Pass may offer its receiver a [scoring opportunity](#8-scoring-opportunities) (8), at any of the three distances, if the ball is in shooting range.
+**6.5.6** *Winger:* a completed Pass may offer its receiver a [scoring opportunity](#8-scoring-opportunities) (8), at any of the three distances, if the ball is in shooting range.
 
 ### 6.6 Dribble
 
@@ -364,7 +364,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.6.4** *Playmaker:* may advance 2 spaces instead of 1 -- an additional space.
 
-### 6.7 High Pass
+### 6.7 High Ball
 
 **6.7.1** **Rank O3. Costs 2 time. Beats Steal, loses to Deflect.**
 
@@ -373,12 +373,12 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | The throw | What happens |
 | --- | --- |
 | 2 spaces, a teammate on the landing space | Received. The ball is left with the receiver, who may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range. |
-| 3 or 4 spaces, a teammate there | Received but contested: the receiver has to win the [High Pass contest](#104-the-high-pass-contest) (10.4) to keep it. |
+| 3 or 4 spaces, a teammate there | Received but contested: the receiver has to win the [High Ball contest](#104-the-high-ball-contest) (10.4) to keep it. |
 | Nobody there | The ball is [loose](#101-where-the-ball-comes-to-rest) (10.1). |
 
 **6.7.3** A 2-space pass that lands short of shooting range is still received. The range rule takes away the shot, not the catch.
 
-**6.7.4** A throw longer than the spaces left in front of the ball **reaches the goal zone**, and comes to rest on the last space before it. With the ball 0 or 1 spaces from that last space, every distance reaches the goal zone and comes to rest on the same space, so nothing is offered and the throw reaches the goal zone before anyone chooses. A throw that reaches the goal zone with a teammate on that last space offers that receiver the scoring opportunity **or** the High Pass contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way.
+**6.7.4** A throw longer than the spaces left in front of the ball **reaches the goal zone**, and comes to rest on the last space before it. With the ball 0 or 1 spaces from that last space, every distance reaches the goal zone and comes to rest on the same space, so nothing is offered and the throw reaches the goal zone before anyone chooses. A throw that reaches the goal zone with a teammate on that last space offers that receiver the scoring opportunity **or** the High Ball contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way.
 
 **6.7.5** **A passer never receives their own pass.** Thrown from the last space, the ball reaches the goal zone and comes back to rest where it was, and a teammate sharing that space receives it and is offered the choice above.
 
@@ -386,7 +386,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.8 Deflect
 
-**6.8.1** **Rank D1. Costs 1 time. Beats High Pass, loses to Dribble.**
+**6.8.1** **Rank D1. Costs 1 time. Beats High Ball, loses to Dribble.**
 
 **6.8.2** The ball moves 1 space back -- toward the goal the offense is defending. Ball speed drops by 1, never below 1. Neither player moves.
 
@@ -398,7 +398,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.9 Steal
 
-**6.9.1** **Rank D2. Costs 1 time. Beats Low Pass, loses to High Pass.**
+**6.9.1** **Rank D2. Costs 1 time. Beats Pass, loses to High Ball.**
 
 **6.9.2** Possession flips and ball speed resets to 1. The challenger and the ball then move 1 space back for their side, toward the goal the new possessing team is defending.
 
@@ -408,7 +408,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.10 Pressure
 
-**6.10.1** **Rank D3. Costs 1 time. Beats Dribble, loses to Low Pass.**
+**6.10.1** **Rank D3. Costs 1 time. Beats Dribble, loses to Pass.**
 
 **6.10.2** The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler.
 
@@ -424,7 +424,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.2 What changes it
 
-**7.2.1** Only maneuvers change it. In standard mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble and Steal let the player change it by up to their own skill.
+**7.2.1** Only maneuvers change it. In standard mode there are four: Pass adds 1, Deflect takes 1 off, and Dribble and Steal let the player change it by up to their own skill.
 
 ### 7.3 Turnovers reset it
 
@@ -432,13 +432,13 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.4 Where the modifier is added
 
-**7.4.1** The modifier is added in three places and nowhere else: to a [score attempt](#5-score-attempt) (5), by the attack, halved and rounded down on a shot from midfield; to a maneuver skill test, by a defense contesting with Steal; and to a [High Pass contest](#104-the-high-pass-contest) (10.4), by the side that threw the pass. In advanced mode one player adds it to every roll they make: see [Oozes](#216-oozes) (21.6).
+**7.4.1** The modifier is added in three places and nowhere else: to a [score attempt](#5-score-attempt) (5), by the attack, halved and rounded down on a shot from midfield; to a maneuver skill test, by a defense contesting with Steal; and to a [High Ball contest](#104-the-high-ball-contest) (10.4), by the side that threw the pass. In advanced mode one player adds it to every roll they make: see [Oozes](#216-oozes) (21.6).
 
 **7.4.2** The ball [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1) belongs to nobody yet, so neither contestant adds it there.
 
-### 7.5 A High Pass that reaches the goal zone
+### 7.5 A High Ball that reaches the goal zone
 
-**7.5.1** A High Pass that reaches the goal zone turns the sign around: the modifier counts against the shot it sets up and against the contest behind it.
+**7.5.1** A High Ball that reaches the goal zone turns the sign around: the modifier counts against the shot it sets up and against the contest behind it.
 
 ## 8. Scoring opportunities
 
@@ -454,9 +454,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Set up by | Who shoots |
 | --- | --- |
-| A received 2-space High Pass | The receiver |
-| A High Pass that reaches the goal zone, with a teammate on the last space | The receiver |
-| A Winger's completed Low Pass | The receiver |
+| A received 2-space High Ball | The receiver |
+| A High Ball that reaches the goal zone, with a teammate on the last space | The receiver |
+| A Winger's completed Pass | The receiver |
 | A Deflect that reaches the goal zone | The player who played the Deflect, and only if they are standing on the last space before it |
 
 ### 8.3 The shooter
@@ -467,7 +467,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **8.4.1** Declining costs nothing and the maneuver resolves as it otherwise would have.
 
-**8.4.2** The one exception is a High Pass that reached the goal zone, where declining the shot means taking the [High Pass contest](#104-the-high-pass-contest) (10.4) instead.
+**8.4.2** The one exception is a High Ball that reached the goal zone, where declining the shot means taking the [High Ball contest](#104-the-high-ball-contest) (10.4) instead.
 
 ### 8.5 The cost in time
 
@@ -477,7 +477,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 9.1 The three occasions
 
-**9.1.1** Three rules ask a coach to send a player to the ball's space: the [maneuver challenge](#61-determining-the-two-players) (6.1), a [loose ball](#101-where-the-ball-comes-to-rest) (10.1) -- the [High Pass contest](#104-the-high-pass-contest) (10.4) included, which is the one contest a send may be offered against an occupied space -- and the [pickup](#106-picking-the-ball-up) (10.6) after an out-of-bounds ball, a [time out](#13-time-out) (13), a missed shot or an avoided own goal.
+**9.1.1** Three rules ask a coach to send a player to the ball's space: the [maneuver challenge](#61-determining-the-two-players) (6.1), a [loose ball](#101-where-the-ball-comes-to-rest) (10.1) -- the [High Ball contest](#104-the-high-ball-contest) (10.4) included, which is the one contest a send may be offered against an occupied space -- and the [pickup](#106-picking-the-ball-up) (10.6) after an out-of-bounds ball, a [time out](#13-time-out) (13), a missed shot or an avoided own goal.
 
 **9.1.2** All three ask it in the same way, and a player's zone has nothing to do with it.
 
@@ -527,7 +527,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.2.2** The higher total wins the ball and is left holding it. A tie is rolled again, and each exhausts 1.
 
-**10.2.3** Neither side adds the [ball speed modifier](#7-ball-speed) (7) -- the ball is nobody's yet. A [High Pass contest](#104-the-high-pass-contest) (10.4) is the one exception.
+**10.2.3** Neither side adds the [ball speed modifier](#7-ball-speed) (7) -- the ball is nobody's yet. A [High Ball contest](#104-the-high-ball-contest) (10.4) is the one exception.
 
 ### 10.3 A loose ball
 
@@ -535,11 +535,11 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.3.2** Where both sides send somebody they roll as above; where only one does, that player takes the ball without a test; where neither does, the ball goes [out of bounds](#105-out-of-bounds) (10.5). Only an empty space can come to that.
 
-### 10.4 The High Pass contest
+### 10.4 The High Ball contest
 
-**10.4.1** A High Pass of 3 spaces or more onto a teammate is caught, but not kept: the receiver has to win a contest to keep it, and the receiver standing on the ball is their side's contestant. A pass that reached the goal zone and whose set-up was declined comes to the same place. A pass of 2 does not -- a teammate there simply receives it and possession does not change, exactly as with a [Low Pass](#65-low-pass) (6.5).
+**10.4.1** A High Ball of 3 spaces or more onto a teammate is caught, but not kept: the receiver has to win a contest to keep it, and the receiver standing on the ball is their side's contestant. A pass that reached the goal zone and whose set-up was declined comes to the same place. A pass of 2 does not -- a teammate there simply receives it and possession does not change, exactly as with a [Pass](#65-pass) (6.5).
 
-**10.4.2** **A High Pass is the one exemption to [where the ball comes to rest](#101-where-the-ball-comes-to-rest) (10.1).** A landing space holding only one side's players may still be contested by the other, who [send a player](#9-sending-a-player) (9) after it exactly as they would to an empty space. Every other way the ball comes to rest is settled by whoever is already standing there.
+**10.4.2** **A High Ball is the one exemption to [where the ball comes to rest](#101-where-the-ball-comes-to-rest) (10.1).** A landing space holding only one side's players may still be contested by the other, who [send a player](#9-sending-a-player) (9) after it exactly as they would to an empty space. Every other way the ball comes to rest is settled by whoever is already standing there.
 
 *Note.* The ball is high in the air, which gives players time to run towards it.
 
@@ -599,12 +599,12 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Cause | Kind | What follows |
 | --- | --- | --- |
-| Steal, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins -- and in advanced mode Intercept and a beaten Burst | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
+| Steal, a Defender's won Pressure, a lost High Ball contest, a loose ball the other side wins -- and in advanced mode Intercept and a beaten Burst | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
 | A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds -- and in advanced mode a Cross that found nobody | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
 
 **12.2** A [time out](#13-time-out) (13) is a new play too, though not a turnover: possession does not change, but both sides reset and the ball goes back to speed 1.
 
-**12.3** **Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them -- a receiver who won their High Pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
+**12.3** **Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them -- a receiver who won their High Ball contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
 
 ### 12.4 Running back after a steal
 
@@ -783,7 +783,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 15.3 The injury check
 
-**15.3.1** When a skill test resolves -- a maneuver's, a contest for the ball, or a High Pass contest's -- every Exhausted participant -- the two who rolled, and anyone who [Merged](#205-slimey-ooze) (20.5) into it -- rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
+**15.3.1** When a skill test resolves -- a maneuver's, a contest for the ball, or a High Ball contest's -- every Exhausted participant -- the two who rolled, and anyone who [Merged](#205-slimey-ooze) (20.5) into it -- rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
 
 **15.3.2** Tokens added for that very test count, including the ones a re-roll charged.
 
@@ -798,7 +798,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 **15.4.2** Until they are substituted off:
 
 - **a.** in a maneuver, against a healthy opponent, a tie loses outright with nothing rolled, and a maneuver they would have won outright goes to a skill test they have to win instead;
-- **b.** in a contest for the ball or a High Pass contest, they add no skill modifier at all: their offensive or defensive skill comes off the roll, and only that. Ball speed and role abilities still apply.
+- **b.** in a contest for the ball or a High Ball contest, they add no skill modifier at all: their offensive or defensive skill comes off the roll, and only that. Ball speed and role abilities still apply.
 - **c.** they may use no ability that would exhaust or drain them -- a Cyborg's [Overdrive](#203-lithium-powered-cyborg) (20.3), a Telekinetic's [Mind Pull](#204-mind-pull-telekinetic) (20.4), an Ooze's [Merge](#205-slimey-ooze) (20.5), or any [special ability](#21-special-abilities) (21) with a token cost. They can add no tokens, so the cost is not waived: the ability is not theirs to use.
 
 **15.4.3** Nothing else is withheld. The forced skill test above is rolled with their skill in full, and a score attempt is untouched -- an injured Striker still adds 3 off a set-up.
@@ -827,8 +827,8 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Action | Cost |
 | --- | ---: |
-| Any maneuver except a High Pass or a Cross | 1 |
-| A High Pass, or a [Cross](#197-cross) (19.7) -- the advanced High Pass | 2 |
+| Any maneuver except a High Ball or a Cross | 1 |
+| A High Ball, or a [Cross](#197-cross) (19.7) -- the advanced High Ball | 2 |
 | A score attempt | 1 |
 | A scoring opportunity taken off a set-up | 1, on top of the maneuver's |
 | A time out | 1 |
@@ -836,7 +836,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **16.2.2** A maneuver's cost is flat. It does not depend on how far the ball or a player actually moved, or on whether the ball reached a goal zone and came to rest short of the distance chosen.
 
-**16.2.3** **The maneuver charged is the one that resolves.** A beaten card costs nothing of its own: a High Pass beaten by a Deflect costs the Deflect's 1, not the High Pass's 2.
+**16.2.3** **The maneuver charged is the one that resolves.** A beaten card costs nothing of its own: a High Ball beaten by a Deflect costs the Deflect's 1, not the High Ball's 2.
 
 **16.2.4** **The clock advances the moment the action's outcome is decided**, not once everything it leads to has been resolved:
 
@@ -934,7 +934,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | --- | --- | --- |
 | Every turnover resets ball speed to 1 ([Law 7](#73-turnovers-reset-it) (7.3)) | A beaten Burst hands the ball over at the speed the burst put into it ([Burst](#196-burst) (19.6)) | Advanced maneuvers |
 | A defense adds the speed modifier when contesting with Steal ([Law 6](#64-the-skill-test) (6.4)) | With Intercept too ([Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
-| A Midfielder adds 3 for their own Low Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Pinpoint or Intercept too ([Pinpoint](#195-pinpoint) (19.5), [Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
+| A Midfielder adds 3 for their own Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Pinpoint or Intercept too ([Pinpoint](#195-pinpoint) (19.5), [Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
 | The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | After a won Double Team its partner Merges through the next maneuver ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
 | A contest for the ball is rolled ([Law 10](#102-the-contest) (10.2)) | After a failed Cross the side that beat it takes the ball without a roll ([Cross](#197-cross) (19.7)) | Advanced maneuvers |
 | A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | The coach holding the coin may swap them for their three advanced maneuvers against a challenge, and a coach who is behind may answer in kind ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
@@ -956,9 +956,9 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Advanced maneuver | Rank | Advanced version of |
 | --- | --- | --- |
-| Pinpoint | O1 | Low Pass |
+| Pinpoint | O1 | Pass |
 | Burst | O2 | Dribble |
-| Cross | O3 | High Pass |
+| Cross | O3 | High Ball |
 | Clear | D1 | Deflect |
 | Intercept | D2 | Steal |
 | Double Team | D3 | Pressure |
@@ -1014,13 +1014,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.5.1** **Rank O1. Costs 1 time. Beats Pressure and Double Team, loses to Steal and Intercept.**
 
-**19.5.2** A Low Pass with the nearest-teammate rule taken off and a space more reach. The ball goes to **any** teammate up to **3 spaces** away, ahead or behind; a nearer teammate blocks nobody. Where several are standing on the destination, the passer chooses which of them receives it.
+**19.5.2** A Pass with the nearest-teammate rule taken off and a space more reach. The ball goes to **any** teammate up to **3 spaces** away, ahead or behind; a nearer teammate blocks nobody. Where several are standing on the destination, the passer chooses which of them receives it.
 
-**19.5.3** Ball speed rises by **3**, to a maximum of 12. As with a Low Pass, the pass has to reach a different player, and a Winger may offer their receiver a [scoring opportunity](#8-scoring-opportunities) (8). **Unlike a Low Pass, the passer never moves**, and with no teammate within 3 spaces to receive it the ball rolls **3 spaces** forward, its speed still rises, and it settles [where it lands](#101-where-the-ball-comes-to-rest) (10.1).
+**19.5.3** Ball speed rises by **3**, to a maximum of 12. As with a Pass, the pass has to reach a different player, and a Winger may offer their receiver a [scoring opportunity](#8-scoring-opportunities) (8). **Unlike a Pass, the passer never moves**, and with no teammate within 3 spaces to receive it the ball rolls **3 spaces** forward, its speed still rises, and it settles [where it lands](#101-where-the-ball-comes-to-rest) (10.1).
 
-**19.5.4** *Midfielder:* adds 3 to the skill test for their own Pinpoint, as for a Low Pass.
+**19.5.4** *Midfielder:* adds 3 to the skill test for their own Pinpoint, as for a Pass.
 
-**19.5.5** *Failed gambit:* the defender who took the ball plays an unopposed Low Pass with it, once everyone has run back and the ball's speed is set. It costs the defense no clock -- the steal has already been charged.
+**19.5.5** *Failed gambit:* the defender who took the ball plays an unopposed Pass with it, once everyone has run back and the ball's speed is set. It costs the defense no clock -- the steal has already been charged.
 
 ### 19.6 Burst
 
@@ -1062,7 +1062,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.8 Clear
 
-**19.8.1** **Rank D1. Costs 1 time. Beats High Pass and Cross, loses to Dribble and Burst.**
+**19.8.1** **Rank D1. Costs 1 time. Beats High Ball and Cross, loses to Dribble and Burst.**
 
 **19.8.2** A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves.
 
@@ -1074,7 +1074,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.9 Intercept
 
-**19.9.1** **Rank D2. Costs 1 time. Beats Low Pass and Pinpoint, loses to High Pass and Cross.**
+**19.9.1** **Rank D2. Costs 1 time. Beats Pass and Pinpoint, loses to High Ball and Cross.**
 
 **19.9.2** A Steal with the sign flipped. Possession flips and ball speed resets to 1, and the challenger and the ball then move 1 space **forward** -- toward the goal the new possessing team attacks, rather than back toward the one they defend. It is the only card that moves the ball against the way the offense was going.
 
@@ -1086,11 +1086,11 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.9.6** Where the interceptor is already on the last space before the goal they attack, the ball reaches that goal zone: there is nowhere to carry it, and the interception is a [scoring opportunity](#8-scoring-opportunities) (8) for them instead.
 
-**19.9.7** *Failed gambit:* a [High Pass contest](#104-the-high-pass-contest) (10.4) the pass would have owed is not held -- the receiver simply keeps the ball.
+**19.9.7** *Failed gambit:* a [High Ball contest](#104-the-high-ball-contest) (10.4) the pass would have owed is not held -- the receiver simply keeps the ball.
 
 ### 19.10 Double Team
 
-**19.10.1** **Rank D3. Costs 1 time. Beats Dribble and Burst, loses to Low Pass and Pinpoint.**
+**19.10.1** **Rank D3. Costs 1 time. Beats Dribble and Burst, loses to Pass and Pinpoint.**
 
 **19.10.2** A Pressure, with help. The handler and the ball go **1 space back** and the challenger moves 1 space forward onto the handler's space, as for a [Pressure](#610-pressure) (6.10), and **the partner** joins them there -- free of exhaustion, however far they came.
 
@@ -1179,7 +1179,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.4.10** **Smooth is offered only where the ball arrives, never on a space it passes through** -- the one place it parts from a pull. A Telekinetic the ball merely crosses on its way somewhere else is offered nothing. The rest of the path reading holds as it does for a pull: the ball's own starting space does not count as moved to, a ball that goes nowhere arrives nowhere, and a ball being brought back into play after it has gone dead reaches nobody. Where several of a side's Telekinetics stand on the space the ball arrives at, each is asked in turn and the first to take it holds it.
 
-**20.4.11** **Taking it over means taking it off somebody, so the player the movement is delivering it to is not offered a Smooth.** A [Low Pass](#65-low-pass) (6.5) aimed at a Telekinetic, a Telekinetic who catches a [High Pass](#67-high-pass) (6.7) or a [Cross](#197-cross) (19.7), a Telekinetic who has just taken the ball by [Steal](#69-steal) (6.9) or [Intercept](#199-intercept) (19.9) -- each of them ends the movement holding the ball anyway, and there is nothing left for the ability to change. A teammate standing on the same space as the intended receiver *is* offered one, and taking it is what makes them the carrier instead. **A ball nobody is holding offers no Smooth at all.** Where the ball comes to rest with nobody named as holding it -- a [Deflect](#68-deflect) (6.8), a pass that reaches nobody, a [Clear](#198-clear) (19.8), a beaten Cross, or a [High Pass contest](#104-the-high-pass-contest) (10.4) -- [what is standing on the space](#101-where-the-ball-comes-to-rest) (10.1) decides it as it always does: a Telekinetic alone there simply has it, one among teammates is their coach's to pick, and one sharing the space with an opponent contests for it like anyone else. **Once a teammate has won that contest they are holding the ball**, and a Telekinetic sharing their space is offered a Smooth to take it over from them -- after the contest's own [injury checks](#153-the-injury-check) (15.3), and never after a ball their side simply picked up, which their coach could already give to whichever of them they liked.
+**20.4.11** **Taking it over means taking it off somebody, so the player the movement is delivering it to is not offered a Smooth.** A [Pass](#65-pass) (6.5) aimed at a Telekinetic, a Telekinetic who catches a [High Ball](#67-high-ball) (6.7) or a [Cross](#197-cross) (19.7), a Telekinetic who has just taken the ball by [Steal](#69-steal) (6.9) or [Intercept](#199-intercept) (19.9) -- each of them ends the movement holding the ball anyway, and there is nothing left for the ability to change. A teammate standing on the same space as the intended receiver *is* offered one, and taking it is what makes them the carrier instead. **A ball nobody is holding offers no Smooth at all.** Where the ball comes to rest with nobody named as holding it -- a [Deflect](#68-deflect) (6.8), a pass that reaches nobody, a [Clear](#198-clear) (19.8), a beaten Cross, or a [High Ball contest](#104-the-high-ball-contest) (10.4) -- [what is standing on the space](#101-where-the-ball-comes-to-rest) (10.1) decides it as it always does: a Telekinetic alone there simply has it, one among teammates is their coach's to pick, and one sharing the space with an opponent contests for it like anyone else. **Once a teammate has won that contest they are holding the ball**, and a Telekinetic sharing their space is offered a Smooth to take it over from them -- after the contest's own [injury checks](#153-the-injury-check) (15.3), and never after a ball their side simply picked up, which their coach could already give to whichever of them they liked.
 
 *Note.* It is the same sentence as the one above about whoever the movement moved, read at the other end: a Smooth is for a ball that was going somewhere else.
 
@@ -1191,7 +1191,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 20.5 Slimey (Ooze)
 
-**20.5.1** **Merge.** In a [maneuver skill test](#64-the-skill-test) (6.4), a [contest for the ball](#101-where-the-ball-comes-to-rest) (10.1) or a [High Pass contest](#104-the-high-pass-contest) (10.4) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling may **exhaust 1** to add to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Each such Ooze is its coach's own choice, and each that Merges pays -- two of them add twice and exhaust 1 each. An [injured](#154-playing-injured) (15.4) Ooze cannot Merge.
+**20.5.1** **Merge.** In a [maneuver skill test](#64-the-skill-test) (6.4), a [contest for the ball](#101-where-the-ball-comes-to-rest) (10.1) or a [High Ball contest](#104-the-high-ball-contest) (10.4) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling may **exhaust 1** to add to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Each such Ooze is its coach's own choice, and each that Merges pays -- two of them add twice and exhaust 1 each. An [injured](#154-playing-injured) (15.4) Ooze cannot Merge.
 
 **20.5.2** **Merge is declared before the die is thrown**, as [Overdrive](#203-lithium-powered-cyborg) (20.3) is: blind, once per roll, the attacking coach first and then the defending one, each declaring or passing, and the die waits until both have. A tie that is rolled again is a fresh roll, on which each Ooze may Merge again for another token. **An Ooze who Merges owes the [injury check](#153-the-injury-check) (15.3) as the two rolling do**: when the skill test or contest resolves, an Exhausted Ooze who Merged into any roll of it rolls one, its tokens counted as theirs are. A score attempt still causes no checks, Merged into or not.
 
@@ -1251,7 +1251,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.4.4** **Strider runs on less.** When Strider [charges up](#203-lithium-powered-cyborg) (20.3), they clear 2 drain rather than 1. A [run back](#124-running-back-after-a-steal) (12.4) drains Strider 1 at most, however far they run.
 
-**21.4.5** **Quantor runs onto the pass.** When a teammate's won [High Pass](#67-high-pass) (6.7) or [Cross](#197-cross) (19.7) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Pass of 2 in range and a Cross set up Quantor's [scoring opportunity](#8-scoring-opportunities) (8), and a longer High Pass is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
+**21.4.5** **Quantor runs onto the pass.** When a teammate's won [High Ball](#67-high-ball) (6.7) or [Cross](#197-cross) (19.7) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Ball of 2 in range and a Cross set up Quantor's [scoring opportunity](#8-scoring-opportunities) (8), and a longer High Ball is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
 
 **21.4.6** **Pulsar charges up on the ball.** Whenever Pulsar receives the ball, as Inferno does, they clear 1 drain, never below zero.
 
@@ -1267,13 +1267,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.5.4** **Dravox and Hexis make their gambits on the dice.** When Dravox wins a maneuver skill test with a defensive advanced maneuver they played, or Hexis with an offensive one, it resolves as the advanced maneuver, with its successful outcome -- where a card that did not win on the cards [would otherwise resolve as its basic maneuver](#194-successful-and-failed-gambits) (19.4). A basic card they played is not upgraded.
 
-**21.5.5** **Umbrik plays the long ball on defense.** Umbrik adds their defensive skill rather than their offensive skill to an [own-goal roll](#11-own-goal) (11) and to a maneuver skill test over their own [High Pass](#67-high-pass) (6.7). A [High Pass contest](#104-the-high-pass-contest) (10.4) they receive in is played on their offensive skill as usual.
+**21.5.5** **Umbrik plays the long ball on defense.** Umbrik adds their defensive skill rather than their offensive skill to an [own-goal roll](#11-own-goal) (11) and to a maneuver skill test over their own [High Ball](#67-high-ball) (6.7). A [High Ball contest](#104-the-high-ball-contest) (10.4) they receive in is played on their offensive skill as usual.
 
-**21.5.6** **Vorix's long pass is a set-up.** When Vorix's won High Pass of 3 spaces reaches a teammate, there is no High Pass contest: the ball's speed goes to 12, the teammate receives it, and they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range, exactly as off a 2-space pass.
+**21.5.6** **Vorix's long pass is a set-up.** When Vorix's won High Ball of 3 spaces reaches a teammate, there is no High Ball contest: the ball's speed goes to 12, the teammate receives it, and they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range, exactly as off a 2-space pass.
 
 **21.5.7** **Zenith flies.** When a [steal](#124-running-back-after-a-steal) (12.4) is about to run players back, Zenith's coach may first move Zenith to any space on the field, exhausting 1 for every space traveled. Zenith then does not run back. An [injured](#154-playing-injured) (15.4) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#125-resetting-after-a-new-play) (12.5) is not a run back.
 
-**21.5.8** **Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range -- after a [Low Pass](#65-low-pass) (6.5) or a [Pinpoint](#195-pinpoint) (19.5) as after a 2-space High Pass. A High Pass of 3 or more is contested as usual, and only if Zytheris wins the [High Pass contest](#104-the-high-pass-contest) (10.4) -- or keeps the pass because nobody contests it -- may they then take the scoring opportunity.
+**21.5.8** **Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range -- after a [Pass](#65-pass) (6.5) or a [Pinpoint](#195-pinpoint) (19.5) as after a 2-space High Ball. A High Ball of 3 or more is contested as usual, and only if Zytheris wins the [High Ball contest](#104-the-high-ball-contest) (10.4) -- or keeps the pass because nobody contests it -- may they then take the scoring opportunity.
 
 ### 21.6 Oozes
 
@@ -1281,13 +1281,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.6.2** **Goopkeeper blocks in full.** In a [score attempt](#5-score-attempt) (5), Goopkeeper standing anywhere between the ball and the goal counts as on the ball, and adds their full defensive skill rather than half. Behind the ball they add nothing, like anyone else.
 
-**21.6.3** **Slitheron wins every contest.** In any [contest for the ball](#102-the-contest) (10.2) -- a [High Pass contest](#104-the-high-pass-contest) (10.4), a [loose ball](#103-a-loose-ball) (10.3) both sides sent somebody after, or a ball that comes to rest where Slitheron and an opponent are both standing, such as a [Deflect](#68-deflect) (6.8) landing on them -- Slitheron takes the ball without a roll. Nothing is rolled, so nobody owes an injury check for it. Against another player with the same ability, the contest is rolled as usual.
+**21.6.3** **Slitheron wins every contest.** In any [contest for the ball](#102-the-contest) (10.2) -- a [High Ball contest](#104-the-high-ball-contest) (10.4), a [loose ball](#103-a-loose-ball) (10.3) both sides sent somebody after, or a ball that comes to rest where Slitheron and an opponent are both standing, such as a [Deflect](#68-deflect) (6.8) landing on them -- Slitheron takes the ball without a roll. Nothing is rolled, so nobody owes an injury check for it. Against another player with the same ability, the contest is rolled as usual.
 
 **21.6.4** **Viscor merges harder.** Whenever Viscor [Merges](#205-slimey-ooze) (20.5) -- adds their skill to their side as an Ooze on the ball who is not rolling -- they add 3 more.
 
 **21.6.5** **Shpritz may Smooth.** Shpritz has the Telekinetics' [Smooth](#204-mind-pull-telekinetic) (20.4), and takes their own side's ball over exactly as a Telekinetic does. Shpritz has no Mind Pull.
 
-**21.6.6** **Zorch rolls with the ball.** Zorch adds a ball speed modifier of their own -- **half the ball's speed, rounded down**, not the full [ball speed modifier](#7-ball-speed) (7) -- to every roll they make but an [injury check](#153-the-injury-check) (15.3), which nothing modifies: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the ball speed modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- that modifier is added and Zorch's own is not, and a [High Pass that reaches the goal zone](#75-a-high-pass-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so Zorch adds nothing. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
+**21.6.6** **Zorch rolls with the ball.** Zorch adds a ball speed modifier of their own -- **half the ball's speed, rounded down**, not the full [ball speed modifier](#7-ball-speed) (7) -- to every roll they make but an [injury check](#153-the-injury-check) (15.3), which nothing modifies: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the ball speed modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Ball contest](#104-the-high-ball-contest) (10.4) -- that modifier is added and Zorch's own is not, and a [High Ball that reaches the goal zone](#75-a-high-ball-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so Zorch adds nothing. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
 
 **21.6.7** **Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#610-pressure) (6.10) or [Double Team](#1910-double-team) (19.10) would risk an [own goal](#11-own-goal) (11), there is no own-goal roll: Acidel's side takes the ball, at speed 1, and Acidel has a [scoring opportunity](#8-scoring-opportunities) (8) from that space. Declining it leaves Acidel's side holding the ball where it stands.
 

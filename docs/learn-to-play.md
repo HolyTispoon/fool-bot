@@ -53,7 +53,7 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 ![Figure 3 - The six cards](rulebooks/figures/fig-03-the-six-cards.png)
 
-**A maneuver is a fight for the ball between two players**: your handler, and one defender. Both coaches choose a card in secret and reveal together. The offense chooses from Low Pass, Dribble and High Pass; the defense from Deflect, Steal and Pressure. Each card says what it does. *(Law 6.1, 6.2)*
+**A maneuver is a fight for the ball between two players**: your handler, and one defender. Both coaches choose a card in secret and reveal together. The offense chooses from Pass, Dribble and High Ball; the defense from Deflect, Steal and Pressure. Each card says what it does. *(Law 6.1, 6.2)*
 
 ![Figure 2 - The cycle](rulebooks/figures/fig-02-the-cycle.png)
 
@@ -80,7 +80,7 @@ You are standing in your shooting range now, so next turn a shot would be offere
 
 ### Turn 2: a tie, a skill test, and a Deflect that lands on somebody
 
-**You play Low Pass. The visitors play Deflect.** Both are rank 1, so they tie: roll the skill test. For this lesson, the visitors win it.
+**You play Pass. The visitors play Deflect.** Both are rank 1, so they tie: roll the skill test. For this lesson, the visitors win it.
 
 ![Figure 6 - Beat 2](rulebooks/figures/fig-06-beat-2.png)
 
@@ -100,19 +100,19 @@ Pressure beats Dribble. Their handler and the ball are **shoved one space back**
 
 > Push a handler who is already on their last space and the ball reaches their own goal zone: they roll to avoid an **own goal** *(Law 11)*.
 
-### Turn 4: Steal beats Low Pass, and everyone runs back
+### Turn 4: Steal beats Pass, and everyone runs back
 
-The visitors' Midfielder has the ball on space 6 with your Playmaker and Winger standing on it, so one of yours challenges; choose the Playmaker. **The visitors play Low Pass. You play Steal.**
+The visitors' Midfielder has the ball on space 6 with your Playmaker and Winger standing on it, so one of yours challenges; choose the Playmaker. **The visitors play Pass. You play Steal.**
 
 ![Figure 8 - Beat 4](rulebooks/figures/fig-08-beat-4.png)
 
-Steal beats Low Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to space 5. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to space 5 and exhausts 2. *(Law 6.9, 12.1, 12.4)*
+Steal beats Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to space 5. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to space 5 and exhausts 2. *(Law 6.9, 12.1, 12.4)*
 
 Last, the stealer **sets the ball's speed**, up or down by up to their defensive skill. Take the most: 1 + 3 = **4**. The speed is added to a shot -- speed 4 is worth **+4** on the one you are about to take. *(Law 6.9, 7.1)*
 
-### Turn 5: a 2-space High Pass sets up the shot
+### Turn 5: a 2-space High Ball sets up the shot
 
-Your Playmaker has the ball on space 5, in range, with the visitors' Midfielder standing on it to challenge. **You play High Pass. The visitors play Steal.** High Pass beats Steal.
+Your Playmaker has the ball on space 5, in range, with the visitors' Midfielder standing on it to challenge. **You play High Ball. The visitors play Steal.** High Ball beats Steal.
 
 ![Figure 9 - Beat 5](rulebooks/figures/fig-09-beat-5.png)
 
@@ -133,7 +133,7 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 ![Figure 13 - Ball speed](rulebooks/figures/fig-13-ball-speed.png)
 
-**Ball speed.** The ball is a d12 and the face it shows is its speed. The speed itself is the **modifier**: it is added to your shot -- half of it, rounded down, on a shot from midfield -- and to a defender's Steal against you. Only maneuvers change the speed -- Low Pass +1, Deflect -1, and a Dribble or a Steal by up to the player's own skill -- and every turnover resets it to 1. *(Law 7)*
+**Ball speed.** The ball is a d12 and the face it shows is its speed. The speed itself is the **modifier**: it is added to your shot -- half of it, rounded down, on a shot from midfield -- and to a defender's Steal against you. Only maneuvers change the speed -- Pass +1, Deflect -1, and a Dribble or a Steal by up to the player's own skill -- and every turnover resets it to 1. *(Law 7)*
 
 ![Figure 11 - Where the ball comes to rest](rulebooks/figures/fig-11-where-the-ball-lands.png)
 
@@ -153,7 +153,7 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 **Exhaustion and injury.** Tokens come from skill tests, from walking to the ball, from running back, and from taking a set-up shot. A player carrying **more tokens than their defensive skill is Exhausted**, and rolls an **injury check** after every skill test they are in: a d12, safe if it is higher than their tokens. An **Injured** player loses their tokens, loses ties outright, and adds no skill in a contest for the ball -- until a substitution takes them off, which nothing forces. Halftime takes one token off every player on the field, and one more off a player of each coach's choice. *(Law 15)*
 
-**The clock.** Every maneuver advances time by one, a High Pass by two, a shot by one; running back, contests and Coaching Choices cost nothing. The clock moves the moment an action's outcome is decided -- as a maneuver's winner is known, once a shot has gone in or missed, as a time out is called -- and never stops. When it reaches the period's last minute, whoever holds the ball once the action resolves has **last possession**: their next turnover ends the half. Halftime recovers a token, offers both coaches a Coaching Choice, and the second half starts at 15 with the visitors kicking off. *(Law 16)*
+**The clock.** Every maneuver advances time by one, a High Ball by two, a shot by one; running back, contests and Coaching Choices cost nothing. The clock moves the moment an action's outcome is decided -- as a maneuver's winner is known, once a shot has gone in or missed, as a time out is called -- and never stops. When it reaches the period's last minute, whoever holds the ball once the action resolves has **last possession**: their next turnover ends the half. Halftime recovers a token, offers both coaches a Coaching Choice, and the second half starts at 15 with the visitors kicking off. *(Law 16)*
 
 **Full time and the shootout.** The higher score wins. Level, and each coach lines up their six in secret and the pairs shoot one against one: d12 + offensive skill, higher scores, a tie stands. Best of six, then sudden death. *(Law 17)*
 
@@ -181,9 +181,9 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 | --- | ---: | ---: | --- |
 | Fullback | 1 | 6 | +1 space on a pass or a deflection |
 | Defender | 2 | 5 | A won Pressure also steals the ball |
-| Midfielder | 3 | 4 | +3 on a skill test for a Low Pass or a Steal |
+| Midfielder | 3 | 4 | +3 on a skill test for a Pass or a Steal |
 | Playmaker | 4 | 3 | May Dribble 2 spaces |
-| Winger | 5 | 2 | A completed Low Pass may set up a shot |
+| Winger | 5 | 2 | A completed Pass may set up a shot |
 | Striker | 6 | 1 | +3 on a shot off a set-up |
 
 **The rolls** *(Appendix A of the Charter)*
@@ -200,4 +200,4 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 
 **A turnover:** speed to 1, then -- a steal runs players back; a new play resets both sides and offers a Coaching Choice. A time out is a new play but not a turnover.
 
-**The clock:** a maneuver 1, a High Pass 2, a shot 1, a time out 1, everything else 0.
+**The clock:** a maneuver 1, a High Ball 2, a shot 1, a time out 1, everything else 0.
