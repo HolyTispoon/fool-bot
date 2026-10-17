@@ -30,6 +30,13 @@ Nothing raises out of it. A failed call is a WARNING and is retried with
 the next change; a run of failures -- `FAILURE_RUN` in a row, or a run
 older than `FAILURE_WINDOW` -- is one ERROR, which reaches #logs, and is
 said again only after a success has reset the run.
+
+Every call is metered where a `Usage` is handed in -- each put counted
+as a write, each put and delete changing the bucket's size -- and
+`grown` is called after a put, so the publisher can take games off the
+site before the bucket reaches the free plan's storage
+(docs/design/pbd-site.md, "The free plan"). A game taken off is on
+neither list and is never sent.
 """
 
 from __future__ import annotations
@@ -49,6 +56,7 @@ from cogs.codex_publish.record import PublishedGame, PublishRecord
 if TYPE_CHECKING:
     from botkit.objectstore import ObjectStore
     from codex.game import CodexGame
+    from cogs.codex_publish.budget import Usage
 
 LOGGER = logging.getLogger(__name__)
 
@@ -83,16 +91,21 @@ class PublishQueue:
     """
     The publisher's sends. `games` hands back the bot's games by
     `game_id` -- the record the cog plays from, read at send time.
-    `clock` is `time.monotonic` but for the tests.
+    `clock` is `time.monotonic` but for the tests. `usage` meters every
+    call, and `grown` is called after every put that succeeded.
     """
 
     def __init__(self, store: "ObjectStore", record: PublishRecord,
                  games: Callable[[], Mapping[str, "CodexGame"]], *,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic,
+                 usage: Optional["Usage"] = None,
+                 grown: Optional[Callable[[], None]] = None) -> None:
         self.store = store
         self.record = record
         self._games = games
         self._clock = clock
+        self.usage = usage
+        self.grown = grown
         self._closed = False
         # Per game: the boards handed over and not yet sent, by key; the
         # games with a change not yet sent; the one send in flight.
@@ -168,7 +181,10 @@ class PublishQueue:
         already. False where the put failed."""
         if self._closed:
             return False
-        return await self._put_changed(key, body)
+        try:
+            return await self._put_changed(key, body)
+        finally:
+            self._save_usage()
 
     async def drain(self) -> None:
         """Wait until nothing is waiting to be sent or in flight."""
@@ -211,7 +227,7 @@ class PublishQueue:
         short, so its boards are kept for the next change."""
         game = self._games().get(game_id)
         published = self.record.games.get(game_id)
-        if game is None or published is None or not shapes.on_site(game):
+        if game is None or published is None or published.offloaded or not shapes.on_site(game):
             return True
         match = self._match(game)
         # Everything this send puts is built before its first await, so a
@@ -254,6 +270,7 @@ class PublishQueue:
         finally:
             if uploaded != saved:
                 self.record.save()
+            self._save_usage()
 
     def _match(self, game: "CodexGame") -> Optional[MatchState]:
         state = game.match_state
@@ -286,6 +303,7 @@ class PublishQueue:
                     if await self._delete(key):
                         self._dropped.discard(key)
                         self._sent.pop(key, None)
+                self._save_usage()
         except Exception:  # pragma: no cover - the queue's own bug
             LOGGER.exception("Publishing the Codex games' lists failed.")
         finally:
@@ -302,6 +320,8 @@ class PublishQueue:
             if not shapes.on_site(game):
                 continue
             published = self.record.games.get(game.game_id)
+            if published is not None and published.offloaded:
+                continue
             updated = published.updated if published is not None else None
             if game.status in BEING_PLAYED:
                 playing.append(shapes.index_entry(game, self._match(game), updated))
@@ -323,12 +343,21 @@ class PublishQueue:
         return True
 
     async def _put(self, key: str, body: bytes) -> bool:
+        if self.usage is not None:
+            self.usage.wrote()
         try:
             await self.store.put(key, body, keys.content_type(key), keys.cache_control(key))
         except Exception as error:
             self._failed("put", key, error)
             return False
         self._succeeded()
+        if self.usage is not None:
+            self.usage.put(key, len(body))
+        if self.grown is not None:
+            try:
+                self.grown()
+            except Exception:
+                LOGGER.exception("Could not check the Codex games' bucket against the free plan.")
         return True
 
     async def _delete(self, key: str) -> bool:
@@ -338,7 +367,13 @@ class PublishQueue:
             self._failed("delete", key, error)
             return False
         self._succeeded()
+        if self.usage is not None:
+            self.usage.deleted(key)
         return True
+
+    def _save_usage(self) -> None:
+        if self.usage is not None:
+            self.usage.save()
 
     def _failed(self, operation: str, key: str, error: Exception) -> None:
         now = self._clock()

@@ -29,6 +29,11 @@ Step 4 landed the site: `pbd/`, the Pages project's root -- the two pages,
 the viewer and the one Function -- and `scripts/serve_pbd.py`, which serves
 it locally.
 
+After the steps, the free plan: `cogs/codex_publish/budget.py`, the
+bucket measured and reported against R2's free plan at every start, and
+the games taken off the site -- downloaded first -- once it nears the
+free storage ("The free plan").
+
 Step 6 landed the old turns: `cogs/codex_publish/pins.py`, a pinned turn
 read back into the model's tokens, and the publisher's import after its
 startup publish, so a game played before the site went live has its
@@ -195,10 +200,13 @@ wrong shape, so a hand-edited entry loads as much as it holds.
 
 ## The store
 
-`botkit/objectstore.py` is a store with two calls, `put(key, body,
-content_type, cache_control)` and `delete(key)`, both `async`, both raising
-on a failure. Nothing reads or lists: the publisher's record says what is
-up, so the bot never needs to ask the bucket.
+`botkit/objectstore.py` is a store with `put(key, body, content_type,
+cache_control)` and `delete(key)`, and -- for the free plan alone --
+`list(prefix)`, every key and its size, and `get(key)`, an object's bytes;
+all `async`, all raising on a failure. Publishing never reads or lists:
+the publisher's record says what is up. The one listing is the start's,
+which measures the bucket, and the gets are a game being downloaded
+before it comes off the site ("The free plan").
 
 - **`R2Store` is R2 over its S3 API, through boto3**, pinned in
   `requirements.txt`. boto3 blocks, so every call runs in
@@ -289,6 +297,87 @@ every game.
 **`close()`** takes nothing new and cancels what is in flight, for the
 cog's unload. A put already handed to its thread finishes there; the
 record says only what was confirmed, so the next start sends the rest.
+
+## The free plan
+
+The bucket has to stay inside R2's free plan (the author, 2026-10-17:
+"I want to make sure we never exceed the limits of the free plan on
+R2"). Cloudflare's pricing page, read 2026-10-17, gives 10 GB-month of
+Standard storage, 1 million Class A operations (a put, a listing) and 10
+million Class B operations (a get, a head) a month; a delete is free.
+`cogs/codex_publish/budget.py` holds those numbers and what the bot does
+about them.
+
+**Every start says what the bucket uses, in #logs.** The startup task
+lists the bucket first -- the whole bucket, not `codex/` alone, since the
+allowance counts everything in it -- and once the startup publish has
+settled, `budget.report` goes out through `botlog.post_notice` (and at
+INFO on the console): the storage against the free 10 GB with the share
+and the object count, the month's writes against the free million, and
+why the reads are not counted. It is a notice and not an ERROR, since a
+report is not something to fix; like every notice it reaches #logs only
+where `CODEX_LOG_MIRROR` (or `FOOLBOT_LOG_MIRROR`) is on.
+
+- **Storage is measured, not estimated.** One listing gives every key's
+  size (`Usage.listed`); after it, every put sets its key's size and every
+  delete takes it away, so the meter follows the bucket between starts
+  with no further listing. A GB is taken as 10^9 bytes, the smaller
+  reading, because the page does not say which. The storage is billed on
+  the month's average of each day's peak, which the current size bounds
+  as long as it never passes the mark.
+- **Writes are counted by the bot**, since it is the bucket's one writer
+  (the site's Function only reads): every put tried, a failed one too --
+  the count that never undercounts -- and each listing as a write per
+  thousand keys (`list_pages`, S3's page). The count is kept in
+  `data/codex_pbd_usage.json` with its month, `YYYY-MM` in UTC, and starts
+  again at zero when the month changes. Boto3's own retries are not seen,
+  so it is a floor in a run of failures. At `WRITES_ALARM` (80%) of the
+  free million it is one ERROR: taking games off frees storage, not
+  writes, so somebody has to decide. At two or three writes an action,
+  that is several hundred games in a month.
+- **Reads are not counted here**, because every one goes through the
+  Pages Function, and the Workers free plan stops that at 100,000
+  requests a day -- at most about 3.1 million a month, under the free 10
+  million, as long as the account is on that plan.
+
+**Near the free storage, games come off the site, downloaded first.**
+From `OFFLOAD_AT` (80%, 8 GB) the publisher takes games off until the
+bucket is down to `OFFLOAD_TO` (70%, 7 GB): a margin, so one offload is
+not followed by another a game later. At 15 to 20 MB a game, that is
+about 50 games taken off at a time, after about 400 on the site.
+
+- **The order is the author's**: the abandoned games first, then the
+  finished ones (`OFFLOAD_ORDER`), each the longest untouched first by
+  its `updated` -- a game the site never saw change, with none, before
+  any. **A game being played never comes off.** Where nothing finished or
+  abandoned is left and the bucket is still past the mark, that is one
+  ERROR, said again only after an offload succeeds.
+- **A game is downloaded whole before anything of it is deleted**: every
+  key the listing has under `codex/games/<id>/` -- the bucket's word, not
+  the record's, so nothing is left behind -- each checked against its
+  listed size, written into `data/codex_pbd_offloaded/` in the bucket's
+  layout. A failed download or write leaves the game on the site. The
+  folder serves as it stands: `python3 scripts/serve_pbd.py --data
+  data/codex_pbd_offloaded` opens a game at `/game/<game_id>`, though the
+  lists there are not written.
+- **Then it is marked, listed nowhere, and deleted**:
+  `PublishedGame.offloaded` is set and the record saved, so the queue
+  leaves it off both lists and never sends it again, and the hooks pass
+  it by; its keys go through `games_dropped`, the reset's path, so they
+  are deleted only after the lists without it are up. A delete that
+  failed is retried with the lists' next change, and at the next start,
+  which finds the game's keys in its listing and deletes them again (it
+  was downloaded before it was marked). What is on its way out is not
+  counted towards taking more off (`budget.leaving`).
+- **When it is checked**: once at the start, after the report -- nothing
+  comes off before the report has said what the bucket holds -- and
+  after every put that succeeded (`PublishQueue.grown`), which costs a
+  comparison while the bucket is under the mark. One offload at a time.
+  What came off is one notice in #logs: how many, how much, which games
+  by number, and any whose download failed.
+- **Only this bucket is seen.** The token is scoped to `pbd`, so another
+  bucket on the account, which shares the allowance, is not in the
+  meter. There is none today.
 
 ## Turning it on
 
@@ -677,7 +766,8 @@ its menus around; the names below are the shape, not a promise.
    `https://<address>/data/codex/index.json` answers the list;
    `https://<address>/data/anything-else` answers `404`.
 8. **Watch the bucket's size** after a game or two: R2 -> the bucket ->
-   Metrics. A game should be tens of MB, not a hundred (the worksheet's
+   Metrics, which the start's report in #logs should agree with ("The
+   free plan"). A game should be tens of MB, not a hundred (the worksheet's
    "What it costs"); more means superseded boards are not being deleted
    ("The queue": a board nothing names is deleted). And the Functions requests a day: Workers
    & Pages -> the project -> Metrics, against the free plan's 100,000.

@@ -61,6 +61,11 @@ class PublishedGame:
     - `imported`: whether the import of the old turns from the pins has
       run (docs/pbd-site.md, step 6).
     - `updated`: when the game last changed, ISO 8601 in UTC.
+    - `offloaded`: whether the game was taken off the site to keep the
+      bucket inside R2's free plan -- downloaded into
+      `data/codex_pbd_offloaded/` and deleted from the bucket -- so it
+      is on neither list and never sent again
+      (docs/design/pbd-site.md, "The free plan").
     """
 
     turn: Optional[int] = None
@@ -73,6 +78,7 @@ class PublishedGame:
     history_version: int = 0
     imported: bool = False
     updated: Optional[str] = None
+    offloaded: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -86,6 +92,7 @@ class PublishedGame:
             "history_version": self.history_version,
             "imported": self.imported,
             "updated": self.updated,
+            "offloaded": self.offloaded,
         }
 
     @classmethod
@@ -115,6 +122,7 @@ class PublishedGame:
             history_version=version if isinstance(version, int) and not isinstance(version, bool) else 0,
             imported=data.get("imported") is True,
             updated=optional("updated", str),
+            offloaded=data.get("offloaded") is True,
         )
 
 
