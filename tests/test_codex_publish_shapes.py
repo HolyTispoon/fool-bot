@@ -56,6 +56,7 @@ class ListShapesTests(unittest.TestCase):
             "number": 1,
             "mode": "basic",
             "variant": "duel",
+            "variant_label": "Duel",
             "seats": [
                 {"seat": 1, "name": "basher", "team": "Bashing"},
                 {"seat": 2, "name": "fencer", "team": "Finesse"},

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Codex game</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/codex.css">
+</head>
+<body data-page="game">
+  <header class="bar">
+    <a class="back" href="/">All games</a>
+    <div class="title">
+      <h1 id="title">Codex game</h1>
+      <p class="summary" id="summary"></p>
+    </div>
+    <button type="button" class="toggle" id="log-toggle" aria-controls="log" aria-pressed="true">Log</button>
+  </header>
+  <main class="game">
+    <section class="stage" aria-label="Board">
+      <div class="viewer" id="viewer">
+        <img id="board" alt="The board">
+      </div>
+      <p class="looking" id="looking" hidden>
+        <span id="looking-text"></span>
+        <button type="button" id="looking-back">Back to the current board</button>
+      </p>
+      <div class="controls" role="group" aria-label="Zoom">
+        <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
+        <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+        <button type="button" id="zoom-fit">Fit</button>
+      </div>
+    </section>
+    <aside class="log" id="log" aria-label="Log">
+      <section class="turn" id="current"></section>
+      <h2 class="earlier" id="earlier-title" hidden>Earlier turns</h2>
+      <div id="history"></div>
+    </aside>
+  </main>
+  <p class="status" id="status" role="status"></p>
+  <script src="/viewer.js"></script>
+  <script src="/codex.js"></script>
+</body>
+</html>

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Iterable, Optional
 
 from codex import seats
 from codex.formatting import team_name
-from codex.game import GameStatus
+from codex.game import VARIANT_LABELS, GameStatus
 from cogs.codex_helpers import seat_label
 from cogs.codex_publish import keys
 from cogs.codex_publish.record import PublishedGame
@@ -75,7 +75,9 @@ def _winner(match: "Optional[MatchState]") -> Optional[list[int]]:
 
 def index_entry(game: "CodexGame", match: "Optional[MatchState]",
                 updated: Optional[str] = None) -> dict:
-    """A game in `index.json`: id, number, mode and variant, the seats
+    """A game in `index.json`: id, number, mode and variant -- with the
+    variant's name as `/codex games` says it, so the page spells it no
+    second way -- the seats
     (name and team) and the sides they make, the turn, whose turn it is
     -- a list, since a two-headed dragon's turn is two seats' -- and when
     it last changed."""
@@ -84,6 +86,7 @@ def index_entry(game: "CodexGame", match: "Optional[MatchState]",
         "number": game.game_number,
         "mode": game.mode,
         "variant": game.variant,
+        "variant_label": VARIANT_LABELS.get(game.variant, game.variant),
         "seats": _seats(game, match),
         "sides": _sides(game),
         "turn": match.turn if match is not None else None,
