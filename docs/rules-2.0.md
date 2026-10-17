@@ -15,11 +15,11 @@ It is played on the Discord bot only for now. Its history is in [rules-log.md](r
 
 - **a.** **Nine two-headed basic cards**, three of each rank. The top half of a two-headed
   card is the basic offensive maneuver of its rank and the bottom half, upside down, is the
-  basic defensive maneuver of the same rank: the rank 1 card is Low Pass one way up and
-  Deflect the other, rank 2 is Dribble and Steal, rank 3 is High Pass and Pressure. A
+  basic defensive maneuver of the same rank: the rank 1 card is Pass one way up and
+  Deflect the other, rank 2 is Dribble and Steal, rank 3 is High Ball and Pressure. A
   two-headed card carries no role abilities. Across its middle is a band of matchups, read
   from each end by the half on that end: what that half beats, ties and loses to, by the
-  other side's rank and basic maneuver -- the rank 1 card's Low Pass beats D3 (Pressure), ties
+  other side's rank and basic maneuver -- the rank 1 card's Pass beats D3 (Pressure), ties
   D1 and loses to D2, and its Deflect beats O3, ties O1 and loses to O2.
 - **b.** **Six advanced maneuvers**, one of each (Law 19.1): Pinpoint, Burst and Cross on
   offense, Clear, Intercept and Double Team on defense. An advanced card has one head and is
