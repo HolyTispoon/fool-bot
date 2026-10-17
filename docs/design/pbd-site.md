@@ -333,6 +333,14 @@ an action's board is the drawing the gate made or is about to make, and
 the cache (`boards_drawn`) keeps it one drawing. Where the cog hands
 bytes over -- a post, a turn's end, the game's end -- nothing is drawn.
 
+**The turn message links the game's page**: **View live board**, a link
+button on `TurnMessageView` to `keys.game_page` (`/game/<game_id>` on
+`keys.SITE`), beside the full-image link the gate puts after it. It is
+there only where `cog.publisher` is set, since elsewhere the page would
+not follow the game, and it rides on the view the gate keeps, so it costs
+no request of its own. The finished turns' pins lose their buttons as
+before, and the link with them.
+
 **`updated` moves only when what the site shows moves**: the turn, its
 heading, its lines or its board. **Show board** posts the same board and
 lines again, so it changes nothing on the site and writes nothing.
@@ -415,7 +423,16 @@ framework") and a page anyone can open should call no other host.
   The column is the current turn's heading and lines, then the earlier
   turns newest first, each its heading, its lines and its board as a
   thumbnail that opens in the viewer under a caption with **Back to the
-  current board**. While an old board is open, a new current board is
+  current board**. **The divider between the board and the log is
+  dragged** to set the log's width (`GamePage.splitter`), by mouse or
+  finger -- its grip is wider under a coarse pointer -- or with the arrow
+  keys once focused, and double-clicked to put the width back. The width
+  is remembered in `localStorage` beside the toggle, and the log keeps at
+  least 240px while leaving the board at least 240px, a remembered width
+  given way to as the window narrows (`max-width` in `codex.css`). The
+  viewer watches its own size, so a fitted board refits as it is dragged.
+  The divider is not there in the stacked layout below, where the log is
+  under the board. While an old board is open, a new current board is
   neither fetched nor swapped in until **Back to the current board**.
 - **Polling** is `live.json` every 15 seconds while the tab is visible,
   stopped while it is hidden and taken up again when it shows; the board is

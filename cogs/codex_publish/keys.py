@@ -15,8 +15,18 @@ import hashlib
 
 PREFIX = "codex/"
 
+#: The site's address (docs/design/pbd-site.md, "Deploying"): the Pages
+#: project's, which Cloudflare gave without a suffix.
+SITE = "https://codex-pbd.pages.dev"
+
 INDEX_KEY = f"{PREFIX}index.json"
 ARCHIVE_KEY = f"{PREFIX}archive.json"
+
+
+def game_page(game_id: str) -> str:
+    """The game's page on the site, `/game/<game_id>`, which `_redirects`
+    rewrites onto `game.html` -- the link under the turn message."""
+    return f"{SITE}/game/{game_id}"
 
 
 def live_key(game_id: str) -> str:
