@@ -1437,6 +1437,9 @@ button.goal { display: block; }
    author, 2026-10-17). First in the space, so the pieces after it
    paint over it. */
 .space-code {
+  /* Gray, and strong enough to read across the board, under the
+     pieces that stand on it (the author, 2026-10-17). */
+  --space-number: rgba(255, 255, 255, 0.3);
   position: absolute;
   left: 50%;
   top: 50%;
@@ -1446,7 +1449,7 @@ button.goal { display: block; }
   font-size: min(54cqw, 96px);
   font-weight: 800;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.13);
+  color: var(--space-number);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -1460,22 +1463,24 @@ button.goal { display: block; }
   border-radius: 2px;
   pointer-events: none;
 }
-/* The kickoff space's number is a white disc with the number in black
-   (the author, 2026-10-17): one element, so the circle is centred on
-   the number by construction -- a ring drawn beside the number was
-   centred on the space and the glyph on its line box, and the two
-   never quite met. `text-box` trims the line box to the digits, so
-   flex centres the glyph itself rather than its ascent and descent. */
+/* A kickoff space's number wears a ring in its own gray (the author,
+   2026-10-17). The ring is the number's own border -- one element,
+   centred on the number by construction; a ring drawn as a second
+   element was centred on the space while the number was centred on
+   its line box, and the two never quite met. `text-box` trims the line
+   box to the digits, so flex centres the glyph itself rather than its
+   ascent and descent. */
 .space-code.kickoff {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: min(80cqw, 140px);
-  height: min(80cqw, 140px);
+  width: min(88cqw, 150px);
+  height: min(88cqw, 150px);
+  box-sizing: border-box;
+  border: 3px solid var(--space-number);
   border-radius: 50%;
-  background: #fff;
-  color: #000;
-  font-size: min(36cqw, 64px);
+  /* A little smaller than the others, so "-1" clears its ring. */
+  font-size: min(40cqw, 72px);
   text-box: trim-both cap alphabetic;
 }
 .lane { display: flex; min-height: 140px; min-width: 0; }
@@ -1891,6 +1896,7 @@ button.goal { display: block; }
   .stage.narrow .field-row { gap: 2px; padding: 0 20px; }
   .stage.narrow .zone-name { font-size: 9px; letter-spacing: 1.5px; }
   .stage.narrow .field-spaces { gap: 2px; }
+  .stage.narrow .space-code.kickoff { border-width: 2px; }
   .stage.narrow .goal { flex: 0 0 18px; border-width: 1.5px; border-radius: 6px; }
   .stage.narrow .goal-word { font-size: 15px; gap: 7px; }
   .stage.narrow .goal-chips, .stage.narrow .out-chip,

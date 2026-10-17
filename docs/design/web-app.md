@@ -1632,8 +1632,8 @@ dark stage: the zone names over a row of rounded spaces, a goal zone's
 slab at each end, and under them the two shooting ranges with a
 KICKOFF bar between -- the side on the ball's range lit gold while it
 stands where it may shoot from. An outer zone's spaces carry the
-defending side's colour faintly; the kickoff space's number a white
-disc with the number in black ("A space's number" in
+defending side's colour faintly; the kickoff space's number a ring in
+its own gray ("A space's number" in
 [board-image.md](board-image.md#a-spaces-number)). Each
 space has two lanes, the visitors' above and home's below.
 
