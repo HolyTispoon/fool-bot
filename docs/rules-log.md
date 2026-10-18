@@ -207,9 +207,11 @@ The readings the first draft made were put to the author the same day, and answe
   space on boards 7 and 9; on board 10 it moves the Midfielder off the kickoff space, to space −2
   for home and 2 for the visitors, which replaces the first draft's swap of the two.
 
-Read rather than asked: an Ooze breaks the movement rules as far as Spreadable (Law 20.5.4)
-reaches, so the exception is standard and advanced mode's alone, and covers an Ooze in a
-standard role sharing any space of its zone (4.6e).
+- **What an Ooze may do** (4.6e), asked once the author said Oozes break these rules: *"Ooze in
+  unique roles are still locked into their space but other players may be placed to share their
+  space. Oozes in standard roles may be placed anywhere."* Read as reaching as far as Spreadable
+  (Law 20.5.4) does -- standard and advanced mode alone, and "anywhere" within the Ooze's own
+  zone, since a role belongs to a zone.
 
 **Not built yet.** A 2.0 game on the bot still plays every role ability and deals by the
 players' own roles.

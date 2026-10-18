@@ -134,9 +134,11 @@ three start on the bench, as in 1.0.
   another space. A player in a standard role may move to an empty space in their zone, or to one
   held by a teammate in a standard role, the two swapping places; never onto a unique role's
   space.
-- **e.** **An Ooze is not held to 4.3c or 4.6d** in standard and advanced mode, as far as
-  Spreadable (Law 20.5.4) reaches: it counts as 0 toward its zone's occupancy, so in a standard
-  role it may move onto any space in its zone, its teammates' included, and share it.
+- **e.** **An Ooze bends 4.3c and 4.6d** in standard and advanced mode, because Spreadable (Law
+  20.5.4) counts it as 0 toward its zone's occupancy. An Ooze in a standard role may be placed
+  on any space in its zone, sharing it with anybody, a unique role included. An Ooze in a unique
+  role is still locked onto its space, but a teammate in a standard role may be placed on that
+  space to share it.
 
 **4.7** **There are no role abilities.** Nothing a role adds in the Charter applies in a 2.0
 game -- neither the six abilities of Law 2.6.2 nor the role lines on the advanced maneuvers
