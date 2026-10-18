@@ -171,30 +171,42 @@ rules, 1.0's, are unchanged. Asked the same day, the author answered:
   first and the rest are standard."* Fullback and Defenders in the zone before the team's own
   goal, Playmaker and Midfielders in midfield, Striker and Wingers in the zone before the goal
   it attacks.
-- **Where the unique roles stand** (4.3, 4.4): *"The fullback is always located at the spot
+- **Where the unique roles stand** (4.3b, 4.4): *"The fullback is always located at the spot
   closet to the goal and the rest are assigned to other spaces. In the midfield the unique role
   is playmaker, which always is assigned as close as possible to the middle, always does the
   kickoff."* The space nearest the middle is the side's own kickoff space on every board, so the
   Playmaker is what covers it. And, asked whether the Striker has a place too: *"Striker is
   always position in the space closest the opponent goal."* The 1.0 deal already puts them
   there on every board.
-- **What a role attaches to** (4.5): *"Assignment of players should be to roles. And roles are
+- **What a role attaches to** (4.6b, 4.6c): *"Assignment of players should be to roles. And roles are
   attached to zones by formation."* So a substitution and a zone assignment carry a role, and
   space positioning does not.
 - **The advanced cards' role lines go too** (4.7), not just the six basic abilities -- which
   means no Pass or Pinpoint sets up a shot and a Striker adds nothing to one.
-- **The standard deal starts the same six as 1.0** (4.6).
+- **The standard deal starts the same six as 1.0** (4.5).
 
-Read from those answers rather than asked, each worth confirming:
+The readings the first draft made were put to the author the same day, and answered:
 
-- *"Always does the kickoff"* read as the Playmaker carrying the ball at every restart from the
-  kickoff space -- each half's kickoff, after a goal and after an own goal conceded (4.4).
-- *"Assigned first"* read as the first player a formation change deals into a zone (Law 14.7.3,
-  by defensive skill from the coach's own end) taking its unique role (4.5d).
-- Space positioning may not move a unique role off its space; another player takes the space
-  by trading roles with them (4.5b, 4.5c).
-- On board 10 the 1.0 deal puts each side's Midfielder on its own kickoff space, so in 2.0 the
-  Playmaker and Midfielder trade places there (4.6).
+- **The Playmaker takes every kickoff** (4.4) -- each half's, after a goal and after an own goal
+  conceded: *"Yes. It also sets their position in the arrangement."*
+- **A formation change is the coach's choice** (4.6a), not a deal by defensive skill: *"This
+  should be coach's choice and current arrangements should stay the same."*
+- **How a side is set up, and who may move** (4.3, 4.5, 4.6d, 4.6e): *"coaches choose a
+  formation, which has a number of players in each zone. Then [coaches] assign players to roles,
+  which locks in the position of unique players. Then coaches need to assign space to all the
+  players that aren't in unique roles. Standard deals does that for them the way we do today (so
+  defenders and wingers start from the space that isn't next to the unique role and midfielder
+  start behind the playmaker). If a coach wants to move a player during coaching their ability
+  depends on that player's assigned role. if they're assigned to a unique role, they cannot move
+  to another space. If they're assigned to a non-unique role they can move to a space that's
+  currently unoccupied or occupied by a standard role (to swap). Of course, oozes break these
+  rules but they apply to everyone else."* The Midfielder behind the Playmaker is the 1.0 deal's
+  space on boards 7 and 9; on board 10 it moves the Midfielder off the kickoff space, to space −2
+  for home and 2 for the visitors, which replaces the first draft's swap of the two.
+
+Read rather than asked: an Ooze breaks the movement rules as far as Spreadable (Law 20.5.4)
+reaches, so the exception is standard and advanced mode's alone, and covers an Ooze in a
+standard role sharing any space of its zone (4.6e).
 
 **Not built yet.** A 2.0 game on the bot still plays every role ability and deals by the
 players' own roles.

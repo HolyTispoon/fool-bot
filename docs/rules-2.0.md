@@ -88,43 +88,54 @@ coach's own goal forward:
 Every formation fields one Fullback, one Playmaker and one Striker, and none, one or two
 Defenders, Midfielders and Wingers.
 
-**4.3** **Every unique role has a fixed space**, in every arrangement a coach settles -- the
-standard deal, a formation change and the end of every Coaching Choice (Law 14.8):
+**4.3** **A side is set up in three steps**, at the standard deal, after a formation change and
+in any Coaching Choice:
 
-- **a.** **The Fullback stands on the last space before their own goal**: space −3, −4 or −5
-  for home, and 3, 4 or 5 for the visitors.
-- **b.** **The Playmaker stands on their own kickoff space** (Law 2.4), the space of midfield
-  nearest the middle: space 0 on boards 7 and 9, and on board 10 space −1 for home and 1 for the
-  visitors. Every arrangement therefore covers its own kickoff space (Law 14.8.1) with its
-  Playmaker.
-- **c.** **The Striker stands on the last space before the goal they attack**: space 3, 4 or 5
-  for home, and −3, −4 or −5 for the visitors.
-- **d.** The standard roles stand on their zone's other spaces, a player a space and any surplus
-  stacking, as Law 14.7.3 deals them.
+- **a.** **The coach chooses a formation**, which says how many players stand in each zone (Law
+  14.7) and so which roles it has (4.2).
+- **b.** **The coach assigns players to the roles.** Assigning a unique role fixes that player's
+  space:
+  - the **Fullback** stands on the last space before their own goal: space −3, −4 or −5 for
+    home, and 3, 4 or 5 for the visitors;
+  - the **Playmaker** stands on their own kickoff space (Law 2.4), the space of midfield nearest
+    the middle: space 0 on boards 7 and 9, and on board 10 space −1 for home and 1 for the
+    visitors -- so every arrangement covers its own kickoff space (Law 14.8.1) with its
+    Playmaker;
+  - the **Striker** stands on the last space before the goal they attack: space 3, 4 or 5 for
+    home, and −3, −4 or −5 for the visitors.
+- **c.** **The coach gives each player in a standard role one of their zone's other spaces**, a
+  player a space. No formation puts more players in a zone than it has spaces, so nobody
+  stacks.
 
 **4.4** **The Playmaker always takes the kickoff.** A restart from a side's kickoff space -- the
 kickoff of each half (Law 3.4, 16.4.4), after a goal (5.5.2) and after an own goal conceded
 (11.4.2) -- leaves the ball with that side's Playmaker, as a carrier (Law 4.2.2), rather than
 with nobody in particular (4.2.3).
 
-**4.5** **A coach assigns players to roles**, and every player on the field holds one of their
-formation's roles in that role's zone.
+**4.5** **The standard deal makes all three choices for the coach.** It starts the same six
+players as D12 Ball 1.0's (Law 3.2), in 2-2-2, each in the role their 1.0 deal names. The
+Defender and the Winger stand on their zone's space furthest from its unique role, and the
+Midfielder on the space behind the Playmaker, toward their own goal. On boards 7 and 9 those are
+the 1.0 deal's own spaces; on board 10 the Midfielder stands behind the Playmaker, on space −2
+for home and 2 for the visitors, where 1.0 puts the Midfielder on the kickoff space. The other
+three start on the bench, as in 1.0.
 
-- **a.** A **substitution** brings the player on into the outgoing player's role, with their
+**4.6** **In a Coaching Choice** (Law 14.2) a player's role decides how they may move:
+
+- **a.** A **formation change** is the coach's own choice of roles and spaces under the new
+  formation, made as 4.3 says. Nobody is dealt by defensive skill (Law 14.7.3 does not apply).
+- **b.** A **substitution** brings the player on into the outgoing player's role, with their
   zone and their space.
-- **b.** A **zone assignment** trades two fielded players' roles, and their zones, cards and
+- **c.** A **zone assignment** trades two fielded players' roles, and their zones, cards and
   meeples with them -- two players in the same zone included. It is how a coach puts a different
   player in a unique role.
-- **c.** **Space positioning** (Law 14.2.1) never changes a role, and never moves a unique role
-  off its space.
-- **d.** A **formation change** deals the six into zones as Law 14.7.3 does -- by defensive
-  skill, highest first, from the coach's own end -- and in each zone the first player dealt takes
-  the unique role and its space and the rest the standard role.
-
-**4.6** **The standard deal starts the same six players as D12 Ball 1.0's** (Law 3.2), in
-2-2-2, each in the role their 1.0 deal names and on the space 4.3 gives it. That is the 1.0
-deal's own spaces, except on board 10, where each side's Playmaker and Midfielder trade places
-so the Playmaker is on their own kickoff space. The other three start on the bench, as in 1.0.
+- **d.** **Space positioning** never changes a role. A player in a unique role may not move to
+  another space. A player in a standard role may move to an empty space in their zone, or to one
+  held by a teammate in a standard role, the two swapping places; never onto a unique role's
+  space.
+- **e.** **An Ooze is not held to 4.3c or 4.6d** in standard and advanced mode, as far as
+  Spreadable (Law 20.5.4) reaches: it counts as 0 toward its zone's occupancy, so in a standard
+  role it may move onto any space in its zone, its teammates' included, and share it.
 
 **4.7** **There are no role abilities.** Nothing a role adds in the Charter applies in a 2.0
 game -- neither the six abilities of Law 2.6.2 nor the role lines on the advanced maneuvers
@@ -147,4 +158,4 @@ advanced mode. Where Law 21.1.2 plays it beside the player's role ability, in 2.
 role ability to play it beside.
 
 *Note.* For now a role carries no ability in 2.0: it decides which zone a player is in, where
-the three unique roles stand, and who takes the kickoff.
+the three unique roles stand, who may be moved in a Coaching Choice, and who takes the kickoff.
