@@ -671,12 +671,22 @@ a store; None elsewhere, every call site reading `is not None`.
   no current board for gets one, drawn from its saved match through the
   same render_match_png, one at a time in asyncio.to_thread; a game
   whose board is up is not drawn. Then the emoji, then both lists.
-- View live board: a link button to the game's page on the persistent
-  board message, where the publisher is on, riding on the view the gate
-  keeps so it costs no request -- beside the full-image link, which is
-  re-cut by the gate; check the two together in
-  cogs/d12ball_helpers.py's add_full_image_button and the gate's
-  settle_link.
+- View live board: a link button to the game's page, where the
+  publisher is on and nowhere else, on every message that carries a
+  board:
+  - the persistent board message, riding on the view the gate keeps,
+    beside the full-image link the gate re-cuts (settle_link) -- the
+    re-cut must keep it;
+  - every board posted as a message of its own -- post_new_play_board's
+    pinned new-play boards, announce_board_update's, the maneuver's tail
+    in post_group, announce_game_over's final board -- riding on the
+    edit add_full_image_button already makes to put the full-image link
+    on (cogs/d12ball_helpers.py), or on the send itself, since the
+    page's address is known before the upload.
+  It costs no Discord request of its own anywhere: count the requests
+  per click before and after (rate-limits.md). Unlike the full-image
+  link, it never expires, so a pin from the first half still opens the
+  game.
 
 Tests, through the real cog as EveryMatchupResolvesTests and
 TutorialPlaythroughTests drive it, with a MemoryStore and
@@ -685,8 +695,11 @@ new play, each with the board the pin carried; the shootout's orders
 never in any object; an AI game's answers in the log; a tutorial
 published like any other game; a finished game and an abandoned one in
 the archive; a reset taking games off; the publisher off sending
-nothing; and the
-requests a click spends unchanged.
+nothing; View live board on the board message and on every board post
+(a pinned new-play board, a loose ball's, a maneuver's tail, the final
+board) where the publisher is on, on none where it is off, and still
+there after the gate re-cuts the full-image link; and the requests a
+click spends unchanged.
 ```
 
 ### 6. The page
