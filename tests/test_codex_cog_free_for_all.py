@@ -26,6 +26,7 @@ from codex import history
 from codex.components import PATROL_SLOTS
 from codex.game import GameStatus
 from codex.prompts import pending
+from codex.seats import seat_numbers
 from codex_cog_fakes import GAME_CHANNEL, Table, find_button, find_select, labels, user
 from codex_cog_fakes import end_main_and_lock as end_turn
 from codex_positions import put
@@ -179,9 +180,12 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
     def active(self):
         return self.table.seated(self.table.match.active)
 
-    async def test_the_turn_message_has_no_concede(self) -> None:
+    async def test_no_menu_has_concede(self) -> None:
         view = TurnMessageView(self.table.cog, self.game.game_id)
         self.assertNotIn("Concede", labels(view))
+        for seat in seat_numbers(self.table.match):
+            menu = (await self.table.turn_button("hand", self.table.seated(seat))).view()
+            self.assertNotIn("Concede", labels(menu))
 
     async def test_concede_says_a_free_for_all_has_none(self) -> None:
         concede = self.table.cog.concede_command.callback

@@ -341,12 +341,17 @@ class PresentationMixin:
         """
         **Show board**, under a hand and on the panel: the turn message
         posted again at the foot of the channel, as `/codex resume` posts
-        it -- the old one deleted, nobody pinged -- and the hand menu
+        it -- the old one deleted -- and the hand menu
         `seat` would get from **My hand** sent afresh under it; the one
         clicked is deleted after, so one stands. Where the turn message
         is the channel's last message already, it is not posted again:
         two of the channel's requests for nothing (rate-limits.md). Runs
         inside the click's lock, as every click does.
+
+        The repost pings the players whose turn it is **where somebody
+        else pressed it**: the message it deletes is the one that pinged
+        them, and a mention in a deleted message is lost to them (the
+        author, 2026-10-18). Pressed by one of them, it pings nobody.
         """
         if game.status is not GameStatus.PLAYING:
             await send_ephemeral(interaction, "This game is not being played.")
@@ -356,7 +361,8 @@ class PresentationMixin:
         channel = (self.bot.get_channel(game.channel_id) if game.channel_id else None) \
             or interaction.channel
         if game.turn_message_id is None or getattr(channel, "last_message_id", None) != game.turn_message_id:
-            await self.post_turn_message(channel, game, match, replace=True, ping=False)
+            await self.post_turn_message(channel, game, match, replace=True,
+                                         ping=seat not in self.engine.turn_seats(match))
         await self.send_hand_menu(interaction, game, match, seat)
         try:
             await interaction.delete_original_response()
