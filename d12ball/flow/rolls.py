@@ -448,14 +448,18 @@ def score_skill_test(
     # author's to settle and are deliberately not inherited anywhere;
     # see "Still open" in docs/gambit-matrix.md.
     if (
-        offense_player.role == PlayerRole.MIDFIELDER
+        engine.has_role_ability(
+            match, offense_player.player_id, PlayerRole.MIDFIELDER,
+        )
         and match.offense_maneuver in ("low_pass", "skilled_pass")
     ):
         offense_total += 3
         offense_detail.append("+3 Midfielder ability")
 
     if (
-        defense_player.role == PlayerRole.MIDFIELDER
+        engine.has_role_ability(
+            match, defense_player.player_id, PlayerRole.MIDFIELDER,
+        )
         and match.defense_maneuver in ("steal", "intercept")
     ):
         defense_total += 3
@@ -1265,7 +1269,9 @@ def score_score_attempt(
     # contesting, and nobody contests a shot (see "Injured players" in
     # docs/living-rules.md). Don't add `match.injured` here to match
     # the skill test.
-    if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
+    if match.pending_shot_is_set_up and engine.has_role_ability(
+        match, shooter.player_id, PlayerRole.STRIKER,
+    ):
         attack_total += 3
         attack_detail.append("+3 Striker ability")
     # Flickerwing's shot: the players it passes are listed on the

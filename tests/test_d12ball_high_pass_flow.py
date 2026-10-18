@@ -185,6 +185,7 @@ class PassStepTests(unittest.TestCase):
         fixture = case_named("nowhere_left_to_throw_it")
         match = fixture.match
         overshot, actual_distance, content = throw_high_pass(
+            ENGINE,
             match,
             match.ball.possession,
             2,
