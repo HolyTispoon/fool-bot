@@ -2,25 +2,25 @@
 --- narration
 {player:2} collects {gold:4} from 4 workers: now {gold:4}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- board changed
 === action 1: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 5 workers. {gold:3} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:3}.
 --- board changed
 === action 2: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
 {player:2} summons {hero:river_montoya} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:1}.
 --- board changed
 === action 3: MAIN_ACTION 'play' {"slug": "tenderfoot"}
 --- narration
 {player:2} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- board changed
 === action 4: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
@@ -30,39 +30,39 @@
 {player:2} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:2} discards 3 and draws 5. **End of turn 1** -- {player:2} (Finesse).
 {player:1} collects {gold:5} from 5 workers: now {gold:5}.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 6: TECH_CHOICE '' (hidden)
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 === action 7: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:1} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 8: MAIN_ACTION 'build' {"building": "tech1"}
 --- narration
 {player:1} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 9: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 10: MAIN_ACTION 'play' {"slug": "tenderfoot"}
 --- narration
 {player:1} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 11: MAIN_ACTION 'end_main' {}
@@ -87,35 +87,35 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:5} from 5 workers: now {gold:5}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 15: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 16: MAIN_ACTION 'build' {"building": "tech1"}
 --- narration
 {player:2} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 17: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:2} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:2} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 18: MAIN_ACTION 'play' {"slug": "older_brother"}
 --- narration
 {player:2} plays {card:older_brother} 2/2 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 19: MAIN_ACTION 'attack' {"attacker": "unit:1"}
@@ -127,7 +127,7 @@
 {card:tenderfoot} attacks {player:1}'s {card:tenderfoot}.
 {card:tenderfoot} deals 0 (armor takes 1); {player:1}'s {card:tenderfoot} deals 1.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 21: MAIN_ACTION 'attack' {"attacker": "unit:3"}
@@ -140,7 +140,7 @@
 {card:timely_messenger} deals 1; {player:1}'s {card:tenderfoot} deals 1.
 {player:2}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 23: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
@@ -153,7 +153,7 @@
 {hero:river_montoya} deals 2; {player:1}'s {card:tenderfoot} deals 1.
 {player:1}'s {card:tenderfoot} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 25: MAIN_ACTION 'end_main' {}
@@ -178,21 +178,21 @@
 {player:1} puts 2 tech cards into their discard pile.
 {player:1} collects {gold:6} from 6 workers: now {gold:6}.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 29: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:1} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 30: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:1} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 31: MAIN_ACTION 'play' {"slug": "spark"}
@@ -200,21 +200,21 @@
 {player:1} casts {card:spark} for {gold:1}. {gold:3} left.
 {card:spark} deals 0 to {player:2}'s {card:older_brother} (armor takes 1).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 32: MAIN_ACTION 'play' {"slug": "helpful_turtle"}
 --- narration
 {player:1} plays {card:helpful_turtle} 1/2 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 33: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:1} levels {hero:troq_bashar} to 2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 34: MAIN_ACTION 'attack' {"attacker": "unit:5"}
@@ -227,7 +227,7 @@
 {card:timely_messenger} deals 1; {player:2}'s {card:older_brother} deals 2.
 {player:1}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 36: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
@@ -240,7 +240,7 @@
 {hero:troq_bashar} deals 2; {player:2}'s {card:older_brother} deals 2.
 {player:2}'s {card:older_brother} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 38: MAIN_ACTION 'end_main' {}
@@ -264,14 +264,14 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:6} from 6 workers: now {gold:6}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 42: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 43: MAIN_ACTION 'play' {"slug": "spark"}
@@ -279,7 +279,7 @@
 {player:2} casts {card:spark} for {gold:1}. {gold:4} left.
 {card:spark} deals 0 to {player:1}'s {card:helpful_turtle} (armor takes 1).
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 44: MAIN_ACTION 'play' {"slug": "brick_thief"}
@@ -293,7 +293,7 @@
 --- narration
 {card:brick_thief} deals 1 to {player:1}'s Tech I building, now at 4/5.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 46: MAIN_ACTION 'play' {"slug": "wither"}
@@ -307,7 +307,7 @@
 --- narration
 {card:wither} puts a -1/-1 rune on {player:1}'s {card:helpful_turtle}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 48: MAIN_ACTION 'attack' {"attacker": "unit:1"}
@@ -320,7 +320,7 @@
 {card:tenderfoot} deals 1.
 {player:1}'s {card:helpful_turtle} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 50: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
@@ -332,7 +332,7 @@
 {hero:river_montoya} attacks {player:1}'s base.
 {hero:river_montoya} deals 2 to {player:1}'s base, now at 18/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 52: MAIN_ACTION 'end_main' {}
@@ -356,35 +356,35 @@
 {player:1} puts 2 tech cards into their discard pile.
 {player:1} collects {gold:7} from 7 workers: now {gold:7}.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 56: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:1} hires a worker for {gold:1}: 8 workers. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 57: MAIN_ACTION 'build' {"building": "tech2"}
 --- narration
 {player:1} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 58: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:1} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 59: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:1} levels {hero:troq_bashar} to 3 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 60: MAIN_ACTION 'attack' {"attacker": "unit:8"}
@@ -397,7 +397,7 @@
 {card:timely_messenger} deals 0 (armor takes 1); {player:2}'s {card:brick_thief} deals 2.
 {player:1}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 62: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
@@ -412,7 +412,7 @@
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes.
 {hero:river_montoya} gains 2 levels for the kill, to level 3: they reach a new band, are now 2/4, and heal.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 64: MAIN_ACTION 'end_main' {}
@@ -437,28 +437,28 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:7} from 7 workers: now {gold:7}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 68: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 8 workers. {gold:6} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 69: MAIN_ACTION 'build' {"building": "tech2"}
 --- narration
 {player:2} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:2} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 70: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 2}
 --- narration
 {player:2} levels {hero:river_montoya} to 5 for {gold:2}: they reach a new band, are now 3/4, and heal. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 71: MAIN_ACTION 'attack' {"attacker": "unit:1"}
@@ -470,7 +470,7 @@
 {card:tenderfoot} attacks {player:1}'s base.
 {card:tenderfoot} deals 1 to {player:1}'s base, now at 17/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 73: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
@@ -482,7 +482,7 @@
 {hero:river_montoya} attacks {player:1}'s base.
 {hero:river_montoya} deals 3 to {player:1}'s base, now at 14/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 75: MAIN_ACTION 'end_main' {}
@@ -508,28 +508,28 @@
 {player:1} collects {gold:8} from 8 workers: now {gold:8}.
 {hero:troq_bashar} loses a summoning rune (1 left).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:8}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 79: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:1} hires a worker for {gold:1}: 9 workers. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 80: MAIN_ACTION 'play' {"slug": "revolver_ocelot"}
 --- narration
 {player:1} plays {card:revolver_ocelot} 3/3 for {gold:2}. {gold:5} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 81: MAIN_ACTION 'play' {"slug": "granfalloon_flagbearer"}
 --- narration
 {player:1} plays {card:granfalloon_flagbearer} 2/2 for {gold:3}. {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 82: MAIN_ACTION 'end_main' {}
@@ -553,28 +553,28 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:8} from 8 workers: now {gold:8}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:8}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 86: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 9 workers. {gold:7} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 87: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:2} plays {card:timely_messenger} 1/1 for {gold:0}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 88: MAIN_ACTION 'play' {"slug": "nimble_fencer"}
 --- narration
 {player:2} plays {card:nimble_fencer} 2/3 for {gold:2}. {gold:5} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 89: MAIN_ACTION 'attack' {"attacker": "unit:1"}
@@ -587,7 +587,7 @@
 {card:tenderfoot} deals 0 (armor takes 1); {player:1}'s {card:revolver_ocelot} deals 3.
 {player:2}'s {card:tenderfoot} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 91: MAIN_ACTION 'attack' {"attacker": "unit:11"}
@@ -600,7 +600,7 @@
 {card:timely_messenger} deals 1; {player:1}'s {card:revolver_ocelot} deals 3.
 {player:2}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 93: MAIN_ACTION 'attack' {"attacker": "unit:12"}
@@ -614,7 +614,7 @@
 {player:1}'s {card:revolver_ocelot} is destroyed.
 {player:2}'s {card:nimble_fencer} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 95: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
@@ -627,7 +627,7 @@
 {hero:river_montoya} deals 3; {player:1}'s {card:granfalloon_flagbearer} deals 3.
 {player:1}'s {card:granfalloon_flagbearer} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 97: MAIN_ACTION 'end_main' {}
@@ -652,42 +652,42 @@
 {player:1} collects {gold:9} from 9 workers: now {gold:11}.
 {hero:troq_bashar} loses a summoning rune (0 left).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:11}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 101: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:1} hires a worker for {gold:1}: 10 workers. {gold:10} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:10}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 102: MAIN_ACTION 'build' {"building": "tech3"}
 --- narration
 {player:1} builds a Tech III building for {gold:5}; it is finished at the end of the turn. {gold:5} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 103: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:3} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 104: MAIN_ACTION 'play' {"slug": "revolver_ocelot"}
 --- narration
 {player:1} plays {card:revolver_ocelot} 3/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 105: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:1} levels {hero:troq_bashar} to 2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 106: MAIN_ACTION 'end_main' {}
@@ -712,21 +712,21 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:9} from 9 workers: now {gold:14}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:14}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 110: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 10 workers. {gold:13} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:13}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 111: MAIN_ACTION 'build' {"building": "tech3"}
 --- narration
 {player:2} builds a Tech III building for {gold:5}; it is finished at the end of the turn. {gold:8} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:8}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 112: MAIN_ACTION 'play' {"slug": "brick_thief"}
@@ -747,7 +747,7 @@
 --- narration
 {card:brick_thief} repairs 1 damage on {player:1}'s base, now at 15/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 115: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
@@ -761,7 +761,7 @@
 {player:2}'s {hero:river_montoya} dies and returns to the command zone with 2 summoning runes.
 {hero:troq_bashar} gains 2 levels for the kill, to level 4.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 117: MAIN_ACTION 'end_main' {}
@@ -786,7 +786,7 @@
 {player:1} puts 2 tech cards into their discard pile.
 {player:1} collects {gold:10} from 10 workers: now {gold:10}.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:10}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 121: MAIN_ACTION 'play' {"slug": "spark"}
@@ -795,7 +795,7 @@
 {player:1} pays {gold:1} for resist to target {player:2}'s {card:brick_thief} with {card:spark}. {gold:8} left.
 {card:spark} deals 0 to {player:2}'s {card:brick_thief} (armor takes 1).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:8}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 122: MAIN_ACTION 'play' {"slug": "sneaky_pig"}
@@ -803,14 +803,14 @@
 {player:1} plays {card:sneaky_pig} 3/3 for {gold:3}. {gold:5} left.
 {card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 123: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 4}
 --- narration
 {player:1} levels {hero:troq_bashar} to 8 for {gold:4}: they reach a new band, are now 4/5, and heal. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 124: MAIN_ACTION 'attack' {"attacker": "unit:13"}
@@ -824,7 +824,7 @@
 {player:2}'s {card:brick_thief} is destroyed.
 {player:1}'s {card:revolver_ocelot} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 126: MAIN_ACTION 'attack' {"attacker": "unit:15"}
@@ -836,7 +836,7 @@
 {card:sneaky_pig} attacks {player:2}'s base.
 {card:sneaky_pig} deals 3 to {player:2}'s base, now at 17/20.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 128: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
@@ -849,7 +849,7 @@
 {hero:troq_bashar}'s middle level band's ability deals 1 to {player:2}'s base, now at 16/20.
 {hero:troq_bashar} deals 4 to {player:2}'s base, now at 12/20.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 130: MAIN_ACTION 'end_main' {}
@@ -874,14 +874,14 @@
 {player:2} collects {gold:10} from 10 workers: now {gold:17}.
 {hero:river_montoya} loses a summoning rune (1 left).
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 134: MAIN_ACTION 'play' {"slug": "leaping_lizard"}
 --- narration
 {player:2} plays {card:leaping_lizard} 3/5 for {gold:1}. {gold:16} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:16}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 135: MAIN_ACTION 'end_main' {}
@@ -905,21 +905,21 @@
 {player:1} puts 2 tech cards into their discard pile.
 {player:1} collects {gold:10} from 10 workers: now {gold:11}.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:11}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 139: MAIN_ACTION 'play' {"slug": "helpful_turtle"}
 --- narration
 {player:1} plays {card:helpful_turtle} 1/2 for {gold:2}. {gold:9} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 140: MAIN_ACTION 'play' {"slug": "iron_man"}
 --- narration
 {player:1} plays {card:iron_man} 3/4 for {gold:3}. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 141: MAIN_ACTION 'attack' {"attacker": "unit:15"}
@@ -932,7 +932,7 @@
 {card:sneaky_pig} deals 2 (armor takes 1); {player:2}'s {card:leaping_lizard} deals 3.
 {player:1}'s {card:sneaky_pig} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 143: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
@@ -946,7 +946,7 @@
 {hero:troq_bashar} deals 4; {player:2}'s {card:leaping_lizard} deals 3.
 {player:2}'s {card:leaping_lizard} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 145: MAIN_ACTION 'end_main' {}
@@ -971,14 +971,14 @@
 {player:2} collects {gold:4} from 10 workers and hits the gold cap: now {gold:20}.
 {hero:river_montoya} loses a summoning rune (0 left).
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:20}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 149: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
 {player:2} summons {hero:river_montoya} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:18}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 150: MAIN_ACTION 'play' {"slug": "spark"}
@@ -992,28 +992,28 @@
 --- narration
 {card:spark} deals 0 to {player:1}'s {card:helpful_turtle} (armor takes 1).
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 152: MAIN_ACTION 'play' {"slug": "older_brother"}
 --- narration
 {player:2} plays {card:older_brother} 2/2 for {gold:2}. {gold:15} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:15}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 153: MAIN_ACTION 'play' {"slug": "granfalloon_flagbearer"}
 --- narration
 {player:2} plays {card:granfalloon_flagbearer} 2/2 for {gold:3}. {gold:12} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:12}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 154: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 4}
 --- narration
 {player:2} levels {hero:river_montoya} to 5 for {gold:4}: they reach a new band, are now 3/4, and heal. {gold:8} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:8}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 155: MAIN_ACTION 'end_main' {}
@@ -1038,21 +1038,21 @@
 {player:1} collects {gold:10} from 10 workers: now {gold:16}.
 {card:helpful_turtle}'s healing 1 heals {player:1}'s {hero:troq_bashar} 1, now at 3/5.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:16}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 159: MAIN_ACTION 'play' {"slug": "granfalloon_flagbearer"}
 --- narration
 {player:1} plays {card:granfalloon_flagbearer} 2/2 for {gold:3}. {gold:13} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:13}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 160: MAIN_ACTION 'play' {"slug": "eggship"}
 --- narration
 {player:1} plays {card:eggship} 4/3 for {gold:4}. {gold:9} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 161: MAIN_ACTION 'attack' {"attacker": "unit:17"}
@@ -1065,7 +1065,7 @@
 {card:helpful_turtle} deals 0 (armor takes 1); {player:2}'s {card:older_brother} deals 2.
 {player:1}'s {card:helpful_turtle} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 163: MAIN_ACTION 'attack' {"attacker": "unit:18"}
@@ -1078,7 +1078,7 @@
 {card:iron_man} deals 3; {player:2}'s {card:older_brother} deals 2.
 {player:2}'s {card:older_brother} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 165: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
@@ -1093,7 +1093,7 @@
 {player:2}'s {card:granfalloon_flagbearer} is destroyed.
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 167: MAIN_ACTION 'end_main' {}
@@ -1117,21 +1117,21 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:10} from 10 workers: now {gold:18}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:18}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 171: MAIN_ACTION 'play' {"slug": "cloud_sprite"}
 --- narration
 {player:2} plays {card:cloud_sprite} 3/2 for {gold:2}. {gold:16} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:16}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 172: MAIN_ACTION 'play' {"slug": "starcrossed_starlet"}
 --- narration
 {player:2} plays {card:starcrossed_starlet} 3/2 for {gold:2}. {gold:14} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:14}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 173: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
@@ -1144,7 +1144,7 @@
 {hero:river_montoya} deals 2 (armor takes 1); {player:1}'s {card:granfalloon_flagbearer} deals 2.
 {player:1}'s {card:granfalloon_flagbearer} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:14}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 175: MAIN_ACTION 'end_main' {}
@@ -1169,21 +1169,21 @@
 {player:1} collects {gold:10} from 10 workers: now {gold:19}.
 {hero:troq_bashar} loses a summoning rune (1 left).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:19}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 179: MAIN_ACTION 'play' {"slug": "revolver_ocelot"}
 --- narration
 {player:1} plays {card:revolver_ocelot} 3/3 for {gold:2}. {gold:17} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 180: MAIN_ACTION 'play' {"slug": "iron_man"}
 --- narration
 {player:1} plays {card:iron_man} 3/4 for {gold:3}. {gold:14} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:14}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 181: MAIN_ACTION 'attack' {"attacker": "unit:18"}
@@ -1197,7 +1197,7 @@
 {player:2}'s {card:starcrossed_starlet} is destroyed.
 {player:1}'s {card:iron_man} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:14}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 183: MAIN_ACTION 'attack' {"attacker": "unit:22"}
@@ -1211,7 +1211,7 @@
 {player:2}'s {card:cloud_sprite} is destroyed.
 {player:1}'s {card:eggship} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:14}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 185: MAIN_ACTION 'end_main' {}
@@ -1235,21 +1235,21 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:6} from 10 workers and hits the gold cap: now {gold:20}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:20}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 189: MAIN_ACTION 'play' {"slug": "nimble_fencer"}
 --- narration
 {player:2} plays {card:nimble_fencer} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:18}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 190: MAIN_ACTION 'play' {"slug": "grounded_guide"}
 --- narration
 {player:2} plays {card:grounded_guide} 4/4 for {gold:5}. {gold:13} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:13}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 191: MAIN_ACTION 'attack' {"attacker": "unit:27"}
@@ -1262,7 +1262,7 @@
 {card:nimble_fencer} deals 3 (armor takes 1); {player:1}'s {card:revolver_ocelot} deals 3.
 {player:1}'s {card:revolver_ocelot} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:13}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 193: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
@@ -1275,7 +1275,7 @@
 {hero:river_montoya} deals 3; {player:1}'s {card:iron_man} deals 4.
 {player:2}'s {hero:river_montoya} dies and returns to the command zone with 2 summoning runes.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:13}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 195: MAIN_ACTION 'end_main' {}
@@ -1300,21 +1300,21 @@
 {player:1} collects {gold:6} from 10 workers and hits the gold cap: now {gold:20}.
 {hero:troq_bashar} loses a summoning rune (0 left).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:20}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 199: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:18}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 200: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:1} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:17} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 201: MAIN_ACTION 'play' {"slug": "sneaky_pig"}
@@ -1322,14 +1322,14 @@
 {player:1} plays {card:sneaky_pig} 3/3 for {gold:3}. {gold:14} left.
 {card:sneaky_pig} has stealth this turn.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:14}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 202: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7}
 --- narration
 {player:1} levels {hero:troq_bashar} to 8 for {gold:7}: they reach a new band, are now 4/5, and heal. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 203: MAIN_ACTION 'attack' {"attacker": "unit:26"}
@@ -1342,7 +1342,7 @@
 {card:iron_man} deals 2 (armor takes 1); {player:2}'s {card:grounded_guide} deals 4.
 {player:1}'s {card:iron_man} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 205: MAIN_ACTION 'attack' {"attacker": "unit:29"}
@@ -1355,7 +1355,7 @@
 {card:timely_messenger} deals 1; {player:2}'s {card:grounded_guide} deals 4.
 {player:1}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 207: MAIN_ACTION 'attack' {"attacker": "unit:30"}
@@ -1367,7 +1367,7 @@
 {card:sneaky_pig} attacks {player:2}'s base.
 {card:sneaky_pig} deals 3 to {player:2}'s base, now at 7/20.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 209: MAIN_ACTION 'end_main' {}
@@ -1392,21 +1392,21 @@
 {player:2} collects {gold:7} from 10 workers and hits the gold cap: now {gold:20}.
 {hero:river_montoya} loses a summoning rune (1 left).
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:20}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 213: MAIN_ACTION 'play' {"slug": "timely_messenger"}
 --- narration
 {player:2} plays {card:timely_messenger} 2/1 for {gold:1}. {gold:19} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:19}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 214: MAIN_ACTION 'play' {"slug": "cloud_sprite"}
 --- narration
 {player:2} plays {card:cloud_sprite} 4/2 for {gold:2}. {gold:17} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 215: MAIN_ACTION 'attack' {"attacker": "unit:27"}
@@ -1419,7 +1419,7 @@
 {card:nimble_fencer} deals 3 (armor takes 1); {player:1}'s {hero:troq_bashar} deals 4.
 {player:2}'s {card:nimble_fencer} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 217: MAIN_ACTION 'attack' {"attacker": "unit:28"}
@@ -1433,7 +1433,7 @@
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes.
 {player:2}'s {card:grounded_guide} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 219: MAIN_ACTION 'attack' {"attacker": "unit:31"}
@@ -1445,7 +1445,7 @@
 {card:timely_messenger} attacks {player:1}'s base.
 {card:timely_messenger} deals 1 to {player:1}'s base, now at 14/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 221: MAIN_ACTION 'end_main' {}
@@ -1470,14 +1470,14 @@
 {player:1} collects {gold:10} from 10 workers: now {gold:17}.
 {hero:troq_bashar} loses a summoning rune (1 left).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 225: MAIN_ACTION 'play' {"slug": "eggship"}
 --- narration
 {player:1} plays {card:eggship} 4/3 for {gold:4}. {gold:13} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:13}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 226: MAIN_ACTION 'attack' {"attacker": "unit:30"}
@@ -1489,7 +1489,7 @@
 {card:sneaky_pig} attacks {player:2}'s base.
 {card:sneaky_pig} deals 3 to {player:2}'s base, now at 4/20.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:13}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 228: MAIN_ACTION 'end_main' {}
@@ -1514,21 +1514,21 @@
 {player:2} collects {gold:3} from 10 workers and hits the gold cap: now {gold:20}.
 {hero:river_montoya} loses a summoning rune (0 left).
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:20}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 232: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
 {player:2} summons {hero:river_montoya} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:18}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 233: MAIN_ACTION 'play' {"slug": "leaping_lizard"}
 --- narration
 {player:2} plays {card:leaping_lizard} 3/5 for {gold:1}. {gold:17} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:17}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 234: MAIN_ACTION 'play' {"slug": "spark"}
@@ -1536,14 +1536,14 @@
 {player:2} casts {card:spark} for {gold:1}. {gold:16} left.
 {card:spark} deals 0 to {player:1}'s {card:eggship} (armor takes 1).
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:16}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 235: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 4}
 --- narration
 {player:2} levels {hero:river_montoya} to 5 for {gold:4}: they reach a new band, are now 3/4, and heal. {gold:12} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:12}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 236: MAIN_ACTION 'attack' {"attacker": "unit:31"}
@@ -1555,7 +1555,7 @@
 {card:timely_messenger} attacks {player:1}'s base.
 {card:timely_messenger} deals 1 to {player:1}'s base, now at 13/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:12}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 238: MAIN_ACTION 'attack' {"attacker": "unit:32"}
@@ -1569,7 +1569,7 @@
 {player:1}'s {card:eggship} is destroyed.
 {player:2}'s {card:cloud_sprite} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:12}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 240: MAIN_ACTION 'end_main' {}
@@ -1594,21 +1594,21 @@
 {player:1} collects {gold:7} from 10 workers and hits the gold cap: now {gold:20}.
 {hero:troq_bashar} loses a summoning rune (0 left).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:20}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 244: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:18} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:18}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 245: MAIN_ACTION 'play' {"slug": "iron_man"}
 --- narration
 {player:1} plays {card:iron_man} 3/4 for {gold:3}. {gold:15} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:15}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 246: MAIN_ACTION 'play' {"slug": "hired_stomper"}
@@ -1623,21 +1623,21 @@
 {card:hired_stomper} deals 3 to {player:2}'s {card:timely_messenger}.
 {player:2}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:11}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 248: MAIN_ACTION 'play' {"slug": "regularsized_rhinoceros"}
 --- narration
 {player:1} plays {card:regularsized_rhinoceros} 5/6 for {gold:4}. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 249: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7}
 --- narration
 {player:1} levels {hero:troq_bashar} to 8 for {gold:7}: they reach a new band, are now 4/5, and heal. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 250: MAIN_ACTION 'attack' {"attacker": "unit:30"}
@@ -1650,7 +1650,7 @@
 {card:sneaky_pig} deals 2 (armor takes 1); {player:2}'s {card:leaping_lizard} deals 3.
 {player:1}'s {card:sneaky_pig} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 252: MAIN_ACTION 'end_main' {}
@@ -1674,7 +1674,7 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:8} from 10 workers and hits the gold cap: now {gold:20}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:20}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 256: MAIN_ACTION 'play' {"slug": "brick_thief"}
@@ -1695,14 +1695,14 @@
 --- narration
 {card:brick_thief} repairs 1 damage on {player:2}'s base, now at 5/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:19}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 259: MAIN_ACTION 'play' {"slug": "backstabber"}
 --- narration
 {player:2} plays {card:backstabber} 3/3 for {gold:3}. {gold:16} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:16}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 260: MAIN_ACTION 'attack' {"attacker": "unit:34"}
@@ -1715,7 +1715,7 @@
 {card:leaping_lizard} deals 2 (armor takes 1); {player:1}'s {card:iron_man} deals 3.
 {player:2}'s {card:leaping_lizard} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:16}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 262: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
@@ -1728,7 +1728,7 @@
 {hero:river_montoya} deals 3; {player:1}'s {card:iron_man} deals 3.
 {player:1}'s {card:iron_man} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:16}.
 --- standing TECH_CHOICE (player 1)
 --- board changed
 === action 264: MAIN_ACTION 'end_main' {}
@@ -1747,19 +1747,19 @@
 {player:1} puts 2 tech cards into their discard pile.
 {player:1} collects {gold:10} from 10 workers: now {gold:10}.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:10}.
 --- board changed
 === action 267: MAIN_ACTION 'play' {"slug": "granfalloon_flagbearer"}
 --- narration
 {player:1} plays {card:granfalloon_flagbearer} 2/2 for {gold:3}. {gold:7} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- board changed
 === action 268: MAIN_ACTION 'play' {"slug": "regularsized_rhinoceros"}
 --- narration
 {player:1} plays {card:regularsized_rhinoceros} 5/6 for {gold:4}. {gold:3} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:3}.
 --- board changed
 === action 269: MAIN_ACTION 'attack' {"attacker": "unit:36"}
 --- prompt CHOOSE_DEFENDER (player 1)
@@ -1770,7 +1770,7 @@
 {card:hired_stomper} deals 3 (armor takes 1); {player:2}'s {card:brick_thief} deals 2.
 {player:2}'s {card:brick_thief} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:3}.
 --- board changed
 === action 271: MAIN_ACTION 'attack' {"attacker": "unit:37"}
 --- prompt CHOOSE_DEFENDER (player 1)
@@ -1781,7 +1781,7 @@
 {card:regularsized_rhinoceros} deals 5; {player:2}'s {card:backstabber} deals 4.
 {player:2}'s {card:backstabber} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:3}.
 --- board changed
 === action 273: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 1)

@@ -210,7 +210,8 @@ class RenderTests(unittest.TestCase):
                                  + render.DIVIDER_HEIGHT)
 
     def test_the_far_panel_is_turned_round(self) -> None:
-        """A turned panel's body is the upright one's rotated whole; its
+        """A turned panel's body is the upright one's rotated whole --
+        all but the gold's count, drawn to read upright after -- and its
         nameplate moves to the outer edge, above, the right way up."""
         cards, hp = self.engine.catalog, render.default_building_hp(self.engine.catalog)
         upright = render.render_panel(self.match, 2, "b", cards, hp)
@@ -221,7 +222,20 @@ class RenderTests(unittest.TestCase):
         near = upright.crop((edge, edge, upright.width - edge, edge + span))
         far_top = turned.height - edge - span
         far = turned.crop((edge, far_top, turned.width - edge, far_top + span))
-        self.assertEqual(far.tobytes(), near.rotate(180).tobytes())
+        near = near.rotate(180)
+        # The coin, between the building column and the worker card, is
+        # left out: its box in the upright body, turned round.
+        coin = render.GOLD_COIN
+        o = render.OVERHANG
+        face_left = o + render.BUILDING_WIDTH + render.BUILDING_GAP + (render.CELL - render.CARD[0]) // 2
+        left = round((o + render.BUILDING_WIDTH + face_left - coin) / 2)
+        top = round(o + render.PATROL_HEIGHT + render.CELL_GAP + render.CELL
+                    - render.TILE[1] / 2 - coin / 2)
+        box = (near.width - left - coin - 1, near.height - top - coin - 1,
+               near.width - left + 1, near.height - top + 1)
+        for picture in (near, far):
+            picture.paste((0, 0, 0, 0), box)
+        self.assertEqual(far.tobytes(), near.tobytes())
 
     def test_the_opening_board_side_by_side(self) -> None:
         png = render.render_board(self.match, "side_by_side", {1: "a", 2: "b"}, self.engine.catalog)

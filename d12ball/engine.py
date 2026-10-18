@@ -59,6 +59,8 @@ from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
     CYBORG_DRAINED_AT,
     DOUBLE_TEAM_PARTNER_KIND,
+    FIELD_PLAYER_COUNT,
+    FORMATION_ZONE_ROLES,
     MIND_PULL_SUCCESS_FACES,
     MIND_PULL_TOKEN_COST,
     OVERDRIVE_BONUS,
@@ -4041,10 +4043,19 @@ class RulesEngine:
         six picks to change shape; a coach who wants a particular card
         somewhere particular now moves it afterwards, with zone
         assignment and space positioning.
+
+        A 2.0 side keeps its three unique roles -- see
+        `formation_role_placement`.
         """
         side = TeamSide(side)
         shape = self.formation_shape(match, formation)
         ordered = self.defense_ordered_field_players(match, side, game)
+        if side.value in match.formation_roles:
+            placement = self.formation_role_placement(
+                match, side, shape, ordered,
+            )
+            if placement is not None:
+                return placement
 
         placement: list[tuple[str, Zone, int]] = []
         cursor = 0
@@ -4060,6 +4071,86 @@ class RulesEngine:
                 )
             cursor += count
         return placement
+
+    def formation_role_placement(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        shape: FormationShape,
+        ordered: list[str],
+    ) -> Optional[list[tuple[str, Zone, int]]]:
+        """
+        **A 2.0 formation change** (the author, 2026-10-18): the
+        Fullback, the Playmaker and the Striker keep their roles and
+        stand on their spaces, and the other three fill the new shape's
+        standard roles by defensive skill -- `ordered`, best defender
+        first, from the coach's own goal forward. The coach makes it
+        their own afterwards with zone assignments and space
+        positioning (docs/rules-2.0.md 4.6a). Each holder comes first
+        in their zone, which is how `MatchState.deploy_side` reads the
+        roles back off the spaces.
+
+        None where the side is missing a unique role, which no 2.0 deal
+        leaves; the 1.0 re-deal then decides the shape, and the roles
+        are read off it.
+        """
+        roles = match.formation_roles[TeamSide(side).value]
+        holders = {}
+        for area in SETUP_AREAS:
+            unique, _ = FORMATION_ZONE_ROLES[area]
+            holder = next(
+                (card for card in ordered if roles.get(card) == unique.value),
+                None,
+            )
+            if holder is None:
+                return None
+            holders[area] = holder
+        rest = [card for card in ordered if card not in holders.values()]
+
+        placement: list[tuple[str, Zone, int]] = []
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            placement.append(
+                (holders[area], zone, match.unique_role_space(side, area))
+            )
+            count = shape.count(area) - 1
+            spaces = self.standard_role_spaces(match, side, area)
+            for offset in range(count):
+                placement.append((rest.pop(0), zone, spaces[offset]))
+        return placement
+
+    def standard_role_spaces(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        area: str,
+    ) -> list[int]:
+        """
+        A zone's spaces other than its unique role's, in the order a
+        2.0 deal fills its standard roles (docs/rules-2.0.md 4.5): a
+        Defender or a Winger furthest from the unique role first, a
+        Midfielder behind the Playmaker first, toward their own goal,
+        and then ahead. Any count past the zone's spaces stacks on the
+        last, which no shape either board plays reaches.
+        """
+        side = TeamSide(side)
+        zone = zone_for_area(side, area)
+        unique = match.unique_role_space(side, area)
+        others = [
+            index
+            for index in range(len(match.board.spaces[zone]))
+            if index != unique
+        ]
+        if area == "midfield":
+            def behind(index: int) -> bool:
+                return (index < unique) == (side == TeamSide.HOME)
+
+            others.sort(key=lambda index: (
+                abs(index - unique), not behind(index),
+            ))
+        else:
+            others.sort(key=lambda index: -abs(index - unique))
+        return others + [others[-1] if others else unique] * FIELD_PLAYER_COUNT
 
     def current_formation(
         self,
@@ -4600,9 +4691,15 @@ class RulesEngine:
 
         setup = match.setup_for_side(side)
         board_size = match.board.layout.board_size
+        kept = (
+            "The Fullback, Playmaker and Striker keep their roles, the "
+            "best defenders furthest back"
+            if side.value in match.formation_roles
+            else "Best defenders furthest back"
+        )
         lines = [
             f"**{format_team_side_label(setup, game)} switches to "
-            f"{formation.value}.** Best defenders furthest back; "
+            f"{formation.value}.** {kept}; "
             "rearranging costs no exhaustion."
         ]
         for area in SETUP_AREAS:
@@ -4718,6 +4815,21 @@ class RulesEngine:
         occasion = match.coaching_occasion
         if occasion is None or not occasion.offers_positioning:
             return None
+        # A 2.0 teammate left on a unique role's space moves off before
+        # the window closes (`MatchState.unique_space_sharers`).
+        sharers = (
+            match.unique_space_sharers(
+                side, self.spread_exempt_ids(game, match, side),
+            )
+            if game is not None else []
+        )
+        if sharers:
+            card = sharers[0]
+            return (
+                f"{player_with_role(self.get_player_definition(card))} "
+                "is sharing a space only an Ooze may share, and has to "
+                "move to another space before finishing."
+            )
         if match.kickoff_space_occupied_by(side):
             return None
         kickoff_space = space_label(

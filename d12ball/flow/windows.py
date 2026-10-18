@@ -271,6 +271,7 @@ def apply_substitution(
                 f"{threshold}."
             )
 
+    text = settle_moves(engine, game, match, side, text)
     text += f"\n{engine.substitution_allowance_label(match)}."
     return text
 
@@ -281,10 +282,13 @@ def apply_position_swap(
     side: TeamSide,
     player_id: str,
     other_player_id: str,
+    game: Optional[D12BallGame] = None,
 ) -> str:
     """
     The Coaching Choice's zone assignment: trade two players' zones,
-    meeples included, and describe it.
+    meeples included, and describe it. In 2.0 a teammate the trade
+    leaves on a unique role's space moves off it where only one space
+    is open (`settle_moves`).
 
     `d12ball.flow.windows.apply_position_swap` was this; it moved in Phase 6 because
     a window's answers are the window's, and a sentence about the
@@ -296,7 +300,7 @@ def apply_position_swap(
     board_size = match.board.layout.board_size
     first = engine.get_player_definition(player_id)
     second = engine.get_player_definition(other_player_id)
-    return (
+    return settle_moves(engine, game, match, side, (
         f"{engine.format_player_label(match, first)} and "
         f"{engine.format_player_label(match, second)} change "
         "places: "
@@ -305,7 +309,37 @@ def apply_position_swap(
         f", {engine.format_player_label(match, second)} to "
         f"{destination_display_name(setup.assigned_zone(other_player_id).value, board_size)}"
         ". No exhaustion cost."
+    ))
+
+
+def settle_moves(
+    engine: RulesEngine,
+    game: Optional[D12BallGame],
+    match: MatchState,
+    side: TeamSide,
+    text: str,
+) -> str:
+    """
+    `text`, and after it every 2.0 teammate a trade or a substitution
+    moved off a unique role's space they may not share
+    (`MatchState.settle_unique_space_sharers`). One with a choice of
+    spaces is left for the coach, whom the window holds until they
+    have moved them.
+    """
+    exempt = (
+        engine.spread_exempt_ids(game, match, side)
+        if game is not None else ()
     )
+    lines = [text]
+    for card, zone, space_index in match.settle_unique_space_sharers(
+        side, exempt,
+    ):
+        player = engine.get_player_definition(card)
+        lines.append(
+            f"{engine.format_player_label(match, player)} moves off to "
+            f"{space_label(zone, space_index, match.board)}."
+        )
+    return "\n".join(lines)
 
 
 def apply_reposition(
@@ -315,16 +349,23 @@ def apply_reposition(
     player_id: str,
     space_index: int,
     swap_with: Optional[str] = None,
+    game: Optional[D12BallGame] = None,
 ) -> str:
     """
     The Coaching Choice's space positioning: move one meeple within its
     own zone, trading with whoever is already there when the rule says
-    so, and describe what happened.
+    so, and describe what happened. `game` says which of the side's
+    Oozes are Spreadable, which bends 2.0's rule (docs/rules-2.0.md
+    4.6e).
     """
     setup = match.setup_for_side(side)
     zone = setup.assigned_zone(player_id)
     partner = match.position_meeple(
         side, player_id, space_index, swap_with=swap_with,
+        spread_exempt_ids=(
+            engine.spread_exempt_ids(game, match, side)
+            if game is not None else ()
+        ),
     )
 
     player = engine.get_player_definition(player_id)
