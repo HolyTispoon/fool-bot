@@ -16,8 +16,15 @@ or a game moves between the lists:
 - `head_noted`: the turn's first lines, as the cog notes them;
 - `game_over`: a game finished or abandoned, with its last board;
 - `dropped`: games `/codex admin reset_channels` forgot;
-- `start`: the startup publish, as a task off `cog_load`, and after it
-  the old turns' import from the pins (`import_old_turns`).
+- `start`: the startup publish, as a task off `cog_load` -- the bucket
+  measured first and reported in #logs against R2's free plan -- and
+  after it the old turns' import from the pins (`import_old_turns`).
+
+**The free plan.** Once the bucket nears the free storage, games come
+off the site -- the abandoned first, then the finished, never one being
+played -- each downloaded whole into `data/codex_pbd_offloaded/`, in the
+bucket's layout, before it is deleted (`offload`; docs/design/pbd-site.md,
+"The free plan").
 
 Each hook changes the publisher's record at once -- the lines are the
 cog's at that moment, and some are gone a line later -- and leaves the
@@ -46,11 +53,12 @@ from typing import TYPE_CHECKING, Callable, Iterable, Optional
 
 import discord
 
+import botlog
 from codex.components import MatchState
 from codex.formatting import turn_heading
 from codex.game import GameStatus
 from cogs.codex_helpers import TOKEN_EMOJI
-from cogs.codex_publish import keys, pins, shapes
+from cogs.codex_publish import budget, keys, pins, shapes
 from cogs.codex_publish.queue import ENDED, PublishQueue
 from cogs.codex_publish.record import PublishedGame, PublishRecord
 from gamekit.storage import PROJECT_ROOT
@@ -67,6 +75,12 @@ EMOJI_FOLDER = PROJECT_ROOT / "codex" / "images" / "emoji"
 
 #: The most pins one listing hands back (Discord's cap on the endpoint).
 PIN_PAGE = 50
+
+#: Beside the record's file: the month's write count, and the games
+#: taken off the site, in the bucket's layout, so
+#: `scripts/serve_pbd.py --data data/codex_pbd_offloaded` shows one.
+USAGE_FILE_NAME = "codex_pbd_usage.json"
+OFFLOAD_FOLDER_NAME = "codex_pbd_offloaded"
 
 
 def now() -> str:
@@ -86,7 +100,11 @@ class Publisher:
                  clock: Callable[[], str] = now, queue: Optional[PublishQueue] = None) -> None:
         self.cog = cog
         self.record = record if record is not None else PublishRecord.load()
+        self.usage = budget.Usage.load(self.record.file.with_name(USAGE_FILE_NAME))
+        self.offload_folder = self.record.file.parent / OFFLOAD_FOLDER_NAME
         self.queue = queue or PublishQueue(store, self.record, lambda: self.cog.games)
+        self.queue.usage = self.usage
+        self.queue.grown = self.check_budget
         self._clock = clock
         #: Per game, the turn's lines this process never saw, for the
         #: turn they belong to: everything the record had at startup.
@@ -105,6 +123,12 @@ class Publisher:
         self._changes: dict[str, int] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._starting: Optional[asyncio.Task] = None
+        self._offloading: Optional[asyncio.Task] = None
+        # Whether a bucket past the mark with nothing left to take off has
+        # been said, so it is said once until an offload succeeds.
+        self._stuck = False
+        # No game comes off before the start has said what the bucket holds.
+        self._reported = False
         self._closed = False
         for game_id, published in self.record.games.items():
             if published.turn is not None:
@@ -146,6 +170,8 @@ class Publisher:
 
     def _current(self, game: "CodexGame", match: Optional[MatchState], board: Optional[bytes]) -> None:
         if not shapes.on_site(game):
+            return
+        if getattr(self.record.games.get(game.game_id), "offloaded", False):
             return
         if match is None:
             match = self.cog.service.load(game)
@@ -363,6 +389,7 @@ class Publisher:
         return self._starting
 
     async def _start(self) -> None:
+        error = await self._measure()
         try:
             await self._put_emoji()
             for game in list(self.cog.games.values()):
@@ -374,6 +401,14 @@ class Publisher:
             LOGGER.exception("Could not publish the Codex games at startup.")
         try:
             await self._settled()
+            await self._report(error)
+            self._finish_offloads()
+            self.check_budget()
+            if self._offloading is not None:
+                await asyncio.gather(self._offloading, return_exceptions=True)
+        except Exception:
+            LOGGER.exception("Could not check the Codex games' bucket against R2's free plan.")
+        try:
             await self.import_old_turns()
         except Exception:
             LOGGER.exception("Could not import the Codex games' old turns from their pins.")
@@ -404,7 +439,7 @@ class Publisher:
             if not shapes.on_site(game) or game.status not in (GameStatus.PLAYING, *ENDED):
                 continue
             published = self.record.games.get(game.game_id)
-            if published is None or not published.imported:
+            if published is None or not (published.imported or published.offloaded):
                 owed[game.channel_id].append(game)
         for channel_id, games in owed.items():
             if self._closed:
@@ -548,11 +583,165 @@ class Publisher:
         published.board = keys.board_key(game.game_id, board)
         self._owe(game.game_id, [board])
 
+    # -- The free plan ---------------------------------------------------------
+
+    async def _measure(self) -> Optional[str]:
+        """List the bucket: every key and its size, the storage meter's
+        start. Why it could not be listed, or `None`."""
+        try:
+            sizes = await self.queue.store.list()
+        except Exception as error:
+            self.usage.wrote()
+            LOGGER.warning("Could not list the Codex games' bucket to measure it: %s: %s",
+                           type(error).__name__, error)
+            return f"{type(error).__name__}: {error}"
+        self.usage.wrote(budget.listing_writes(sizes))
+        self.usage.listed(sizes)
+        self.usage.save()
+        return None
+
+    async def _report(self, error: Optional[str]) -> None:
+        """Every start: what the bucket uses against the free plan, on the
+        console and in #logs."""
+        text = budget.report(self.usage, error)
+        LOGGER.info("%s", text.replace("\n", " "))
+        await self.cog.bot.wait_until_ready()
+        await botlog.post_notice(self.cog.bot, text)
+        self._reported = True
+
+    def _finish_offloads(self) -> None:
+        """A game taken off whose objects are still in the bucket -- a
+        delete that failed before a restart -- has them deleted again:
+        it was downloaded before it was marked."""
+        sizes = self.usage.sizes
+        if sizes is None:
+            return
+        left = {game_id: budget.game_objects(game_id, sizes)
+                for game_id, published in self.record.games.items() if published.offloaded}
+        left = {game_id: objects for game_id, objects in left.items() if objects}
+        if left:
+            self.queue.games_dropped(left)
+
+    def check_budget(self) -> None:
+        """Called after every put: once the bucket reaches `OFFLOAD_AT` of
+        the free storage, not counting what is already on its way out,
+        games come off the site until it is down to `OFFLOAD_TO`."""
+        if self._closed or not self._reported:
+            return
+        if self._offloading is not None and not self._offloading.done():
+            return
+        if not self.usage.over():
+            return
+        if not self.usage.over(budget.leaving(self.record, self.usage.sizes)):
+            return
+        self._offloading = asyncio.create_task(self.offload())
+
+    async def offload(self) -> None:
+        """
+        Take games off the site, in `budget.offload_order`, until the
+        bucket is back under `OFFLOAD_TO`: each downloaded whole -- every
+        key the listing has under it, checked against its size -- into
+        `offload_folder`, then marked in the record, so it leaves both
+        lists, and then deleted from the bucket after the lists without
+        it are up. A game whose download fails stays on the site.
+        """
+        try:
+            await self._offload()
+        except Exception:
+            LOGGER.exception("Could not take Codex games off the site to stay inside R2's free plan.")
+
+    async def _offload(self) -> None:
+        sizes = self.usage.sizes
+        plan = budget.offload_plan(self.cog.games.values(), self.record, sizes, self.usage.target)
+        if not plan:
+            if not self._stuck:
+                self._stuck = True
+                LOGGER.error(
+                    "The Codex games' bucket holds %s of R2's free %s and no finished or abandoned "
+                    "game is left to take off the site. Past the allowance each GB costs $0.015 a "
+                    "month.", budget.size(self.usage.stored), budget.size(budget.FREE_STORAGE))
+            return
+        taken: dict[str, list[str]] = {}
+        failed: list["CodexGame"] = []
+        for game, objects in plan:
+            if self._closed:
+                return
+            if await self._download(game, objects):
+                taken[game.game_id] = objects
+                published = self.record.game(game.game_id)
+                published.offloaded = True
+                published.uploaded = []
+            else:
+                failed.append(game)
+        if not taken:
+            return
+        self._stuck = False
+        self.record.save()
+        freed = sum(sizes.get(key, 0) for objects in taken.values() for key in objects)
+        # Off both lists, then out of the bucket.
+        self.queue.games_dropped(taken)
+        await self.queue.drain()
+        await self._announce_offload(plan, taken, failed, freed)
+
+    async def _download(self, game: "CodexGame", objects: list[str]) -> bool:
+        bodies: dict[str, bytes] = {}
+        sizes = self.usage.sizes or {}
+        for key in objects:
+            try:
+                body = await self.queue.store.get(key)
+            except Exception as error:
+                LOGGER.warning("Could not download %s to take Codex game #%s off the site: %s: %s",
+                               key, game.game_number, type(error).__name__, error)
+                return False
+            if key in sizes and len(body) != sizes[key]:
+                LOGGER.warning("Downloaded %s for Codex game #%s as %d bytes, not the %d listed; "
+                               "it stays on the site.", key, game.game_number, len(body), sizes[key])
+                return False
+            bodies[key] = body
+        try:
+            await asyncio.to_thread(self._write_offloaded, bodies)
+        except OSError as error:
+            LOGGER.warning("Could not save Codex game #%s into %s: %s; it stays on the site.",
+                           game.game_number, self.offload_folder, error)
+            return False
+        return True
+
+    def _write_offloaded(self, bodies: dict[str, bytes]) -> None:
+        for key, body in bodies.items():
+            path = self.offload_folder / key
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = path.with_name(path.name + ".tmp")
+            temporary.write_bytes(body)
+            temporary.replace(path)
+
+    async def _announce_offload(self, plan, taken: dict[str, list[str]],
+                                failed: list["CodexGame"], freed: int) -> None:
+        def numbers(status: GameStatus) -> str:
+            found = [f"#{game.game_number}" for game, _ in plan
+                     if game.game_id in taken and game.status is status]
+            return ", ".join(found) or "none"
+
+        lines = [
+            f"**Codex site: {len(taken)} game(s) taken off to stay inside R2's free plan**, "
+            f"{budget.size(freed)} downloaded into `{self.offload_folder}` and deleted from the "
+            f"bucket -- abandoned {numbers(GameStatus.ABANDONED)}; "
+            f"finished {numbers(GameStatus.FINISHED)}.",
+            f"The bucket now holds {budget.size(self.usage.stored)} of the free "
+            f"{budget.size(budget.FREE_STORAGE)}.",
+        ]
+        if failed:
+            lines.append("Could not download, so still on the site: "
+                         + ", ".join(f"#{game.game_number}" for game in failed) + ".")
+        text = "\n".join(lines)
+        LOGGER.info("%s", text.replace("\n", " "))
+        await botlog.post_notice(self.cog.bot, text)
+
     async def close(self) -> None:
         """The cog unloads: nothing new is taken, the tasks are stopped,
         and the queue closed. The record says what was confirmed."""
         self._closed = True
-        tasks = [*self._tasks.values(), *([self._starting] if self._starting else [])]
+        tasks = [*self._tasks.values(), *([self._starting] if self._starting else []),
+                 *([self._offloading] if self._offloading else [])]
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
@@ -562,7 +751,8 @@ class Publisher:
         """Wait until nothing is owed, drawn or sent -- the tests'."""
         while True:
             tasks = [*self._tasks.values(),
-                     *([self._starting] if self._starting and not self._starting.done() else [])]
+                     *([self._starting] if self._starting and not self._starting.done() else []),
+                     *([self._offloading] if self._offloading and not self._offloading.done() else [])]
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
                 continue

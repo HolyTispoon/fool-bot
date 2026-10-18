@@ -324,14 +324,15 @@ class FormationShapeTests(unittest.TestCase):
         # Home kick off, so somebody of theirs is on the kickoff space.
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
 
-    def test_board_10_deals_both_midfield_pairs_onto_spaces_5_and_6(
+    def test_board_10_deals_both_midfield_pairs_either_side_of_halfway(
         self,
     ) -> None:
         """
         The author's board-10 deal (2026-10-07 in the rules log): the
         outer zones spread as on board 9, and each side's midfield pair
         takes the two middle spaces, its Midfielder on its own kickoff
-        space -- home's 5, the visitors' 6.
+        space -- home's -1, the visitors' 1, either side of the
+        halfway line.
         """
         match = MatchState.standard(
             catalog=self.catalog,
@@ -367,11 +368,11 @@ class FormationShapeTests(unittest.TestCase):
 
         self.assertEqual(
             spaces_of(TeamSide.HOME),
-            [f"space {n}" for n in (1, 3, 5, 6, 8, 10)],
+            [f"space {n}" for n in ("\u22125", "\u22123", "\u22121", 1, 3, 5)],
         )
         self.assertEqual(
             spaces_of(TeamSide.VISITING),
-            [f"space {n}" for n in (10, 8, 6, 5, 3, 1)],
+            [f"space {n}" for n in (5, 3, 1, "\u22121", "\u22123", "\u22125")],
         )
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
@@ -491,13 +492,13 @@ class BoardScopedFormationTests(unittest.TestCase):
             )
 
         self.assertEqual(spaces(TeamSide.HOME, Zone.HOME_ZONE),
-                         codes(match.board, "H1", "H2", "H3"))
+                         sorted(codes(match.board, "H1", "H2", "H3")))
         self.assertEqual(spaces(TeamSide.HOME, Zone.VISITORS_ZONE),
                          codes(match.board, "V1"))
         # 1-2-3 is read from the visitors' own goal, so their three
         # attackers stand in the Home Zone.
         self.assertEqual(spaces(TeamSide.VISITING, Zone.HOME_ZONE),
-                         codes(match.board, "H1", "H2", "H3"))
+                         sorted(codes(match.board, "H1", "H2", "H3")))
         self.assertEqual(spaces(TeamSide.VISITING, Zone.VISITORS_ZONE),
                          codes(match.board, "V3"))
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
@@ -876,7 +877,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
                 )
                 for player_id in match.home.zones[Zone.HOME_ZONE]
             ),
-            codes(match.board, "H1", "H2", "H3"),
+            sorted(codes(match.board, "H1", "H2", "H3")),
         )
 
     def test_the_shape_they_are_in_cannot_be_re_picked(self) -> None:

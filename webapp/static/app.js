@@ -995,7 +995,13 @@ function pitch(layout, narrow = false) {
     "div",
     { class: "field-spaces" },
     goal("home", layout.jumbotron.home.colour, narrow),
-    layout.spaces.map((one) => space(one, layout, narrow)),
+    layout.spaces.flatMap((one, at) => [
+      /* Board 10 has no middle space: its middle is a line. */
+      layout.spaces.length % 2 === 0 && at === layout.spaces.length / 2
+        ? h("span", { class: "halfway-line" })
+        : null,
+      space(one, layout, narrow),
+    ]),
     goal("visiting", layout.jumbotron.visiting.colour, narrow),
   );
   const bands = h(
@@ -1080,7 +1086,6 @@ function space(one, layout, narrow = false) {
       onclick: on ? (event) => { event.stopPropagation(); press(controls[0]); } : null,
     },
     h("span", { class: "space-code" }, one.code),
-    one.kickoff ? h("span", { class: "kickoff-ring" }) : null,
     h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout, marks, narrow)),
     h("div", { class: "lane home" }, fanOf(one, "home", layout, marks, narrow)),
     loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, narrow ? 22 : 36, { lit: true })) : null,

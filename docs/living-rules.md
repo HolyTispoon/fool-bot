@@ -75,9 +75,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.1.2** On the 9- and 10-space boards, whose outer zones are three spaces deep, the Home Zone and the Visitors Zone are called the **Home Third** and the **Visitors Third**. Everything this Charter says of the Home Zone and the Visitors Zone it says of the two Thirds on those boards, and together they are the two **outer zones**.
 
-**2.1.3** A space is named by its number, counted from the home end: on board 7, spaces 1 and 2 are the Home Zone, 3 to 5 midfield and 6 and 7 the Visitors Zone.
+**2.1.3** A space is named by its number on a line whose zero is the middle of the field: negative toward the home end, positive toward the visitors'. On boards 7 and 9 the middle is the kickoff space, space 0, and the row runs from space −3 to space 3, or −4 to 4. Board 10 has no middle space -- its middle is the **halfway line** between its two kickoff spaces -- so it has no space 0, and runs from space −5 to −1 and from space 1 to 5. On board 7, spaces −3 and −2 are the Home Zone, −1, 0 and 1 midfield and 2 and 3 the Visitors Zone.
 
-**2.1.4** The Home Goal and the Visitors Goal are the two **goal zones**, one beyond each end of the row: the Home Goal before space 1 and the Visitors Goal after the last space, 7, 9 or 10. A goal zone has no spaces, and no meeple is ever placed in one or moved into one.
+**2.1.4** The Home Goal and the Visitors Goal are the two **goal zones**, one beyond each end of the row: the Home Goal before the first space, −3, −4 or −5, and the Visitors Goal after the last, 3, 4 or 5. A goal zone has no spaces, and no meeple is ever placed in one or moved into one.
 
 **2.1.5** **Only the ball reaches a goal zone.** A ball sent further than the spaces left in front of it **reaches the goal zone** at that end, and comes to rest on the last space before it. That space is the end of the row, and the goal zone is what a rule names when the ball would have gone beyond it.
 
@@ -105,7 +105,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 2.4 The kickoff space
 
-**2.4.1** The **kickoff space** is the middle space of midfield, and on boards 7 and 9 both teams kick off from it. Board 10's midfield has two middle spaces, and each team kicks off from the one nearer the goal it defends: home from space 5 and the visitors from space 6.
+**2.4.1** The **kickoff space** is the middle space of midfield, and on boards 7 and 9 both teams kick off from it. Board 10's midfield has two middle spaces, one either side of the halfway line, and each team kicks off from the one nearer the goal it defends: home from space −1 and the visitors from space 1.
 
 **2.4.2** Every arrangement a coach settles has to cover their own kickoff space -- see [finishing a Coaching Choice](#148-finishing-a-coaching-choice) (14.8).
 
@@ -190,7 +190,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **3.2.1** Both sides are dealt into **2-2-2** by role: the Fullback and one Defender in the outer zone before their own goal, the Midfielder and one Playmaker in midfield, the Winger and one Striker in the outer zone before the goal they attack. The remaining Defender, Playmaker and Striker start on the bench.
 
-**3.2.2** An outer zone's two cards take the two ends of the zone. Midfield's two take the middle of midfield, side by side, nearer that side's own end where the middle is a single space, and are dealt from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on boards 9 and 10, whose outer zones are three spaces deep: home deals to spaces 1, 3, 4, 5, 7 and 9 on board 9 and to 1, 3, 5, 6, 8 and 10 on board 10, and the visitors deal the mirror of it. On board 10 both sides' Midfielder and Playmaker stand on spaces 5 and 6, each side's Midfielder on its own kickoff space.
+**3.2.2** An outer zone's two cards take the two ends of the zone. Midfield's two take the middle of midfield, side by side, nearer that side's own end where the middle is a single space, and are dealt from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on boards 9 and 10, whose outer zones are three spaces deep: home deals to spaces −4, −2, −1, 0, 2 and 4 on board 9 and to −5, −3, −1, 1, 3 and 5 on board 10, and the visitors deal the mirror of it. On board 10 both sides' Midfielder and Playmaker stand on spaces −1 and 1, each side's Midfielder on its own kickoff space.
 
 *Note.* Midfield packs rather than spreads because the kickoff space is in it. Every arrangement has to cover its own side's kickoff space, and packing the middle of midfield reaches that space on every board.
 
@@ -1358,7 +1358,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ## Appendix C. The boards
 
-The two boards at kickoff, with the standard deal on each: their zones, their shooting ranges and their kickoff spaces. The 9-space board is the one where the deal is not obvious -- home deals to spaces 1, 3, 4, 5, 7 and 9, and the visitors deal the mirror of it.
+The two boards at kickoff, with the standard deal on each: their zones, their shooting ranges and their kickoff spaces. The 9-space board is the one where the deal is not obvious -- home deals to spaces −4, −2, −1, 0, 2 and 4, and the visitors deal the mirror of it.
 
 ![The two boards at kickoff](rulebooks/figures/fig-16-the-boards.png)
 

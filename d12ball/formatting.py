@@ -31,7 +31,7 @@ from d12ball.components import (
     Zone,
 )
 from d12ball import tokens
-from d12ball.space_numbering import flat_space_number
+from d12ball.space_numbering import space_name
 from d12ball.game import (
     AIOpponent, BOARD_SIZE_MODES, D12BallGame, Edition, GameMode,
     RECOMMENDED_BOARD_SIZES, Team,
@@ -253,8 +253,9 @@ def format_team_coach(
 
 def space_label(zone: Zone, space_index: int, board=None) -> str:
     """
-    What a space is called in a sentence or on a button -- "space 4",
-    its number counted from the home end (Law 2.1.3).
+    What a space is called in a sentence or on a button -- "space 2",
+    its place on the number line whose zero is the middle of the field
+    (Law 2.1.3), negative toward the home end.
 
     The word goes with the number because a bare number sits beside
     counts, distances, minutes and scores everywhere a space is named
@@ -270,7 +271,7 @@ def space_label(zone: Zone, space_index: int, board=None) -> str:
     `d12ball/space_numbering.py`. Passing nothing gives the 7-space
     board's numbering.
     """
-    return f"space {flat_space_number(zone, space_index, board)}"
+    return f"space {space_name(zone, space_index, board)}"
 
 
 def capitalized(text: str) -> str:

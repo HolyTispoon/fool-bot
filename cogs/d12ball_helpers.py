@@ -187,28 +187,24 @@ def maneuver_row_instruction(sides: list[str]) -> str:
 def maneuver_hand_instruction(sides: list[str]) -> str:
     """
     `maneuver_row_instruction` for D12 Ball 2.0, where the hand is a
-    secret: the public message carries a button a side that opens the
-    coach's own hand to them alone, so what a coach is told is to
-    press theirs.
+    secret: the public message carries one button that opens the
+    clicker's own hand to them alone, so what a coach is told is to
+    press it.
     """
     if len(sides) == 1:
         return (
-            f"press **{HAND_BUTTON_LABELS[sides[0]]}** to see your cards "
-            "and play one -- only you can see them."
+            f"press **{HAND_BUTTON_LABEL}** to see your cards and play "
+            "one -- only you can see them."
         )
     return (
-        "each press your own hand's button to see your cards and play "
-        "one: red for the offense, green for the defense. Only you can "
-        "see your cards."
+        f"each press **{HAND_BUTTON_LABEL}** to see your own cards and "
+        "play one. Only you can see your cards."
     )
 
 
-#: The public 2.0 prompt's button a side, which opens that coach's
-#: hand to them alone (`ManeuverActionPromptView`).
-HAND_BUTTON_LABELS = {
-    "offense": "Offense: my hand",
-    "defense": "Defense: my hand",
-}
+#: The public 2.0 prompt's one hand button, which opens the hand of
+#: whichever coach presses it, to them alone (`ManeuverActionPromptView`).
+HAND_BUTTON_LABEL = "My hand"
 
 
 def build_maneuver_action_caption(engine, game: D12BallGame, match: MatchState) -> str:

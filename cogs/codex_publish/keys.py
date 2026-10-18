@@ -29,18 +29,24 @@ def game_page(game_id: str) -> str:
     return f"{SITE}/game/{game_id}"
 
 
+def game_prefix(game_id: str) -> str:
+    """Everything of one game's is under this: its `live.json`, its
+    `history.json` and its boards."""
+    return f"{PREFIX}games/{game_id}/"
+
+
 def live_key(game_id: str) -> str:
-    return f"{PREFIX}games/{game_id}/live.json"
+    return f"{game_prefix(game_id)}live.json"
 
 
 def history_key(game_id: str) -> str:
-    return f"{PREFIX}games/{game_id}/history.json"
+    return f"{game_prefix(game_id)}history.json"
 
 
 def board_key(game_id: str, board: bytes) -> str:
     """A board's key, named by its bytes: the same picture is the same
     key, and a key is never written twice."""
-    return f"{PREFIX}games/{game_id}/board-{hashlib.sha256(board).hexdigest()}.webp"
+    return f"{game_prefix(game_id)}board-{hashlib.sha256(board).hexdigest()}.webp"
 
 
 def emoji_key(name: str) -> str:

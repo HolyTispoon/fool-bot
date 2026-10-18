@@ -97,7 +97,7 @@ one of them.** `render_match_image` is the 2200px one everybody sees;
 layout. The coaching image carries one row of meeples instead of two, so at the
 match image's width it arrives in Discord as an unreadable sliver. **It is
 deliberately not mirrored for the visiting coach**: the zones keep their real
-names and the spaces their real numbers, so space 6 is the same space on both
+names and the spaces their real numbers, so space 2 is the same space on both
 images and on the board the coaches are looking at.
 
 **That half-field is the Coaching Choice's and nothing else's.** The ball is
@@ -317,6 +317,43 @@ without them. A benched player's are still on its card alone.
   at the same shares. Moving them lower runs them into the names under the
   row, which start 7px under the piece; they are left at the page's
   position so the two pictures agree.
+
+## A space's number
+
+**Each space carries its number large, faint and in its middle**, drawn
+before anything that stands on it (`draw_space_number`, white at
+`SPACE_NUMBER_ALPHA`), on the match image, the field strip and the coaching
+half-field alike (the author, 2026-10-17). It replaced a small number in the
+space's top-left corner, which a coach had to hunt for. The number is
+`space_code`'s, the one `formatting.space_label` writes "space −2" with, so
+the picture and the sentence beside it cannot disagree
+([naming-and-wording.md](naming-and-wording.md#naming-a-space)).
+
+- **One size a board, fitted to its widest number** (`space_number_font`
+  over `widest_space_name`): "−5" on board 10's narrow spaces sets every
+  number on that board, so a "1" is not drawn larger than a "−1" beside it.
+  The size is capped at `SPACE_NUMBER_MAX_SIZE`.
+- **Faint because it is under the pieces.** A meeple, its name and the ball
+  stand in the middle of a space too, and they are what a coach is reading;
+  the number shows through where nothing stands and is legible past the
+  pieces where something does. On the coaching half-field, whose one row of
+  meeples sits in the middle, the number is mostly behind the meeple -- the
+  zone and the meeple's own place already say which space it is.
+- **Board 10 draws its halfway line** (`draw_halfway_line`) down the middle
+  of midfield, between its two kickoff spaces. That is where the number
+  line's zero falls on a board with no middle space, so no space there is
+  numbered 0. Boards 7 and 9 have a middle space, space 0, and no line.
+
+The web page draws the same number the same way in its own CSS (`.space-code`,
+sized to the space's width in container units, and `.halfway-line`), with one
+difference: **the page's numbers are stronger** (`--space-number`, white at
+30%; the author, 2026-10-17): the page has no picture around them to compete
+with, and at the PNG's faintness they read as texture. **A kickoff space is
+not marked** -- its number is drawn like every other. The page used to ring
+it; on 2026-10-17 the author tried a white disc with a black number (it stood
+out from everything else on the board) and then a gray ring round the number,
+and removed the ring the same day. The KICKOFF bar under the field already
+says where the kickoff is, and on boards 7 and 9 so does the 0.
 
 ## The web page's board
 

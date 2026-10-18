@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from io import BytesIO
 import re
 from math import cos, hypot, pi, radians, sin
@@ -40,7 +41,7 @@ from d12ball.formatting import (
     total_modifier_line,
 )
 from d12ball.game import TEAM_PAIRS, Team, team_display_name
-from d12ball.space_numbering import flat_space_number
+from d12ball.space_numbering import space_name, zone_counts
 
 
 IMAGE_WIDTH = 2200
@@ -87,7 +88,7 @@ TEAM_BOARD_SECTION_GAP = 40
 TEAM_BOARD_BENCH_CARD_SPAN = 3 * (CARD_SIZE[0] + 14) - 14
 
 # The goal zones (Law 2.1.4), American-football style -- a zone of
-# their own before space 1 and after the board's last space, not
+# their own before the board's first space and after its last, not
 # squeezed into either
 # one's existing space alongside its own meeples. "GOAL" runs the
 # length of each in the defending team's own color, with a blank d12
@@ -1111,16 +1112,104 @@ def player_index(
 
 def space_code(zone: Zone, space_index: int, board=None) -> str:
     """
-    The number drawn in a space's corner -- the bare "4", where the
-    sentences say "space 4" (`formatting.space_label`): in a space's
-    corner nothing else is a number.
+    The number drawn large in the middle of a space -- the bare "-2",
+    where the sentences say "space -2" (`formatting.space_label`): on
+    the board nothing else is a number that size.
 
     `board` is the `BoardState` a match is being drawn from, or the
     `BoardLayout` alone on the printed sheets: the number counts the
     spaces in the zones to its left, which differ by board size -- see
     `d12ball/space_numbering.py`.
     """
-    return str(flat_space_number(zone, space_index, board))
+    return space_name(zone, space_index, board)
+
+
+# A space's number, drawn large and faint behind the meeples: big
+# enough to read across the table, faint enough that nothing standing
+# on the space is lost under it (the author, 2026-10-17).
+SPACE_NUMBER_ALPHA = 46
+SPACE_NUMBER_MAX_SIZE = 170
+
+
+@lru_cache(maxsize=None)
+def space_number_font(
+    sample: str, width: int, height: int,
+) -> ImageFont.ImageFont:
+    """
+    The largest bold face, up to `SPACE_NUMBER_MAX_SIZE`, at which
+    `sample` -- the widest number the board carries, "-5" on board 10
+    -- fits a space `width` across and `height` high. Every space on
+    a board is fitted to the same sample, so the numbers on one board
+    are one size.
+    """
+    size = min(SPACE_NUMBER_MAX_SIZE, round(height * 0.8))
+    while size > 12:
+        font = load_font(size, bold=True)
+        if font.getlength(sample) <= width - 24:
+            return font
+        size -= 4
+    return load_font(size, bold=True)
+
+
+def widest_space_name(board) -> str:
+    """The longest number a space on this board is called, to fit the
+    others' size to -- the home end's, which carries the minus sign."""
+    return max(
+        (
+            space_code(zone, index, board)
+            for zone in Zone
+            for index in range(zone_counts(board)[zone])
+        ),
+        key=len,
+    )
+
+
+def draw_space_number(
+    canvas: Image.Image,
+    board,
+    zone: Zone,
+    space_index: int,
+    box: tuple[int, int, int, int],
+) -> None:
+    """The space's number centred in `box` -- its frame -- white at
+    `SPACE_NUMBER_ALPHA`, laid on the canvas before anything that
+    stands on the space."""
+    left, top, right, bottom = box
+    width, height = right - left, bottom - top
+    # Fitted to a width rounded down to 8px, so the pixel a space
+    # gains or loses to rounding never changes one number's size.
+    font = space_number_font(
+        widest_space_name(board), width // 8 * 8, height,
+    )
+    layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    ImageDraw.Draw(layer).text(
+        (width / 2, height / 2),
+        space_code(zone, space_index, board),
+        font=font,
+        fill=(255, 255, 255, SPACE_NUMBER_ALPHA),
+        anchor="mm",
+    )
+    canvas.alpha_composite(layer, dest=(left, top))
+
+
+def draw_halfway_line(
+    draw: ImageDraw.ImageDraw,
+    match: MatchState,
+    bounds: dict[Zone, tuple[int, int]],
+    top: int,
+    bottom: int,
+) -> None:
+    """
+    The halfway line down the middle of midfield, on a board with no
+    middle space -- board 10, whose two kickoff spaces sit either side
+    of it. It is where the number line's zero falls, which no space
+    carries on that board (`d12ball/space_numbering.py`).
+    """
+    if match.board.layout.board_size % 2:
+        return
+    left, right = bounds[Zone.MIDFIELD]
+    middle = round((left + right) / 2)
+    draw.line((middle, top, middle, bottom), fill="#d7dde5", width=4)
 
 
 def zone_bounds_between(
@@ -1525,11 +1614,9 @@ def draw_space(
         outline="#9aabbc",
         width=2,
     )
-    draw.text(
-        (space_left + 15, BOARD_TOP + 66),
-        space_code(zone, space_index, match.board),
-        font=FONT_SMALL,
-        fill="#c8d1dc",
+    draw_space_number(
+        canvas, match.board, zone, space_index,
+        (space_left + 8, BOARD_TOP + 58, space_right - 8, BOARD_BOTTOM - 12),
     )
 
     visiting_occupants = [
@@ -1649,6 +1736,10 @@ def draw_board(
         left, right = bounds[zone]
         draw_zone_frame(draw, zone, left, right, labels[zone])
 
+        if zone == Zone.MIDFIELD:
+            draw_halfway_line(
+                draw, match, bounds, BOARD_TOP + 58, BOARD_BOTTOM - 12,
+            )
         spaces = match.board.spaces[zone]
         space_width = (right - left) / len(spaces)
         for space_index, occupants in enumerate(spaces):
@@ -1693,16 +1784,16 @@ def draw_end_zone(
 ) -> None:
     """
     A goal zone of its own (Law 2.1.4), American-football style,
-    before space 1 or after the board's last space rather than
+    before the board's first space or after its last rather than
     squeezed into either one's own space -- see "Formations and
     occupancy" in docs/design/formations-and-occupancy.md for why
-    space 1 and the last space are already full at kickoff. "GOAL"
+    the first space and the last are already full at kickoff. "GOAL"
     runs the zone's length in the defending team's color -- rotated
     90°, the way an end zone's lettering reads sideways on a field
     running left to right -- with a blank d12 stamped over it, the way
     a field carries a logo at midfield. `team` is the side that
-    defends this zone: the home team to the left of space 1 (the Home
-    Goal), the visitors to the right of the board's last space (the
+    defends this zone: the home team to the left of the first space
+    (the Home Goal), the visitors to the right of the board's last space (the
     Visitors Goal).
 
     `angle` is 90 or 270 -- the visitors' end zone is drawn at 270 (the
@@ -6028,11 +6119,14 @@ def draw_coaching_space(
         outline="#9aabbc",
         width=2,
     )
-    draw.text(
-        (space_left + 15, COACHING_BOARD_TOP + 52),
-        space_code(zone, space_index, board),
-        font=FONT_SMALL,
-        fill="#c8d1dc",
+    draw_space_number(
+        canvas, board, zone, space_index,
+        (
+            space_left + 8,
+            COACHING_BOARD_TOP + 46,
+            space_right - 8,
+            COACHING_BOARD_BOTTOM - 12,
+        ),
     )
 
     draw_meeple_group(
@@ -6078,7 +6172,7 @@ def render_coaching_image(
     the spaces their real numbers, left to right, so a coach reads the
     same field here as on the match image and on the board they are
     both looking at -- flipping it for the visiting coach would make
-    space 6 the space on the right in one image and the left in the
+    space 2 the space on the right in one image and the left in the
     other.
 
     The ball is left off. Where it is has no bearing on any of the
@@ -6138,6 +6232,11 @@ def render_coaching_image(
             fill="#ffffff",
         )
 
+        if zone == Zone.MIDFIELD:
+            draw_halfway_line(
+                draw, match, bounds,
+                COACHING_BOARD_TOP + 46, COACHING_BOARD_BOTTOM - 12,
+            )
         spaces = match.board.spaces[zone]
         space_width = (right - left) / len(spaces)
         for space_index, occupants in enumerate(spaces):
