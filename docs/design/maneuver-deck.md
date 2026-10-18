@@ -132,11 +132,35 @@ space, the Winger's set-up, the Striker's +3) -- the twin of `has_species_abilit
 role off the player and onto the formation (rules-2.0 section 4), so the two editions can only
 be told apart where the role is read, and that has to be one place. They ask the match rather
 than the game because every one of the sixteen sites is handed the match and nothing else.
-Until the formation's roles are saved on the match, `role_of` answers with the card's role in
-either edition. `tests/test_role_reading.py` holds the rule modules (`engine.py`, `flow/`,
+`tests/test_role_reading.py` holds the rule modules (`engine.py`, `flow/`,
 `prompts.py`, `ai.py`, `dice_brief.py`) to reading no `.role` outside `role_of` and Dinky's
 `role_rank`, which ranks the bench by each card's printed skill profile rather than by a role
 anybody is playing.
+
+**A 2.0 match carries its roles: `MatchState.formation_roles`**, per side `{card id: role}` for
+the six fielded cards, a bench card holding none. It is one of `MATCH_EXPLICIT_FIELDS`, written
+only where a match has roles, for the reason `maneuver_decks` is: a 1.0 match is saved byte for
+byte as before. `role_of` reads it where it is there and each card's own role where it is not,
+so a 2.0 game saved before the field plays on with its cards' roles -- and its role abilities,
+since `has_role_ability` answers no only for a match whose roles are the formation's
+(rules-2.0 4.7). Who holds what:
+
+- **The deal** is `RulesEngine.deal_formation_roles`, beside the decks at kickoff and gated the
+  same way (`maneuver_deck_applies`, so never a tutorial): the six 1.0 deals, each in the role
+  their card names (the author, 2026-10-18). Each unique role has a space (rules-2.0 4.3b,
+  `MatchState.unique_role_space`), and on boards 7 and 9 the 1.0 deal already stands them there;
+  on board 10 it puts the Midfielder on the kickoff space (Law 3.2.2), so the 2.0 deal moves the
+  Playmaker onto it and the Midfielder behind, and records that as the first arrangement.
+- **`MatchState.assign_formation_roles`** reads a freshly dealt side: in each zone the card on
+  the unique role's space (the nearest, where nobody is) takes it and the rest the standard role
+  (`FORMATION_ZONE_ROLES`). It is asked only where nobody shares a space -- after the deal and
+  after a formation change -- since an Ooze may share a unique role's space and the space would
+  then not say who holds it.
+- **A substitute takes the outgoing card's role** (`substitute`), and **a zone assignment trades
+  the two roles** (`exchange_field_players`).
+- **A formation change** re-deals by defensive skill as in 1.0 (`deploy_side`) and then reads
+  the roles off the new shape. That is a stand-in: the change that keeps the Fullback, the
+  Playmaker and the Striker on their spaces is the next step.
 
 Decided for the steps still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none; and **a formation change keeps the

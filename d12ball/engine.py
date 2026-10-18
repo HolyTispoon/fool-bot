@@ -728,8 +728,19 @@ class RulesEngine:
         rule or name a role without coming through here
         (docs/design/maneuver-deck.md, "Roles").
 
+        A 2.0 match carries the roles it assigned
+        (`MatchState.formation_roles`), and a card it gives none -- one
+        on the bench -- plays no role. A match with none on file, 1.0's
+        and a 2.0 game saved before roles were the formation's, reads
+        each card's own.
+
         Tolerant of a stale id, for the reason `species_of` is.
         """
+        if match.formation_roles:
+            for by_card in match.formation_roles.values():
+                if player_id in by_card:
+                    return PlayerRole(by_card[player_id])
+            return None
         try:
             return self.player_catalog.player_by_id(player_id).role
         except ValueError:
@@ -746,9 +757,11 @@ class RulesEngine:
 
         It asks the match rather than the game because every site that
         asks it -- the distances on offer, a roll's modifiers, a steal --
-        is handed the match and nothing else.
+        is handed the match and nothing else. **A match whose roles are
+        the formation's plays none** (docs/rules-2.0.md 4.7): that is
+        2.0, where the role abilities are gone for now.
         """
-        if player_id is None:
+        if player_id is None or match.formation_roles:
             return False
         return self.role_of(match, player_id) == role
 
@@ -2119,6 +2132,34 @@ class RulesEngine:
             for side in (TeamSide.HOME, TeamSide.VISITING)
         }
 
+    def deal_formation_roles(
+        self, game: D12BallGame, match: MatchState,
+    ) -> None:
+        """
+        **2.0's standard deal** (docs/rules-2.0.md 4.5): the six 1.0
+        deals, each in the role their card names, with each unique role
+        on its space -- which on boards 7 and 9 is where 1.0 already put
+        them. On board 10 1.0 deals the Midfielder onto the kickoff space
+        (Law 3.2.2), so there the Playmaker takes it and the Midfielder
+        stands behind, toward their own goal. A 1.0 game is dealt no
+        roles, and keeps every card's own.
+        """
+        if not self.maneuver_deck_applies(game):
+            return
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            setup = match.setup_for_side(side)
+            kickoff = match.kickoff_space_for(side)
+            behind = kickoff - 1 if side == TeamSide.HOME else kickoff + 1
+            for card in setup.zones.get(Zone.MIDFIELD, []):
+                role = self.role_of(match, card)
+                if role == PlayerRole.PLAYMAKER:
+                    match.board.place_meeple(card, Zone.MIDFIELD, kickoff)
+                elif role == PlayerRole.MIDFIELDER:
+                    match.board.place_meeple(card, Zone.MIDFIELD, behind)
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match.assign_formation_roles(side)
+            match.set_assigned_positions(side)
+
     def reshuffle_maneuver_decks(
         self, game: D12BallGame, match: MatchState,
     ) -> bool:
@@ -2440,6 +2481,7 @@ class RulesEngine:
             visiting_team=visiting_team,
         )
         self.deal_maneuver_decks(game, match)
+        self.deal_formation_roles(game, match)
         game.ruleset_id = match.ruleset_id
         game.player_data_version = match.player_data_version
         game.match_state = match.to_dict()
