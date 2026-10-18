@@ -1818,11 +1818,6 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
                          joint=match.is_dragon)
 
     grid_left = o + BUILDING_WIDTH + BUILDING_GAP
-    # The gold, a coin filling the gap between the base -- the column's
-    # foot -- and the grid, level with the base.
-    coin = gold_coin(player.gold, BUILDING_GAP, turned)
-    body.alpha_composite(coin, (o + BUILDING_WIDTH,
-                                round(o + height - TILE[1] / 2 - coin.height / 2)))
     draw = ImageDraw.Draw(body)
     partners = partner_ids(player)
     card_top = o + PATROL_PADDING
@@ -1873,12 +1868,25 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     # The worker card in the grid's first cell, under the command zone.
     paste_centred(body, worker_card(player.workers, player.deck_color, seat == match.first),
                   (grid_left, top, grid_left + CELL, top + CELL))
+    # The gold, a coin all but filling the space between the building
+    # column and the worker card's face, at the card's foot -- level
+    # with the base in a one-row panel. The worker card is always
+    # upright, so nothing lying in the grid covers it.
+    coin = gold_coin(player.gold, GOLD_COIN, turned)
+    face_left = grid_left + (CELL - CARD[0]) // 2
+    body.alpha_composite(coin, (round((o + BUILDING_WIDTH + face_left - coin.width) / 2),
+                                round(top + CELL - TILE[1] / 2 - coin.height / 2)))
     for index, cell in enumerate(cells, start=1):
         row, column = divmod(index, columns)
         left = grid_left + column * (CELL + CELL_GAP)
         cell_top = top + row * (CELL + CELL_GAP)
         body.alpha_composite(cell, (left - OVERHANG, cell_top - OVERHANG))
     return body
+
+
+#: The gold coin's width: the space between the building column and the
+#: worker card's face, less a margin each side.
+GOLD_COIN = BUILDING_GAP + (CELL - CARD[0]) // 2 - px(8)
 
 
 def gold_coin(gold: int, width: int, turned: bool = False) -> Image.Image:
@@ -1889,7 +1897,7 @@ def gold_coin(gold: int, width: int, turned: bool = False) -> Image.Image:
     coin = by_width(image(EMOJI_DIR / "gold.png"), width).copy()
     text = str(gold)
     size = round(width * 0.62)
-    while size > 6 and font(size).getlength(text) > width * 0.72:
+    while size > 6 and font(size).getlength(text) > width * 0.6:
         size -= 1
     ImageDraw.Draw(coin).text((coin.width / 2, coin.height / 2), text, font=font(size),
                               fill=WORD_ON_GOLD, anchor="mm")

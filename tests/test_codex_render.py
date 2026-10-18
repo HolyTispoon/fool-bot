@@ -163,12 +163,18 @@ class RenderTests(unittest.TestCase):
         far_top = turned.height - edge - span
         far = turned.crop((edge, far_top, turned.width - edge, far_top + span))
         near = near.rotate(180)
-        # The coin, beside the base at the body's foot, is left out.
-        coin = render.BUILDING_GAP
-        left = near.width - render.OVERHANG - render.BUILDING_WIDTH - coin
-        top = render.OVERHANG + round(render.TILE[1] / 2 - coin / 2)
+        # The coin, between the building column and the worker card, is
+        # left out: its box in the upright body, turned round.
+        coin = render.GOLD_COIN
+        o = render.OVERHANG
+        face_left = o + render.BUILDING_WIDTH + render.BUILDING_GAP + (render.CELL - render.CARD[0]) // 2
+        left = round((o + render.BUILDING_WIDTH + face_left - coin) / 2)
+        top = round(o + render.PATROL_HEIGHT + render.CELL_GAP + render.CELL
+                    - render.TILE[1] / 2 - coin / 2)
+        box = (near.width - left - coin - 1, near.height - top - coin - 1,
+               near.width - left + 1, near.height - top + 1)
         for picture in (near, far):
-            picture.paste((0, 0, 0, 0), (left, top - 1, left + coin, top + coin + 1))
+            picture.paste((0, 0, 0, 0), box)
         self.assertEqual(far.tobytes(), near.tobytes())
 
     def test_the_opening_board_side_by_side(self) -> None:

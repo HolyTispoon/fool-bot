@@ -1892,10 +1892,15 @@ else the bot shows is ephemeral.
     4 px taller, and drew its shape 2 px inside the picture each
     way), overlaps the pill's rounded end, and widens for two
     figures.
-  - **The gold is a coin beside the base**: the gold emoji's coin with
-    the count on it, as wide as the gap between the building column and
-    the grid, level with the base (`gold_coin`; the author, 2026-10-18:
-    "that should be the way money is shown"). On the far panel its
+  - **The gold is a coin beside the worker card**: the gold emoji's coin
+    with the count on it, all but as wide as the space between the
+    building column and the worker card's face (`GOLD_COIN`), at the
+    card's foot -- level with the base in a one-row panel (`gold_coin`;
+    the author, 2026-10-18: "that should be the way money is shown").
+    Its first day it was only as wide as `BUILDING_GAP`, and too tiny
+    to read; beside the worker card rather than the base because the
+    worker card is always upright, where the cell beside a taller
+    panel's base may hold an exhausted card lying across it. On the far panel its
     count is drawn upside down, so it reads upright once the panel is
     turned -- the one part of a turned body that is not the upright
     one rotated.
