@@ -122,6 +122,60 @@ class GameQueueTests(QueueTestCase):
         self.assertEqual(history["version"], 1)
         self.assertEqual([turn["board"] for turn in history["turns"]], [keys.board_key(GAME_ID, b"ended")])
 
+    def change_mapped(self, board):
+        """A change whose board was handed over with its map."""
+        published = self.record.game(GAME_ID)
+        published.board = keys.board_key(GAME_ID, board)
+        self.queue.game_changed(GAME_ID, [board], {self.map_key(board): b'{"regions":[]}'})
+
+    @staticmethod
+    def map_key(board):
+        return keys.board_map_key(keys.board_key(GAME_ID, board))
+
+    async def test_a_map_goes_up_after_its_board_and_before_the_json_naming_it(self):
+        self.change_mapped(b"one")
+        await self.queue.drain()
+        self.assertEqual(self.store.puts(), [
+            keys.board_key(GAME_ID, b"one"),
+            self.map_key(b"one"),
+            keys.history_key(GAME_ID),
+            keys.live_key(GAME_ID),
+        ])
+        board_map = self.store.objects[self.map_key(b"one")]
+        self.assertEqual((board_map.content_type, board_map.cache_control),
+                         ("application/json; charset=utf-8", "public, max-age=31536000, immutable"))
+        live = json.loads(self.store.objects[keys.live_key(GAME_ID)].body)
+        self.assertEqual(live["board_map"], self.map_key(b"one"))
+
+    async def test_a_board_with_no_map_names_none(self):
+        self.change(b"one")
+        await self.queue.drain()
+        live = json.loads(self.store.objects[keys.live_key(GAME_ID)].body)
+        self.assertIsNone(live["board_map"])
+
+    async def test_a_failed_map_stops_the_json_and_is_sent_with_the_next_change(self):
+        self.store.fail = lambda operation, key: key.endswith(".json")
+        with self.assertLogs(QUEUE_LOG, logging.WARNING):
+            self.change_mapped(b"one")
+            await self.queue.drain()
+        self.assertEqual(self.store.puts(), [keys.board_key(GAME_ID, b"one"), self.map_key(b"one")])
+        self.store.fail = False
+        self.change(line="next")
+        await self.queue.drain()
+        self.assertIn(self.map_key(b"one"), self.store.objects)
+        live = json.loads(self.store.objects[keys.live_key(GAME_ID)].body)
+        self.assertEqual(live["board_map"], self.map_key(b"one"))
+
+    async def test_a_replaced_board_takes_its_map_with_it(self):
+        self.change_mapped(b"one")
+        await self.queue.drain()
+        self.change_mapped(b"two")
+        await self.queue.drain()
+        self.assertEqual(sorted(self.store.deletes()),
+                         sorted([keys.board_key(GAME_ID, b"one"), self.map_key(b"one")]))
+        self.assertEqual(sorted(self.uploaded()),
+                         sorted([keys.board_key(GAME_ID, b"two"), self.map_key(b"two")]))
+
     async def test_every_object_carries_its_type_and_cache(self):
         self.change(b"one")
         await self.queue.drain()
@@ -400,6 +454,11 @@ class KeyKindTests(unittest.TestCase):
                          "public, max-age=31536000, immutable")
         self.assertEqual(keys.cache_control(keys.emoji_key("codex_gold")), "public, max-age=86400")
         self.assertEqual(keys.content_type(keys.emoji_key("codex_gold")), "image/png")
+        self.assertEqual(keys.cache_control(keys.history_key(GAME_ID)), "no-cache")
+        self.assertEqual(keys.cache_control(keys.board_map_key(keys.board_key(GAME_ID, b"x"))),
+                         "public, max-age=31536000, immutable")
+        self.assertEqual(keys.cache_control(keys.card_key("iron_man", ".jpg")), "public, max-age=86400")
+        self.assertEqual(keys.content_type(keys.card_key("iron_man", ".jpg")), "image/jpeg")
         with self.assertRaises(ValueError):
             keys.cache_control("codex/anything.txt")
 

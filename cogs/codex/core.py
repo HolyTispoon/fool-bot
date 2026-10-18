@@ -138,6 +138,9 @@ class CoreMixin:
         #: (`board_key`) and its bytes, so a position unchanged is not
         #: drawn again (`render_match_png`).
         self.boards_drawn: dict[str, tuple[str, bytes]] = {}
+        #: Where the cards are on each board drawn lately, by its bytes'
+        #: SHA-256 (`board_map`), oldest first, for the site's hover.
+        self.board_maps: dict[str, dict] = {}
         # The turn message's write gate (docs/design/rate-limits.md),
         # with the Codex bot's message, view, text and name.
         self.boards = BoardRefresher(

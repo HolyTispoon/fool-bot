@@ -216,7 +216,8 @@ class PanelTests(TurnTestCase):
         match = self.table.match
         # The class's own, under the table's stand-in for the pictures.
         draw_board = type(cog).render_match_png
-        with mock.patch("cogs.codex.presentation.render_board", return_value=b"board") as draw:
+        with mock.patch("cogs.codex.presentation.render_board_mapped",
+                        return_value=(b"board", {"regions": []})) as draw:
             await draw_board(cog, self.game, match)
             match.journal.append({"action": {"kind": "said only"}})
             self.assertEqual(await draw_board(cog, self.game, match), b"board")

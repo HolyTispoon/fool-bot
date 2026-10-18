@@ -99,6 +99,49 @@ class RenderTests(unittest.TestCase):
         height = 2 * self.panel_height(1) + render.DIVIDER_HEIGHT
         self.assertEqual(size(png), (render.panel_width(1), height))
 
+    def test_the_board_says_where_its_cards_are(self) -> None:
+        """`render_board_mapped` draws the same bytes as `render_board`,
+        and a box for every card it shows -- the near panel's in the
+        board's lower half, the far one's, turned, in its upper -- each
+        inside the picture, and a box for each tech building with the
+        codex cards it opens."""
+        match = self.engine.new_match(("bashing", "finesse"), first=1)
+        near = match.active
+        far = 3 - near
+        match.new_instance("older_brother", near)
+        tired = match.new_instance("iron_man", near)
+        tired.exhausted = True
+        match.new_instance("nimble_fencer", far)
+        names = {1: "a", 2: "b"}
+        webp, drawn = render.render_board_mapped(match, "stacked", names, self.engine.catalog)
+        self.assertEqual(webp, render.render_board(match, "stacked", names, self.engine.catalog))
+        self.assertEqual((drawn["width"], drawn["height"]), size(webp))
+        middle = drawn["height"] / 2
+        shown = [(region["card"], region["box"][1] > middle)
+                 for region in drawn["regions"] if "card" in region]
+        # The heroes too, in the command zones.
+        self.assertCountEqual(shown, [("older_brother", True), ("iron_man", True),
+                                      ("nimble_fencer", False),
+                                      (match.player(near).heroes[0].slug, True),
+                                      (match.player(far).heroes[0].slug, False)])
+        for region in drawn["regions"]:
+            left, top, right, bottom = region["box"]
+            self.assertTrue(0 <= left < right <= drawn["width"], region)
+            self.assertTrue(0 <= top < bottom <= drawn["height"], region)
+        (iron_man,) = [region["box"] for region in drawn["regions"] if region.get("card") == "iron_man"]
+        # Exhausted, it lies on its side: wider than tall.
+        self.assertGreater(iron_man[2] - iron_man[0], iron_man[3] - iron_man[1])
+        codexes = [region for region in drawn["regions"] if "codex" in region]
+        self.assertEqual(len(codexes), 6)
+        catalog = self.engine.catalog
+        spec = match.player(near).specs[0]
+        self.assertIn({"title": f"Tech I cards: {spec.title()}",
+                       "codex": [card.slug for card in catalog.by_spec(spec) if card.tech_level == 1]},
+                      [{"title": region["title"], "codex": region["codex"]} for region in codexes])
+        self.assertIn({"title": f"{spec.title()} codex",
+                       "codex": [card.slug for card in catalog.by_spec(spec)]},
+                      [{"title": region["title"], "codex": region["codex"]} for region in codexes])
+
     def test_the_stacked_board_is_seen_from_the_active_players_side(self) -> None:
         """The active player's panel is the lower one -- its nameplate's
         rule in its first hero's colour, Neutral's tan in the basic game

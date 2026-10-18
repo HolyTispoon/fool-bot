@@ -161,10 +161,22 @@ class GameShapesTests(unittest.TestCase):
         self.assertEqual(written["lines"], [[
             {"player": 1, "name": "basher"},
             {"text": " plays "},
-            {"card": "iron_man", "name": "Iron Man"},
+            {"card": "iron_man", "name": "Iron Man", "key": "codex/cards/iron_man.jpg"},
             {"text": "."},
         ]])
+        self.assertIsNone(written["board_map"])
         json.dumps(written)
+
+    def test_a_board_map_is_named_only_once_it_is_up(self):
+        map_key = keys.board_map_key(self.board)
+        self.assertEqual(map_key, self.board[: -len(".webp")] + ".json")
+        self.assertIsNone(shapes.live(self.game, self.match, self.published, ())["board_map"])
+        self.assertEqual(shapes.live(self.game, self.match, self.published, {map_key})["board_map"],
+                         map_key)
+        self.published.history = [{"turn": 1, "heading": "", "lines": [], "board": self.board},
+                                  {"turn": 2, "heading": "", "lines": [], "board": None}]
+        turns = shapes.history(self.game, self.published, {map_key})["turns"]
+        self.assertEqual([turn["board_map"] for turn in turns], [map_key, None])
 
     def test_live_before_any_heading(self):
         written = shapes.live(self.game, self.match, PublishedGame())
@@ -205,9 +217,10 @@ class SegmentsTests(unittest.TestCase):
             {"text": " "},
             {"player": 2, "name": "fencer"},
             {"text": " "},
-            {"card": "iron_man", "name": "Iron Man"},
+            {"card": "iron_man", "name": "Iron Man", "key": "codex/cards/iron_man.jpg"},
             {"text": " "},
-            {"card": "troq_bashar", "name": "Troq Bashar", "hero": True},
+            {"card": "troq_bashar", "name": "Troq Bashar", "hero": True,
+             "key": "codex/cards/troq_bashar.jpg"},
             {"text": " "},
             {"glyph": "gold", "key": "codex/emoji/gold.png", "n": 3, "alt": "3 gold"},
             {"text": " "},
@@ -218,6 +231,10 @@ class SegmentsTests(unittest.TestCase):
             {"glyph": "codex", "key": "codex/emoji/codex.png", "alt": "Codex"},
             {"text": " ->"},
         ])
+
+    def test_a_card_with_no_picture_has_no_key(self):
+        (found,) = segments(tokens.card("no_such_card"), self.game)
+        self.assertEqual(found, {"card": "no_such_card", "name": "no_such_card"})
 
     def test_an_addressed_seat_is_its_name_never_a_mention(self):
         (found,) = segments(tokens.addressed(1), self.game)
@@ -339,3 +356,30 @@ class RecordTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BoardMapTests(unittest.TestCase):
+    def test_a_card_and_a_codex(self):
+        drawn = {"width": 100, "height": 80, "regions": [
+            {"box": (0, 0, 10, 20), "card": "iron_man"},
+            {"box": (20, 0, 30, 20), "codex": ["iron_man", "tech_ii_building"],
+             "title": "Bashing codex"},
+        ]}
+        written = shapes.board_map(drawn)
+        self.assertEqual(written, {"width": 100, "height": 80, "regions": [
+            {"box": [0, 0, 10, 20],
+             "cards": [{"slug": "iron_man", "name": "Iron Man", "key": "codex/cards/iron_man.jpg"}]},
+            {"box": [20, 0, 30, 20], "title": "Bashing codex", "cards": [
+                {"slug": "iron_man", "name": "Iron Man", "key": "codex/cards/iron_man.jpg"},
+                {"slug": "tech_ii_building", "name": "Tech II Building",
+                 "key": "codex/cards/tech_ii_building.png"},
+            ]},
+        ]})
+        json.dumps(written)
+
+    def test_every_pictured_card_has_a_key_the_function_answers(self):
+        from cogs.codex_publish import cards
+        pictured = cards.pictured()
+        self.assertGreater(len(pictured), 300)
+        for slug in pictured:
+            self.assertRegex(cards.key(slug), r"^codex/cards/[a-z0-9_]+\.(?:jpg|png)$")
