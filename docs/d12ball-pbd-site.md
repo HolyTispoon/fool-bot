@@ -155,7 +155,7 @@ the game's own.
 ## The decisions
 
 Proposed 2026-10-17; the author's answers in review the same day are
-written in (decisions 1, 2, 3, 12, 15 and 16). Each is the Codex site's where
+written in (decisions 1, 2, 3, 12, 15, 16 and 17). Each is the Codex site's where
 it says so.
 
 1. **A Pages project of its own, at `pbd.d12ball.com`, reading a bucket
@@ -181,7 +181,7 @@ it says so.
      as their watch paths (`pbd/*`, `pbd-d12ball/*`).
 2. **Linked from `d12ball.com`** (the author, 2026-10-17: "It can be
    linked on the website"). The D12 Ball page gets a link to
-   `pbd.d12ball.com` once the site is live (step 6), worded as the
+   `pbd.d12ball.com` once the site is live (step 7), worded as the
    address it opens, as the page's other links are
    ([design/landing-pages.md](design/landing-pages.md), "The D12 Ball
    page"). **Linked but not indexed** (the author, 2026-10-17): the
@@ -208,7 +208,7 @@ it says so.
    decision 5).
 6. **The board is PNG, as posted.** The bytes the channel has, named by
    their SHA-256, never re-encoded: a WebP would be a second encode of a
-   3300-pixel picture on `K:\` for every board change. Step 3 measures a
+   3300-pixel picture on `K:\` for every board change. Step 4 measures a
    board and a game; if the bucket's size calls for it, WebP is a change
    to one function.
 7. **The viewer, the polling and the Function are the Codex site's.**
@@ -255,12 +255,65 @@ it says so.
 15. **The old games are imported from the pins, as the last step** (the
     author, 2026-10-17). Every game played before the site went live
     gets its history from its channel's pinned new-play boards, each with
-    its one-line caption, as the Codex site's import does (step 8).
+    its one-line caption, as the Codex site's import does (step 9).
 16. **The web app's games are not on this site** (the author,
     2026-10-17: "it's separate"). The web app has its own `/archive`;
     nothing here reads `data/d12ball_web_games.json`, and nothing in
     `webapp/` learns this site exists -- the two systems share the model
     and nothing at runtime ([docs/web-app-next.md](web-app-next.md)).
+17. **The two buckets keep inside one free plan together** (the author,
+    2026-10-17), built in step 3 before this site's queue exists.
+    `cogs/codex_publish/budget.py` (PR #626) measures the Codex bucket
+    alone, against the whole account's allowance -- "Only this bucket is
+    seen" ([design/pbd-site.md](design/pbd-site.md), "The free plan") --
+    so with a second bucket each would believe it had the whole 10 GB.
+    - **The account's numbers are Cloudflare's own.** R2's GraphQL
+      Analytics API answers the account's storage and operations, per
+      bucket and in all (`r2StorageAdaptiveGroups`,
+      `r2OperationsAdaptiveGroups`, filtered by `accountTag` and
+      optionally `bucketName`;
+      <https://developers.cloudflare.com/r2/platform/metrics-analytics/>,
+      read 2026-10-17). They count both buckets, both writers, the
+      Functions' reads and the retries no bot sees, and reading them
+      costs no R2 operation. Each bot asks them at its start, with a
+      read-only analytics token (the permission is believed to be
+      *Account Analytics: Read*; the R2 page does not say, so step 3
+      checks it).
+    - **A bot's own bucket is still measured exactly**, by #626's
+      listing and every put and delete after it, because Cloudflare's
+      numbers lag the bucket. So the account's total is the bot's own
+      bucket, exact, plus every other bucket as Cloudflare last
+      reported it.
+    - **At 80% of the account's free storage, both buckets cut, and the
+      bigger cuts more.** The account comes down to 70% -- ten points --
+      and each bucket gives up its share of that in proportion to what it
+      holds: a bucket of size *s*, in an account totalling *T*, comes
+      down to *s* x 0.7 x 10 GB / *T*. At exactly 80% that is an eighth
+      of what each bucket holds; a bucket holding three quarters of the
+      account frees three times what the other does. Each bot works out
+      its own cut from the same numbers and takes it from its own bucket
+      alone, the order #626 set -- abandoned, then finished, the longest
+      untouched first, never a game being played -- so the two never
+      have to talk to each other.
+    - **The ten-point margin is what makes a late number safe.** A bot
+      that has cut is at its target exactly; with the other bucket still
+      reported at its old size, the total it sees is below 80% (two
+      equal buckets at 8 GB: one cut to 3.5 GB, the other still read as
+      4 GB, 7.5 GB in all), so it does not cut again on the other's
+      stale figure.
+    - **A bucket that cannot free its share** -- nothing ended left to
+      take off -- is one ERROR from its bot, as #626 has it; the other
+      bucket does not take more to cover it. If the account is still
+      past 80% at the next check, the rule runs again from the new
+      numbers.
+    - **Where Cloudflare's numbers cannot be read** (no analytics token,
+      the API down), a bot falls back to its own bucket against an equal
+      share of the allowance -- half each, with two buckets -- and says so
+      in its report. That is never laxer than the joint rule.
+    - **Writes are the account's too**: Cloudflare's Class A count for
+      the month, across both buckets, against the free million, with
+      #626's ERROR at 80%. Taking games off frees storage, not writes, so
+      a write alarm is still somebody's to decide.
 
 ## What it costs
 
@@ -268,9 +321,9 @@ From Cloudflare's R2 pricing page as the Codex worksheet read it on
 2026-10-16 (<https://developers.cloudflare.com/r2/pricing/>): 10 GB of
 storage, a million writes and ten million reads free each month, egress
 free, deletes free. The free tier is the account's, so the two sites share
-it.
+it, and decision 17 is how they keep inside it together.
 
-**Not measured yet; step 3 measures.** A board is "nearly a megabyte" of
+**Not measured yet; step 4 measures.** A board is "nearly a megabyte" of
 PNG. With superseded boards deleted, a game keeps one board per play plus
 the current one. A play count per game is not recorded anywhere this
 worksheet found; at an assumed 20 to 40 plays (two kickoffs, halftime,
@@ -324,7 +377,7 @@ publisher's.
 
 The publisher's own record is `data/d12ball_pbd.json`, keyed by `game_id`:
 each game's current play (heading, lines, board key), its history, the
-board keys already up, the history's version, whether step 8's import has
+board keys already up, the history's version, whether step 9's import has
 run, and when it last changed. The bucket is the copy; the file is the
 source.
 
@@ -339,16 +392,17 @@ is empty. A step lands by striking its row below
 | --- | --- | --- |
 | 1 | The public lines: one reading of what a result says to everybody, in the model; the series added | small |
 | 2 | The shapes: the record, the keys, the JSON, the segments, the play's heading, the design note | medium |
-| 3 | The store, the queue and `FOOLBOT_PUBLISH_*`; a board and a game measured | medium |
-| 4 | The hooks: the listener, the boards, the lifecycle, the startup publish, **View live board** | medium |
-| 5 | The page: `pbd-d12ball/`, the two lists, the game, the viewer, the Function | medium |
-| 6 | Deploy: the bucket, the token, the Pages project, its binding, `pbd.d12ball.com`, and the link from `d12ball.com` | small, most of it in dashboards |
-| 7 | Look back once: what the two publishers turned out to share, moved to `botkit/` | small |
-| 8 | The old plays, from the pins | small |
+| 3 | The free plan, shared: the budget moved to `botkit/`, the account's own numbers from Cloudflare, the two buckets cut together | medium |
+| 4 | The store, the queue and `FOOLBOT_PUBLISH_*`; a board and a game measured | medium |
+| 5 | The hooks: the listener, the boards, the lifecycle, the startup publish, **View live board** | medium |
+| 6 | The page: `pbd-d12ball/`, the two lists, the game, the viewer, the Function | medium |
+| 7 | Deploy: the bucket, the token, the Pages project, its binding, `pbd.d12ball.com`, and the link from `d12ball.com` | small, most of it in dashboards |
+| 8 | Look back once: what the two publishers turned out to share, moved to `botkit/` | small |
+| 9 | The old plays, from the pins | small |
 
-Steps 1 to 5 need no Cloudflare: the store has a fake, and the site is
-looked at through `scripts/serve_pbd.py --site d12ball` (step 5). Nothing
-goes public until step 6. Step 8 is last because the import runs behind
+Steps 1 to 6 need no Cloudflare: the store has a fake, and the site is
+looked at through `scripts/serve_pbd.py --site d12ball` (step 6). Nothing
+goes public until step 7. Step 9 is last because the import runs behind
 everything else -- the startup publish, the queue, the live site -- and is
 the one step that spends Discord requests.
 
@@ -383,7 +437,7 @@ public lines (step 1's reading over a GameResult) and the board's bytes
 (the cog's render_match_png) -- and nothing secret: never a GameResult's
 raw answer, never Narration.board's dict, never a pick, a hand or a
 shootout order. Publishing never fails a turn, never blocks a click, and
-spends no Discord request except in step 8. It runs only where
+spends no Discord request except in step 9. It runs only where
 FOOLBOT_PUBLISH_* is set. The web app's games are not on the site: nothing
 reads the web app's files, and nothing in webapp/ learns the site exists.
 
@@ -448,7 +502,7 @@ publisher's file, not the game's".
 
 Create cogs/d12ball_publish/ (a package the cog calls, not a mixin),
 copying the shapes of cogs/codex_publish/ rather than importing them --
-the worksheet's step 7 looks back once both exist:
+the worksheet's step 8 looks back once both exist:
 - record.py: PublishRecord over data/d12ball_pbd.json through
   gamekit/storage.py, its own two failure flags; per game (PublishedGame,
   to_dict/from_dict, every field defaulted): the current play's heading,
@@ -489,10 +543,66 @@ worksheet, the package and the note to CLAUDE.md's map and its "Read
 this before touching" table.
 ```
 
-### 3. The store, the queue and the variables
+### 3. The free plan, shared
+
+Built before this site writes a byte, and it changes the Codex
+publisher too, so its PR is reviewed as a change to both. Its one
+dashboard action is the author's: an API token that reads the account's
+analytics and nothing else (Cloudflare -> My Profile -> API Tokens ->
+Create, scoped to this account, with the permission step 3 confirms),
+into the `K:\` `.env` as `FOOLBOT_PUBLISH_ANALYTICS_TOKEN`. Until it is
+there, both bots run on the fallback, an equal share each.
 
 ```text
 Step 3 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
+free plan" and "The store", and the worksheet's decision 17.
+
+Move what is not Codex's out of cogs/codex_publish/budget.py into
+botkit/budget.py (it knows neither game, as botkit/objectstore.py does):
+the allowances, Usage (the exact meter of one bucket, its month's count),
+the report, and the offload plan over games handed in with a status
+order and an `updated` each -- each publisher hands in its own games and
+its own order. cogs/codex_publish/budget.py keeps the Codex names by
+re-export, and every Codex test passes unchanged.
+
+Add the account's numbers: botkit/r2_analytics.py, one query to
+Cloudflare's GraphQL Analytics API (r2StorageAdaptiveGroups and
+r2OperationsAdaptiveGroups, by accountTag, per bucketName) for every
+bucket's latest storage and the month's Class A and Class B operations,
+over aiohttp, which requirements.txt already has. Its token is
+FOOLBOT_PUBLISH_ANALYTICS_TOKEN, which the Codex bot reads as its
+CODEX_PUBLISH_ANALYTICS_TOKEN's fallback the way CODEX_LOG_* falls back
+to FOOLBOT_LOG_*, so one read-only token in the K:\ .env serves both.
+Check which permission the query needs against Cloudflare's docs and
+write it into docs/design/collaboration.md beside the variable. A
+failed query is a WARNING and the fallback below; it never fails a
+start.
+
+The joint rule (decision 17): the account's total is this bot's bucket,
+exact, plus every other bucket as Cloudflare reports it; at OFFLOAD_AT
+(80%) of the account's free storage this bucket comes down to its size
+x OFFLOAD_TO x the allowance / the total -- its share of the ten
+points, in proportion to what it holds. Where the analytics cannot be
+read, this bucket alone against an equal share of the allowance. The
+writes alarm reads the account's Class A count where it has one, this
+bot's own count otherwise. The report in #logs says each bucket's size,
+the account's total, which numbers are Cloudflare's and how old they
+are, and this bucket's target.
+
+Tests (a fake analytics answer, never the network): two buckets under
+the mark cutting nothing; at 80% each cutting its proportional share,
+the bigger more; a bucket of live games alone cutting nothing and one
+ERROR; a stale reading of the other bucket after a cut not cutting
+again; the fallback without a token or with the query failing; the
+writes alarm on the account's count; the Codex budget tests unchanged.
+Update docs/design/pbd-site.md, "The free plan" ("Only this bucket is
+seen" is no longer so), and CLAUDE.md's botkit row.
+```
+
+### 4. The store, the queue and the variables
+
+```text
+Step 4 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
 store", "The queue" and "Turning it on".
 
 botkit/objectstore.py is used as it stands. Add
@@ -506,7 +616,10 @@ names deleted after the live.json that stopped naming it, the lists on
 one queue of their own, a WARNING a failure and one ERROR for a run.
 The archive list is built from the publisher's record, not the bot's
 games, so a game exported by /debug export_archived_games stays listed
-(decision 13).
+(decision 13). The bucket is kept inside the free plan by step 3's
+botkit/budget.py, with this publisher's games and order -- abandoned,
+then finished, never a game being played -- and its own offload folder,
+data/d12ball_pbd_offloaded/.
 
 cogs/d12ball_publish/config.py: FOOLBOT_PUBLISH_ACCOUNT_ID,
 FOOLBOT_PUBLISH_ACCESS_KEY_ID, FOOLBOT_PUBLISH_SECRET_ACCESS_KEY,
@@ -527,10 +640,10 @@ the ERROR once, off without the variables or boto3 -- and an exported
 game still in archive.json.
 ```
 
-### 4. The hooks
+### 5. The hooks
 
 ```text
-Step 4 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
+Step 5 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
 hooks" and "Startup", docs/design/rate-limits.md, and
 docs/design/game-service.md at "One door".
 
@@ -576,10 +689,10 @@ nothing; and the
 requests a click spends unchanged.
 ```
 
-### 5. The page
+### 6. The page
 
 ```text
-Step 5 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
+Step 6 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
 page", "The viewer", "The Function" and "Looking at it", and
 docs/design/landing-pages.md at "The night palette, because a page is a
 screen" and "The D12 Ball page".
@@ -615,7 +728,7 @@ innerHTML -- and viewer.js identical to pbd/public/viewer.js, and no
 pattern of the Function's matching a codex/ key.
 ```
 
-### 6. Deploy
+### 7. Deploy
 
 The repository half is small; the dashboard half is the author's, run as
 the Codex site's checklist ([design/pbd-site.md](design/pbd-site.md),
@@ -640,10 +753,12 @@ the Codex site's checklist ([design/pbd-site.md](design/pbd-site.md),
    `d12ball.com`, `play.d12ball.com` and `propheticfools.com` are as
    they were.
 7. **Restart fool-bot** (`update_main_bot.ps1`); its log says the games
-   are published, or names the missing variable.
+   are published, or names the missing variable, and its free-plan
+   report in #logs names both buckets and the account's total (step 3).
+   The Codex bot's next start reports the same total.
 
 ```text
-Step 6 of docs/d12ball-pbd-site.md.
+Step 7 of docs/d12ball-pbd-site.md.
 
 Write the checklist into docs/design/d12ball-pbd-site.md, "Deploying",
 as docs/design/pbd-site.md's is written.
@@ -660,16 +775,17 @@ The dashboard half is the author's; the link lands only once the site
 answers, so this step's PR merges after the checklist has been run.
 ```
 
-### 7. Look back once
+### 8. Look back once
 
 ```text
-Step 7 of docs/d12ball-pbd-site.md. Read docs/design/codex.md at "What
+Step 8 of docs/d12ball-pbd-site.md. Read docs/design/codex.md at "What
 the two games share".
 
 Compare cogs/codex_publish/ with cogs/d12ball_publish/. What turned out
 the same apart from names -- most likely the queue's machinery, the
 record's file handling, the config reader, serve_pbd.py's server, and
-the pins' reading, which step 8 then writes against --
+the pins' reading, which step 9 then writes against (the budget is
+botkit's already, since step 3) --
 moves to botkit/publish/ (it knows neither game), each package keeping
 its own names by re-export, both sites' tests unchanged. What differs by
 game stays each game's. Byte for byte what each bucket receives is
@@ -677,17 +793,17 @@ unchanged; the queue tests of both prove it. If less than a module's
 worth is shared, say so and move nothing.
 ```
 
-### 8. The old plays, from the pins
+### 9. The old plays, from the pins
 
 The last step (decision 15): every game played before the site went
 live gets a history from its pins. The pins hold boards with a one-line
 caption and no log, so an imported play is its board and that line.
 
 ```text
-Step 8 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
+Step 9 of docs/d12ball-pbd-site.md. Read docs/design/pbd-site.md at "The
 old turns".
 
-On startup, after step 4's publish, for every game on the site whose
+On startup, after step 5's publish, for every game on the site whose
 record says its import has not run: list its channel's pins, keep the
 bot's own messages whose board is named exactly d12ball-pbd<that game's
 number>.png (board_image_filename), oldest first, and write each before
