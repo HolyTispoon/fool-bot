@@ -340,7 +340,7 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_space(*match.board.meeple_position(striker))
         match.pending_action = "shoot"
         match.pending_shot_is_set_up = True
-        match.ball.speed = 1  # the modifier is the speed: +1.
+        match.ball.speed = 2  # the modifier is half the speed: +1.
         if injure:
             match.injured.add(striker)
         game.match_state = match.to_dict()
@@ -400,7 +400,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
     The one place the skill modifier is withheld: a contest -- keeping
     a long High Ball, or a loose ball. The injured contestant rolls the
     bare d12, and **only** the skill comes off. A High Ball receiver
-    still gets the ball speed modifier, which is the case that killed
+    still gets the ball's speed, which is the case that killed
     the old "adds nothing" wording.
     """
 
@@ -426,7 +426,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         match.pending_loose_ball_is_high_pass = high_pass
         match.loose_ball_offense_player = offense
         match.loose_ball_defense_player = defense
-        match.ball.speed = 3  # the modifier is the speed: +3.
+        match.ball.speed = 3  # a High Ball contest adds the whole speed: +3.
         if injure == "offense":
             match.injured.add(offense)
         elif injure == "defense":
@@ -471,7 +471,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         ) = await self.contest()
 
         self.assertIn("Offensive skill +6", off_detail)
-        self.assertIn("+3 ball speed modifier", off_detail)
+        self.assertIn("+3 ball speed", off_detail)
         # d12 of 7, offensive skill 6, ball speed +3.
         self.assertEqual(off_total, 16)
         # Fullback's defensive skill is 6.
@@ -488,7 +488,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Offensive skill +6", off_detail)
         # The modifier the roll grants survives -- this is the case
         # "adds nothing" got wrong.
-        self.assertIn("+3 ball speed modifier", off_detail)
+        self.assertIn("+3 ball speed", off_detail)
         self.assertEqual(off_total, 10)
 
     async def test_an_injured_defender_rolls_bare(self) -> None:

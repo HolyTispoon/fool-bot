@@ -1275,13 +1275,14 @@ class BallState:
     @property
     def speed_modifier(self) -> int:
         """
-        **The one reading of the ball speed modifier** (Law 7.1): the
-        speed itself, never 0, since the speed never drops below 1. It
-        was half the speed, rounded down, until 2026-10-01 -- see
-        docs/rules-log.md. Unsigned: `MatchState.ball_speed_modifier`
-        is the signed one a High Ball outcome pays.
+        **The one reading of the ball speed modifier** (Law 7.1): half
+        the speed, rounded down -- nothing at speed 1, +6 at 12. It is
+        what a shot and a defense contesting with Steal or Intercept add
+        (Law 7.4.1). It was the speed itself from 2026-10-01 to
+        2026-10-18 -- see docs/rules-log.md. A High Ball contest adds the
+        whole speed instead, signed: `MatchState.high_ball_speed`.
         """
-        return self.speed
+        return self.speed // 2
 
 
 # One running clock over both periods: 00-15 in the first half, 15-30
@@ -2338,7 +2339,7 @@ class MatchState:
     # **The name is the old word for it and stays**: it is a saved key,
     # and a saved key is never renamed. Persisted because both of those outlive the
     # effect that set it: the shot is a view a restart re-attaches,
-    # and the contest is rolled a click later. See ball_speed_modifier.
+    # and the contest is rolled a click later. See high_ball_speed.
     pending_high_pass_overshoot: bool = False
     # An own-goal roll waiting on a button. The distance is the clock
     # cost of the maneuver that risked it, held here because it is the
@@ -2938,50 +2939,33 @@ class MatchState:
         """
         return self.high_pass_reaches_goal_zone(side, MIN_HIGH_PASS_DISTANCE)
 
-    def ball_speed_modifier(self) -> int:
+    def high_ball_speed(self) -> int:
         """
-        The ball speed modifier as this turn pays it: the speed itself
-        (`BallState.speed_modifier`), but **negated** when a High Ball reached the
-        goal zone -- see "Ball speed" and "High Ball" in the living
-        rules. A pass that reached the goal zone arrives too fast to do anything
+        What a *High Ball outcome* adds for the ball's speed: **the
+        whole speed**, not the halved modifier (Law 7.4.2), and
+        **negated** when the pass reached the goal zone (Law 7.5). A
+        pass that reached the goal zone arrives too fast to do anything
         with, so the speed that would have helped is what makes the
         shot hard, and the same sign carries into the long-pass contest
-        a declined set-up falls into.
-
-        This is the modifier a *High Ball outcome* pays: the set-up's
-        shot and that contest. The one place the modifier is paid to
-        somebody else -- a skill test the defense won with Steal
-        Intercept -- reads the speed itself, because reaching the goal
-        zone is the offense's problem and the intercept happens before any
-        High Ball has been thrown.
+        a declined set-up falls into. The High Ball contest asks it
+        either way; a shot asks it only after such a pass
+        (`shot_speed_modifier`). Never 0, since the speed never drops
+        below 1, so every pass that reaches the goal zone pays it.
         """
-        modifier = self.ball.speed_modifier
-        return -modifier if self.pending_high_pass_overshoot else modifier
-
-    def shot_speed_halved(self) -> bool:
-        """
-        Whether a score attempt taken now pays **half** the ball speed
-        modifier: a shot from midfield does (Law 5.2.2), one from the
-        outer zone before the goal pays it in full. The ball's zone,
-        which is the shooter's -- a shot is taken from the ball.
-        """
-        return self.ball.zone == Zone.MIDFIELD
+        speed = self.ball.speed
+        return -speed if self.pending_high_pass_overshoot else speed
 
     def shot_speed_modifier(self) -> int:
         """
         **The one reading of what a score attempt adds for the ball's
-        speed** (Law 5.2.2): `ball_speed_modifier`, halved and rounded
-        down from midfield (`shot_speed_halved`; the author,
-        2026-10-04). The magnitude is halved and the sign kept, though
-        no shot against the speed is ever taken from midfield: a High
-        Pass reaching the goal zone leaves its receiver on the last
-        space, in the outer zone.
+        speed** (Law 5.2.2): the ball speed modifier, half the speed
+        rounded down, from anywhere in range -- or, off a High Ball
+        that reached the goal zone, the whole speed against the shot
+        (`high_ball_speed`; the author, 2026-10-18).
         """
-        modifier = self.ball_speed_modifier()
-        if not self.shot_speed_halved():
-            return modifier
-        half = abs(modifier) // 2
-        return -half if modifier < 0 else half
+        if self.pending_high_pass_overshoot:
+            return self.high_ball_speed()
+        return self.ball.speed_modifier
 
     def own_goal_restart_space(self, side: TeamSide) -> tuple[Zone, int]:
         """

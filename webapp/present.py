@@ -3229,9 +3229,7 @@ def _contest_situation(
                 side["skill"] = f"{skill_name} skill +0 (injured)"
         extra = list(engine.overdrive_details(match, player_id))
         if attacking and high_pass:
-            extra.append(
-                f"{match.ball_speed_modifier():+d} ball speed modifier",
-            )
+            extra.append(f"{match.high_ball_speed():+d} ball speed")
         else:
             _, speed_line = engine.speed_roll_bonus(game, match, player_id)
             extra.extend(filter(None, [speed_line]))

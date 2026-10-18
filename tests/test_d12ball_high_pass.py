@@ -356,15 +356,16 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match, receiver, challenger = self.build_contest(
             is_high_pass=is_high_pass,
         )
-        match.ball.speed = 2  # a +2 modifier: the speed itself
+        match.ball.speed = 2  # +2: a High Ball contest adds the whole speed
         game.match_state = match.to_dict()
         return cog, game, match, receiver, challenger
 
     async def test_the_receiver_adds_ball_speed_to_keep_a_high_pass(
         self,
     ) -> None:
-        # 2026-08-07: the offense carries the ball speed modifier into
-        # a High Ball's contest. These rolls lose by 1 without it.
+        # 2026-08-07: the offense carries the ball's speed into a High
+        # Ball's contest -- the whole speed (Law 7.4.2). These rolls
+        # lose by 1 without it.
         cog, game, match, receiver, challenger = self.build_fast_contest(
             is_high_pass=True,
         )
@@ -387,7 +388,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         # 2026-08-10: a High Ball that ran out of field arrives too
-        # fast to settle, so the modifier that would have helped the
+        # fast to settle, so the speed that would have helped the
         # receiver keep it counts against them -- in the contest a
         # declined set-up falls into, exactly as it would have in the
         # shot. These rolls win by 1 without any modifier at all, so
@@ -396,7 +397,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
             is_high_pass=True,
         )
         match.pending_high_pass_overshoot = True
-        self.assertEqual(match.ball_speed_modifier(), -2)
+        self.assertEqual(match.high_ball_speed(), -2)
         game.match_state = match.to_dict()
         possession_before = match.ball.possession
 
@@ -631,7 +632,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
     in the rows handed to the dice render, so the roll is stopped
     there -- everything past it is the goal-or-miss aftermath.
 
-    See MatchState.ball_speed_modifier and "Ball speed" in
+    See MatchState.shot_speed_modifier and "Ball speed" in
     docs/living-rules.md.
     """
 
@@ -658,8 +659,8 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
             match.ball.possession
         ).field_players[0]
         # From the last space before the goal home attacks, where an
-        # overshot set-up is taken and the modifier counts in full --
-        # or from the kickoff space in midfield, where a shot pays half.
+        # overshot set-up is taken -- or from the kickoff space in
+        # midfield, which pays the same as anywhere else in range.
         if not from_midfield:
             match.ball.zone = Zone.VISITORS_ZONE
             match.ball.space_index = 1
@@ -667,7 +668,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
             match.active_player_id, match.ball.zone, match.ball.space_index,
         )
         match.pending_action = "shoot"
-        match.ball.speed = 3  # a modifier of 3, either way round
+        match.ball.speed = 3  # +1 halved, or the whole 3 against
         match.pending_high_pass_overshoot = overshot
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
@@ -691,33 +692,34 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
                 await view.roll(build_interaction())
         return entries[0][0]
 
-    async def test_an_ordinary_shot_adds_it(self) -> None:
+    async def test_an_ordinary_shot_adds_half_the_speed(self) -> None:
+        """Law 7.1.1: speed 3 adds 1, half of it rounded down."""
         _, _, _, detail, total, _, _ = await self.roll_shot(overshot=False)
 
-        self.assertIn("+3 ball speed modifier", detail)
-        self.assertNotIn("-3 ball speed modifier", detail)
+        self.assertIn("+1 ball speed modifier", detail)
+        self.assertNotIn("-3 ball speed", detail)
         skill = int(detail[1].removeprefix("Offensive skill +"))
-        self.assertEqual(total, 7 + skill + 3)
+        self.assertEqual(total, 7 + skill + 1)
 
-    async def test_an_overshot_set_up_subtracts_it(self) -> None:
+    async def test_an_overshot_set_up_subtracts_the_whole_speed(self) -> None:
+        """Law 7.5.1: the whole speed counts against it, not half."""
         _, _, _, detail, total, _, _ = await self.roll_shot(overshot=True)
 
-        self.assertIn("-3 ball speed modifier", detail)
+        self.assertIn("-3 ball speed", detail)
         skill = int(detail[1].removeprefix("Offensive skill +"))
         self.assertEqual(total, 7 + skill - 3)
 
-    async def test_a_shot_from_midfield_adds_half(self) -> None:
+    async def test_a_shot_from_midfield_adds_the_same(self) -> None:
         """
-        A score attempt from midfield adds half the modifier, rounded
-        down (Law 5.2.2; the author, 2026-10-04): speed 3 adds 1.
+        A score attempt from midfield adds the modifier as one from the
+        outer zone does (Law 5.2.2; the author, 2026-10-18): halved
+        once, never again for the zone.
         """
         _, _, _, detail, total, _, _ = await self.roll_shot(
             overshot=False, from_midfield=True,
         )
 
-        self.assertIn(
-            "+1 ball speed modifier (halved from midfield)", detail,
-        )
+        self.assertIn("+1 ball speed modifier", detail)
         skill = int(detail[1].removeprefix("Offensive skill +"))
         self.assertEqual(total, 7 + skill + 1)
 
