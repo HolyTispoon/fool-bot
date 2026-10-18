@@ -113,8 +113,14 @@ kept.
 
 **The discard piles are face up** (the author): the public 2.0 prompt carries both coaches'
 piles as one picture (`render_discard_piles`, `D12Ball.build_discard_file`) once either has
-discarded anything -- the upload the 1.0 hand image made, so no extra request. Copies of a card
-are drawn once with a count under them. The model's reading is
+discarded anything -- the upload the 1.0 hand image made, so no extra request. **A discarded
+card is a chip, not the card** (the author, 2026-10-18, asking for a more condensed discard
+view; the whole cards made two piles 1534 x 1298 px): the rank badge and the name in the card's own colour, a two-headed
+card's two halves both upright, offense over defense, an advanced card one block in its gambit
+colour with its "ADVANCED ..." line (`discard_chip`). The pile is read for what has gone, and a
+coach knows the fifteen cards, so nothing a card spells out for playing it is on the chip. Copies
+of a card are one chip with the count on it -- only a two-headed card has copies -- so a pile is
+at most nine chips, two short rows. The model's reading is
 `RulesEngine.maneuver_discards`; a picture is not a button, so it is read off the match, as the
 field strip is.
 
