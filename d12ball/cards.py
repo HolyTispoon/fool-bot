@@ -3070,22 +3070,104 @@ def render_deck_hand(
     )
 
 
-#: A discard pile's cards, smaller than a hand's: the pile is read for
-#: what has gone, not played from.
-DISCARD_CARD_WIDTH = 230
-DISCARD_MAX_COLUMNS = 6
+#: **A discarded card is a chip, not a card** (the author, 2026-10-18:
+#: the piles drawn as whole cards made a picture taller than the
+#: prompt it rides on). The pile is read for what has gone, not played
+#: from, and a coach knows the fifteen cards, so a chip carries what
+#: tells one from another -- the rank badge and the name in the card's
+#: own colour -- and nothing a card spells out for playing it. A
+#: two-headed card is its two halves, both upright, offense over
+#: defense; an advanced card is one block in its gambit colour with
+#: the card's own "ADVANCED ..." line. In chip units, drawn at
+#: `SUPERSAMPLE`.
+DISCARD_CHIP_WIDTH = 250
+DISCARD_CHIP_BAND = 46
+DISCARD_CHIP_RADIUS = 12
+DISCARD_CHIP_BADGE = 17
+#: The count of a card's copies in the pile -- "x3" -- rides on the
+#: chip's right-hand end, across both halves: only a two-headed card
+#: has copies (three a rank), so an advanced chip never carries one.
+DISCARD_COUNT_RADIUS = 21
+DISCARD_MAX_COLUMNS = 5
+
+#: Each chip drawn once, by card id and count.
+_DISCARD_CHIPS: dict[tuple[str, int], Image.Image] = {}
 
 
-def discard_face(
-    catalog: ManeuverCatalog, players: PlayerCatalog, card_id: str,
+def discard_chip(
+    catalog: ManeuverCatalog, card_id: str, count: int = 1,
 ) -> Image.Image:
-    """A discarded card face up: a two-headed card offense upright, an
-    advanced card on its own side."""
-    side = (
-        "offense" if maneuver_deck.is_basic_card(card_id)
-        else catalog.side_of(card_id)
+    """One discarded card as a chip (`DISCARD_CHIP_WIDTH`), with
+    transparent corners, and `count` on it where it is more than one."""
+    cached = _DISCARD_CHIPS.get((card_id, count))
+    if cached is not None:
+        return cached
+    width, band = DISCARD_CHIP_WIDTH, DISCARD_CHIP_BAND
+    height = band * 2
+    pen = Pen((width, height), CARD_FACE)
+    count_room = DISCARD_COUNT_RADIUS * 2 + 8 if count > 1 else 0
+    name_room = width - 20 - DISCARD_CHIP_BADGE * 2 - 12 - 10 - count_room
+
+    def badge(center_y: float, maneuver, is_offense: bool, color: str) -> None:
+        center = (10 + DISCARD_CHIP_BADGE, center_y)
+        pen.circle(center, DISCARD_CHIP_BADGE, fill=CARD_FACE)
+        pen.text(
+            center, f"{'O' if is_offense else 'D'}{maneuver.rank}",
+            rank_font(15), color, anchor="mm",
+        )
+
+    name_x = 10 + DISCARD_CHIP_BADGE * 2 + 12
+    if maneuver_deck.is_basic_card(card_id):
+        pen.rect((0, 0, width, height), radius=DISCARD_CHIP_RADIUS,
+                 fill=DEFENSE_COLOR)
+        pen.rect((0, 0, width, band), radius=DISCARD_CHIP_RADIUS,
+                 fill=OFFENSE_COLOR)
+        pen.rect((0, band / 2, width, band), fill=OFFENSE_COLOR)
+        for index, (side, color) in enumerate(
+            (("offense", OFFENSE_COLOR), ("defense", DEFENSE_COLOR))
+        ):
+            maneuver = maneuver_deck.plays_as(catalog, card_id, side)
+            middle = band * index + band / 2
+            badge(middle, maneuver, side == "offense", color)
+            face = fitted_bold_font(
+                pen, maneuver.name, name_room, max_size=26, min_size=16,
+            ) or font(16, bold=True)
+            pen.text((name_x, middle), maneuver.name, face, "#ffffff",
+                     anchor="lm")
+    else:
+        side = catalog.side_of(card_id)
+        is_offense = side == "offense"
+        maneuver = catalog.definition(card_id)
+        color = OFFENSE_COLOR_GAMBIT if is_offense else DEFENSE_COLOR_GAMBIT
+        pen.rect((0, 0, width, height), radius=DISCARD_CHIP_RADIUS, fill=color)
+        badge(height / 2, maneuver, is_offense, color)
+        face = fitted_bold_font(
+            pen, maneuver.name, name_room, max_size=28, min_size=16,
+        ) or font(16, bold=True)
+        subtitle = f"ADVANCED {catalog.counterpart(maneuver).name.upper()}"
+        subtitle_face = fitted_bold_font(
+            pen, subtitle, name_room, max_size=14, min_size=10, step=1,
+        ) or font(10, bold=True)
+        pen.text((name_x, height / 2 + 2), maneuver.name, face, "#ffffff",
+                 anchor="ls")
+        pen.text((name_x, height / 2 + 10), subtitle, subtitle_face,
+                 "#ffffff", anchor="lt")
+    if count > 1:
+        center = (width - 10 - DISCARD_COUNT_RADIUS, height / 2)
+        pen.circle(center, DISCARD_COUNT_RADIUS, fill=CARD_FACE,
+                   outline=INK, width=2)
+        pen.text(center, f"x{count}", font(19, bold=True), INK, anchor="mm")
+
+    chip = pen.image.resize((width, height), Image.Resampling.LANCZOS)
+    mask = Image.new("L", pen.image.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, pen.image.width - 1, pen.image.height - 1),
+        radius=px(DISCARD_CHIP_RADIUS), fill=255,
     )
-    return deck_card_face(catalog, players, card_id, side)
+    chip = chip.convert("RGBA")
+    chip.putalpha(mask.resize((width, height), Image.Resampling.LANCZOS))
+    _DISCARD_CHIPS[(card_id, count)] = chip
+    return chip
 
 
 def render_discard_piles(
@@ -3096,17 +3178,19 @@ def render_discard_piles(
     """
     **The 2.0 discard piles, face up**, for the public maneuver prompt
     (the author, 2026-10-16: the discard is visible to both coaches).
-    `piles` is one `(heading, colour, card ids)` per coach. Copies of a
-    card are drawn once with a count on them -- three basic Pass /
-    Deflect cards are one face marked x3 -- so a pile of eleven stays
-    one or two rows. An empty pile says so.
+    `piles` is one `(heading, colour, card ids)` per coach. Each card is
+    a chip (`discard_chip`), and copies of a card are one chip with a
+    count on it -- three basic Pass / Deflect cards are one chip marked
+    x3 -- so a pile is at most nine chips, two short rows. An
+    empty pile says so. `players` is unused since the chips, and kept
+    so the cog's call is unchanged.
     """
-    scale = DISCARD_CARD_WIDTH / CARD_WIDTH
-    height = round(CARD_HEIGHT * scale)
-    heading_font = load_font(HAND_HEADING_SIZE, bold=True)
-    count_font = load_font(34, bold=True)
-    empty_font = load_font(26)
-    band = HAND_HEADING_SIZE + HAND_HEADING_GAP
+    heading_font = load_font(26, bold=True)
+    empty_font = load_font(22)
+    heading_band = 26 + 10
+    chip_height = DISCARD_CHIP_BAND * 2
+    gap = 12
+    cell = DISCARD_CHIP_WIDTH
 
     def order(card_id: str) -> tuple:
         if maneuver_deck.is_basic_card(card_id):
@@ -3118,37 +3202,33 @@ def render_discard_piles(
         counts: dict[str, int] = {}
         for card_id in cards:
             counts[card_id] = counts.get(card_id, 0) + 1
-        faces = [
-            (
-                screen_cutout(discard_face(catalog, players, card_id)).resize(
-                    (DISCARD_CARD_WIDTH, height), Image.Resampling.LANCZOS,
-                ),
-                counts[card_id],
-            )
+        chips = [
+            discard_chip(catalog, card_id, counts[card_id])
             for card_id in sorted(counts, key=order)
         ]
         rows = [
-            faces[start:start + DISCARD_MAX_COLUMNS]
-            for start in range(0, len(faces), DISCARD_MAX_COLUMNS)
+            chips[start:start + DISCARD_MAX_COLUMNS]
+            for start in range(0, len(chips), DISCARD_MAX_COLUMNS)
         ]
         blocks.append((f"{heading} ({len(cards)})", colour, rows))
 
-    # A row of cards carries a line under it for the copies; an empty
-    # pile is one line of text.
-    count_room = 46
-    empty_room = 40
+    empty_room = 30
     columns = max(
         [len(row) for _, _, rows in blocks for row in rows] + [3]
+    )
+    heading_width = max(
+        heading_font.getlength(heading) for heading, _, _ in blocks
     )
     canvas = Image.new(
         "RGB",
         (
-            HAND_MARGIN * 2 + DISCARD_CARD_WIDTH * columns
-            + HAND_GAP * (columns - 1),
-            HAND_MARGIN * 2 + sum(
-                band + (
-                    sum(height + count_room + HAND_GAP for _ in rows)
-                    if rows else empty_room + HAND_GAP
+            HAND_MARGIN * 2 + max(
+                round(heading_width), cell * columns + gap * (columns - 1),
+            ),
+            HAND_MARGIN * 2 - gap + sum(
+                heading_band + (
+                    len(rows) * (chip_height + gap)
+                    if rows else empty_room + gap
                 )
                 for _, _, rows in blocks
             ),
@@ -3159,23 +3239,18 @@ def render_discard_piles(
     y = HAND_MARGIN
     for heading, colour, rows in blocks:
         draw.text((HAND_MARGIN, y), heading, font=heading_font, fill=colour)
-        y += band
+        y += heading_band
         if not rows:
             draw.text(
                 (HAND_MARGIN, y), "Nothing discarded yet.",
                 font=empty_font, fill=MUTED,
             )
-            y += empty_room + HAND_GAP
+            y += empty_room + gap
         for row in rows:
-            for column, (face, count) in enumerate(row):
-                x = HAND_MARGIN + column * (DISCARD_CARD_WIDTH + HAND_GAP)
-                canvas.paste(face, (x, y), face)
-                if count > 1:
-                    draw.text(
-                        (x + DISCARD_CARD_WIDTH / 2, y + height + 6),
-                        f"x{count}", font=count_font, fill=INK, anchor="ma",
-                    )
-            y += height + count_room + HAND_GAP
+            for column, chip in enumerate(row):
+                x = HAND_MARGIN + column * (cell + gap)
+                canvas.paste(chip, (x, y), chip)
+            y += chip_height + gap
     buffer = BytesIO()
     canvas.save(buffer, format="PNG")
     buffer.seek(0)
