@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-17.
+**As of:** 2026-10-18.
 
 ## Where the rules come from
 
@@ -154,6 +154,37 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-18 -- author, 2.0: roles belong to the formation, and there are no role abilities
+
+**A rule changed, in 2.0 alone.** The author: *"Players no longer have roles. Formations have
+roles in places. ... Players keep their abilities scores but not the basic role abilities which
+for now are gone in 2.0."* The rules are [rules-2.0.md](rules-2.0.md) section 4; the living
+rules, 1.0's, are unchanged. Asked the same day, the author answered:
+
+- **Which role is where** (rules-2.0 4.2). The first message said there is always one of each
+  role on the field; asked to confirm a layout, the author gave one where that holds for 2-2-2
+  alone: *"2-2-2 is correct. 2-3-1 would mean playing with 2 midfielders and no winger. 3-2-1
+  means two defenders and no wingers. 1-3-2 means no defender and two midfielders. 1-2-3 is no
+  defender and two wingers."* So the Fullback, the Playmaker and the Striker are in every
+  formation, one each, and the Defenders, Midfielders and Wingers are what a formation's depth
+  changes. Midfield's three in 2-3-1 and 1-3-2 are read as two Midfielders and the Playmaker,
+  since both answers name two Midfielders.
+- **What a role attaches to** (4.3): *"Assignment of players should be to roles. And roles are
+  attached to zones by formation."* So a role is in a zone, not on a space, and a substitution
+  and a zone assignment carry it.
+- **The advanced cards' role lines go too** (4.5), not just the six basic abilities -- which
+  means no Pass or Pinpoint sets up a shot and a Striker adds nothing to one.
+- **The standard deal starts the same six as 1.0** (4.4), each in the role of the place they are
+  dealt to.
+
+Read from those answers rather than asked: a formation change deals by defensive skill as Law
+14.7.3 already does, and each player takes the zone's roles in the table's order (4.3c) -- so
+the highest defensive skill dealt to the back zone is its Fullback. Nothing turns on it while a
+role carries no rule of its own.
+
+**Not built yet.** A 2.0 game on the bot still plays every role ability and deals by the
+players' own roles.
 
 ### 2026-10-17 -- author, a space is numbered like a number line
 

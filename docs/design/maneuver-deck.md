@@ -124,4 +124,7 @@ deck, shuffles and deals four (`maneuver_deck.reshuffled`), and says so in halft
 message. A 1.0 halftime is unchanged, which the windows golden pins.
 
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
-print-and-play kit; the Learn to Play.
+print-and-play kit; the Learn to Play; and **the roles of rules-2.0 section 4** (the author,
+2026-10-18) -- roles held by the formation's zones rather than the players, and no role
+abilities. A 2.0 game on the bot still plays every role ability and deals by each player's own
+role.
