@@ -158,6 +158,14 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   then not say who holds it.
 - **A substitute takes the outgoing card's role** (`substitute`), and **a zone assignment trades
   the two roles** (`exchange_field_players`).
+- **The Playmaker takes the kickoff** (rules-2.0 4.4): `RulesEngine.hand_kickoff_to_playmaker`
+  makes them the carrier just before a restart from the kickoff space is played -- at the end
+  of setup (`finish_setup_coaching`), of halftime (`finish_halftime`) and of a goal's restart
+  (`run_back_kickoff_fill`), once every arrangement and window has settled. A carrier rather
+  than a new reading of who may handle, because "the ball was left with somebody" is already
+  what a carrier says (Law 4.2.2) and `turn_handler_candidates` already honours it. It only
+  changes anything where somebody shares the Playmaker's space -- an Ooze (rules-2.0 4.6e) --
+  since nobody else's arrangement puts them on the kickoff space.
 - **A formation change** re-deals by defensive skill as in 1.0 (`deploy_side`) and then reads
   the roles off the new shape. That is a stand-in: the change that keeps the Fullback, the
   Playmaker and the Striker on their spaces is the next step.
@@ -169,7 +177,7 @@ leaving the coach to change anything with role trades and space positioning, whi
 reach every assignment the rules allow.
 
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
-print-and-play kit; the Learn to Play; and **the roles of rules-2.0 section 4** (the author,
-2026-10-18) -- roles held by the formation's zones rather than the players, the Fullback, the
-Playmaker and the Striker on fixed spaces, the Playmaker taking the kickoff, and no role abilities. A 2.0 game on the bot still plays every role ability and deals by each player's own
-role.
+print-and-play kit; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the
+author, 2026-10-18): a formation change that keeps the three unique roles on their spaces, the
+Coaching Choice's movement rules (4.6), and roles in the labels and pictures -- a bench player
+named by their skills.

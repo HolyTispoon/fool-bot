@@ -323,6 +323,7 @@ def finish_setup_coaching(
     the first beat is staged by the turn prompt behind that click.
     """
     match.pending_setup_stage = None
+    engine.hand_kickoff_to_playmaker(match)
 
     kicking_off = match.setup_for_side(match.ball.possession)
     caption = (
@@ -560,6 +561,7 @@ def finish_halftime(
     halftime flag and hands play to the second half.
     """
     match.pending_halftime_stage = None
+    engine.hand_kickoff_to_playmaker(match)
 
     # A half begins the way any other new play does: with the board
     # everyone is about to play from, which `new_play` says and the

@@ -765,6 +765,26 @@ class RulesEngine:
             return False
         return self.role_of(match, player_id) == role
 
+    def hand_kickoff_to_playmaker(self, match: MatchState) -> None:
+        """
+        **The Playmaker takes the kickoff** in 2.0 (docs/rules-2.0.md
+        4.4): a restart from a side's kickoff space -- each half's
+        kickoff, a goal's, an own goal's -- leaves the ball with that
+        side's Playmaker as its carrier (Law 4.2.2), rather than with
+        whoever stands there for their coach to choose between. Asked
+        just before the restart is played, once every arrangement and
+        window has settled, so the Playmaker is on their own kickoff
+        space (rules-2.0 4.3b); an Ooze sharing it is why it is asked
+        at all. A 1.0 match, and a Playmaker somewhere else, change
+        nothing.
+        """
+        if not match.formation_roles:
+            return
+        for card in match.eligible_ball_handlers():
+            if self.role_of(match, card) == PlayerRole.PLAYMAKER:
+                match.set_ball_carrier(card)
+                return
+
     def special_abilities_apply(self, game: D12BallGame) -> bool:
         """
         Whether this game plays the **special abilities** and the
