@@ -863,6 +863,14 @@ class TeamSetup:
 # reads their own shape from their own goal, and which end of the board
 # that is depends on the side they are playing (zone_for_area).
 SETUP_AREAS = ("own_goal", "midfield", "opponent_goal")
+# D12 Ball 2.0's roles by zone (docs/rules-2.0.md 4.2): each setup
+# area's unique role, which its first player takes, and the standard
+# role every other player in it holds.
+FORMATION_ZONE_ROLES = {
+    "own_goal": (PlayerRole.FULLBACK, PlayerRole.DEFENDER),
+    "midfield": (PlayerRole.PLAYMAKER, PlayerRole.MIDFIELDER),
+    "opponent_goal": (PlayerRole.STRIKER, PlayerRole.WINGER),
+}
 FIELD_PLAYER_COUNT = 6
 
 # The shortest High Ball a coach may choose. A Fullback's ability
@@ -5103,6 +5111,11 @@ class MatchState:
 
         zone_index = setup.zones[zone].index(fielded_player_id)
         setup.zones[zone][zone_index] = incoming_player_id
+        # In 2.0 the player coming on takes the outgoing player's role
+        # too (docs/rules-2.0.md 4.6b).
+        roles = self.formation_roles.get(side.value)
+        if roles is not None and fielded_player_id in roles:
+            roles[incoming_player_id] = roles.pop(fielded_player_id)
 
         if incoming_player_id in setup.team_board.bench:
             setup.team_board.bench.remove(incoming_player_id)
@@ -5223,6 +5236,63 @@ class MatchState:
         side = TeamSide(side)
         self.swap_field_positions(side, player_id, other_player_id)
         self.swap_meeple_positions(side, player_id, other_player_id)
+        # In 2.0 a zone assignment trades the two players' roles
+        # (docs/rules-2.0.md 4.6c).
+        roles = self.formation_roles.get(side.value)
+        if roles is not None and player_id in roles and other_player_id in roles:
+            roles[player_id], roles[other_player_id] = (
+                roles[other_player_id], roles[player_id],
+            )
+
+    def unique_role_space(self, side: TeamSide, area: str) -> int:
+        """
+        The space a zone's **unique role** stands on in 2.0
+        (docs/rules-2.0.md 4.3b), for one side: the Fullback on the last
+        space before their own goal, the Playmaker on their own kickoff
+        space, the Striker on the last space before the goal they
+        attack. `area` is one of `SETUP_AREAS`, read from the coach's
+        own end.
+        """
+        side = TeamSide(side)
+        if area == "midfield":
+            return self.kickoff_space_for(side)
+        zone = zone_for_area(side, area)
+        last = len(self.board.spaces[zone]) - 1
+        # Home defends the low indices: its own goal is before index 0
+        # of the Home Zone, the goal it attacks after the last index of
+        # the Visitors Zone, and the visitors the mirror of both.
+        nearer_low_end = (area == "own_goal") == (side == TeamSide.HOME)
+        return 0 if nearer_low_end else last
+
+    def assign_formation_roles(self, side: TeamSide) -> None:
+        """
+        Give each of a side's fielded cards the role its place in the
+        formation carries (docs/rules-2.0.md 4.2): in each zone the card
+        standing on the unique role's space takes the unique role --
+        the nearest to it where nobody stands there -- and every other
+        card in the zone the standard role. Asked where a side has just
+        been dealt, at kickoff and after a formation change, when no two
+        of its cards share a space.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        roles: dict[str, str] = {}
+        for area in SETUP_AREAS:
+            unique, standard = FORMATION_ZONE_ROLES[area]
+            zone = zone_for_area(side, area)
+            cards = list(setup.zones.get(zone, []))
+            if not cards:
+                continue
+            space = self.unique_role_space(side, area)
+
+            def distance(card: str) -> int:
+                position = self.board.meeple_position(card)
+                return 10**6 if position is None else abs(position[1] - space)
+
+            holder = min(cards, key=distance)
+            for card in cards:
+                roles[card] = (unique if card == holder else standard).value
+        self.formation_roles[side.value] = roles
 
     def positioning_swap_candidates(
         self,
@@ -5359,6 +5429,11 @@ class MatchState:
 
         for player_id, zone, space_index in placement:
             self.board.place_meeple(player_id, Zone(zone), space_index)
+        # A 2.0 side's roles go with the new shape (docs/rules-2.0.md
+        # 4.2). Until a formation change keeps the three unique roles on
+        # their spaces, the shape it deals decides who holds them.
+        if side.value in self.formation_roles:
+            self.assign_formation_roles(side)
 
     def kickoff_space_for(self, side: TeamSide) -> int:
         """
