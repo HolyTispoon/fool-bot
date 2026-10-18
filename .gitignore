@@ -66,6 +66,11 @@ data/codexbot.stderr.log
 data/codex_games.json
 data/codex_games.tmp
 data/codex_command_ids.json
+data/codex_pbd.json
+data/codex_pbd.tmp
+data/codex_pbd_usage.json
+data/codex_pbd_usage.tmp
+data/codex_pbd_offloaded/
 data/deploy_notice.json
 data/deploy_notice.tmp
 data/tunnel.pid
