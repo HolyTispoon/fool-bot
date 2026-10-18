@@ -526,6 +526,19 @@ class DinkyAI(AIStrategy):
                         "incoming_player_id": incoming_player_id,
                     },
                 )
+        for option in options.repositions:
+            # A 2.0 teammate left on a unique role's space moves to the
+            # first space open to them before Dinky is done.
+            if option.player_id in options.must_move and option.spaces:
+                return Action(
+                    prompt.kind,
+                    "reposition",
+                    {
+                        "side": side,
+                        "player_id": option.player_id,
+                        "space_index": option.spaces[0].space_index,
+                    },
+                )
         if options.finish_refusal is not None:
             cover = self._kickoff_cover(match, side, options)
             if cover is not None:

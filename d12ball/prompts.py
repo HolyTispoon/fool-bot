@@ -901,6 +901,11 @@ class CoachingHubOptions:
     #: occasion's and the half's count, so a frontend that says it
     #: reads it here rather than working it out.
     allowance: str = ""
+    #: The 2.0 teammates left on a unique role's space they may not
+    #: share, who have to move before the window closes
+    #: (`MatchState.unique_space_sharers`); each one's `repositions`
+    #: are the empty spaces open to them.
+    must_move: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -922,6 +927,7 @@ class CoachingHubOptions:
             ],
             "finish_refusal": self.finish_refusal,
             "allowance": self.allowance,
+            "must_move": list(self.must_move),
         }
 
 
@@ -3046,6 +3052,10 @@ def _coaching_hub_options(
         repositions=tuple(repositions),
         finish_refusal=engine.coaching_finish_refusal(match, side, game),
         allowance=engine.substitution_allowance_label(match),
+        must_move=(
+            tuple(match.unique_space_sharers(side, exempt))
+            if positioning else ()
+        ),
     )
 
 

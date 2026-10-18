@@ -5368,6 +5368,10 @@ class MatchState:
         exempt = set(spread_exempt_ids)
         if player_id in exempt:
             return [(index, ()) for index in spaces]
+        # Somebody who has to move off a unique role's space goes to an
+        # empty one: a trade would only put the teammate there instead
+        # (see `unique_space_sharers`).
+        moving_off = player_id in self.unique_space_sharers(side, exempt)
         unique_space = self.unique_role_space(side, area_for_zone(side, zone))
         holder = next(
             (
@@ -5385,12 +5389,87 @@ class MatchState:
                 for other in others
             ):
                 continue
-            targets.append((index, tuple(
+            trade = tuple(
                 other for other in others
                 if other not in exempt
                 and not self.holds_unique_role(side, other)
-            )))
+            )
+            if moving_off and trade:
+                continue
+            targets.append((index, trade))
         return targets
+
+    def unique_space_sharers(
+        self,
+        side: TeamSide,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[str]:
+        """
+        A 2.0 side's teammates standing on a unique role's space they
+        may not share -- the Fullback's, the Playmaker's or the
+        Striker's, where the holder is not a Spreadable Ooze. Nobody
+        puts one there: a teammate may share an Ooze's space
+        (docs/rules-2.0.md 4.6e), and a zone assignment or a
+        substitution can then put somebody who is not an Ooze in that
+        role. The trade stands and the teammate moves off (the author,
+        2026-10-18) -- `settle_unique_space_sharers` where only one
+        space is open to them, the coach where several are, and the
+        window may not close until they have
+        (`RulesEngine.coaching_finish_refusal`). An Ooze in a standard
+        role may stand anywhere, so it never has to move.
+        """
+        side = TeamSide(side)
+        if side.value not in self.formation_roles:
+            return []
+        setup = self.setup_for_side(side)
+        team = set(setup.field_players)
+        exempt = set(spread_exempt_ids)
+        sharers = []
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            holder = next(
+                (
+                    card for card in setup.zones.get(zone, [])
+                    if self.holds_unique_role(side, card)
+                ),
+                None,
+            )
+            if holder is None or holder in exempt:
+                continue
+            space = self.unique_role_space(side, area)
+            sharers.extend(
+                card for card in self.board.spaces[zone][space]
+                if card in team and card != holder and card not in exempt
+            )
+        return sharers
+
+    def settle_unique_space_sharers(
+        self,
+        side: TeamSide,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[tuple[str, Zone, int]]:
+        """
+        Move off every teammate `unique_space_sharers` names who has
+        exactly one space to go to, and report each move; one with a
+        choice stays for the coach. A zone never holds more players
+        than spaces, so with two on one space there is always an empty
+        one (docs/rules-2.0.md 4.3c).
+        """
+        side = TeamSide(side)
+        moved = []
+        for card in self.unique_space_sharers(side, spread_exempt_ids):
+            open_spaces = [
+                index
+                for index, trade in self.positioning_targets(
+                    side, card, spread_exempt_ids,
+                )
+                if not trade
+            ]
+            if len(open_spaces) == 1:
+                zone = self.setup_for_side(side).assigned_zone(card)
+                self.board.place_meeple(card, zone, open_spaces[0])
+                moved.append((card, zone, open_spaces[0]))
+        return moved
 
     def positioning_swap_candidates(
         self,

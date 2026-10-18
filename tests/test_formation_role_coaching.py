@@ -7,9 +7,12 @@ docs/design/maneuver-deck.md).
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from d12ball import prompts
+from d12ball.ai import DinkyAI
 from d12ball.components import (
+    CoachingOccasion,
     PlayerRole,
     RuleRefusal,
     TeamSide,
@@ -132,6 +135,70 @@ class OozeTests(unittest.TestCase):
             )
         )
         self.assertEqual(space_of(match, fullback), (Zone.HOME_ZONE, 0))
+
+
+class MovingOffTests(unittest.TestCase):
+    """A teammate sharing an Ooze's unique space is moved off once
+    somebody who is not an Ooze takes the role; with a choice, the
+    coach chooses (the author, 2026-10-18)."""
+
+    def share_the_fullbacks_space(self, board_size: int):
+        engine, game, match = kickoff(Edition.TWO, board_size)
+        fullback = fielded(match, PlayerRole.FULLBACK)
+        defender = fielded(match, PlayerRole.DEFENDER)
+        winger = fielded(match, PlayerRole.WINGER)
+        ooze = {fullback}
+        match.position_meeple(HOME, defender, 0, spread_exempt_ids=ooze)
+        match.exchange_field_players(HOME, fullback, winger)
+        self.assertEqual(engine.role_of(match, winger), PlayerRole.FULLBACK)
+        return engine, game, match, defender, ooze
+
+    def test_one_open_space_moves_them_there(self) -> None:
+        engine, _, match, defender, ooze = self.share_the_fullbacks_space(7)
+        self.assertEqual(match.unique_space_sharers(HOME, ooze), [defender])
+        self.assertEqual(
+            match.settle_unique_space_sharers(HOME, ooze),
+            [(defender, Zone.HOME_ZONE, 1)],
+        )
+        self.assertEqual(match.unique_space_sharers(HOME, ooze), [])
+
+    def test_a_choice_of_spaces_is_the_coachs(self) -> None:
+        engine, game, match, defender, ooze = self.share_the_fullbacks_space(9)
+        self.assertEqual(match.settle_unique_space_sharers(HOME, ooze), [])
+        self.assertEqual(space_of(match, defender), (Zone.HOME_ZONE, 0))
+        self.assertEqual(
+            match.positioning_targets(HOME, defender, ooze),
+            [(1, ()), (2, ())],
+        )
+
+        match.pending_coaching_occasion = CoachingOccasion.SETUP.value
+        with mock.patch.object(engine, "spread_exempt_ids", return_value=ooze):
+            options = hub_options(engine, game, match)
+            self.assertEqual(options.must_move, (defender,))
+            self.assertIsNotNone(options.finish_refusal)
+            match.position_meeple(HOME, defender, 2, spread_exempt_ids=ooze)
+            self.assertIsNone(
+                engine.coaching_finish_refusal(match, HOME, game),
+            )
+
+    def test_dinky_moves_them_before_it_is_done(self) -> None:
+        engine, game, match, defender, ooze = self.share_the_fullbacks_space(9)
+        match.pending_coaching_occasion = CoachingOccasion.SETUP.value
+        with mock.patch.object(engine, "spread_exempt_ids", return_value=ooze):
+            prompt = prompts.PendingPrompt(
+                kind=prompts.PromptKind.COACHING_HUB, ask="",
+                side=HOME, options=hub_options(engine, game, match),
+            )
+        action = DinkyAI(engine.player_catalog, engine.maneuver_catalog).choose(
+            prompt, game, match, HOME,
+        )
+        self.assertEqual(action.choice, "reposition")
+        self.assertEqual(action.arguments["player_id"], defender)
+        self.assertEqual(action.arguments["space_index"], 1)
+
+    def test_one_point_oh_has_nobody_to_move(self) -> None:
+        _, _, match = kickoff(Edition.ONE, 9)
+        self.assertEqual(match.unique_space_sharers(HOME), [])
 
 
 class ZoneAssignmentTests(unittest.TestCase):

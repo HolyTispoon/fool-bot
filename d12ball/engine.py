@@ -4815,6 +4815,21 @@ class RulesEngine:
         occasion = match.coaching_occasion
         if occasion is None or not occasion.offers_positioning:
             return None
+        # A 2.0 teammate left on a unique role's space moves off before
+        # the window closes (`MatchState.unique_space_sharers`).
+        sharers = (
+            match.unique_space_sharers(
+                side, self.spread_exempt_ids(game, match, side),
+            )
+            if game is not None else []
+        )
+        if sharers:
+            card = sharers[0]
+            return (
+                f"{player_with_role(self.get_player_definition(card))} "
+                "is sharing a space only an Ooze may share, and has to "
+                "move to another space before finishing."
+            )
         if match.kickoff_space_occupied_by(side):
             return None
         kickoff_space = space_label(

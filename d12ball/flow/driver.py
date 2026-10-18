@@ -1033,6 +1033,7 @@ def _answer_coaching_hub(
             narration=[
                 windows.apply_position_swap(
                     engine, match, side, player_id, other_player_id,
+                    game=game,
                 )
             ],
             board_changed=True,

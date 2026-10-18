@@ -179,6 +179,16 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   one in a unique role is still locked but lets a standard teammate share its space. Which cards
   are Spreadable is the engine's (`spread_exempt_ids`), handed in, since the match knows no
   species -- so in training mode, which plays no species abilities, nobody bends it.
+- **Moving off a unique role's space** (rules-2.0 4.6e, the author, 2026-10-18): a teammate
+  sharing an Ooze's unique space is left sharing it with somebody who is not an Ooze when a zone
+  assignment or a substitution puts them in the role. The trade stands;
+  `MatchState.unique_space_sharers` names who has to move, `settle_unique_space_sharers` moves
+  each who has one empty space to go to (`windows.settle_moves`, which says so), and one with a
+  choice is the coach's: `positioning_targets` offers them only the empty spaces, a trade there
+  would only leave the other teammate on the unique space instead, `coaching_finish_refusal`
+  holds the window until they have moved, and the hub's options name them (`must_move`) so
+  Dinky moves them before it is done. A zone never holds more players than spaces, so with two on
+  one there is always an empty one.
 - **A formation change keeps the Fullback, the Playmaker and the Striker** (the author,
   2026-10-18): `RulesEngine.formation_role_placement` stands each on their space and fills the
   new shape's standard roles from the other three by defensive skill, from the coach's own goal
