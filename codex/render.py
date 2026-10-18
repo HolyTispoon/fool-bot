@@ -45,7 +45,8 @@ card it draws face up -- a hero, a unit, a building card or upgrade, a
 card in the future, a patroller, an add-on -- as a box in the
 picture's pixels with its slug, and each tech building as a box with
 the codex cards it opens -- Tech I every spec's tech I cards, Tech II
-and III the chosen spec's whole codex. A part drawn on its own carries
+and III the chosen spec's whole codex, and in a basic game's duel every
+building the one spec's whole codex. A part drawn on its own carries
 its boxes on the picture (`mark`), and `place` and `turned_round` carry
 them through every paste and turn the board is composed by, so a box
 is never worked out a second time from the layout's numbers. The
@@ -1840,16 +1841,19 @@ def grid_lyings(player: PlayerState, cards: CardCatalog,
     return field + units + future
 
 
-def tech_codex(player: PlayerState, building: str,
-               cards: CardCatalog) -> Optional[tuple[str, list[str]]]:
+def tech_codex(player: PlayerState, building: str, cards: CardCatalog,
+               whole: bool = False) -> Optional[tuple[str, list[str]]]:
     """
     The codex cards a tech building opens, under a title, for the
-    board's map: Tech I, the tech I cards of every spec the player has;
-    Tech II and III, the whole codex of the spec chosen at Tech II --
-    the basic game's one spec, which nobody chooses (UMR pp. 8-9).
-    `None` where no spec is chosen yet.
+    board's map: Tech I, the tech I cards of every spec the player has
+    -- never a spell, which prints no tech level (the author,
+    2026-10-18); Tech II and III, the whole codex of the spec chosen at
+    Tech II -- the basic game's one spec, which nobody chooses (UMR pp.
+    8-9). `whole`, every building opens the one spec's whole codex: a
+    basic game's duel (the author, 2026-10-18). `None` where no spec is
+    chosen yet.
     """
-    if building == "tech1":
+    if building == "tech1" and not whole:
         specs = list(player.specs)
         found = [card.slug for spec in specs for card in cards.by_spec(spec)
                  if card.tech_level == 1]
@@ -1901,8 +1905,10 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
                                      joint=match.is_dragon)
     if player.add_on is not None:
         mark(body, buildings["add_on"], card=player.add_on.slug)
+    # A basic game's duel: one spec a side, so each building opens it whole.
+    whole = match.is_duel and len(player.specs) == 1
     for name in TECH_BUILDINGS:
-        opened = tech_codex(player, name, cards)
+        opened = tech_codex(player, name, cards, whole)
         if opened is not None:
             mark(body, buildings[name], codex=opened[1], title=opened[0])
 

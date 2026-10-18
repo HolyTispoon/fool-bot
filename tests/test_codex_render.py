@@ -131,16 +131,33 @@ class RenderTests(unittest.TestCase):
         (iron_man,) = [region["box"] for region in drawn["regions"] if region.get("card") == "iron_man"]
         # Exhausted, it lies on its side: wider than tall.
         self.assertGreater(iron_man[2] - iron_man[0], iron_man[3] - iron_man[1])
+        # A basic game's duel: every tech building opens its side's whole
+        # codex, Tech I too.
         codexes = [region for region in drawn["regions"] if "codex" in region]
         self.assertEqual(len(codexes), 6)
         catalog = self.engine.catalog
-        spec = match.player(near).specs[0]
-        self.assertIn({"title": f"Tech I cards: {spec.title()}",
-                       "codex": [card.slug for card in catalog.by_spec(spec) if card.tech_level == 1]},
-                      [{"title": region["title"], "codex": region["codex"]} for region in codexes])
-        self.assertIn({"title": f"{spec.title()} codex",
-                       "codex": [card.slug for card in catalog.by_spec(spec)]},
-                      [{"title": region["title"], "codex": region["codex"]} for region in codexes])
+        whole = {f"{spec.title()} codex": [card.slug for card in catalog.by_spec(spec)]
+                 for spec in (match.player(near).specs[0], match.player(far).specs[0])}
+        for region in codexes:
+            self.assertEqual(region["codex"], whole[region["title"]])
+
+    def test_a_tech_i_building_opens_its_tech_i_cards_beyond_a_basic_duel(self) -> None:
+        """In a standard game, Tech I opens the tech I cards of every spec
+        the side has -- never a spell, which prints no tech level -- and
+        Tech II and III the spec chosen at Tech II, or nothing before."""
+        catalog = self.engine.catalog
+        specs = ("anarchy", "blood", "fire")
+        match = self.engine.new_match((specs, ("balance", "feral", "growth")), first=1)
+        player = match.player(1)
+        title, codex = render.tech_codex(player, "tech1", catalog)
+        self.assertEqual(title, "Tech I cards: Anarchy, Blood, Fire")
+        self.assertEqual(codex, [card.slug for spec in specs for card in catalog.by_spec(spec)
+                                 if card.tech_level == 1])
+        self.assertFalse([slug for slug in codex if catalog.cards[slug].is_spell])
+        self.assertIsNone(render.tech_codex(player, "tech2", catalog))
+        player.tech2_spec = "fire"
+        self.assertEqual(render.tech_codex(player, "tech3", catalog),
+                         ("Fire codex", [card.slug for card in catalog.by_spec("fire")]))
 
     def test_the_stacked_board_is_seen_from_the_active_players_side(self) -> None:
         """The active player's panel is the lower one -- its nameplate's

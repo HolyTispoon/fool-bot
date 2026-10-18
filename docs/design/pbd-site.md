@@ -138,9 +138,12 @@ Squirrel's under Polymorph), and a box for each tech building with the
 codex cards it opens: **Tech I**, the tech I cards of every spec the
 player has; **Tech II and III**, the whole codex of the spec chosen at
 Tech II, or the basic game's one spec, which nobody chooses (UMR pp.
-8-9); none for a Tech II whose spec is not chosen yet. A spell has no
-tech level in the data, so Tech I's list is the units and buildings
-printed tech I -- two a spec, in every spec today.
+8-9); none for a Tech II whose spec is not chosen yet. **In a basic
+game's duel every building opens the one spec's whole codex**, Tech I
+too (the author, 2026-10-18): one spec a side, so the whole codex is
+what a player wants to read. Elsewhere Tech I's list leaves the spells
+out (the author, 2026-10-18) -- a spell prints no tech level -- so it is
+the units and buildings printed tech I, two a spec in every spec today.
 
 - **The boxes are carried, never worked out again.** A part drawn on its
   own marks its boxes on the picture (`render.mark`), and every paste and
