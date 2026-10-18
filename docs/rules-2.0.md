@@ -112,14 +112,30 @@ kickoff of each half (Law 3.4, 16.4.4), after a goal (5.5.2) and after an own go
 (11.4.2) -- leaves the ball with that side's Playmaker, as a carrier (Law 4.2.2), rather than
 with nobody in particular (4.2.3).
 
-**4.5** **The standard deal makes all three choices for the coach.** It starts the same six
-players as D12 Ball 1.0's (Law 3.2), in 2-2-2, each in the role they hold in 1.0: the 1.0
-Playmaker is dealt to the Playmaker's place, and so for every role. The
-Defender and the Winger stand on their zone's space furthest from its unique role, and the
+**4.5** **For your first game, each team has a recommended arrangement**, and the standard deal
+sets it up, making all three choices of 4.3 for the coach. It starts the same six players as D12
+Ball 1.0's (Law 3.2), in 2-2-2, each in the role they hold in 1.0:
+
+| Team | Fullback | Defender | Playmaker | Midfielder | Striker | Winger |
+| --- | --- | --- | --- | --- | --- | --- |
+| Orange | Goopkeeper | Blazebulk | Sizzifizik | Spectra | Acidel | Flickerwing |
+| Teal | Bulwark | Inferno | Ozul | Strider | Pulsar | Zenith |
+| Purple | Hellguard | Dravox | Emberdash | Glompex | Tachyon | Quantor |
+| Slime | Umbrik | Flux | Gearclaw | Scorchit | Brightburn | Shpritz |
+| Fire Demons | Hellguard | Blazebulk | Sizzifizik | Scorchit | Brightburn | Flickerwing |
+| Cyborgs | Bulwark | Voltus | Synapse | Strider | Tachyon | Quantor |
+| Telekinetics | Umbrik | Dravox | Quillon | Spectra | Noxar | Zenith |
+| Oozes | Goopkeeper | Gurgoth | Ozul | Glompex | Acidel | Shpritz |
+
+The Defender and the Winger stand on their zone's space furthest from its unique role, and the
 Midfielder on the space behind the Playmaker, toward their own goal. On boards 7 and 9 those are
 the 1.0 deal's own spaces; on board 10 the Midfielder stands behind the Playmaker, on space −2
 for home and 2 for the visitors, where 1.0 puts the Midfielder on the kickoff space. The other
 three start on the bench, as in 1.0.
+
+*Tip:* it's a good idea to keep players with higher offensive skills forward and vice versa,
+which is what this arrangement does. As you gain experience with the game, feel free to change
+things around!
 
 **4.6** **In a Coaching Choice** (Law 14.2) a player's role decides how they may move:
 
@@ -138,7 +154,10 @@ three start on the bench, as in 1.0.
   20.5.4) counts it as 0 toward its zone's occupancy. An Ooze in a standard role may be placed
   on any space in its zone, sharing it with anybody, a unique role included. An Ooze in a unique
   role is still locked onto its space, but a teammate in a standard role may be placed on that
-  space to share it.
+  space to share it. A zone assignment or a substitution that puts somebody who is not an Ooze
+  into that unique role still stands, and the teammate sharing the space moves off it to an empty
+  space in their zone, for nothing; where more than one is empty, their coach chooses which, and
+  may not finish the Coaching Choice until they have.
 
 **4.7** **There are no role abilities.** Nothing a role adds in the Charter applies in a 2.0
 game -- neither the six abilities of Law 2.6.2 nor the role lines on the advanced maneuvers
