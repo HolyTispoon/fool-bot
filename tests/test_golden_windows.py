@@ -38,14 +38,14 @@ because of what this file has to reach.
   `test_the_game_is_level_at_full_time` asserts it, because a game that
   finishes 2-1 ends at the whistle and guards none of
   `begin_full_time_coaching`, `begin_shootout` or `advance_shootout`.
-  The recorded run is 2-2 and the shootout settles it 4-3 in sudden
-  death.
+  The recorded run is 1-1 and the shootout settles it 3-2 to the
+  visitors in sudden death.
 
 **The AI side's halftime substitution is pinned here**, which the first
 two seeds could not manage: Dinky substitutes only to get an injured
 player off, so a script cannot make it swap anybody, and whether one of
-its players is hurt at the break is the dice's to decide. On seed 337
-one is -- a Purple player is injured before the break and replaced in
+its players is hurt at the break is the dice's to decide. On the
+recorded seed one is -- a Purple player is injured before the break and replaced in
 Purple's halftime window -- so both sides' halftime windows run here
 *and* both move a player, and `test_the_ai_side_substitutes_at_halftime`
 asserts it. Those first seeds covered Dinky's substitution routine only
@@ -168,7 +168,14 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "windows_final_match.json"
 #: Dinky substituting at halftime -- so the sweep went on to 400-2399
 #: and checked the time outs as well; 412 is the first and the
 #: shortest of the four it found before it was stopped.
-WINDOWS_SEED = 412
+#:
+#: **It was 412 until the ball speed modifier went back to half the
+#: speed and a tied shot to a goal** (docs/rules-log.md, 2026-10-18):
+#: every shot and steal changed again, and 412's game stopped being
+#: level. The sweep over 0-2999, checking all four, found more than
+#: thirty seeds; 39 is again the shortest, at 98 presses: 1-1 at full time and 3-2 to the
+#: visitors in sudden death.
+WINDOWS_SEED = 39
 
 #: A whole game, both halves, and a shootout -- so the budget is an
 #: order of magnitude past the advanced golden's. It is a backstop
