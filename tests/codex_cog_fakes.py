@@ -36,7 +36,6 @@ from cogs import d12ball_boards
 from cogs.codex import Codex
 from cogs.codex import core as codex_core
 from cogs.codex_views import LobbyView, TurnMessageView
-from cogs.codex_views import base as codex_views_base
 from save_patches import suppressed_cog_saves
 
 GUILD, LOBBY_CHANNEL, GAME_CHANNEL = 1, 10, 20
@@ -183,43 +182,9 @@ class FakeMessage(FakePartial):
         await FakePartial.pin(self, **kwargs)
 
 
-#: The ids of the messages a click's webhook makes -- its response, its
-#: follow-ups -- apart from the channel's.
-WEBHOOK_MESSAGE_IDS = itertools.count(5000)
-
-
-def webhook_message(message_id: int, ephemeral: bool, fields: dict,
-                    content: str = "") -> SimpleNamespace:
-    """
-    A message as a response, an edit or a follow-up hands it back: its
-    id, whether it is ephemeral -- which is what puts a new picture's
-    redraw in motion (`cogs.codex_views.base.redraw_pictures`) -- the
-    words the write gave it, or `content` where it gave none, and the
-    pictures.
-    """
-    if "attachments" in fields:
-        shown = list(fields["attachments"])
-    else:
-        shown = list(fields.get("files") or ([fields["file"]] if fields.get("file") else []))
-    return SimpleNamespace(
-        id=message_id,
-        flags=SimpleNamespace(ephemeral=ephemeral),
-        content=fields.get("content") or content or "",
-        attachments=[SimpleNamespace(filename=item.filename) if isinstance(item, discord.File) else item
-                     for item in shown],
-    )
-
-
-def clicked_message(message_id: int = 0, ephemeral: bool = False, attachments=()) -> SimpleNamespace:
-    """The message a click is on, as Discord sends it with the click."""
-    return SimpleNamespace(id=message_id, flags=SimpleNamespace(ephemeral=ephemeral),
-                           attachments=list(attachments))
-
-
 class FakeResponse:
-    def __init__(self, owner: "FakeInteraction") -> None:
-        self._owner = owner
-        self._log = owner.answers
+    def __init__(self, log: list) -> None:
+        self._log = log
         self.done = False
 
     def is_done(self) -> bool:
@@ -228,38 +193,22 @@ class FakeResponse:
     async def send_message(self, *args, **kwargs):
         self.done = True
         self._log.append(("response.send", args, kwargs))
-        message = webhook_message(next(WEBHOOK_MESSAGE_IDS), kwargs.get("ephemeral") is True, kwargs,
-                                  args[0] if args and args[0] else "")
-        return self._owner.wrote(message)
 
     async def edit_message(self, **kwargs):
         self.done = True
         self._log.append(("response.edit", (), kwargs))
-        clicked = self._owner.message
-        return self._owner.wrote(webhook_message(clicked.id, clicked.flags.ephemeral, kwargs,
-                                                 getattr(clicked, "content", "")))
 
     async def defer(self, **kwargs):
         self.done = True
         self._log.append(("response.defer", (), kwargs))
-        self._owner.original = self._owner.message
 
 
 class FakeFollowup:
-    def __init__(self, owner: "FakeInteraction") -> None:
-        self._owner = owner
-        self._log = owner.answers
+    def __init__(self, log: list) -> None:
+        self._log = log
 
     async def send(self, *args, **kwargs):
         self._log.append(("followup.send", args, kwargs))
-        message = webhook_message(next(WEBHOOK_MESSAGE_IDS), kwargs.get("ephemeral") is True, kwargs,
-                                  args[0] if args and args[0] else "")
-        self._owner.messages[len(self._log) - 1] = message
-        return message
-
-    async def edit_message(self, message_id, **kwargs):
-        """A follow-up edited -- a new picture's redraw."""
-        self._owner.log_write(("followup.edit", (message_id,), kwargs))
 
 
 class FakeInteraction:
@@ -275,49 +224,19 @@ class FakeInteraction:
         #: a menu's values here, as Discord does.
         self.data: dict = {}
         #: The message clicked, carrying what it was put up with --
-        #: `Table` fills in the id, the attachments and whether it is
-        #: ephemeral, for the message a view sits on.
-        self.message = clicked_message()
+        #: `Table` fills in the attachments a view's message carries.
+        self.message = SimpleNamespace(id=0, attachments=[])
         self.answers: list = []
-        #: The edits a new picture's redraw made after the click.
-        self.redraws: list = []
-        #: The message each answer wrote, by its place in `answers`.
-        self.messages: dict[int, SimpleNamespace] = {}
-        #: The click's original message: the one its response sent, or
-        #: the message clicked, edited or deferred.
-        self.original: Optional[SimpleNamespace] = None
-        self.response = FakeResponse(self)
-        self.followup = FakeFollowup(self)
-
-    def log_write(self, answer: tuple) -> None:
-        """An edit through the click's webhook: one of its answers, or,
-        made by a new picture's redraw (`cogs.codex_views.base._redraw`),
-        one of `redraws` -- a request the click spends all the same, kept
-        apart so what it answered reads as it did."""
-        if asyncio.current_task() in codex_views_base._PENDING.values():
-            self.redraws.append(answer)
-        else:
-            self.answers.append(answer)
-
-    def wrote(self, message: SimpleNamespace) -> SimpleNamespace:
-        """A response's message: the click's original from now on, and
-        handed back as discord.py does, on the callback's `resource`."""
-        self.original = message
-        self.messages[len(self.answers) - 1] = message
-        return SimpleNamespace(resource=message)
+        self.response = FakeResponse(self.answers)
+        self.followup = FakeFollowup(self.answers)
 
     async def original_response(self):
         return SimpleNamespace(id=LOBBY_MESSAGE)
 
     async def edit_original_response(self, **kwargs):
         """The message clicked edited on a click answered already --
-        deferred while its game was busy -- or the click's own message
-        drawn again, through the click's webhook."""
-        self.log_write(("original.edit", (), kwargs))
-        base = self.original or self.message
-        message = webhook_message(base.id, base.flags.ephemeral, kwargs, getattr(base, "content", ""))
-        self.messages[len(self.answers) - 1] = message
-        return message
+        deferred while its game was busy -- through the click's webhook."""
+        self.answers.append(("original.edit", (), kwargs))
 
     async def delete_original_response(self):
         """The message clicked deleted -- a panel replaced by the one
@@ -403,9 +322,6 @@ class Table:
         self.stack = ExitStack()
         self.stack.enter_context(suppressed_cog_saves())
         self.stack.enter_context(mock.patch.object(d12ball_boards, "BOARD_REFRESH_INTERVAL", 0))
-        # A new picture's redraw at once, awaited by every click below,
-        # so a click's answers count it.
-        self.stack.enter_context(mock.patch.object(codex_views_base, "PICTURE_REDRAW_DELAY", 0))
         self.bot = mock.MagicMock()
         self.bot.user.id = BOT_USER
         self.bot.wait_until_ready = mock.AsyncMock()
@@ -427,9 +343,6 @@ class Table:
         #: it back on a click: an uploaded file as an attachment by its
         #: name, a kept one as it was.
         self.carried: dict = {}
-        #: The message each view sits on: its id, and whether it is
-        #: ephemeral.
-        self.sits_on: dict = {}
         self.said: list[str] = []
         self.build({}, seed)
 
@@ -606,32 +519,17 @@ class Table:
         view = TurnMessageView(self.cog, self.game.game_id)
         call = self.interaction(who)
         await next(item for item in view.children if f":{action}:" in item.custom_id).callback(call)
-        await self.redrawn()
         self.remember(call)
         return call
-
-    def message_of(self, view) -> SimpleNamespace:
-        """The message `view` sits on, as a click on it carries it."""
-        message_id, ephemeral = self.sits_on.get(view, (0, False))
-        return clicked_message(message_id, ephemeral, self.carried.get(view, []))
-
-    @staticmethod
-    async def redrawn() -> None:
-        """Every redraw a click put in motion, done: its edit is one of
-        the click's answers."""
-        while codex_views_base._PENDING:
-            await asyncio.gather(*list(codex_views_base._PENDING.values()), return_exceptions=True)
 
     def remember(self, call: FakeInteraction) -> None:
         """What each view `call` put up sits beside: the files sent with
         it, the attachments an edit gave it, or -- an edit that named
         none -- what the message clicked already carried."""
-        for index, (kind, _, kwargs) in enumerate(call.answers):
+        for kind, _, kwargs in call.answers:
             view = kwargs.get("view")
             if view is None:
                 continue
-            written = call.messages.get(index) or call.message
-            self.sits_on[view] = (written.id, written.flags.ephemeral)
             if "attachments" in kwargs:
                 shown = kwargs["attachments"]
             elif "files" in kwargs or "file" in kwargs:
@@ -659,9 +557,8 @@ class Table:
         button = find_button(view, which)
         call = self.interaction(who or self.seated(view.seat))
         call.data = {"custom_id": button.custom_id, "component_type": 2}
-        call.message = self.message_of(view)
+        call.message.attachments = self.carried.get(view, [])
         await view._scheduled_task(button, call)
-        await self.redrawn()
         self.remember(call)
         return call
 
@@ -675,14 +572,13 @@ class Table:
         button = find_button(view, which)
         call = self.interaction(who or self.seated(view.seat))
         call.data = {"custom_id": button.custom_id, "component_type": 2}
-        call.message = self.message_of(view)
+        call.message.attachments = self.carried.get(view, [])
         async with self.cog.locks.hold(self.game.game_id):
             pressed = asyncio.create_task(view._scheduled_task(button, call))
             for _ in range(5):
                 await asyncio.sleep(0)
             before = [answer[0] for answer in call.answers]
         await pressed
-        await self.redrawn()
         self.remember(call)
         return before, call
 
@@ -690,8 +586,7 @@ class Table:
         select = find_select(view, placeholder)
         call = self.interaction(who or self.seated(view.seat))
         call.data = {"custom_id": select.custom_id, "component_type": 3, "values": list(values)}
-        call.message = self.message_of(view)
+        call.message.attachments = self.carried.get(view, [])
         await view._scheduled_task(select, call)
-        await self.redrawn()
         self.remember(call)
         return call
