@@ -3070,9 +3070,9 @@ def render_deck_hand(
     )
 
 
-#: **A discarded card is a chip, not a card** (the author, 2026-10-18:
-#: the piles drawn as whole cards made a picture taller than the
-#: prompt it rides on). The pile is read for what has gone, not played
+#: **A discarded card is a chip, not a card** (the author, 2026-10-18,
+#: asking for a more condensed discard view; the piles drawn as whole
+#: cards came to 1534 x 1298 px). The pile is read for what has gone, not played
 #: from, and a coach knows the fifteen cards, so a chip carries what
 #: tells one from another -- the rank badge and the name in the card's
 #: own colour -- and nothing a card spells out for playing it. A
