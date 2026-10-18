@@ -155,6 +155,24 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-18 -- author, 2.0: a recommended arrangement for a first game, and moving off a unique role's space
+
+**Two rules changed, in 2.0 alone**, answering the questions on PR #637.
+
+- **A recommended arrangement for each team** (rules-2.0 4.5). Asked whether a formation change
+  should start from an arrangement dealt by defensive skill, the author: *"the setup should just
+  record a specific suggested arrangement - a recommended setup for each team. That's all."* And
+  on where: *"The rulebook should have recommended arrangements for each team saying 'for your
+  first game, these are the recommended arrangements for each team' and also add 'tip: it's a
+  good idea to keep players with higher offensive skills forward and vice versa, which is what
+  this arrangement does. As you gain experience with the game, feel free to change things
+  around!'"* So 4.5 names each team's six, which are the standard deal's, and carries the tip;
+  4.6a, a formation change as the coach's own choice, stands.
+- **Moving off a unique role's space** (4.6e). A teammate may share an Ooze's unique space; asked
+  what happens when a zone assignment then puts somebody who is not an Ooze in that role, the
+  author: *"the trade should not be refused but the defender needs to be moved off. If there's a
+  choice, it should be presented to the coach."*
+
 ### 2026-10-18 -- author, 2.0: roles belong to the formation, and there are no role abilities
 
 **A rule changed, in 2.0 alone.** The author: *"Players no longer have roles. Formations have

@@ -6,6 +6,7 @@ player, and no role plays an ability (docs/rules-2.0.md, section 4;
 
 from __future__ import annotations
 
+import pathlib
 import unittest
 
 from d12ball.components import (
@@ -17,12 +18,18 @@ from d12ball.components import (
 )
 from d12ball.flow.periods import finish_halftime, finish_setup_coaching
 from d12ball.flow.turnovers import run_back_kickoff_fill
-from d12ball.game import Edition, Formation
+from d12ball.game import Edition, Formation, team_display_name
 
 from roster import benched, fielded
 from test_driver_full_game import RULESET, build_engine, build_game, build_match
 
 ROLES = tuple(PlayerRole)
+# The recommended arrangement's columns (docs/rules-2.0.md 4.5).
+ARRANGEMENT_ROLES = (
+    PlayerRole.FULLBACK, PlayerRole.DEFENDER, PlayerRole.PLAYMAKER,
+    PlayerRole.MIDFIELDER, PlayerRole.STRIKER, PlayerRole.WINGER,
+)
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def kickoff(edition: Edition, board_size: int = 7):
@@ -133,6 +140,38 @@ class StandardDealTests(unittest.TestCase):
         game.edition = Edition.TWO
         game.tutorial = True
         self.assertEqual(engine.initialize_standard_match(game).formation_roles, {})
+
+
+class RecommendedArrangementTests(unittest.TestCase):
+    """docs/rules-2.0.md 4.5 names each team's recommended six, and the
+    standard deal is what sets it up -- so the table is the deal's,
+    and a roster change in the sheet shows up here until it is."""
+
+    def test_the_rules_table_is_the_standard_deal(self) -> None:
+        text = (PROJECT_ROOT / "docs" / "rules-2.0.md").read_text(
+            encoding="utf-8",
+        )
+        section = text[text.index("**4.5**"):text.index("**4.6**")]
+        rows = {
+            cells[0]: cells[1:]
+            for line in section.splitlines()
+            if line.startswith("| ") and not line.startswith("| ---")
+            for cells in [[cell.strip() for cell in line.strip("|").split("|")]]
+        }
+        header = rows.pop("Team")
+        self.assertEqual(
+            header, [role.value.title() for role in ARRANGEMENT_ROLES],
+        )
+        catalog = build_engine().player_catalog
+        expected = {}
+        for team, roster in catalog.teams.items():
+            first = {}
+            for player in roster.players:
+                first.setdefault(player.role, player.name)
+            expected[team_display_name(team)] = [
+                first[role] for role in ARRANGEMENT_ROLES
+            ]
+        self.assertEqual(rows, expected)
 
 
 class CarriedRolesTests(unittest.TestCase):

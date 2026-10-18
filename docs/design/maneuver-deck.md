@@ -157,7 +157,10 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   after a formation change -- since an Ooze may share a unique role's space and the space would
   then not say who holds it.
 - **A substitute takes the outgoing card's role** (`substitute`), and **a zone assignment trades
-  the two roles** (`exchange_field_players`).
+  the two roles** (`exchange_field_players`) -- in 2.0 two in the same zone included
+  (rules-2.0 4.6c), which is how a coach puts somebody else in a unique role. Two in the same
+  standard role are refused (`swap_field_positions`): trading them would change spaces and no
+  role, which is space positioning. So the hub offers a card every teammate in a different role.
 - **The Playmaker takes the kickoff** (rules-2.0 4.4): `RulesEngine.hand_kickoff_to_playmaker`
   makes them the carrier just before a restart from the kickoff space is played -- at the end
   of setup (`finish_setup_coaching`), of halftime (`finish_halftime`) and of a goal's restart
@@ -166,18 +169,38 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   what a carrier says (Law 4.2.2) and `turn_handler_candidates` already honours it. It only
   changes anything where somebody shares the Playmaker's space -- an Ooze (rules-2.0 4.6e) --
   since nobody else's arrangement puts them on the kickoff space.
-- **A formation change** re-deals by defensive skill as in 1.0 (`deploy_side`) and then reads
-  the roles off the new shape. That is a stand-in: the change that keeps the Fullback, the
-  Playmaker and the Striker on their spaces is the next step.
+- **Space positioning reads the role** (rules-2.0 4.6d): `MatchState.positioning_targets` is the
+  one reading of where a card may be moved and whom it trades with, the hub's `repositions` are
+  built from it and `position_meeple` refuses against it. A unique role goes nowhere, and the hub
+  offers it no button; a standard role goes to an empty space, or trades with a teammate in a
+  standard role, never onto a space a unique role holds. In 1.0 it is every other space of the
+  zone, and `position_meeple`'s own trade rule decides, as before. **An Ooze bends it**
+  (4.6e): one in a standard role may go anywhere in its zone and shares rather than trades, and
+  one in a unique role is still locked but lets a standard teammate share its space. Which cards
+  are Spreadable is the engine's (`spread_exempt_ids`), handed in, since the match knows no
+  species -- so in training mode, which plays no species abilities, nobody bends it.
+- **Moving off a unique role's space** (rules-2.0 4.6e, the author, 2026-10-18): a teammate
+  sharing an Ooze's unique space is left sharing it with somebody who is not an Ooze when a zone
+  assignment or a substitution puts them in the role. The trade stands;
+  `MatchState.unique_space_sharers` names who has to move, `settle_unique_space_sharers` moves
+  each who has one empty space to go to (`windows.settle_moves`, which says so), and one with a
+  choice is the coach's: `positioning_targets` offers them only the empty spaces, a trade there
+  would only leave the other teammate on the unique space instead, `coaching_finish_refusal`
+  holds the window until they have moved, and the hub's options name them (`must_move`) so
+  Dinky moves them before it is done. A zone never holds more players than spaces, so with two on
+  one there is always an empty one.
+- **A formation change keeps the Fullback, the Playmaker and the Striker** (the author,
+  2026-10-18): `RulesEngine.formation_role_placement` stands each on their space and fills the
+  new shape's standard roles from the other three by defensive skill, from the coach's own goal
+  forward -- a Defender or a Winger furthest from their unique role, a Midfielder behind the
+  Playmaker first (`standard_role_spaces`, 4.5's spaces). Rules-2.0 4.6a leaves the change wholly
+  to the coach; this is the arrangement it starts from, and role trades and space positioning
+  between them reach every assignment the rules allow. `deploy_side` then reads the roles back off
+  the spaces, each holder dealt first in their zone.
 
-Decided for the steps still to come (the author, 2026-10-18): **a 2.0 bench player is named by
-their skills** rather than a role, since they hold none; and **a formation change keeps the
-Fullback, the Playmaker and the Striker** and fills the new standard roles by defensive skill,
-leaving the coach to change anything with role trades and space positioning, which between them
-reach every assignment the rules allow.
+Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
+their skills** rather than a role, since they hold none.
 
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
 print-and-play kit; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the
-author, 2026-10-18): a formation change that keeps the three unique roles on their spaces, the
-Coaching Choice's movement rules (4.6), and roles in the labels and pictures -- a bench player
-named by their skills.
+author, 2026-10-18): roles in the labels and pictures, a bench player named by their skills.
