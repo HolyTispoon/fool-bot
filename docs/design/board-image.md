@@ -148,11 +148,11 @@ the case the width was chosen for is gone, so `COACHING_WIDTH`'s note now
 states the meeple it does fit. Widening the image, or shrinking the tokens in
 a stacked space, is an open rendering question rather than a regression.
 
-**The cards and the two benches are on it for a reason.** Exhaustion counts and
-the Exhausted and Injured badges are drawn nowhere else, and which pool a
-player is in is the whole of who may come on -- so without them the flow would
-be asking a coach to remember numbers off a board they cannot see while the
-menu is up.
+**The cards and the two benches are on it for a reason.** A benched player's
+exhaustion count and condition are drawn nowhere else (a fielded one's are on
+its meeple too), and which pool a player is in is the whole of who may come on -- so without
+them the flow would be asking a coach to remember numbers off a board they
+cannot see while the menu is up.
 
 **A card carries its player's species icon, stacked under the role initials
 on the stats row** -- the same pairing a meeple makes (below), so a coach
@@ -272,6 +272,51 @@ question is where the ball is lying, was the one thing the board did not show.
 With nobody of that side there it is centred in the space instead. The suite
 cannot see the image, so `D12BallComponentTests` asserts the placement rule
 rather than the pixels.
+
+## A meeple's marks
+
+**A meeple carries its exhaustion count and its condition, as the web
+page's does** (the author, 2026-10-17). Before, both were on the cards
+alone, under the board, and a coach reading the field had to match a piece
+to its card to know who was tired or hurt; the web page has drawn them on
+the piece since its redesign. Every board image draws them -- the match
+image, the field strip (it is the same `draw_board`) and a coach's half --
+through `draw_meeple_group`, so there is no image a meeple is drawn on
+without them. A benched player's are still on its card alone.
+
+- **They are the web page's marks, scaled, not a second design**
+  (`badges` in `webapp/static/app.js`, `.badge.tokens` and
+  `.badge.condition` in `app.css`): the token and the count in one dark
+  pill off the piece's bottom right, and the condition as a short word
+  (`CONDITION_TAGS`: INJ, EXH, DMG, DRN) in the emoji's own colour off its
+  bottom left. Every size is multiplied from the page's 50px meeple to
+  this one's 76px and placed at the page's own shares of the piece
+  (`MEEPLE_BADGE_*`, `MEEPLE_TAG_*`). The count is drawn at 1 too, and the
+  tag is the count's height so the two line up.
+- **The condition is the one `draw_card` picks** (`meeple_condition`):
+  Injured wins the slot over Exhausted, and a Cyborg's are Damaged and
+  Drained -- with the teal token for its count. So every renderer takes
+  `cyborg_ids` now, the field strip included, which used to need none; the
+  suite checks each cog render passes `cyborg_condition_ids`, since the
+  default draws the plain marks and nothing else would notice.
+- **A row's marks are one strip** (`layout_meeple_marks`), drawn after the
+  whole row, because a mark runs past its own piece onto the next: each is
+  moved as little as keeps it clear of the one before and inside the room.
+  The room stops at the ball where the ball is tucked against the row --
+  the home row's right, the visiting row's left (`ball_token_x`) -- and
+  otherwise at the space's frame.
+- **A strip with no room beside the ball runs on over the ball's foot**,
+  and `draw_space` draws the marks after the ball (`deferred`): the
+  ball's number sits above the strip, so both stay readable -- the page's
+  badge row runs on past its edge in the same case. **A strip longer than
+  the space itself** -- a stack on board 9's narrow coaching spaces, which
+  the pieces already overfill (see "That half-field" above) -- is centred
+  under the stack and spills past both frames evenly rather than hiding a
+  mark under another.
+- **The marks clip the foot of the role initials**, as they do on the page
+  at the same shares. Moving them lower runs them into the names under the
+  row, which start 7px under the piece; they are left at the page's
+  position so the two pictures agree.
 
 ## A space's number
 

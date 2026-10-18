@@ -772,11 +772,13 @@ class PresentationMixin:
         pair, which exists for the board that is put in two places at
         once.
         """
+        match = self.engine.load_match_state(game)
         image = await asyncio.to_thread(
             render_field_image,
-            self.engine.load_match_state(game),
+            match,
             self.player_catalog,
             species_icons=self.engine.species_abilities_apply(game),
+            cyborg_ids=self.engine.cyborg_condition_ids(game, match),
         )
         return discord.File(image, filename=FIELD_IMAGE_FILENAME)
 
