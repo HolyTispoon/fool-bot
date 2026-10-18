@@ -2,25 +2,25 @@
 --- narration
 {player:2} collects {gold:4} from 4 workers: now {gold:4}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- board changed
 === action 1: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:2} hires a worker for {gold:1}: 5 workers. {gold:3} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:3}.
 --- board changed
 === action 2: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
 {player:2} summons {hero:river_montoya} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:1}.
 --- board changed
 === action 3: MAIN_ACTION 'play' {"slug": "tenderfoot"}
 --- narration
 {player:2} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- board changed
 === action 4: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
@@ -30,39 +30,39 @@
 {player:2} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:2} discards 3 and draws 5. **End of turn 1** -- {player:2} (Finesse).
 {player:3} collects {gold:5} from 5 workers: now {gold:5}.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 6: TECH_CHOICE '' (hidden)
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 === action 7: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:3} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 8: MAIN_ACTION 'build' {"building": "tech1"}
 --- narration
 {player:3} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 9: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:3} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 10: MAIN_ACTION 'play' {"slug": "tenderfoot"}
 --- narration
 {player:3} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- board changed
 === action 11: MAIN_ACTION 'end_main' {}
@@ -75,20 +75,20 @@
 {player:1} collects {gold:5} from 5 workers: now {gold:5}.
 {player:1}'s {card:mercenary} arrives.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
 === action 13: TECH_CHOICE '' (hidden)
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 === action 14: MAIN_ACTION 'hire' (hidden)
 --- narration
 {player:1} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -96,7 +96,7 @@
 --- narration
 {player:1} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -104,7 +104,7 @@
 --- narration
 {player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -112,7 +112,7 @@
 --- narration
 {player:1} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -141,7 +141,7 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:5} from 5 workers: now {gold:5}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -149,7 +149,7 @@
 --- narration
 {player:2} hires a worker for {gold:1}: 6 workers. {gold:4} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -157,7 +157,7 @@
 --- narration
 {player:2} builds a Tech I building for {gold:1}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -165,7 +165,7 @@
 --- narration
 {player:2} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:2} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -173,7 +173,7 @@
 --- narration
 {player:2} plays {card:older_brother} 2/2 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -187,7 +187,7 @@
 {card:tenderfoot} attacks {player:1}'s {card:mercenary}.
 {card:tenderfoot} deals 0 (armor takes 1); {player:1}'s {card:mercenary} deals 1.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -203,7 +203,7 @@
 {player:1}'s {card:mercenary} is destroyed. {player:2} collects a bounty of {gold:1}: now {gold:1}.
 {player:2}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -211,7 +211,7 @@
 --- narration
 {player:2} levels {hero:river_montoya} to 2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -226,7 +226,7 @@
 {hero:river_montoya} deals 2; {player:1}'s {card:tenderfoot} deals 2.
 {player:1}'s {card:tenderfoot} is destroyed. {player:2} collects a bounty of {gold:1}: now {gold:1}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -234,7 +234,7 @@
 --- narration
 {player:2} levels {hero:river_montoya} to 3 for {gold:1}: they reach a new band, are now 2/4, and heal. {gold:0} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -263,7 +263,7 @@
 {player:3} puts 2 tech cards into their discard pile.
 {player:3} collects {gold:6} from 6 workers: now {gold:6}.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -271,7 +271,7 @@
 --- narration
 {player:3} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -287,7 +287,7 @@
 --- narration
 {card:brick_thief} deals 1 to {player:1}'s Tech I building, now at 4/5.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -295,7 +295,7 @@
 --- narration
 {player:3} plays {card:older_brother} 2/2 for {gold:2}. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -303,7 +303,7 @@
 --- narration
 {player:3} levels {hero:troq_bashar} to 2 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -318,7 +318,7 @@
 {card:tenderfoot} deals 1; {player:1}'s {hero:troq_bashar} deals 2.
 {player:3}'s {card:tenderfoot} is destroyed.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -341,7 +341,7 @@
 --- narration
 {hero:river_montoya} gains 2 levels for the kill, to level 5: they reach a new band, are now 3/4, and heal.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -370,7 +370,7 @@
 {player:1} collects {gold:6} from 6 workers: now {gold:6}.
 {hero:troq_bashar} loses a summoning rune (1 left).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -378,7 +378,7 @@
 --- narration
 {player:1} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -386,7 +386,7 @@
 --- narration
 {player:1} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:4} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -394,7 +394,7 @@
 --- narration
 {player:1} plays {card:helpful_turtle} 1/2 for {gold:2}. {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -402,7 +402,7 @@
 --- narration
 {player:1} plays {card:older_brother} 2/2 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -417,7 +417,7 @@
 {card:timely_messenger} deals 0 (armor takes 1); {player:2}'s {card:older_brother} deals 2.
 {player:1}'s {card:timely_messenger} is destroyed.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -445,7 +445,7 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:6} from 6 workers: now {gold:6}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -453,7 +453,7 @@
 --- narration
 {player:2} hires a worker for {gold:1}: 7 workers. {gold:5} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:5}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -469,7 +469,7 @@
 --- narration
 {card:spark} deals 0 to {player:1}'s {card:helpful_turtle} (armor takes 1).
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -477,7 +477,7 @@
 --- narration
 {player:2} plays {card:fruit_ninja} 2/2 for {gold:2}. {gold:2} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -493,7 +493,7 @@
 --- narration
 {card:wither} puts a -1/-1 rune on {player:1}'s {card:helpful_turtle}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -508,7 +508,7 @@
 {card:tenderfoot} deals 1.
 {player:1}'s {card:helpful_turtle} is destroyed. {player:2} collects a bounty of {gold:1}: now {gold:1}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -524,7 +524,7 @@
 {player:1}'s {card:older_brother} is destroyed. {player:2} collects a bounty of {gold:1}: now {gold:2}.
 {player:2}'s {card:older_brother} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -538,7 +538,7 @@
 {hero:river_montoya} attacks {player:1}'s base.
 {hero:river_montoya} deals 3 to {player:1}'s base, now at 17/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -566,7 +566,7 @@
 {player:3} puts 2 tech cards into their discard pile.
 {player:3} collects {gold:7} from 7 workers: now {gold:7}.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -574,7 +574,7 @@
 --- narration
 {player:3} hires a worker for {gold:1}: 8 workers. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -582,7 +582,7 @@
 --- narration
 {player:3} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:2} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -590,7 +590,7 @@
 --- narration
 {player:3} plays {card:tenderfoot} 1/2 for {gold:1}. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -598,7 +598,7 @@
 --- narration
 {player:3} levels {hero:troq_bashar} to 3 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -628,7 +628,7 @@
 {card:brick_thief} repairs 1 damage on {player:1}'s base, now at 18/20.
 {card:brick_thief} deals 2 to {player:1}'s base, now at 16/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -642,7 +642,7 @@
 {card:older_brother} attacks {player:1}'s base.
 {card:older_brother} deals 2 to {player:1}'s base, now at 14/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -656,7 +656,7 @@
 {hero:troq_bashar} attacks {player:1}'s base.
 {hero:troq_bashar} deals 2 to {player:1}'s base, now at 12/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -686,7 +686,7 @@
 {player:1} collects {gold:7} from 7 workers: now {gold:7}.
 {hero:troq_bashar} loses a summoning rune (0 left).
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -694,7 +694,7 @@
 --- narration
 {player:1} hires a worker for {gold:1}: 8 workers. {gold:6} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -702,7 +702,7 @@
 --- narration
 {player:1} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:2} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:2}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -710,7 +710,7 @@
 --- narration
 {player:1} summons {hero:troq_bashar} 2/3 for {gold:2}. {gold:0} left.
 --- prompt MAIN_ACTION (player 1)
-{player:1}'s main phase.
+{player:1}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 2)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -739,7 +739,7 @@
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:7} from 7 workers: now {gold:9}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -747,7 +747,7 @@
 --- narration
 {player:2} hires a worker for {gold:1}: 8 workers. {gold:8} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:8}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -755,7 +755,7 @@
 --- narration
 {player:2} builds a Tech II building for {gold:4}; it is finished at the end of the turn. {gold:4} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -763,7 +763,7 @@
 --- narration
 {player:2} plays {card:timely_messenger} 1/1 for {gold:0}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -778,7 +778,7 @@
 {card:tenderfoot} deals 0 (armor takes 1); {player:1}'s {hero:troq_bashar} deals 2.
 {player:2}'s {card:tenderfoot} is destroyed.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -795,7 +795,7 @@
 {player:2}'s {card:fruit_ninja} is destroyed.
 {hero:troq_bashar} gains 2 levels for the kill, to level 5: they reach a new band, are now 3/4, and heal.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -809,7 +809,7 @@
 {card:timely_messenger} attacks {player:1}'s base.
 {card:timely_messenger} deals 1 to {player:1}'s base, now at 11/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -823,7 +823,7 @@
 {hero:river_montoya} attacks {player:1}'s base.
 {hero:river_montoya} deals 3 to {player:1}'s base, now at 8/20.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -852,7 +852,7 @@
 {player:3} puts 2 tech cards into their discard pile.
 {player:3} collects {gold:8} from 8 workers: now {gold:8}.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:8}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -860,7 +860,7 @@
 --- narration
 {player:3} hires a worker for {gold:1}: 9 workers. {gold:7} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:7}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -868,7 +868,7 @@
 --- narration
 {player:3} plays {card:timely_messenger} 1/1 for {gold:1}. {gold:6} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:6}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -876,7 +876,7 @@
 --- narration
 {player:3} plays {card:revolver_ocelot} 3/3 for {gold:2}. {gold:4} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:4}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -884,7 +884,7 @@
 --- narration
 {player:3} plays {card:granfalloon_flagbearer} 2/2 for {gold:3}. {gold:1} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:1}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -892,7 +892,7 @@
 --- narration
 {player:3} levels {hero:troq_bashar} to 6 for {gold:1}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -922,7 +922,7 @@
 {card:brick_thief} repairs 1 damage on {player:1}'s base, now at 9/20.
 {card:brick_thief} deals 2 to {player:1}'s base, now at 7/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -936,7 +936,7 @@
 {card:older_brother} attacks {player:1}'s base.
 {card:older_brother} deals 2 to {player:1}'s base, now at 5/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -950,7 +950,7 @@
 {card:tenderfoot} attacks {player:1}'s base.
 {card:tenderfoot} deals 1 to {player:1}'s base, now at 4/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -964,7 +964,7 @@
 {card:timely_messenger} attacks {player:1}'s base.
 {card:timely_messenger} deals 1 to {player:1}'s base, now at 3/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -981,7 +981,7 @@
 **{player:1}'s base is destroyed.**
 A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1009,7 +1009,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {player:2} puts 2 tech cards into their discard pile.
 {player:2} collects {gold:8} from 8 workers: now {gold:12}.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:12}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -1017,7 +1017,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- narration
 {player:2} hires a worker for {gold:1}: 9 workers. {gold:11} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:11}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -1025,7 +1025,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- narration
 {player:2} plays {card:nimble_fencer} 2/3 for {gold:2}. {gold:9} left.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -1039,7 +1039,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {card:timely_messenger} attacks {player:1}'s Tech I building.
 {card:timely_messenger} deals 1 to {player:1}'s Tech I building, now at 1/5.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -1054,7 +1054,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {card:nimble_fencer} deals 2 to {player:1}'s Tech I building.
 {player:1}'s Tech I building is destroyed, and deals 2 to their base.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -1068,7 +1068,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {hero:river_montoya} attacks {player:1}'s Tech II building.
 {hero:river_montoya} deals 3 to {player:1}'s Tech II building, now at 2/5.
 --- prompt MAIN_ACTION (player 2)
-{player:2}'s main phase.
+{player:2}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 3)
 --- board changed
@@ -1096,7 +1096,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {player:3} puts 2 tech cards into their discard pile.
 {player:3} collects {gold:9} from 9 workers: now {gold:9}.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:9}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1104,7 +1104,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- narration
 {player:3} hires a worker for {gold:1}: 10 workers. {gold:8} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:8}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1112,7 +1112,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- narration
 {player:3} builds a Tech III building for {gold:5}; it is finished at the end of the turn. {gold:3} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:3}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1120,7 +1120,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 --- narration
 {player:3} plays {card:iron_man} 3/4 for {gold:3}. {gold:0} left.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1150,7 +1150,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {card:brick_thief} repairs 1 damage on {player:1}'s base, now at 1/20.
 {card:brick_thief} deals 2 to {player:2}'s base, now at 18/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1165,7 +1165,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {card:older_brother} deals 2 to {player:1}'s base.
 **{player:1}'s base is destroyed.**
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1179,7 +1179,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {card:tenderfoot} attacks {player:2}'s base.
 {card:tenderfoot} deals 1 to {player:2}'s base, now at 17/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1193,7 +1193,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {card:timely_messenger} attacks {player:2}'s base.
 {card:timely_messenger} deals 1 to {player:2}'s base, now at 16/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1207,7 +1207,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {card:revolver_ocelot} attacks {player:2}'s base.
 {card:revolver_ocelot} deals 3 to {player:2}'s base, now at 13/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1221,7 +1221,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {card:granfalloon_flagbearer} attacks {player:2}'s base.
 {card:granfalloon_flagbearer} deals 2 to {player:2}'s base, now at 11/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
@@ -1236,7 +1236,7 @@ A tie at 20 base HP: {player:2} and {player:3} each take one more turn.
 {hero:troq_bashar}'s middle level band's ability deals 1 to {player:2}'s base, now at 10/20.
 {hero:troq_bashar} deals 3 to {player:2}'s base, now at 7/20.
 --- prompt MAIN_ACTION (player 3)
-{player:3}'s main phase.
+{player:3}'s main phase, currently {gold:0}.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed
