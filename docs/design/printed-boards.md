@@ -133,8 +133,8 @@ The field board comes out twice: whole, and as two letter halves. See
   restating where the middle of the board is. Boards 7 and 9 have a midfield
   with a middle, so each prints one kickoff mark for the two sides --
   `kickoff_marks` is a map rather than a space because the rule is asked per
-  side, and board 10's four-space midfield answers it twice (home space 5,
-  the visitors space 6). It is also what leaves the
+  side, and board 10's four-space midfield answers it twice (home space −1,
+  the visitors space 1). It is also what leaves the
   bracket under the field agreeing with the living rules' own table.
 - **Every field size but a playtest board is rendered by default.** A print
   run wants the 7- and 9-space boards; `--board-size` narrows it to one. The
@@ -478,7 +478,7 @@ and each point is a fault the board it replaced actually had.
 
 ## Goal zones
 
-`draw_end_zone` draws each goal zone, American-football style, beyond space 1
+`draw_end_zone` draws each goal zone, American-football style, beyond the first space
 and beyond the board's last space (see "The field" in the living rules) -- not
 squeezed into either one's own space, because both are already full of
 meeples under the standard deal (see
@@ -489,7 +489,7 @@ board's own outline) are taken out -- there is no spare canvas to grow it
 into without widening the board itself.
 
 - **"GOAL" runs the zone's length in the defending team's own color** --
-  the home team's to the left of space 1, the visitors' to the right of the
+  the home team's to the left of the first space, the visitors' to the right of the
   board's last space -- rotated 90°, the way a real end zone's lettering
   reads sideways on a field running left to right. Letters are spaced apart
   by `GOAL_ZONE_LETTER_SPACING`, on top of the font's own advance, because a

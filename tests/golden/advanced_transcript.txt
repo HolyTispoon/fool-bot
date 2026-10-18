@@ -66,12 +66,12 @@ Time has advanced 1, now at 01.
 # Players run back!
 Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
 --- message
-🔥 Scorchit [MF] runs back to space 3.
+🔥 Scorchit [MF] runs back to space −1.
 🔥 Scorchit [MF] exhausts 2 😮‍💨😮‍💨 (now 2 total).
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now in space 5, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space 1, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -121,7 +121,7 @@ Time has advanced 1, now at 02.
 --- message
 **Pressure:** 🔥 Sizzifizik [PM] and the ball go back 1 space. 🔮 Zenith [WG] moves forward.
 
-Ball is now in space 6, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space 2, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Sizzifizik [PM] will maneuver for 🔥 Dinky AI.
 
@@ -154,7 +154,7 @@ Time has advanced 1, now at 03.
 --- message
 🔥 Hellguard [FB] picks up the ball.
 --- message
-Ball is now in space 7, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space 3, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Hellguard [FB] will maneuver for 🔥 Dinky AI.
 
@@ -185,7 +185,7 @@ Time has advanced 1, now at 04.
 🔮 Zenith [WG] is now *exhausted* 🥵
 🔮 Zenith [WG] fails to Mind Pull
 --- message
-Ball is now in space 6, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space 2, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Sizzifizik [PM] will maneuver for 🔥 Dinky AI.
 
@@ -213,7 +213,7 @@ Time has advanced 1, now at 05.
 --- message
 🔥 Sizzifizik [PM] moves a space forward.
 --- message
-Ball is now in space 6, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space 2, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Blazebulk [DD] will maneuver for 🔥 Dinky AI.
 
@@ -246,7 +246,7 @@ Ball speed is now **7**.
 --- message
 🔮 Noxar [SK] declines to Mind Pull.
 --- message
-Ball is now in space 5, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space 1, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Blazebulk [DD] will maneuver for 🔥 Dinky AI.
 
@@ -324,7 +324,7 @@ Time has advanced 1, now at 07.
 --- message
 **Pinpoint:** the ball moves 3 spaces forward. Ball speed is now 10.
 
-Ball is now in space 2, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space −2, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -358,7 +358,7 @@ Either player can roll:
 --- message
 🔥 Scorchit [MF] wins the ball! 🔥 Dinky AI has possession.
 --- message
-Ball is now in space 3, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space −1, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
 --- message
@@ -414,7 +414,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, 🔮 Player 1 (Home) has possession.
+Ball is now in space 0, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -462,29 +462,29 @@ Time has advanced 1, now at 12.
 **Burst** was beaten -- 🔥 Dinky AI (Visitors) takes the ball, and it keeps the speed the burst put into it (1).
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
-=== press 43: FlyView -> 'Space 1 (4 away)'
+=== press 43: FlyView -> 'Space −3 (4 away)'
 --- message
-🔮 Zenith [WG] **flies** to space 1 and will not run back.
+🔮 Zenith [WG] **flies** to space −3 and will not run back.
 🔮 Zenith [WG] exhausts 4 😮‍💨😮‍💨😮‍💨😮‍💨 (now 7 total).
 --- message
 # Players run back!
 Players return to an open space in their assigned zone and exhaust 1 for every space traveled.
 --- message
 <@111>, your players are doubled up while their zone still has a space with nobody on it — choose which of them runs back:
-🔮 Spectra [MF] on space 3
-🔮 Quillon [PM] on space 3
-=== press 44: RunBackPlayerChoiceView -> 'Quillon [PM] — space 3'
+🔮 Spectra [MF] on space −1
+🔮 Quillon [PM] on space −1
+=== press 44: RunBackPlayerChoiceView -> 'Quillon [PM] — space −1'
 --- message
 <@111>, choose where 🔮 Quillon [PM] runs back to:
-Space 4 (1 away) or space 5 (2 away).
-=== press 45: RunBackChoiceView -> 'Space 4 (1 away)'
+Space 0 (1 away) or space 1 (2 away).
+=== press 45: RunBackChoiceView -> 'Space 0 (1 away)'
 --- message
-🔮 Quillon [PM] runs back to space 4.
+🔮 Quillon [PM] runs back to space 0.
 🔮 Quillon [PM] exhausts 1 😮‍💨 (now 3 total).
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now in space 3, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space −1, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -526,16 +526,16 @@ Ball speed is now **8**.
 🔮 Zenith [WG] exhausts 1 😮‍💨 (now 8 total).
 
 ## 🔮 Zenith [WG] Mind Pulls
-**Turnover!** They take it on **space 1** (Home Zone).
+**Turnover!** They take it on **space −3** (Home Zone).
 
 # Players run back!
 Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
 --- message
-🔥 Sizzifizik [PM] runs back to space 3.
+🔥 Sizzifizik [PM] runs back to space −1.
 🔥 Sizzifizik [PM] exhausts 2 😮‍💨😮‍💨 (now 5 total).
 🔥 Sizzifizik [PM] is now *exhausted* 🥵
 --- message
-Ball is now in space 1, 🔮 Player 1 (Home) has possession.
+Ball is now in space −3, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -545,11 +545,11 @@ Out of shooting range. Maneuver, or take a time out:
 === press 50: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 1 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space −3 at speed 1, with you in possession.
 === press 51: TimeOutConfirmView -> 'Take the time out'
 --- message
 # 🔮 Player 1 (Home) calls a time out
-Both coaches get a Coaching Choice. The ball stays with 🔮 Player 1 (Home) on space 1. Time has advanced 1, now at 14.
+Both coaches get a Coaching Choice. The ball stays with 🔮 Player 1 (Home) on space −3. Time has advanced 1, now at 14.
 --- message
 # Coaching Choice
 **🔮 <@111> (Home)** -- 2 substitutions left.
@@ -564,7 +564,7 @@ No substitutions, and no change of shape.
 **🔥 Dinky AI (Visitors) is done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now in space 1, 🔮 Player 1 (Home) has possession.
+Ball is now in space −3, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -591,13 +591,13 @@ You chose **High Ball**.
 Time has advanced 2, now at 16. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
 --- message
 🔮 <@111>, choose your High Ball distance:
-=== press 55: HighPassChoiceView -> '2 spaces (space 3, Spectra [MF])'
+=== press 55: HighPassChoiceView -> '2 spaces (space −1, Spectra [MF])'
 --- message
 Chose **2 spaces**.
 --- message
 **High Ball:** the ball moves 2 spaces forward.
 
-Ball is now in space 3, 🔮 Player 1 (Home) has possession.
+Ball is now in space −1, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 Player 1 (Home) has **last possession**: their next turnover ends the period.
 --- message
@@ -709,7 +709,7 @@ Ball speed is now **5**.
 🔮 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
 🔮 Dravox [DD] fails to Mind Pull
 --- message
-Ball is now in space 2, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space −2, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -769,7 +769,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, 🔮 Player 1 (Home) has possession.
+Ball is now in space 0, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -809,7 +809,7 @@ Time has advanced 1, now at 20.
 --- message
 **Double Team:** 🔮 Quillon [PM] and the ball go back 1 space. 🔥 Sizzifizik [PM] moves forward. 🔥 Scorchit [MF] joins them. 🔥 Scorchit [MF] Merges on the next maneuver, adding their defensive skill while they stand on the ball.
 
-Ball is now in space 3, 🔮 Player 1 (Home) has possession.
+Ball is now in space −1, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -838,9 +838,9 @@ Time has advanced 1, now at 21.
 <@111> 🔮 **Smooth** — the ball reaches near 🔮 Dravox [DD], who can take the ball to become the ball handler.
 === press 75: SmoothView -> 'Dravox [DD] takes it over'
 --- message
-🔮 **Smooth** — 🔮 Dravox [DD] takes the ball on **space 2** (Home Zone).
+🔮 **Smooth** — 🔮 Dravox [DD] takes the ball on **space −2** (Home Zone).
 
-Ball is now in space 2, 🔮 Player 1 (Home) has possession.
+Ball is now in space −2, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -850,11 +850,11 @@ Out of shooting range. Maneuver, or take a time out:
 === press 76: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 2 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space −2 at speed 1, with you in possession.
 === press 77: TimeOutConfirmView -> 'Take the time out'
 --- message
 # 🔮 Player 1 (Home) calls a time out
-Both coaches get a Coaching Choice. The ball stays with 🔮 Player 1 (Home) on space 2. Time has advanced 1, now at 22.
+Both coaches get a Coaching Choice. The ball stays with 🔮 Player 1 (Home) on space −2. Time has advanced 1, now at 22.
 --- message
 # Coaching Choice
 **🔮 <@111> (Home)** -- 2 substitutions left.
@@ -869,7 +869,7 @@ No substitutions, and no change of shape.
 **🔥 Dinky AI (Visitors) is done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now in space 2, 🔮 Player 1 (Home) has possession.
+Ball is now in space −2, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -907,7 +907,7 @@ You chose **Cross**.
 Time has advanced 2, now at 24.
 --- message
 🔮 <@111>, choose where your **Cross** lands:
-=== press 82: SetupPassChoiceView -> '3 spaces (space 5, Zenith [WG])'
+=== press 82: SetupPassChoiceView -> '3 spaces (space 1, Zenith [WG])'
 --- message
 **🔮 Coach** picks out a **Cross** of 3.
 --- message
@@ -935,7 +935,7 @@ Time has advanced 1, now at 25.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 7, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space 3, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Hellguard [FB] will maneuver for 🔥 Dinky AI.
 
@@ -989,7 +989,7 @@ The ball reaches their own goal zone!
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, 🔥 Dinky AI (Visitors) has possession.
+Ball is now in space 0, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message

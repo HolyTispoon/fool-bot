@@ -1,17 +1,18 @@
 """
 Naming a space in a test's expectations without spelling the code.
 
-A test that expects the ball on the second space of midfield writes
-`code(match.board, "M2")` rather than `"space 4"`, and gets back what
-the bot calls that space -- its number from the home end, "space 4"
-on the standard board (`d12ball/space_numbering.py`).
+A test that expects the ball on the first space of the Home Zone
+writes `code(match.board, "H1")` rather than `"space −3"`, and gets
+back what the bot calls that space -- its place on the number line
+whose zero is the middle of the field, "space −3" on the standard
+board (`d12ball/space_numbering.py`).
 
 The letter form is the spelling in the test source because it says
 which zone and which space without the reader having to count, and
-because it is the same on both board sizes -- `M2` is midfield's
-middle space whether the board has seven spaces or nine, where the
-flat number is 4 on one and 5 on the other. The board is asked
-because only it knows which.
+because it is the same on every board size -- `H1` is the home end's
+space whether the board has seven spaces or nine, where the number is
+−3 on one and −4 on the other. The board is asked because only it
+knows which.
 """
 
 from d12ball.components import Zone
