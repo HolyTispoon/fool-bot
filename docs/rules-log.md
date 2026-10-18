@@ -155,6 +155,67 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-18 -- author, 2.0: roles belong to the formation, and there are no role abilities
+
+**A rule changed, in 2.0 alone.** The author: *"Players no longer have roles. Formations have
+roles in places. ... Players keep their abilities scores but not the basic role abilities which
+for now are gone in 2.0."* The rules are [rules-2.0.md](rules-2.0.md) section 4; the living
+rules, 1.0's, are unchanged. Asked the same day, the author answered:
+
+- **Which role is where** (rules-2.0 4.2). The first message said there is always one of each
+  role on the field; the author then gave a layout where that holds for 2-2-2 alone (*"2-3-1
+  would mean playing with 2 midfielders and no winger. 3-2-1 means two defenders and no wingers.
+  1-3-2 means no defender and two midfielders. 1-2-3 is no defender and two wingers"*), and
+  refined it: *"Yeah I first said that every role is played once but I've changed my mind. ...
+  Every zone has two types of roles, a standard and a unique one. The unique role is assigned
+  first and the rest are standard."* Fullback and Defenders in the zone before the team's own
+  goal, Playmaker and Midfielders in midfield, Striker and Wingers in the zone before the goal
+  it attacks.
+- **Where the unique roles stand** (4.3b, 4.4): *"The fullback is always located at the spot
+  closet to the goal and the rest are assigned to other spaces. In the midfield the unique role
+  is playmaker, which always is assigned as close as possible to the middle, always does the
+  kickoff."* The space nearest the middle is the side's own kickoff space on every board, so the
+  Playmaker is what covers it. And, asked whether the Striker has a place too: *"Striker is
+  always position in the space closest the opponent goal."* The 1.0 deal already puts them
+  there on every board.
+- **What a role attaches to** (4.6b, 4.6c): *"Assignment of players should be to roles. And roles are
+  attached to zones by formation."* So a substitution and a zone assignment carry a role, and
+  space positioning does not.
+- **The advanced cards' role lines go too** (4.7), not just the six basic abilities -- which
+  means no Pass or Pinpoint sets up a shot and a Striker adds nothing to one.
+- **The standard deal starts the same six as 1.0** (4.5).
+
+The readings the first draft made were put to the author the same day, and answered:
+
+- **The Playmaker takes every kickoff** (4.4) -- each half's, after a goal and after an own goal
+  conceded: *"Yes. It also sets their position in the arrangement."*
+- **A formation change is the coach's choice** (4.6a), not a deal by defensive skill: *"This
+  should be coach's choice and current arrangements should stay the same."* Asked what the
+  second half meant: *"I meant that all the players that are playmakers in 1.0 should be
+  assigned to the playmaker position in the standard deal of 2.0 and same for other roles"*
+  (4.5).
+- **How a side is set up, and who may move** (4.3, 4.5, 4.6d, 4.6e): *"coaches choose a
+  formation, which has a number of players in each zone. Then [coaches] assign players to roles,
+  which locks in the position of unique players. Then coaches need to assign space to all the
+  players that aren't in unique roles. Standard deals does that for them the way we do today (so
+  defenders and wingers start from the space that isn't next to the unique role and midfielder
+  start behind the playmaker). If a coach wants to move a player during coaching their ability
+  depends on that player's assigned role. if they're assigned to a unique role, they cannot move
+  to another space. If they're assigned to a non-unique role they can move to a space that's
+  currently unoccupied or occupied by a standard role (to swap). Of course, oozes break these
+  rules but they apply to everyone else."* The Midfielder behind the Playmaker is the 1.0 deal's
+  space on boards 7 and 9; on board 10 it moves the Midfielder off the kickoff space, to space −2
+  for home and 2 for the visitors, which replaces the first draft's swap of the two.
+
+- **What an Ooze may do** (4.6e), asked once the author said Oozes break these rules: *"Ooze in
+  unique roles are still locked into their space but other players may be placed to share their
+  space. Oozes in standard roles may be placed anywhere."* Read as reaching as far as Spreadable
+  (Law 20.5.4) does -- standard and advanced mode alone, and "anywhere" within the Ooze's own
+  zone, since a role belongs to a zone.
+
+**Not built yet.** A 2.0 game on the bot still plays every role ability and deals by the
+players' own roles.
+
 ### 2026-10-18 -- author, the ball speed modifier is half the speed again; a tied shot scores
 
 The author: *"ball speed modifier is back to ceiling (speed/2) instead of just speed. That
