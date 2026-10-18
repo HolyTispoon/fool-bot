@@ -1041,6 +1041,7 @@ def _answer_coaching_hub(
         narration=[
             windows.apply_reposition(
                 engine, match, side, player_id, space_index, swap_with,
+                game=game,
             )
         ],
         board_changed=True,

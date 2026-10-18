@@ -315,16 +315,23 @@ def apply_reposition(
     player_id: str,
     space_index: int,
     swap_with: Optional[str] = None,
+    game: Optional[D12BallGame] = None,
 ) -> str:
     """
     The Coaching Choice's space positioning: move one meeple within its
     own zone, trading with whoever is already there when the rule says
-    so, and describe what happened.
+    so, and describe what happened. `game` says which of the side's
+    Oozes are Spreadable, which bends 2.0's rule (docs/rules-2.0.md
+    4.6e).
     """
     setup = match.setup_for_side(side)
     zone = setup.assigned_zone(player_id)
     partner = match.position_meeple(
         side, player_id, space_index, swap_with=swap_with,
+        spread_exempt_ids=(
+            engine.spread_exempt_ids(game, match, side)
+            if game is not None else ()
+        ),
     )
 
     player = engine.get_player_definition(player_id)
