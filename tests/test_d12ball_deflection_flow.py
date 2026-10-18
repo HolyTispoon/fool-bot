@@ -201,16 +201,18 @@ class DeflectionStepTests(unittest.TestCase):
         deflection, which is what made deriving one from the other read
         correctly right up until the Fullback was let near a Clear.
         """
-        fullback = ENGINE.get_player_definition(
-            case_named("deflect_by_a_fullback").challenger_id,
-        )
-        midfielder = ENGINE.get_player_definition(
-            case_named("deflect_plain").challenger_id,
-        )
-        self.assertEqual(deflection_numbers(midfielder, "deflect"), (1, 1, False))
-        self.assertEqual(deflection_numbers(midfielder, "clear"), (3, 3, False))
-        self.assertEqual(deflection_numbers(fullback, "deflect"), (2, 1, True))
-        self.assertEqual(deflection_numbers(fullback, "clear"), (4, 3, True))
+        by_fullback = case_named("deflect_by_a_fullback")
+        plain = case_named("deflect_plain")
+        fullback = ENGINE.get_player_definition(by_fullback.challenger_id)
+        midfielder = ENGINE.get_player_definition(plain.challenger_id)
+
+        def numbers(case, defender, key):
+            return deflection_numbers(ENGINE, case.match, defender, key)
+
+        self.assertEqual(numbers(plain, midfielder, "deflect"), (1, 1, False))
+        self.assertEqual(numbers(plain, midfielder, "clear"), (3, 3, False))
+        self.assertEqual(numbers(by_fullback, fullback, "deflect"), (2, 1, True))
+        self.assertEqual(numbers(by_fullback, fullback, "clear"), (4, 3, True))
 
     def test_the_new_member_is_real_and_has_a_row(self) -> None:
         """

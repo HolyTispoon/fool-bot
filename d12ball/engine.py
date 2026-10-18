@@ -714,6 +714,44 @@ class RulesEngine:
             return False
         return self.species_of(player_id) == species
 
+    def role_of(
+        self, match: MatchState, player_id: str,
+    ) -> Optional[PlayerRole]:
+        """
+        **The role a card is playing in this match** -- the one reading
+        of "which role is this", for a rule and for a label alike.
+
+        In 1.0 a player's role is their card's (Law 2.6). In 2.0 it is
+        the formation's, assigned by the coach (docs/rules-2.0.md,
+        section 4), which is why this asks the match and not the
+        catalog: nothing may read `PlayerDefinition.role` to decide a
+        rule or name a role without coming through here
+        (docs/design/maneuver-deck.md, "Roles").
+
+        Tolerant of a stale id, for the reason `species_of` is.
+        """
+        try:
+            return self.player_catalog.player_by_id(player_id).role
+        except ValueError:
+            return None
+
+    def has_role_ability(
+        self, match: MatchState, player_id: Optional[str], role: PlayerRole,
+    ) -> bool:
+        """
+        **The one question every role-ability site asks**: does this
+        card, in this match, play that role's ability (Law 2.6.2)? The
+        twin of `has_species_ability`, so no site checks a role and
+        forgets whether the game plays role abilities at all.
+
+        It asks the match rather than the game because every site that
+        asks it -- the distances on offer, a roll's modifiers, a steal --
+        is handed the match and nothing else.
+        """
+        if player_id is None:
+            return False
+        return self.role_of(match, player_id) == role
+
     def special_abilities_apply(self, game: D12BallGame) -> bool:
         """
         Whether this game plays the **special abilities** and the
@@ -3150,7 +3188,9 @@ class RulesEngine:
 
         handler = self.get_player_definition(match.active_player_id)
         distances = list(SETUP_PASS_DISTANCES)
-        if handler.role == PlayerRole.FULLBACK:
+        if self.has_role_ability(
+            match, handler.player_id, PlayerRole.FULLBACK,
+        ):
             distances.append(SETUP_PASS_FULLBACK_DISTANCE)
 
         legal = []
@@ -3336,7 +3376,9 @@ class RulesEngine:
         `dribble_burst_cost` discounting it.
         """
         handler = self.get_player_definition(match.active_player_id)
-        playmaker_bonus = 1 if handler.role == PlayerRole.PLAYMAKER else 0
+        playmaker_bonus = 1 if self.has_role_ability(
+            match, handler.player_id, PlayerRole.PLAYMAKER,
+        ) else 0
         reach = min(
             DRIBBLE_BURST_MAX_DISTANCE + playmaker_bonus,
             match.spaces_to_attacking_end(
@@ -3419,7 +3461,11 @@ class RulesEngine:
         """
         handler = self.get_player_definition(match.active_player_id)
         max_distance = (
-            FULLBACK_PASS_REACH if handler.role == PlayerRole.FULLBACK else 3
+            FULLBACK_PASS_REACH
+            if self.has_role_ability(
+                match, handler.player_id, PlayerRole.FULLBACK,
+            )
+            else 3
         )
         return match.high_pass_distances(match.ball.possession, max_distance)
 

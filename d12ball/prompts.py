@@ -1532,7 +1532,9 @@ def effect_choice_prompt(
         # as a distance choice is a refused click.
         if (
             winner_key == "dribble_advance"
-            and handler.role == PlayerRole.PLAYMAKER
+            and engine.has_role_ability(
+                match, handler.player_id, PlayerRole.PLAYMAKER,
+            )
             and match.ball_carrier_id != match.active_player_id
         ):
             return PendingPrompt(
