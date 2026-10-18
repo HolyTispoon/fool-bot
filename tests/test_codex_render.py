@@ -150,7 +150,8 @@ class RenderTests(unittest.TestCase):
                                  + render.DIVIDER_HEIGHT)
 
     def test_the_far_panel_is_turned_round(self) -> None:
-        """A turned panel's body is the upright one's rotated whole; its
+        """A turned panel's body is the upright one's rotated whole --
+        all but the gold's count, drawn to read upright after -- and its
         nameplate moves to the outer edge, above, the right way up."""
         cards, hp = self.engine.catalog, render.default_building_hp(self.engine.catalog)
         upright = render.render_panel(self.match, 2, "b", cards, hp)
@@ -161,7 +162,14 @@ class RenderTests(unittest.TestCase):
         near = upright.crop((edge, edge, upright.width - edge, edge + span))
         far_top = turned.height - edge - span
         far = turned.crop((edge, far_top, turned.width - edge, far_top + span))
-        self.assertEqual(far.tobytes(), near.rotate(180).tobytes())
+        near = near.rotate(180)
+        # The coin, beside the base at the body's foot, is left out.
+        coin = render.BUILDING_GAP
+        left = near.width - render.OVERHANG - render.BUILDING_WIDTH - coin
+        top = render.OVERHANG + round(render.TILE[1] / 2 - coin / 2)
+        for picture in (near, far):
+            picture.paste((0, 0, 0, 0), (left, top - 1, left + coin, top + coin + 1))
+        self.assertEqual(far.tobytes(), near.tobytes())
 
     def test_the_opening_board_side_by_side(self) -> None:
         png = render.render_board(self.match, "side_by_side", {1: "a", 2: "b"}, self.engine.catalog)
