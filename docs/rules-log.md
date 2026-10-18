@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-17.
+**As of:** 2026-10-18.
 
 ## Where the rules come from
 
@@ -154,6 +154,34 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-18 -- author, the ball speed modifier is half the speed again; a tied shot scores
+
+The author: *"ball speed modifier is back to ceiling (speed/2) instead of just speed. That
+applies for scoring and stealing. High ball contest still get the full ball speed - negative
+in case of overshoot. This applies to d12ball 1.0 and 2.0."* Asked what that leaves open,
+first correcting the rounding: *"I misspoke. Should have been rounded down rather than ceiling. Either way it applies to every shot from every range -
+just once"*; the tied shot, *"tie scores again"*; and the set-up shot off a High Ball that
+reached the goal zone pays the whole speed against it.
+
+- **The ball speed modifier is half the speed, rounded down** (7.1.1), as it was before
+  2026-10-01: nothing at speed 1, +6 at 12. It is what a score attempt's attack adds and what a
+  defense contesting with Steal or Intercept adds (7.4.1).
+- **A shot adds it from anywhere in range** (5.2.2). The midfield halving of 2026-10-04 is gone:
+  the modifier is halved once, not again from midfield.
+- **A High Ball contest adds the whole speed** (7.4.2, 10.4.3), by the side that threw the pass,
+  as it has since 2026-10-01 -- against them if the pass reached the goal zone.
+- **A High Ball that reaches the goal zone counts the whole speed against the shot it sets up**
+  (5.2.2, 6.7.4, 7.5.1), as well as against the contest behind it. Every such pass still pays at
+  least 1.
+- **A tied score attempt scores again** (5.2.3), reverting the other half of 2026-10-01. The
+  shootout is unchanged: a tie there scores for neither side (17.4.3).
+- **Zorch** (21.6.6) adds the same number as before -- half the speed, rounded down -- which is now
+  the ball speed modifier itself rather than a bonus of his own. "Once, not twice" stands: where
+  the roll already adds the modifier, or the whole speed on a High Ball contest's throwing
+  side, Zorch adds nothing besides.
+- **Both editions.** D12 Ball 2.0 plays the Charter wherever `rules-2.0.md` does not change it,
+  and it does not touch the speed, so this is one change to both.
 
 ### 2026-10-17 -- author, a space is numbered like a number line
 
@@ -3824,7 +3852,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about what a score attempt costs | Nothing for a plain attempt; 1 token to a shooter off a set-up, after the roll |
 | The own goal is triggered by a deflected pass, and rolled at a **disadvantage** | Triggered by Pressure's overshoot only, rolled at an **advantage**, and costs 1 token |
 | Setting a scoring opportunity describes only the old fixed-2 High Pass overshoot | Four set-ups (High Pass of 2, a High Pass that overshoots, a Winger's Low Pass, a Block Deflect overshoot), each a choice |
-| The ball speed modifier is always added | An overshot High Pass subtracts it, on the shot it sets up and on the contest behind that shot; a shot from midfield adds half of it, rounded down |
+| The ball speed modifier is always added | It is half the speed, rounded down; a High Ball contest adds the whole speed, and a High Ball that reached the goal zone subtracts the whole speed, on the shot it sets up and on the contest behind that shot |
 | A High Pass is a free choice of 2 or 3 (or 4) | Only distances that fit on the field are offered, and none is offered at all with the ball 0 or 1 spaces from the end |
 | A turnover says nothing about ball speed | Every turnover resets it to 1 |
 | Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none. A new play's is free and unlimited; two substitutions a half are the limit |

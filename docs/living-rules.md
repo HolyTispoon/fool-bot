@@ -267,9 +267,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **5.2.1** The handler shoots and both coaches roll one d12.
 
-**5.2.2** The attack adds the shooter's offensive skill, the [ball speed modifier](#7-ball-speed) (7) -- in full from the outer zone before the goal being shot at, and **half of it, rounded down, from midfield** -- and 3 more if a Striker is shooting off a [set-up](#8-scoring-opportunities) (8). The defense adds the skill of every defending player in the way, as [what the defense adds](#53-what-the-defense-adds) (5.3) says.
+**5.2.2** The attack adds the shooter's offensive skill, the [ball speed modifier](#7-ball-speed) (7) from anywhere in range -- or, off a [High Ball that reached the goal zone](#75-a-high-ball-that-reaches-the-goal-zone) (7.5), the ball's whole speed against them -- and 3 more if a Striker is shooting off a [set-up](#8-scoring-opportunities) (8). The defense adds the skill of every defending player in the way, as [what the defense adds](#53-what-the-defense-adds) (5.3) says.
 
-**5.2.3** **The attack scores on a total higher than the defense's.** A tie is a miss.
+**5.2.3** **The attack scores on a total equal to or higher than the defense's.** A tie is a goal.
 
 ### 5.3 What the defense adds
 
@@ -378,7 +378,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.7.3** A 2-space pass that lands short of shooting range is still received. The range rule takes away the shot, not the catch.
 
-**6.7.4** A throw longer than the spaces left in front of the ball **reaches the goal zone**, and comes to rest on the last space before it. With the ball 0 or 1 spaces from that last space, every distance reaches the goal zone and comes to rest on the same space, so nothing is offered and the throw reaches the goal zone before anyone chooses. A throw that reaches the goal zone with a teammate on that last space offers that receiver the scoring opportunity **or** the High Ball contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way.
+**6.7.4** A throw longer than the spaces left in front of the ball **reaches the goal zone**, and comes to rest on the last space before it. With the ball 0 or 1 spaces from that last space, every distance reaches the goal zone and comes to rest on the same space, so nothing is offered and the throw reaches the goal zone before anyone chooses. A throw that reaches the goal zone with a teammate on that last space offers that receiver the scoring opportunity **or** the High Ball contest: they are two halves of one choice, declining the shot means taking the contest, and the ball's whole speed counts **against** them either way ([A High Ball that reaches the goal zone](#75-a-high-ball-that-reaches-the-goal-zone) (7.5)).
 
 **6.7.5** **A passer never receives their own pass.** Thrown from the last space, the ball reaches the goal zone and comes back to rest where it was, and a teammate sharing that space receives it and is offered the choice above.
 
@@ -420,7 +420,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.1 The speed and its modifier
 
-**7.1.1** The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is the speed itself: a ball at speed 5 adds 5.
+**7.1.1** The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is half the speed, rounded down: a ball at speed 5 adds 2, and a ball at speed 1 adds nothing.
 
 ### 7.2 What changes it
 
@@ -432,13 +432,17 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.4 Where the modifier is added
 
-**7.4.1** The modifier is added in three places and nowhere else: to a [score attempt](#5-score-attempt) (5), by the attack, halved and rounded down on a shot from midfield; to a maneuver skill test, by a defense contesting with Steal; and to a [High Ball contest](#104-the-high-ball-contest) (10.4), by the side that threw the pass. In advanced mode one player adds it to every roll they make: see [Oozes](#216-oozes) (21.6).
+**7.4.1** The modifier is added in two places and nowhere else: to a [score attempt](#5-score-attempt) (5), by the attack, from anywhere in range; and to a maneuver skill test, by a defense contesting with Steal.
 
-**7.4.2** The ball [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1) belongs to nobody yet, so neither contestant adds it there.
+**7.4.2** A [High Ball contest](#104-the-high-ball-contest) (10.4) adds **the speed itself**, in full rather than halved, by the side that threw the pass.
+
+**7.4.3** In advanced mode one player adds it to every roll they make: see [Oozes](#216-oozes) (21.6).
+
+**7.4.4** The ball [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1) belongs to nobody yet, so neither contestant adds anything for its speed there.
 
 ### 7.5 A High Ball that reaches the goal zone
 
-**7.5.1** A High Ball that reaches the goal zone turns the sign around: the modifier counts against the shot it sets up and against the contest behind it.
+**7.5.1** A High Ball that reaches the goal zone turns the sign around, and counts the speed in full: the ball's whole speed counts against the shot it sets up and against the contest behind it.
 
 ## 8. Scoring opportunities
 
@@ -527,7 +531,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.2.2** The higher total wins the ball and is left holding it. A tie is rolled again, and each exhausts 1.
 
-**10.2.3** Neither side adds the [ball speed modifier](#7-ball-speed) (7) -- the ball is nobody's yet. A [High Ball contest](#104-the-high-ball-contest) (10.4) is the one exception.
+**10.2.3** Neither side adds anything for the [ball's speed](#7-ball-speed) (7) -- the ball is nobody's yet. A [High Ball contest](#104-the-high-ball-contest) (10.4) is the one exception.
 
 ### 10.3 A loose ball
 
@@ -543,9 +547,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 *Note.* The ball is high in the air, which gives players time to run towards it.
 
-**10.4.3** Otherwise it is [the contest](#102-the-contest) (10.2) above, with one difference: the side that threw the pass adds the [ball speed modifier](#7-ball-speed) (7), and adds it against themselves if the pass reached the goal zone.
+**10.4.3** Otherwise it is [the contest](#102-the-contest) (10.2) above, with one difference: the side that threw the pass adds the [ball's speed](#7-ball-speed) (7) in full, and adds it against themselves if the pass reached the goal zone.
 
-**10.4.4** A pass that reaches nobody carries no modifier. It is not this contest at a disadvantage; the ball is simply loose on an empty space, and there is no receiver for the throw to have favored.
+**10.4.4** A pass that reaches nobody carries no speed. It is not this contest at a disadvantage; the ball is simply loose on an empty space, and there is no receiver for the throw to have favored.
 
 **10.4.5** The ball is left with the winner. A receiver who loses it has been stolen from.
 
@@ -1287,7 +1291,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.6.5** **Shpritz may Smooth.** Shpritz has the Telekinetics' [Smooth](#204-mind-pull-telekinetic) (20.4), and takes their own side's ball over exactly as a Telekinetic does. Shpritz has no Mind Pull.
 
-**21.6.6** **Zorch rolls with the ball.** Zorch adds a ball speed modifier of their own -- **half the ball's speed, rounded down**, not the full [ball speed modifier](#7-ball-speed) (7) -- to every roll they make but an [injury check](#153-the-injury-check) (15.3), which nothing modifies: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the ball speed modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Ball contest](#104-the-high-ball-contest) (10.4) -- that modifier is added and Zorch's own is not, and a [High Ball that reaches the goal zone](#75-a-high-ball-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so Zorch adds nothing. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
+**21.6.6** **Zorch rolls with the ball.** Zorch adds the [ball speed modifier](#7-ball-speed) (7) -- **half the ball's speed, rounded down** -- to every roll they make but an [injury check](#153-the-injury-check) (15.3), which nothing modifies: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the ball's speed to Zorch's side -- the modifier in Zorch's [score attempt](#5-score-attempt) (5) or a skill test Zorch contests with Steal or Intercept, the whole speed on the throwing side of a [High Ball contest](#104-the-high-ball-contest) (10.4) -- that is added and Zorch's own modifier is not, and a [High Ball that reaches the goal zone](#75-a-high-ball-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so Zorch adds nothing. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
 
 **21.6.7** **Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#610-pressure) (6.10) or [Double Team](#1910-double-team) (19.10) would risk an [own goal](#11-own-goal) (11), there is no own-goal roll: Acidel's side takes the ball, at speed 1, and Acidel has a [scoring opportunity](#8-scoring-opportunities) (8) from that space. Declining it leaves Acidel's side holding the ball where it stands.
 
@@ -1295,7 +1299,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Roll | Dice | How it reads |
 | --- | --- | --- |
-| Score attempt | 1d12 each | Attack adds offense and the speed modifier, halved from midfield; defense adds full skill on the ball and half beyond it. A tie is a miss. |
+| Score attempt | 1d12 each | Attack adds offense and the speed modifier, half the speed rounded down; defense adds full skill on the ball and half beyond it. A tie scores. |
 | Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |
