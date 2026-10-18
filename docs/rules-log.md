@@ -190,7 +190,10 @@ The readings the first draft made were put to the author the same day, and answe
 - **The Playmaker takes every kickoff** (4.4) -- each half's, after a goal and after an own goal
   conceded: *"Yes. It also sets their position in the arrangement."*
 - **A formation change is the coach's choice** (4.6a), not a deal by defensive skill: *"This
-  should be coach's choice and current arrangements should stay the same."*
+  should be coach's choice and current arrangements should stay the same."* Asked what the
+  second half meant: *"I meant that all the players that are playmakers in 1.0 should be
+  assigned to the playmaker position in the standard deal of 2.0 and same for other roles"*
+  (4.5).
 - **How a side is set up, and who may move** (4.3, 4.5, 4.6d, 4.6e): *"coaches choose a
   formation, which has a number of players in each zone. Then [coaches] assign players to roles,
   which locks in the position of unique players. Then coaches need to assign space to all the

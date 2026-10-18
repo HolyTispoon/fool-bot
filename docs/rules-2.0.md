@@ -113,7 +113,8 @@ kickoff of each half (Law 3.4, 16.4.4), after a goal (5.5.2) and after an own go
 with nobody in particular (4.2.3).
 
 **4.5** **The standard deal makes all three choices for the coach.** It starts the same six
-players as D12 Ball 1.0's (Law 3.2), in 2-2-2, each in the role their 1.0 deal names. The
+players as D12 Ball 1.0's (Law 3.2), in 2-2-2, each in the role they hold in 1.0: the 1.0
+Playmaker is dealt to the Playmaker's place, and so for every role. The
 Defender and the Winger stand on their zone's space furthest from its unique role, and the
 Midfielder on the space behind the Playmaker, toward their own goal. On boards 7 and 9 those are
 the 1.0 deal's own spaces; on board 10 the Midfielder stands behind the Playmaker, on space −2
