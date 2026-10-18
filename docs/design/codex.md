@@ -1894,14 +1894,28 @@ else the bot shows is ephemeral.
     4 px taller, and drew its shape 2 px inside the picture each
     way), overlaps the pill's rounded end, and widens for two
     figures.
+  - **The gold is a coin beside the worker card**: the gold emoji's coin
+    with the count on it, all but as wide as the space between the
+    building column and the worker card's face (`GOLD_COIN`), at the
+    card's foot -- level with the base in a one-row panel (`gold_coin`;
+    the author, 2026-10-18: "that should be the way money is shown").
+    Its first day it was only as wide as `BUILDING_GAP`, and too tiny
+    to read; beside the worker card rather than the base because the
+    worker card is always upright, where the cell beside a taller
+    panel's base may hold an exhausted card lying across it. On the far panel its
+    count is drawn upside down, so it reads upright once the panel is
+    turned -- the one part of a turned body that is not the upright
+    one rotated.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
-    their team by `codex.formatting.team_name` -- a colour's three heroes
-    by the deck's own name, "Blood Anarchs", any other team by its specs
-    in the order chosen, "Fire/Feral/Bashing", and the basic game's one
-    hero by its spec, "Bashing" (the author, 2026-10-10: never the
-    heroes' names; "Red · Jaina Stormborne, Captain Zane, Drakk Ramhorn"
-    from step 10 until then) -- then gold (the gold emoji's picture),
-    hand, deck, discard and codex, a word and a count each; the workers
+    then right beside the name hand, deck, discard and codex, a word and
+    a count each -- beside the name rather than at the plate's far end,
+    where on a wide board they sat a panel's width from the player they
+    count (the author, 2026-10-18) -- then their team by `codex.formatting.team_name` -- a
+    colour's three heroes by the deck's own name, "Blood Anarchs", any
+    other team by its specs in the order chosen, "Fire/Feral/Bashing",
+    and the basic game's one hero by its spec, "Bashing" (the author,
+    2026-10-10: never the heroes' names; "Red · Jaina Stormborne,
+    Captain Zane, Drakk Ramhorn" from step 10 until then); the workers
     are counted on the worker card in the grid instead. The active
     player's carries a rule and "<name>'s turn <n>" in a pill, both in
     its first hero's colour (`turn_colors`, below), the player by the

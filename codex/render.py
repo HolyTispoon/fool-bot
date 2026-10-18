@@ -318,6 +318,8 @@ PLATE_INK = (201, 168, 106)      # #c9a86a
 #: them warm.
 WORD = (242, 242, 242)           # #f2f2f2
 QUIET = (168, 168, 168)          # #a8a8a8
+#: The gold count on its coin (`gold_coin`): the coin's own dark rim.
+WORD_ON_GOLD = (74, 46, 6)
 FAINT_INK = (138, 122, 98)       # #8a7a62
 RULE = (74, 58, 44)              # #4a3a2c
 #: The active nameplate's mark -- its rule and its "<name>'s turn <n>"
@@ -1866,12 +1868,40 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     # The worker card in the grid's first cell, under the command zone.
     paste_centred(body, worker_card(player.workers, player.deck_color, seat == match.first),
                   (grid_left, top, grid_left + CELL, top + CELL))
+    # The gold, a coin all but filling the space between the building
+    # column and the worker card's face, at the card's foot -- level
+    # with the base in a one-row panel. The worker card is always
+    # upright, so nothing lying in the grid covers it.
+    coin = gold_coin(player.gold, GOLD_COIN, turned)
+    face_left = grid_left + (CELL - CARD[0]) // 2
+    body.alpha_composite(coin, (round((o + BUILDING_WIDTH + face_left - coin.width) / 2),
+                                round(top + CELL - TILE[1] / 2 - coin.height / 2)))
     for index, cell in enumerate(cells, start=1):
         row, column = divmod(index, columns)
         left = grid_left + column * (CELL + CELL_GAP)
         cell_top = top + row * (CELL + CELL_GAP)
         body.alpha_composite(cell, (left - OVERHANG, cell_top - OVERHANG))
     return body
+
+
+#: The gold coin's width: the space between the building column and the
+#: worker card's face, less a margin each side.
+GOLD_COIN = BUILDING_GAP + (CELL - CARD[0]) // 2 - px(8)
+
+
+def gold_coin(gold: int, width: int, turned: bool = False) -> Image.Image:
+    """The player's gold: the gold emoji's coin `width` across with the
+    count on it -- the one place the board shows gold. `turned`, the
+    picture is about to be turned round with its panel, so the count is
+    drawn upside down to read upright after."""
+    coin = by_width(image(EMOJI_DIR / "gold.png"), width).copy()
+    text = str(gold)
+    size = round(width * 0.62)
+    while size > 6 and font(size).getlength(text) > width * 0.6:
+        size -= 1
+    ImageDraw.Draw(coin).text((coin.width / 2, coin.height / 2), text, font=font(size),
+                              fill=WORD_ON_GOLD, anchor="mm")
+    return coin.rotate(180) if turned else coin
 
 
 def turn_label(match: MatchState, name: str) -> str:
@@ -1907,11 +1937,11 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
                      width: int, rule_at_top: bool,
                      ground: Optional[Image.Image] = None) -> Image.Image:
     """
-    The nameplate, `NAMEPLATE_HEIGHT` tall: the player, their team (`team_name`: a
+    The nameplate, `NAMEPLATE_HEIGHT` tall: the player, then right beside
+    the name hand, deck, discard and codex, a word and a count each --
+    the gold is a coin in the body (`gold_coin`) -- then their team (`team_name`: a
     colour's deck by its name, "Blood Anarchs", any other team by its
-    specs, "Fire/Feral/Bashing"), then gold
-    (the gold emoji's picture), hand, deck, discard and codex,
-    a word and a count each. The active player's carries a rule and
+    specs, "Fire/Feral/Bashing"). The active player's carries a rule and
     "<name>'s turn <n>" in a pill, both in its first hero's colour
     (`turn_colors`). The rule is on the side the rest of the panel is
     on. Drawn straight onto `ground`, the piece of
@@ -1931,6 +1961,19 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     x = 0
     draw.text((x, middle), name, font=font(px(26)), fill=WORD, anchor="lm")
     x += font(px(26)).getlength(name) + px(18)
+
+    number, word = font(px(20)), font(px(15), bold=False)
+    counts = (
+        ("HAND", len(player.hand)), ("DECK", len(player.deck)),
+        ("DISCARD", len(player.discard)), ("CODEX", sum(player.codex.values())),
+    )
+    for label, count in counts:
+        draw.text((x, middle), label, font=word, fill=QUIET, anchor="lm")
+        x += word.getlength(label) + px(6)
+        text = str(count)
+        draw.text((x, middle), text, font=number, fill=WORD, anchor="lm")
+        x += number.getlength(text) + px(18)
+
     spec = team_name(player.specs)
     draw.text((x, middle), spec, font=font(px(18), bold=False), fill=QUIET, anchor="lm")
     x += font(px(18), bold=False).getlength(spec) + px(18)
@@ -1940,24 +1983,6 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
         pill_width = face.getlength(label) + px(24)
         turn_pill(draw, (x, middle - px(13), x + pill_width, middle + px(13)), px(10), colors)
         draw.text((x + px(12), middle), label, font=face, fill=colors[1], anchor="lm")
-
-    counts = (
-        ("HAND", len(player.hand)), ("DECK", len(player.deck)),
-        ("DISCARD", len(player.discard)), ("CODEX", sum(player.codex.values())),
-    )
-    number, word = font(px(20)), font(px(15), bold=False)
-    right = width
-    for label, count in reversed(counts):
-        text = str(count)
-        draw.text((right, middle), text, font=number, fill=WORD, anchor="rm")
-        right -= number.getlength(text) + px(6)
-        draw.text((right, middle), label, font=word, fill=QUIET, anchor="rm")
-        right -= word.getlength(label) + px(18)
-    text = str(player.gold)
-    draw.text((right, middle), text, font=number, fill=WORD, anchor="rm")
-    right -= number.getlength(text) + px(6)
-    coin = by_width(image(EMOJI_DIR / "gold.png"), px(26))
-    plate.alpha_composite(coin, (round(right - coin.width), round(middle - coin.height / 2)))
     return plate
 
 
