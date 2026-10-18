@@ -15,6 +15,8 @@ from d12ball.components import (
     Zone,
     zone_for_area,
 )
+from d12ball.flow.periods import finish_halftime, finish_setup_coaching
+from d12ball.flow.turnovers import run_back_kickoff_fill
 from d12ball.game import Edition, Formation
 
 from roster import benched, fielded
@@ -168,6 +170,52 @@ class CarriedRolesTests(unittest.TestCase):
             )
             with self.subTest(area=area):
                 self.assertEqual(held, sorted(wanted))
+
+
+
+class KickoffTests(unittest.TestCase):
+    """The Playmaker takes the kickoff (docs/rules-2.0.md 4.4)."""
+
+    def crowd_the_kickoff(self, match: MatchState) -> str:
+        """A teammate onto the Playmaker's space, as an Ooze may stand,
+        so the kickoff has two handlers to choose between."""
+        side = match.ball.possession
+        other = fielded(match, PlayerRole.MIDFIELDER, side)
+        match.board.place_meeple(
+            other, Zone.MIDFIELD, match.kickoff_space_for(side),
+        )
+        self.assertEqual(len(match.eligible_ball_handlers()), 2)
+        return fielded(match, PlayerRole.PLAYMAKER, side)
+
+    def test_the_first_kickoff_is_the_playmakers(self) -> None:
+        engine, game, match = kickoff(Edition.TWO)
+        playmaker = self.crowd_the_kickoff(match)
+        finish_setup_coaching(engine, game, match)
+        self.assertEqual(engine.turn_handler_candidates(game, match), [playmaker])
+
+    def test_a_goals_restart_is_the_playmakers(self) -> None:
+        engine, game, match = kickoff(Edition.TWO)
+        match.restart_after_goal(TeamSide.VISITING)
+        playmaker = self.crowd_the_kickoff(match)
+        run_back_kickoff_fill(engine, game, match)
+        self.assertEqual(match.ball_carrier_id, playmaker)
+
+    def test_the_second_half_kickoff_is_the_playmakers(self) -> None:
+        engine, game, match = kickoff(Edition.TWO)
+        match.restart_ball_at(
+            Zone.MIDFIELD, match.kickoff_space_for(TeamSide.VISITING),
+        )
+        match.ball.possession = TeamSide.VISITING
+        playmaker = self.crowd_the_kickoff(match)
+        finish_halftime(engine, game, match)
+        self.assertEqual(match.ball_carrier_id, playmaker)
+
+    def test_one_point_oh_leaves_the_coach_the_choice(self) -> None:
+        engine, game, match = kickoff(Edition.ONE)
+        self.crowd_the_kickoff(match)
+        finish_setup_coaching(engine, game, match)
+        self.assertIsNone(match.ball_carrier_id)
+        self.assertEqual(len(engine.turn_handler_candidates(game, match)), 2)
 
 
 if __name__ == "__main__":
