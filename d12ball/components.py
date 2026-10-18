@@ -1720,6 +1720,12 @@ def copy_lists(mapping: dict) -> dict:
     return {key: list(value) for key, value in mapping.items()}
 
 
+def copy_roles(roles: dict) -> dict:
+    """`{side: {card: role}}` -- `formation_roles` one level deeper
+    than `dict()` copies, so a save and the match never share a dict."""
+    return {side: dict(by_card) for side, by_card in roles.items()}
+
+
 def copy_decks(decks: dict) -> dict:
     """`{side: {pile: list(cards)}}` -- `maneuver_decks` two levels
     deep, so a saved deck and the match's never share a list."""
@@ -1934,6 +1940,7 @@ MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
         # Left out of a save with no decks: a 1.0 match is written as
         # it was before 2.0.
         "maneuver_decks",
+        "formation_roles",
         "ruleset_id",
         "player_data_version",
         "board",
@@ -2027,6 +2034,15 @@ class MatchState:
     # (`RulesEngine.initialize_standard_match`) and played at a
     # maneuver's reveal (`d12ball.flow.turn.play_maneuver_cards`); it
     # outlives every maneuver, so `reset_maneuver` leaves it alone.
+    # D12 Ball 2.0's roles (docs/rules-2.0.md, section 4): a role
+    # belongs to the formation, assigned to a player, rather than being
+    # the player's own. Keyed by the side's saved value, each
+    # `{card id: role value}` for the six fielded cards -- a bench card
+    # holds no role. Empty in a 1.0 game and in every save made before
+    # it, which `RulesEngine.role_of` reads as each card's own role;
+    # saved explicitly, and only where there are roles, so a 1.0 match
+    # is written exactly as before (`MATCH_EXPLICIT_FIELDS`).
+    formation_roles: dict[str, dict[str, str]] = field(default_factory=dict)
     maneuver_decks: dict[str, dict[str, list[str]]] = field(
         default_factory=dict,
     )
@@ -5838,6 +5854,9 @@ class MatchState:
         # rather than a row of the table.
         if self.maneuver_decks:
             saved["maneuver_decks"] = copy_decks(self.maneuver_decks)
+        # 2.0's roles, likewise only where there are any.
+        if self.formation_roles:
+            saved["formation_roles"] = copy_roles(self.formation_roles)
         return saved
 
     @classmethod
@@ -5974,6 +5993,9 @@ class MatchState:
             ],
             # Absent from every 1.0 save, which reads as no decks.
             maneuver_decks=copy_decks(data.get("maneuver_decks", {})),
+            # Absent from every 1.0 save, and from a 2.0 save made
+            # before roles were the formation's: each card's own role.
+            formation_roles=copy_roles(data.get("formation_roles", {})),
             **{
                 saved_field.name: saved_field.restored(data)
                 for saved_field in MATCH_SAVED_FIELDS
