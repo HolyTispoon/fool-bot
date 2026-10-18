@@ -35,6 +35,7 @@ from cogs.codex_views.tech import (
 )
 from cogs.codex_views.turn import (
     END_OF_TURN,
+    concede_button,
     NOT_YOUR_PANEL,
     OPPONENT_STARTED,
     OTHER_TEAM_STARTED,
@@ -109,6 +110,7 @@ __all__ = [
     "codex_view_menu",
     "board_button",
     "codex_button",
+    "concede_button",
     "deck_button",
     "deck_caption",
     "deck_file",

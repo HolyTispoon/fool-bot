@@ -1,7 +1,7 @@
 """
 The buttons on the current turn's public message (docs/codex-bot.md,
 decisions 4 and 5): **My hand**, **My deck**, **Tech**, **Codex**,
-**Undo**, **Swap view** and **Concede**
+**Undo** and **Swap view**
 -- persistent, so a restart re-arms them from `turn_message_id`.
 
 Hidden information is answered **ephemerally**, to the clicker alone and
@@ -33,8 +33,11 @@ nothing.
 no panel open -- and the player who ended the turn before, while this
 one has done nothing but open, with **Take back the end of my turn**;
 anybody else is told it is the active player's.
-**Concede** gives up the clicker's own side, behind a second click on an
-ephemeral confirmation (`ConcedeConfirmView`).
+**Concede** is not on it: it is under the hand menus **My hand** opens
+(`concede_button`), so nobody gives up the game from a public message
+by a slip (the author, 2026-10-18). It gives up the clicker's own side,
+behind a second click on an ephemeral confirmation
+(`ConcedeConfirmView`).
 """
 
 import asyncio
@@ -49,7 +52,7 @@ from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import elapsed_ms, pictures_size, seat_label
 from cogs.codex_publish import keys
 from cogs.codex_views.base import SafeView, edit_clicked, kept_pictures, picture_file, send_ephemeral
-from cogs.codex_views.turn import UndoView, opponent_started
+from cogs.codex_views.turn import UndoView, concede_button, opponent_started
 
 LOGGER = logging.getLogger(__name__)
 
@@ -123,11 +126,7 @@ class TurnMessageView(SafeView):
             ("Undo", "undo", discord.ButtonStyle.secondary),
             (swap_label(layout, game is not None and game.is_free_for_all), "swap",
              discord.ButtonStyle.secondary),
-            ("Concede", "concede", discord.ButtonStyle.danger),
         ):
-            if action == "concede" and game is not None and game.is_free_for_all:
-                # A free-for-all has no conceding (Rulebook p. 14).
-                continue
             button = discord.ui.Button(
                 label=label, style=style, custom_id=f"codex:turn:{action}:{game_id}",
             )
@@ -248,12 +247,6 @@ class TurnMessageView(SafeView):
                           end_of_turn=ended),
             ephemeral=True,
         )
-
-    async def concede(self, interaction: discord.Interaction) -> None:
-        """The clicker's own side given up, behind a second click
-        (`ConcedeConfirmView`) -- in a test game, the side whose turn
-        it is."""
-        await self.cog.ask_concede(interaction, self.cog.games.get(self.game_id))
 
     async def swap(self, interaction: discord.Interaction) -> None:
         game = self.cog.games.get(self.game_id)
@@ -395,9 +388,9 @@ def board_button(callback, row: int | None = None) -> discord.ui.Button:
 class HandView(SafeView):
     """
     Under the hand **My hand** shows the player whose turn it is not:
-    **My deck**, **Codex** and **Show board**, the hand being nothing to
-    press. Not persistent: an ephemeral message dies with the client's
-    session.
+    **My deck**, **Codex**, **Show board** and **Concede**, the hand
+    being nothing to press. Not persistent: an ephemeral message dies
+    with the client's session.
     """
 
     def __init__(self, cog, game_id: str, seat: int) -> None:
@@ -408,6 +401,11 @@ class HandView(SafeView):
         self.add_item(deck_button(self.deck))
         self.add_item(codex_button(self.codex))
         self.add_item(board_button(self.board))
+        for button in concede_button(self.concede, cog.games.get(game_id)):
+            self.add_item(button)
+
+    async def concede(self, interaction: discord.Interaction) -> None:
+        await self.cog.ask_concede(interaction, self.cog.games.get(self.game_id))
 
     async def deck(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
@@ -433,8 +431,8 @@ class WaitingView(HandView):
     Under a dragon seat's panel edited where the team's turn asks it
     nothing now -- the teammate's action stands part-way, or this seat has
     locked: **Back to my turn**, which asks the position again and puts
-    up whatever it asks this seat, and **My deck**, **Codex** and **Show
-    board**.
+    up whatever it asks this seat, and **My deck**, **Codex**, **Show
+    board** and **Concede**.
     """
 
     def __init__(self, cog, game_id: str, seat: int) -> None:

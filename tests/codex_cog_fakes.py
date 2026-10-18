@@ -643,6 +643,13 @@ class Table:
                 for item in shown
             ]
 
+    async def concede(self, who) -> FakeInteraction:
+        """**Concede** pressed under the hand menu **My hand** opens for
+        `who` -- the panel for the active player, the hand for another;
+        it is on no public message (the author, 2026-10-18)."""
+        menu = (await self.turn_button("hand", who)).view()
+        return await self.press(menu, "Concede", who=who)
+
     async def panel(self, who=None) -> tuple[FakeInteraction, object]:
         call = await self.turn_button("hand", who or self.active)
         return call, call.view()

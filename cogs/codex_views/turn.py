@@ -155,6 +155,19 @@ def hand_numbers(options) -> dict[str, int]:
     return numbers
 
 
+def concede_button(callback, game, row: int | None = None) -> list[discord.ui.Button]:
+    """**Concede**, under the hand menus and nowhere public: the
+    clicker's own side given up behind a second click
+    (`Codex.ask_concede`). None in a free-for-all, which has no
+    conceding (Rulebook p. 14) -- a list, so a caller adds what there
+    is."""
+    if game is not None and game.is_free_for_all:
+        return []
+    button = discord.ui.Button(label="Concede", style=discord.ButtonStyle.danger, row=row)
+    button.callback = callback
+    return [button]
+
+
 class PanelButton(discord.ui.Button):
     """A button on the panel, carrying `choice` -- what it answers with
     off the prompt's options: `("play", slug)`, `("build", building)`,
@@ -277,6 +290,14 @@ class PanelView(SafeView):
         if game is None:
             return
         await self.cog.show_board(interaction, game, self.seat)
+
+    async def open_concede(self, interaction: discord.Interaction) -> None:
+        """**Concede**: the second click asked in an ephemeral message
+        of its own (`Codex.ask_concede`); the panel stays as it is."""
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.cog.ask_concede(interaction, game)
 
     async def show(self, interaction: discord.Interaction, view: discord.ui.View,
                    content: str | None = None) -> None:
@@ -473,10 +494,12 @@ class TurnPanelView(PanelView):
             for ability in options.abilities
             if not ability.allowed and ability.why_not not in (EXHAUSTED, ARRIVED)
         ]
-        # **My deck**, **Codex**, **Show board**, **Undo...** and **End
-        # main phase** are always the panel's last five buttons, in that
-        # order (the author, 2026-10-09; Codex 2026-10-10; Show board
-        # 2026-10-15), after the board's row, and always placed.
+        # **My deck**, **Codex**, **Show board**, **Undo...**, **End
+        # main phase** and **Concede** are always the panel's last
+        # buttons, in that order (the author, 2026-10-09; Codex
+        # 2026-10-10; Show board 2026-10-15; Concede, off the turn
+        # message, 2026-10-18), after the board's row, and always placed
+        # -- Concede, as everywhere, not in a free-for-all.
         last = [
             self.make_button("My deck", discord.ButtonStyle.secondary, self.open_deck),
             self.make_button("Codex", discord.ButtonStyle.secondary, self.open_codex),
@@ -484,6 +507,9 @@ class TurnPanelView(PanelView):
             self.make_button("Undo...", discord.ButtonStyle.secondary, self.open_undo),
             self.make_button("End main phase", discord.ButtonStyle.danger, self.end_main),
         ]
+        game = self.cog.games.get(self.game_id)
+        if game is not None and not game.is_free_for_all:
+            last.append(self.make_button("Concede", discord.ButtonStyle.danger, self.open_concede))
         row = self.place(actions, 0)
         row = self.place(hand, row, until=row + HAND_ROWS)
         self.place(board, row, last=last)

@@ -38,6 +38,7 @@ from cogs.codex_views.turn import END_OF_TURN, OPPONENT_STARTED, UNDO_MENU
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
     CodexBrowser,
+    ConcedeConfirmView,
     HandView,
     PatrolView,
     RematchView,
@@ -152,7 +153,8 @@ class PanelTests(TurnTestCase):
         # The other player's My hand is their hand, with My deck and
         # Codex to press.
         theirs = await self.table.turn_button("hand", self.table.waiting)
-        self.assertEqual([item.label for item in theirs.view().children], ["My deck", "Codex", "Show board"])
+        self.assertEqual([item.label for item in theirs.view().children],
+                         ["My deck", "Codex", "Show board", "Concede"])
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
 
     async def test_an_empty_hand_is_no_picture(self) -> None:
@@ -390,11 +392,12 @@ class PanelTests(TurnTestCase):
             self.assertTrue(item.label.startswith(f"{numbers[item.choice[1]]}. "), item.label)
         builds = [item.choice[1] for item in view.children if (item.choice or ("",))[0] == "build"]
         self.assertEqual(builds, [row.building for row in options.buildings if row.allowed])
-        # My deck, Codex, Show board, Undo... and End main phase are the
-        # panel's last five buttons, in that order (the author, 2026-10-09;
-        # Codex 2026-10-10; Show board 2026-10-15).
-        self.assertEqual([item.label for item in view.children[-5:]],
-                         ["My deck", "Codex", "Show board", "Undo...", "End main phase"])
+        # My deck, Codex, Show board, Undo..., End main phase and Concede
+        # are the panel's last buttons, in that order (the author,
+        # 2026-10-09; Codex 2026-10-10; Show board 2026-10-15; Concede
+        # 2026-10-18).
+        self.assertEqual([item.label for item in view.children[-6:]],
+                         ["My deck", "Codex", "Show board", "Undo...", "End main phase", "Concede"])
         self.assertEqual(view.children[-1].row, max(item.row for item in view.children))
         mark = len(self.table.game_channel.requests)
         opened = await self.table.press(view, "Attack...")
@@ -557,8 +560,8 @@ class PanelTests(TurnTestCase):
         self.assertEqual([item.row for item in view.children if (item.choice or ("",))[0] == "summon"], [0])
         self.assertTrue([item for item in view.children
                          if item.label.startswith(("Build ", "Nothing can be built"))])
-        self.assertEqual([item.label for item in view.children[-5:]],
-                         ["My deck", "Codex", "Show board", "Undo...", "End main phase"])
+        self.assertEqual([item.label for item in view.children[-6:]],
+                         ["My deck", "Codex", "Show board", "Undo...", "End main phase", "Concede"])
 
     async def test_the_last_five_are_never_crowded_out(self) -> None:
         """A board's row fuller than its room gives buttons up, never My
@@ -769,6 +772,14 @@ class BusyGameTests(TurnTestCase):
         _, call = await self.table.press_while_busy(view, "My deck")
         self.assertNothingWentWrong(call)
         self.assertEqual([answer[0] for answer in call.answers], ["response.defer", "followup.send"])
+        self.assertTrue(call.last()[2]["ephemeral"])
+
+    async def test_concede_is_a_follow_up(self) -> None:
+        _, view = await self.table.panel()
+        _, call = await self.table.press_while_busy(view, "Concede")
+        self.assertNothingWentWrong(call)
+        self.assertEqual([answer[0] for answer in call.answers], ["response.defer", "followup.send"])
+        self.assertIsInstance(call.view(), ConcedeConfirmView)
         self.assertTrue(call.last()[2]["ephemeral"])
 
     async def test_the_undos_answer_on_a_click_answered_already(self) -> None:
@@ -2110,8 +2121,8 @@ class RefusedAbilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(refused), 2, [item.label for item in view.children])
         self.assertTrue(all(item.disabled for item in refused))
         self.assertFalse([item for item in view.children if (item.choice or ("",))[0] == "ability"])
-        self.assertEqual([item.label for item in view.children[-5:]],
-                         ["My deck", "Codex", "Show board", "Undo...", "End main phase"])
+        self.assertEqual([item.label for item in view.children[-6:]],
+                         ["My deck", "Codex", "Show board", "Undo...", "End main phase", "Concede"])
         # An exhausted card's ability is left off: the board shows it.
         match = self.table.match
         hero_in_play(match, 1, slug="vir_garbarean", level=5)
