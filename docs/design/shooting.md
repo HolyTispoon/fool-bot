@@ -139,10 +139,10 @@ and nothing else** -- "reaches the goal zone" where the rules said
 ## A High Ball that reaches the goal zone
 
 A High Ball that reaches the goal zone offers a shot **or** a contest for the
-ball, and pays the ball speed modifier against both -- see "High Ball" and
+ball, and pays the ball's whole speed against both -- see "High Ball" and
 "Ball speed" in the living rules. `MatchState.pending_high_pass_overshoot` is
 the flag -- it keeps the old word because it is a saved key -- and
-`MatchState.ball_speed_modifier` is the only place the sign is decided.
+`MatchState.high_ball_speed` is the only place the sign is decided.
 
 - **A passer never receives their own pass**, which is the whole of
   `D12Ball.high_pass_receiver_candidates` -- `scoring_opportunity_candidates`
@@ -203,21 +203,25 @@ the flag -- it keeps the old word because it is a saved key -- and
   goal zone**: a chosen 2 can only reach it from a position where no distance
   was offered, so the "a pass of 2 is received, full stop" rule and this one
   never meet.
-- **`ball_speed_modifier` is the whole of the sign, and three sites ask it**:
-  the score attempt's roll, the image that composes it, and the long-pass
-  contest in `LooseBallSkillTestView.roll`. Each used to halve `ball.speed`
-  itself. The fourth site is deliberately left alone -- the modifier a *defense*
-  adds to a maneuver skill test it won with Steal Intercept, which is settled
-  before any pass is thrown and is not the offense's to lose.
-- **A shot asks `shot_speed_modifier`, not `ball_speed_modifier`** (the
-  author, 2026-10-04): the same signed modifier, halved and rounded down when
-  the ball is in midfield (`shot_speed_halved`, Law 5.2.2). It is the shot's
-  alone -- the roll, the matchup image (`score_attempt_brief`, which the web
-  page reads too) and the shot's event -- so the long-pass contest and a
-  Steal still pay the full speed wherever they are rolled. The ball's zone is
-  the shooter's, since a shot is taken from the ball, and no shot against the
-  speed is taken from midfield: a pass into the goal zone leaves its receiver
-  on the last space.
+- **Two readings of what the speed adds, and they differ on purpose** (the
+  author, 2026-10-18). `BallState.speed_modifier` is the modifier, half the
+  speed rounded down (Law 7.1), which a shot and a Steal or Intercept add.
+  `MatchState.high_ball_speed` is the whole speed, signed, which a High Ball
+  outcome pays (Law 7.4.2, 7.5): the long-pass contest always, and the shot
+  only after a pass into the goal zone. The modifier a *defense* adds to a
+  maneuver skill test it won with Steal or Intercept is never signed: it is
+  settled before any pass is thrown and is not the offense's to lose.
+- **A shot asks `shot_speed_modifier`** (Law 5.2.2): the modifier from
+  anywhere in range, or `high_ball_speed` -- the whole speed, negative --
+  off a pass into the goal zone. It is the shot's alone -- the roll, the
+  matchup image (`score_attempt_brief`, which the web page reads too) and
+  the shot's event. From 2026-10-04 to 2026-10-18 a shot from midfield
+  halved the modifier again (`shot_speed_halved`, gone): the author
+  dropped it with the modifier's return to half the speed, so it is halved
+  once, wherever the shot is taken.
+- **A line names which it is**: "ball speed modifier" for the halved
+  modifier, "ball speed" for the whole speed a High Ball outcome pays,
+  so a reader of the dice can tell the two apart.
 - **Every detail string is `:+d`**, because a modifier that can be negative can
   no longer be printed under a hardcoded `+`.
 - **The flag is set only when a set-up is actually offered**, in

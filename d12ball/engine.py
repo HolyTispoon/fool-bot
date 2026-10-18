@@ -714,6 +714,44 @@ class RulesEngine:
             return False
         return self.species_of(player_id) == species
 
+    def role_of(
+        self, match: MatchState, player_id: str,
+    ) -> Optional[PlayerRole]:
+        """
+        **The role a card is playing in this match** -- the one reading
+        of "which role is this", for a rule and for a label alike.
+
+        In 1.0 a player's role is their card's (Law 2.6). In 2.0 it is
+        the formation's, assigned by the coach (docs/rules-2.0.md,
+        section 4), which is why this asks the match and not the
+        catalog: nothing may read `PlayerDefinition.role` to decide a
+        rule or name a role without coming through here
+        (docs/design/maneuver-deck.md, "Roles").
+
+        Tolerant of a stale id, for the reason `species_of` is.
+        """
+        try:
+            return self.player_catalog.player_by_id(player_id).role
+        except ValueError:
+            return None
+
+    def has_role_ability(
+        self, match: MatchState, player_id: Optional[str], role: PlayerRole,
+    ) -> bool:
+        """
+        **The one question every role-ability site asks**: does this
+        card, in this match, play that role's ability (Law 2.6.2)? The
+        twin of `has_species_ability`, so no site checks a role and
+        forgets whether the game plays role abilities at all.
+
+        It asks the match rather than the game because every site that
+        asks it -- the distances on offer, a roll's modifiers, a steal --
+        is handed the match and nothing else.
+        """
+        if player_id is None:
+            return False
+        return self.role_of(match, player_id) == role
+
     def special_abilities_apply(self, game: D12BallGame) -> bool:
         """
         Whether this game plays the **special abilities** and the
@@ -2984,19 +3022,18 @@ class RulesEngine:
         player_id: Optional[str],
     ) -> tuple[int, str]:
         """
-        **Zorch** adds a ball speed modifier of their own to every roll
-        they make (Law 21.6.6): **half the speed, rounded down** -- not
-        `BallState.speed_modifier`, the full speed everyone else adds
-        (the author, 2026-10-01). The number, and the line the dice list
-        it under, or `(0, "")` for anybody else or a ball at speed 1 --
-        a bonus of nothing says nothing.
+        **Zorch** adds the ball speed modifier to every roll they make
+        (Law 21.6.6): `BallState.speed_modifier`, **half the speed,
+        rounded down**. The number, and the line the dice list it under,
+        or `(0, "")` for anybody else or a ball at speed 1 -- a bonus of
+        nothing says nothing.
 
         The caller asks only where the roll does not already add the
-        modifier to Zorch's side -- Zorch shooting, contesting a
+        ball's speed to Zorch's side -- Zorch shooting, contesting a
         maneuver with Steal or Intercept, or holding the thrower's side
         of a High Ball contest -- because Zorch adds it once, not twice
-        (the author, 2026-09-27) -- and there the full modifier is what
-        is added, not this. It is never signed: a High Ball that reaches the goal zone counts the
+        (the author, 2026-09-27); on the High Ball contest's throwing
+        side it is the whole speed that is added, not this. It is never signed: a High Ball that reaches the goal zone counts the
         modifier against itself, and Zorch's own bonus is not that
         pass's.
         """
@@ -3004,7 +3041,7 @@ class RulesEngine:
             game, player_id, SpecialAbility.SPEED_ROLLS,
         ):
             return 0, ""
-        modifier = match.ball.speed // 2
+        modifier = match.ball.speed_modifier
         if not modifier:
             return 0, ""
         return modifier, f"+{modifier} ball speed modifier"
@@ -3151,7 +3188,9 @@ class RulesEngine:
 
         handler = self.get_player_definition(match.active_player_id)
         distances = list(SETUP_PASS_DISTANCES)
-        if handler.role == PlayerRole.FULLBACK:
+        if self.has_role_ability(
+            match, handler.player_id, PlayerRole.FULLBACK,
+        ):
             distances.append(SETUP_PASS_FULLBACK_DISTANCE)
 
         legal = []
@@ -3337,7 +3376,9 @@ class RulesEngine:
         `dribble_burst_cost` discounting it.
         """
         handler = self.get_player_definition(match.active_player_id)
-        playmaker_bonus = 1 if handler.role == PlayerRole.PLAYMAKER else 0
+        playmaker_bonus = 1 if self.has_role_ability(
+            match, handler.player_id, PlayerRole.PLAYMAKER,
+        ) else 0
         reach = min(
             DRIBBLE_BURST_MAX_DISTANCE + playmaker_bonus,
             match.spaces_to_attacking_end(
@@ -3420,7 +3461,11 @@ class RulesEngine:
         """
         handler = self.get_player_definition(match.active_player_id)
         max_distance = (
-            FULLBACK_PASS_REACH if handler.role == PlayerRole.FULLBACK else 3
+            FULLBACK_PASS_REACH
+            if self.has_role_ability(
+                match, handler.player_id, PlayerRole.FULLBACK,
+            )
+            else 3
         )
         return match.high_pass_distances(match.ball.possession, max_distance)
 

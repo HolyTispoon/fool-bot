@@ -1426,7 +1426,7 @@ EFFECT_ASK = "Resolve the maneuver:"
 #: bare question instead (see `pending_prompt`).
 SCORE_ATTEMPT_ASK = (
     "Either player can roll. Both sides roll one d12; the attacker "
-    "scores on a total higher than the defense's, and a tie is a miss."
+    "scores on a total equal to or higher than the defense's."
 )
 
 
@@ -1532,7 +1532,9 @@ def effect_choice_prompt(
         # as a distance choice is a refused click.
         if (
             winner_key == "dribble_advance"
-            and handler.role == PlayerRole.PLAYMAKER
+            and engine.has_role_ability(
+                match, handler.player_id, PlayerRole.PLAYMAKER,
+            )
             and match.ball_carrier_id != match.active_player_id
         ):
             return PendingPrompt(

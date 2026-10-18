@@ -263,11 +263,11 @@ their own (below).
     decides whether to ask**: where the roll already adds the modifier
     to Zorch's side (a Steal or Intercept, the thrower's side of a High
     Pass contest, the shot) it does not, because Zorch adds it once.
-    It is half the speed, **rounded down** -- Zorch's own, not
-    `BallState.speed_modifier`, which became the full speed on
-    2026-10-01 while Zorch's stayed halved (the author, the same day)
-    -- so nothing at speed 1, and never `ball_speed_modifier()`'s signed
-    value -- the sign a High Ball into the goal zone pays is the pass's
+    It is the ball speed modifier, `BallState.speed_modifier`, half
+    the speed **rounded down** -- Zorch's own from 2026-10-01, while
+    everyone else's was the full speed, and everyone's again from
+    2026-10-18 -- so nothing at speed 1, and never `high_ball_speed()`'s
+    signed whole speed -- the sign a High Ball into the goal zone pays is the pass's
     penalty, not Zorch's. **Scorchit's test is their coach's choice** --
     "may force" (the author, 2026-09-26) -- so it is a prompt,
     `FORCE_TEST`, put up by `resolve_maneuver` at the reveal where

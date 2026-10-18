@@ -155,9 +155,9 @@ class PassStepTests(unittest.TestCase):
 
     def test_a_walking_ball_still_pays_one(self) -> None:
         """
-        The ball speed modifier is the speed itself (Law 7.1), and the
-        speed is never below 1, so a walking ball that reaches the goal
-        zone still pays 1 -- and says so.
+        A pass into the goal zone pays the whole speed (Law 7.5), and
+        the speed is never below 1, so a walking ball that reaches the
+        goal zone still pays 1 -- and says so.
         """
         result = run_step(case_named("an_overshoot_at_walking_pace"))
         self.assertTrue(result.narration[-1].endswith("(-1)."))
@@ -185,6 +185,7 @@ class PassStepTests(unittest.TestCase):
         fixture = case_named("nowhere_left_to_throw_it")
         match = fixture.match
         overshot, actual_distance, content = throw_high_pass(
+            ENGINE,
             match,
             match.ball.possession,
             2,

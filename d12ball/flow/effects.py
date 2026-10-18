@@ -383,8 +383,11 @@ def low_pass_tail(
             game, receiver_id, SpecialAbility.SHOOTS_OFF_ANY_PASS,
         )
     )
+    winger = engine.has_role_ability(
+        match, handler.player_id, PlayerRole.WINGER,
+    )
     if not (
-        handler.role == PlayerRole.WINGER or zytheris
+        winger or zytheris
     ) or not match.can_attempt_score(offense_side):
         return [], FollowOn(
             FollowOnStep.FINISH_MANEUVER_RESOLUTION,
@@ -400,7 +403,7 @@ def low_pass_tail(
         (
             f"{engine.format_player_label(match, handler)}'s Winger "
             "ability can turn this into a scoring opportunity!"
-            if handler.role == PlayerRole.WINGER
+            if winger
             else f"{engine.format_player_label(match, receiver)}'s "
             "special ability can turn this into a scoring opportunity!"
         ),
@@ -551,7 +554,9 @@ def dribble_advance_step(
         " (special ability)"
         if distance > 2
         else " (Playmaker ability)"
-        if handler.role == PlayerRole.PLAYMAKER and distance > 1
+        if engine.has_role_ability(
+            match, handler.player_id, PlayerRole.PLAYMAKER,
+        ) and distance > 1
         else ""
     )
     content = (
@@ -617,7 +622,9 @@ def dribble_burst_step(
         *match.board.meeple_position(match.active_player_id)
     )
     match.set_ball_carrier(match.active_player_id)
-    playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
+    playmaker_bonus = engine.has_role_ability(
+        match, handler.player_id, PlayerRole.PLAYMAKER,
+    )
     # Emberdash bursts for nothing (Law 21), which the cost already
     # says; the note below says why.
     free_burst = engine.has_special_ability(
@@ -979,7 +986,9 @@ def apply_pressure_turnover(
 
     # Role ability -- Defender: also steals the ball on a won
     # pressure, on top of the normal effect above.
-    stolen = defender.role == PlayerRole.DEFENDER
+    stolen = engine.has_role_ability(
+        match, defender.player_id, PlayerRole.DEFENDER,
+    )
     if stolen and not burst_cost:
         match.ball.possession = defense_side
         match.ball.speed = 1
@@ -1398,6 +1407,8 @@ def own_goal_roll_step(
 
 
 def deflection_numbers(
+    engine: RulesEngine,
+    match: MatchState,
     defender: PlayerDefinition,
     key: str,
 ) -> tuple[int, int, bool]:
@@ -1415,7 +1426,9 @@ def deflection_numbers(
     """
     # Role ability -- Fullback: +1 space on a deflection, which takes a
     # Deflect from 1 to 2 and a Clear from 3 to 4.
-    fullback_bonus = defender.role == PlayerRole.FULLBACK
+    fullback_bonus = engine.has_role_ability(
+        match, defender.player_id, PlayerRole.FULLBACK,
+    )
     base_distance = 3 if key == "clear" else 1
 
     return (
@@ -1480,7 +1493,7 @@ def deflection_step(
     name = engine.maneuver_name(key)
 
     deflect_distance, speed_drop, fullback_bonus = deflection_numbers(
-        defender, key,
+        engine, match, defender, key,
     )
 
     reaches_goal_zone, actual_distance = knock_ball_back(
@@ -1590,6 +1603,7 @@ def deflection_lands(
 
 
 def throw_high_pass(
+    engine: RulesEngine,
     match: MatchState,
     offense_side: TeamSide,
     distance: int,
@@ -1608,7 +1622,9 @@ def throw_high_pass(
     """
     # Role ability -- Fullback: can choose to pass up to 4 spaces
     # instead of the usual 2-3 max (see HighPassChoiceView).
-    fullback_bonus = handler.role == PlayerRole.FULLBACK and distance == 4
+    fullback_bonus = distance == 4 and engine.has_role_ability(
+        match, handler.player_id, PlayerRole.FULLBACK,
+    )
 
     reaches_goal_zone = match.high_pass_reaches_goal_zone(
         offense_side, distance,
@@ -1734,7 +1750,7 @@ def high_pass_step(
     handler = engine.get_player_definition(match.active_player_id)
 
     reaches_goal_zone, actual_distance, content = throw_high_pass(
-        match, offense_side, distance, handler,
+        engine, match, offense_side, distance, handler,
     )
 
     # High Ball's own cost is a flat 2 time regardless of
@@ -2019,12 +2035,12 @@ def offer_goal_zone_set_up(
     # pass, and the carrier has to survive that.
     match.set_ball_carrier(shooter_id)
 
-    penalty = match.ball_speed_modifier()
-    # The modifier is the speed itself (Law 7.1), never below 1, so
-    # every pass that reaches the goal zone pays it.
+    penalty = match.high_ball_speed()
+    # The whole speed (Law 7.5), never below 1, so every pass that
+    # reaches the goal zone pays it.
     speed_note = (
-        " The ball comes in too fast to settle -- the ball speed "
-        f"modifier counts **against** what follows ({penalty})."
+        " The ball comes in too fast to settle -- the ball's whole "
+        f"speed counts **against** what follows ({penalty})."
     )
     return StepResult(
         narration=[
@@ -2463,7 +2479,9 @@ def offer_dribble_advance(
     here, so they skip straight to applying the fixed 1-space advance.
     """
     handler = engine.get_player_definition(match.active_player_id)
-    if handler.role != PlayerRole.PLAYMAKER:
+    if not engine.has_role_ability(
+        match, handler.player_id, PlayerRole.PLAYMAKER,
+    ):
         return _with_lead_in(
             dribble_advance_step(engine, game, match, 1), lead_in,
         )

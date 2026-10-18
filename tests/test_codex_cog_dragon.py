@@ -141,7 +141,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         heading = kwargs["content"].split("\n")[0]
         for seat in (self.first, self.second):
             self.assertIn(f"<@{self.who(seat).id}>", heading)
-        self.assertIn("Concede", labels(TurnMessageView(self.table.cog, self.game.game_id)))
+        self.assertNotIn("Concede", labels(TurnMessageView(self.table.cog, self.game.game_id)))
 
     async def test_each_teammate_gets_their_own_panel_and_sees_the_others_hand(self) -> None:
         for seat, mate in ((self.first, self.second), (self.second, self.first)):
@@ -159,7 +159,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_other_team_sees_its_hand_and_its_teammates(self) -> None:
         foe, mate = self.foes
         call = await self.table.turn_button("hand", self.who(foe))
-        self.assertEqual(labels(call.view()), ["My deck", "Codex", "Show board"])
+        self.assertEqual(labels(call.view()), ["My deck", "Codex", "Show board", "Concede"])
         _, args, kwargs = call.last()
         self.assertEqual(len(kwargs["files"]), 2)
         self.assertIn(f"{self.game.seat_name(mate)}'s hand:", args[0])
@@ -537,7 +537,8 @@ class EndTests(unittest.IsolatedAsyncioTestCase):
         return result
 
     async def test_a_watchers_concede_is_refused_in_the_models_words(self) -> None:
-        call = await self.table.turn_button("concede", user(999, "watcher"))
+        call = self.table.interaction(user(999, "watcher"))
+        await self.table.cog.concede_command.callback(self.table.cog, call)
         self.assertEqual(call.last()[1][0], "Only a player of the game can concede it.")
 
     async def test_the_winners_line_names_the_team(self) -> None:

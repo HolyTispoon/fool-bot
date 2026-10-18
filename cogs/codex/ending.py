@@ -1,7 +1,8 @@
 """
 A game's end on Discord (docs/codex-bot.md, step 8; docs/design/codex.md,
-"The end of a game"): **Concede** -- on the turn message and as
-`/codex concede`, the clicker's own side alone, behind a second click --
+"The end of a game"): **Concede** -- under the hand menus **My hand**
+opens, never on the public turn message, and as `/codex concede`, the
+clicker's own side alone, behind a second click --
 `/codex abandon` -- a player's own game, or any game for a helper -- **Rematch** under the finished game's last
 line, the channel moved to **Codex Archive** -- a game's thread archived,
 a channel it was only opened in left where it is -- and `/codex admin
@@ -33,7 +34,9 @@ from cogs.codex_helpers import (
     seat_label,
     seat_labels,
 )
-from cogs.codex_views import ConcedeConfirmView, LobbyView, TeamConcedeView, edit_clicked, send_ephemeral
+from cogs.codex_views import (
+    ConcedeConfirmView, LobbyView, TeamConcedeView, edit_clicked, send_answer, send_ephemeral,
+)
 from cogs.game_auth import send_new_prompt
 from cogs.debug import delete_channel_with_retries
 
@@ -147,7 +150,9 @@ class EndingMixin:
         """
         **Concede**, the first click: the clicker's own side -- in a test
         game the side whose turn it is -- asked to confirm, privately.
-        Nobody concedes for anybody else, helper or not.
+        Nobody concedes for anybody else, helper or not. A message of
+        the click's own, or a follow-up where a busy panel deferred the
+        click first (`acknowledges_while_waiting`).
         """
         if game is None or game.status is not GameStatus.PLAYING:
             await send_ephemeral(interaction, NOT_PLAYING_HERE)
@@ -166,7 +171,8 @@ class EndingMixin:
             # public after this click (decision 15).
             winners = seat_labels(game, self.engine.opponents(match, seat))
             mate = self.mate_name(game, self.engine.teammate(match, seat))
-            await interaction.response.send_message(
+            await send_answer(
+                interaction,
                 f"Concede the game for your team? {mate} is asked to agree; then {winners} win, "
                 "and it cannot be undone.",
                 view=ConcedeConfirmView(self, game.game_id, seat, interaction.user.id),
@@ -176,7 +182,8 @@ class EndingMixin:
         other = self.engine.sole_opponent(match, seat)
         winner = seat_label(game, other)
         side = f" {team_name(match.player(seat).specs)}'s side of" if game.test_game else ""
-        await interaction.response.send_message(
+        await send_answer(
+            interaction,
             f"Concede{side} the game? {winner} wins, and it cannot be undone.",
             view=ConcedeConfirmView(self, game.game_id, seat, interaction.user.id),
             ephemeral=True,

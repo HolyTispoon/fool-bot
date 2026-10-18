@@ -123,6 +123,27 @@ field strip is.
 deck, shuffles and deals four (`maneuver_deck.reshuffled`), and says so in halftime's opening
 message. A 1.0 halftime is unchanged, which the windows golden pins.
 
+## Roles
+
+**`RulesEngine.role_of(match, player_id)` is the one reading of which role a card is
+playing**, and `has_role_ability(match, player_id, role)` the one question every role-ability
+site asks (the Fullback's distances, the Defender's steal, the Midfielder's +3, the Playmaker's
+space, the Winger's set-up, the Striker's +3) -- the twin of `has_species_ability`. 2.0 moves a
+role off the player and onto the formation (rules-2.0 section 4), so the two editions can only
+be told apart where the role is read, and that has to be one place. They ask the match rather
+than the game because every one of the sixteen sites is handed the match and nothing else.
+Until the formation's roles are saved on the match, `role_of` answers with the card's role in
+either edition. `tests/test_role_reading.py` holds the rule modules (`engine.py`, `flow/`,
+`prompts.py`, `ai.py`, `dice_brief.py`) to reading no `.role` outside `role_of` and Dinky's
+`role_rank`, which ranks the bench by each card's printed skill profile rather than by a role
+anybody is playing.
+
+Decided for the steps still to come (the author, 2026-10-18): **a 2.0 bench player is named by
+their skills** rather than a role, since they hold none; and **a formation change keeps the
+Fullback, the Playmaker and the Striker** and fills the new standard roles by defensive skill,
+leaving the coach to change anything with role trades and space positioning, which between them
+reach every assignment the rules allow.
+
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
 print-and-play kit; the Learn to Play; and **the roles of rules-2.0 section 4** (the author,
 2026-10-18) -- roles held by the formation's zones rather than the players, the Fullback, the

@@ -194,7 +194,7 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         self.game = await self.table.started()
 
     async def concede_click(self, who):
-        call = await self.table.turn_button("concede", who)
+        call = await self.table.concede(who)
         return call, call.view()
 
     async def test_concede_asks_a_second_click_and_spends_nothing_public(self) -> None:
@@ -235,8 +235,9 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_only_a_player_concedes_and_only_their_own_side(self) -> None:
         helper = user(303, "helper", helper=True)
-        call, view = await self.concede_click(helper)
-        self.assertIsNone(view)
+        call = self.table.interaction(helper)
+        await self.table.cog.concede_command.callback(self.table.cog, call)
+        self.assertIsNone(call.view())
         # The model's refusal, which no variant's wording has to agree with.
         self.assertEqual(call.text(), "Only a player of the game can concede it.")
         # The confirmation is its asker's, whoever else sees it.
@@ -353,9 +354,14 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
             [type(call.args[0]) for call in self.table.bot.add_view.call_args_list], [LobbyView],
         )
 
-    async def test_a_playing_games_turn_message_carries_concede(self) -> None:
+    async def test_concede_is_under_the_hand_menus_and_not_on_the_turn_message(self) -> None:
+        """Off the public turn message, under both menus **My hand**
+        opens (the author, 2026-10-18)."""
         view = TurnMessageView(self.table.cog, self.game.game_id)
-        find_button(view, "Concede")
+        self.assertNotIn("Concede", [item.label for item in view.children])
+        for who in (self.table.active, self.table.waiting):
+            menu = (await self.table.turn_button("hand", who)).view()
+            find_button(menu, "Concede")
 
 
 class EndingElsewhereTests(unittest.IsolatedAsyncioTestCase):
@@ -371,7 +377,7 @@ class EndingElsewhereTests(unittest.IsolatedAsyncioTestCase):
 
     async def concede(self) -> list:
         loser = self.table.basher
-        call = await self.table.turn_button("concede", loser)
+        call = await self.table.concede(loser)
         mark = len(self.table.game_channel.requests)
         await self.table.press(call.view(), "Concede the game", who=loser)
         return self.table.game_channel.since(mark)

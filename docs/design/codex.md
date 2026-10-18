@@ -2774,8 +2774,9 @@ Each turn's message is posted when the turn begins: its text
 as a mention, which that post pings and no later one does -- then the
 turn's lines, the model's with
 their tokens rendered at the door; the board as its picture; and
-**My hand**, **My deck**, **Tech**, **Codex**, **Swap view** -- and
-**Concede**, which a sixth button puts on a row of its own. **After
+**My hand**, **My deck**, **Tech**, **Codex**, **Undo**, **Swap view**
+-- and no **Concede**, which is under the hand menus alone (below,
+"The end of a game"). **After
 each action it is edited in place** with the new lines and the
 re-rendered board, through the gate (`refresh_match_image`,
 `BoardRefresher`) -- one of the channel's requests, coalesced with the
@@ -3043,8 +3044,7 @@ dragon seat's `WaitingView`), under the tech gate (`TechGateView`) and
 among the main-phase panel's last buttons, and `Codex.show_board`
 answers all three: the click deferred, the turn message posted again
 at the foot of the channel through `post_turn_message(replace=True)`
--- the old one deleted, **nobody pinged**, since the clicker asked for
-it and the turn's ping was spent when it opened -- then the hand menu
+-- the old one deleted -- then the hand menu
 **My hand** would answer the clicker with (`send_hand_menu`: the panel
 for the active player, the hand for the other) sent afresh as the
 click's follow-up, so it sits under the board, and the menu pressed
@@ -3054,7 +3054,13 @@ process that sent it is, so there is none to run. **Where the turn
 message is the channel's last message already** (`last_message_id`,
 read off the cache, no request), it is not posted again -- a post and
 a delete of the channel's bucket for nothing (rate-limits.md) -- and
-the hand menu alone comes again. Like `/codex resume`'s, a repost
+the hand menu alone comes again. **The repost pings the players whose
+turn it is where somebody else pressed it, and nobody where one of them
+did** (the author, 2026-10-18, going back on 2026-10-15's "nobody
+pinged"): the message it deletes is the one whose post pinged them, and
+a mention in a deleted message is lost -- kime, in a free-for-all, was
+never pinged for their turn after another player pressed Show board.
+Like `/codex resume`'s, a repost
 after a restart, before this process has seen the turn's lines,
 carries the heading alone.
 
@@ -3087,8 +3093,21 @@ way and nothing is written from it.
   its match has a winner, however it ended, so nothing downstream
   compares the two. `/codex resume`, Swap view and the panel all stop at
   a finished record.
+- **Concede is under the hand menus, never on the public turn
+  message** (the author, 2026-10-18: "remove the concede button from
+  the board, it should only be in the hand button"). It sat on the turn
+  message until then, a red button beside the board that anybody's slip
+  could press. It is now under every menu **My hand** opens: the main
+  phase's panel, after **End main phase** among its last buttons
+  (`TurnPanelView`), the other player's hand (`HandView`, and so a
+  dragon seat's `WaitingView`) and the tech gate (`TechGateView`) --
+  `concede_button`, which gives none in a free-for-all. The panel's
+  other modes -- a defender's choice, the patrol, the tech picker --
+  carry none: the player concedes from the main phase, the hand, or
+  `/codex concede`. A busy panel defers its click first, so the
+  confirmation goes out as a follow-up there (`send_answer`).
 - **Concede is the clicker's own side, behind a second click.** **Concede**
-  on the turn message and `/codex concede` both answer ephemerally with
+  under a hand menu and `/codex concede` both answer ephemerally with
   `ConcedeConfirmView` -- **Concede the game** or **Cancel** -- held to the
   seat it was asked for (in a test game, the side whose turn it was) and
   to the person who asked. No helper concedes for a player. The first
@@ -3761,8 +3780,8 @@ than 66 sites; the PR of every step showed these empty:
   `winners` and every seat's `base_hp`.
 - **There is no concession in a free-for-all** (the author,
   2026-10-11): `turn.refuse_concession`, behind
-  `GameService.check_concession`, refuses it citing Rulebook p. 14; the
-  turn message has no **Concede**, and `/codex concede` says why.
+  `GameService.check_concession`, refuses it citing Rulebook p. 14; no
+  hand menu has **Concede**, and `/codex concede` says why.
 
 ### "An opponent's", the plurals, and a kill
 

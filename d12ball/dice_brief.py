@@ -416,12 +416,14 @@ def score_attempt_brief(
     if speed_modifier:
         modifiers.append(
             f"{speed_modifier:+d} ball speed ({match.ball.speed}"
-            + (", halved from midfield" if match.shot_speed_halved() else "")
+            + ("" if match.pending_high_pass_overshoot else ", halved")
             + ")"
         )
     striker = (
         3 if match.pending_shot_is_set_up
-        and shooter.role == PlayerRole.STRIKER else 0
+        and engine.has_role_ability(
+            match, shooter.player_id, PlayerRole.STRIKER,
+        ) else 0
     )
     if striker:
         modifiers.append(f"{striker:+d} Striker ability")
