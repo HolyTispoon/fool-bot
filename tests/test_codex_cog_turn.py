@@ -681,8 +681,9 @@ class PictureRedrawTests(TurnTestCase):
 
 class ShowBoardTests(TurnTestCase):
     """**Show board**, under a hand and on the panel: the turn message
-    posted again at the foot of the channel, the old one deleted and
-    nobody pinged, and the hand menu sent afresh under it, the one
+    posted again at the foot of the channel, the old one deleted -- the
+    player whose turn it is pinged where somebody else pressed it
+    (2026-10-18) -- and the hand menu sent afresh under it, the one
     pressed deleted after (the author, 2026-10-15)."""
 
     async def test_the_panel_reposts_the_board_and_comes_back_under_it(self) -> None:
@@ -712,6 +713,10 @@ class ShowBoardTests(TurnTestCase):
         call = await self.table.press(hand, "Show board")
         self.assertNothingWentWrong(call)
         self.assertEqual([kind for kind, _ in channel_requests(self.table, mark)], ["send", "delete"])
+        # The post it deleted pinged the active player; this one pings
+        # them again, and only them.
+        sent = self.table.game_channel.since(mark)[0][2]
+        self.assertEqual([user.id for user in sent["allowed_mentions"].users], [self.table.active.id])
         self.assertEqual([answer[0] for answer in call.answers],
                          ["response.defer", "followup.send", "original.delete"])
         self.assertIsInstance(call.view(), HandView)

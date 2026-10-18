@@ -3043,8 +3043,7 @@ dragon seat's `WaitingView`), under the tech gate (`TechGateView`) and
 among the main-phase panel's last buttons, and `Codex.show_board`
 answers all three: the click deferred, the turn message posted again
 at the foot of the channel through `post_turn_message(replace=True)`
--- the old one deleted, **nobody pinged**, since the clicker asked for
-it and the turn's ping was spent when it opened -- then the hand menu
+-- the old one deleted -- then the hand menu
 **My hand** would answer the clicker with (`send_hand_menu`: the panel
 for the active player, the hand for the other) sent afresh as the
 click's follow-up, so it sits under the board, and the menu pressed
@@ -3054,7 +3053,13 @@ process that sent it is, so there is none to run. **Where the turn
 message is the channel's last message already** (`last_message_id`,
 read off the cache, no request), it is not posted again -- a post and
 a delete of the channel's bucket for nothing (rate-limits.md) -- and
-the hand menu alone comes again. Like `/codex resume`'s, a repost
+the hand menu alone comes again. **The repost pings the players whose
+turn it is where somebody else pressed it, and nobody where one of them
+did** (the author, 2026-10-18, going back on 2026-10-15's "nobody
+pinged"): the message it deletes is the one whose post pinged them, and
+a mention in a deleted message is lost -- kime, in a free-for-all, was
+never pinged for their turn after another player pressed Show board.
+Like `/codex resume`'s, a repost
 after a restart, before this process has seen the turn's lines,
 carries the heading alone.
 
