@@ -65,37 +65,66 @@ draws a fresh hand of four.** Nothing else in the game draws, discards or shuffl
 card (Law 2.6.2), and in advanced mode an advanced skill still replaces one (Law 21.2). A squad
 is still nine players (Law 2.6.1), and any of them may play any role.
 
-**4.2** **A formation gives each of its six places a role, and each role belongs to a zone.**
-Read from the coach's own goal forward, as Law 14.7 reads a formation:
+**4.2** **Each zone has two roles, a unique one and a standard one.** The first player in a zone
+takes its unique role and every other player in it the standard one:
+
+| Zone | Unique role | Standard role |
+| --- | --- | --- |
+| Outer zone before the team's own goal | Fullback | Defender |
+| Midfield | Playmaker | Midfielder |
+| Outer zone before the goal the team attacks | Striker | Winger |
+
+So a formation (Law 14.7) decides the roles by how many it puts in each zone, read from the
+coach's own goal forward:
 
 | Formation | Outer zone before their own goal | Midfield | Outer zone before the goal they attack |
 | --- | --- | --- | --- |
-| 2-2-2 | Fullback, Defender | Midfielder, Playmaker | Winger, Striker |
-| 2-3-1 | Fullback, Defender | Midfielder, Midfielder, Playmaker | Striker |
-| 1-3-2 | Fullback | Midfielder, Midfielder, Playmaker | Winger, Striker |
-| 3-2-1 | Fullback, Defender, Defender | Midfielder, Playmaker | Striker |
-| 1-2-3 | Fullback | Midfielder, Playmaker | Winger, Winger, Striker |
+| 2-2-2 | Fullback, Defender | Playmaker, Midfielder | Striker, Winger |
+| 2-3-1 | Fullback, Defender | Playmaker, Midfielder, Midfielder | Striker |
+| 1-3-2 | Fullback | Playmaker, Midfielder, Midfielder | Striker, Winger |
+| 3-2-1 | Fullback, Defender, Defender | Playmaker, Midfielder | Striker |
+| 1-2-3 | Fullback | Playmaker, Midfielder | Striker, Winger, Winger |
 
-Every formation fields one Fullback, one Playmaker and one Striker; it fields none, one or two
-Defenders, Midfielders and Wingers, as the table says.
+Every formation fields one Fullback, one Playmaker and one Striker, and none, one or two
+Defenders, Midfielders and Wingers.
 
-**4.3** **A coach assigns players to roles.** Every player on the field holds one of their
-formation's roles and stands in that role's zone. A role is in a zone, not on a space, so space
-positioning (Law 14.2.1) never changes anybody's role.
+**4.3** **Two unique roles have a fixed space**, in every arrangement a coach settles -- the
+standard deal, a formation change and the end of every Coaching Choice (Law 14.8):
+
+- **a.** **The Fullback stands on the last space before their own goal**: space −3, −4 or −5
+  for home, and 3, 4 or 5 for the visitors.
+- **b.** **The Playmaker stands on their own kickoff space** (Law 2.4), the space of midfield
+  nearest the middle: space 0 on boards 7 and 9, and on board 10 space −1 for home and 1 for the
+  visitors. Every arrangement therefore covers its own kickoff space (Law 14.8.1) with its
+  Playmaker.
+- **c.** The Striker and the standard roles stand on their zone's other spaces, a player a
+  space and any surplus stacking, as Law 14.7.3 deals them.
+
+**4.4** **The Playmaker always takes the kickoff.** A restart from a side's kickoff space -- the
+kickoff of each half (Law 3.4, 16.4.4), after a goal (5.5.2) and after an own goal conceded
+(11.4.2) -- leaves the ball with that side's Playmaker, as a carrier (Law 4.2.2), rather than
+with nobody in particular (4.2.3).
+
+**4.5** **A coach assigns players to roles**, and every player on the field holds one of their
+formation's roles in that role's zone.
 
 - **a.** A **substitution** brings the player on into the outgoing player's role, with their
   zone and their space.
 - **b.** A **zone assignment** trades two fielded players' roles, and their zones, cards and
-  meeples with them.
-- **c.** A **formation change** deals the six into the new formation's roles as Law 14.7.3
-  deals them -- by defensive skill, highest first, from the coach's own end -- and each player
-  takes the next role of the zone they are dealt to in the order the table lists it.
+  meeples with them -- two players in the same zone included. It is how a coach puts a different
+  player at Fullback or Playmaker.
+- **c.** **Space positioning** (Law 14.2.1) never changes a role, and never moves the Fullback or
+  the Playmaker off their space.
+- **d.** A **formation change** deals the six into zones as Law 14.7.3 does -- by defensive
+  skill, highest first, from the coach's own end -- and in each zone the first player dealt takes
+  the unique role and its space and the rest the standard role.
 
-**4.4** **The standard deal starts the same six players on the same spaces as D12 Ball 1.0's**
-(Law 3.2), in 2-2-2's roles: each takes the role of the place they are dealt to. The other three
-start on the bench, as in 1.0.
+**4.6** **The standard deal starts the same six players as D12 Ball 1.0's** (Law 3.2), in
+2-2-2, each in the role their 1.0 deal names and on the space 4.3 gives it. That is the 1.0
+deal's own spaces, except on board 10, where each side's Playmaker and Midfielder trade places
+so the Playmaker is on their own kickoff space. The other three start on the bench, as in 1.0.
 
-**4.5** **There are no role abilities.** Nothing a role adds in the Charter applies in a 2.0
+**4.7** **There are no role abilities.** Nothing a role adds in the Charter applies in a 2.0
 game -- neither the six abilities of Law 2.6.2 nor the role lines on the advanced maneuvers
 (Law 19). So, in every mode:
 
@@ -111,9 +140,9 @@ game -- neither the six abilities of Law 2.6.2 nor the role lines on the advance
   the other three set-ups of Law 8.2 stand;
 - **f.** a score attempt off a set-up adds nothing for the shooter's role (8.3.1, 15.4.3).
 
-**4.6** A special ability (Law 21) belongs to the player, not the role, and is still played in
+**4.8** A special ability (Law 21) belongs to the player, not the role, and is still played in
 advanced mode. Where Law 21.1.2 plays it beside the player's role ability, in 2.0 there is no
 role ability to play it beside.
 
-*Note.* For now a role carries no rule of its own in 2.0: it says which zone a formation puts a
-player in, and nothing more.
+*Note.* For now a role carries no ability in 2.0: it decides which zone a player is in, where
+the Fullback and the Playmaker stand, and who takes the kickoff.

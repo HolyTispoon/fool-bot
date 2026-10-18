@@ -163,25 +163,39 @@ for now are gone in 2.0."* The rules are [rules-2.0.md](rules-2.0.md) section 4;
 rules, 1.0's, are unchanged. Asked the same day, the author answered:
 
 - **Which role is where** (rules-2.0 4.2). The first message said there is always one of each
-  role on the field; asked to confirm a layout, the author gave one where that holds for 2-2-2
-  alone: *"2-2-2 is correct. 2-3-1 would mean playing with 2 midfielders and no winger. 3-2-1
-  means two defenders and no wingers. 1-3-2 means no defender and two midfielders. 1-2-3 is no
-  defender and two wingers."* So the Fullback, the Playmaker and the Striker are in every
-  formation, one each, and the Defenders, Midfielders and Wingers are what a formation's depth
-  changes. Midfield's three in 2-3-1 and 1-3-2 are read as two Midfielders and the Playmaker,
-  since both answers name two Midfielders.
-- **What a role attaches to** (4.3): *"Assignment of players should be to roles. And roles are
-  attached to zones by formation."* So a role is in a zone, not on a space, and a substitution
-  and a zone assignment carry it.
-- **The advanced cards' role lines go too** (4.5), not just the six basic abilities -- which
+  role on the field; the author then gave a layout where that holds for 2-2-2 alone (*"2-3-1
+  would mean playing with 2 midfielders and no winger. 3-2-1 means two defenders and no wingers.
+  1-3-2 means no defender and two midfielders. 1-2-3 is no defender and two wingers"*), and
+  refined it: *"Yeah I first said that every role is played once but I've changed my mind. ...
+  Every zone has two types of roles, a standard and a unique one. The unique role is assigned
+  first and the rest are standard."* Fullback and Defenders in the zone before the team's own
+  goal, Playmaker and Midfielders in midfield, Striker and Wingers in the zone before the goal
+  it attacks.
+- **Where the unique roles stand** (4.3, 4.4): *"The fullback is always located at the spot
+  closet to the goal and the rest are assigned to other spaces. In the midfield the unique role
+  is playmaker, which always is assigned as close as possible to the middle, always does the
+  kickoff."* The space nearest the middle is the side's own kickoff space on every board, so the
+  Playmaker is what covers it.
+- **What a role attaches to** (4.5): *"Assignment of players should be to roles. And roles are
+  attached to zones by formation."* So a substitution and a zone assignment carry a role, and
+  space positioning does not.
+- **The advanced cards' role lines go too** (4.7), not just the six basic abilities -- which
   means no Pass or Pinpoint sets up a shot and a Striker adds nothing to one.
-- **The standard deal starts the same six as 1.0** (4.4), each in the role of the place they are
-  dealt to.
+- **The standard deal starts the same six as 1.0** (4.6).
 
-Read from those answers rather than asked: a formation change deals by defensive skill as Law
-14.7.3 already does, and each player takes the zone's roles in the table's order (4.3c) -- so
-the highest defensive skill dealt to the back zone is its Fullback. Nothing turns on it while a
-role carries no rule of its own.
+Read from those answers rather than asked, each worth confirming:
+
+- *"Always does the kickoff"* read as the Playmaker carrying the ball at every restart from the
+  kickoff space -- each half's kickoff, after a goal and after an own goal conceded (4.4).
+- *"Assigned first"* read as the first player a formation change deals into a zone (Law 14.7.3,
+  by defensive skill from the coach's own end) taking its unique role (4.5d).
+- Space positioning may not move the Fullback or the Playmaker off their space; another player
+  takes the space by trading roles with them (4.5b, 4.5c).
+- On board 10 the 1.0 deal puts each side's Midfielder on its own kickoff space, so in 2.0 the
+  Playmaker and Midfielder trade places there (4.6).
+
+Not said, and left open: whether the Striker has a fixed space as the Fullback and the
+Playmaker do (4.3c leaves it to the coach).
 
 **Not built yet.** A 2.0 game on the bot still plays every role ability and deals by the
 players' own roles.
