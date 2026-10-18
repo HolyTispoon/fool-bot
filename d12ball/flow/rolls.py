@@ -32,8 +32,8 @@ is a rule rather than an accident:
   the shootout, and not in the skill test or the score attempt.** See
   "Injured players" in docs/living-rules.md.
 - **A tie is re-rolled in the skill test and the loose ball**, at a
-  token each; a score attempt is a miss on level totals (the author,
-  2026-10-01), and a shootout tie simply scores for nobody.
+  token each; a score attempt scores on level totals (Law 5.2.3, the
+  author 2026-10-18), and a shootout tie simply scores for nobody.
 - **The tutorial scripts the skill test's dice and the loose ball's**,
   and deliberately scripts neither of the other two -- a beat only
   fixes a roll the next beat depends on. See
@@ -461,10 +461,13 @@ def score_skill_test(
         defense_total += 3
         defense_detail.append("+3 Midfielder ability")
 
+    # Half the speed, rounded down (Law 7.1): nothing at speed 1, and
+    # a bonus of nothing says nothing.
     if match.defense_maneuver in ("steal", "intercept"):
         modifier = match.ball.speed_modifier
         defense_total += modifier
-        defense_detail.append(f"+{modifier} ball speed modifier")
+        if modifier:
+            defense_detail.append(f"+{modifier} ball speed modifier")
 
     # Zorch adds the modifier to every roll they make (Law 21), once:
     # a defense contesting with Steal or Intercept already has it.
@@ -830,22 +833,22 @@ def score_loose_ball(
         defense_player.player_id,
     )
 
-    # A High Ball's receiver adds the ball speed modifier to keep what
-    # the pass delivered (2026-08-07). A genuine loose ball is nobody's
-    # yet, so neither side gets it there.
+    # A High Ball's receiver adds the ball's whole speed, not the halved
+    # modifier, to keep what the pass delivered (Law 7.4.2). A genuine
+    # loose ball is nobody's yet, so neither side gets it there.
     #
-    # The modifier is signed: this contest is also where a declined
+    # The speed is signed: this contest is also where a declined
     # goal-zone set-up lands, and a pass into the goal zone pays the
-    # modifier
-    # against the receiver in the contest exactly as it would have
-    # against the shot (2026-08-10). See `ball_speed_modifier`.
+    # speed against the receiver in the contest exactly as it would
+    # have against the shot (2026-08-10). See `high_ball_speed`.
     if match.pending_loose_ball_is_high_pass:
-        modifier = match.ball_speed_modifier()
-        offense_total += modifier
-        offense_detail.append(f"{modifier:+d} ball speed modifier")
+        speed = match.high_ball_speed()
+        offense_total += speed
+        offense_detail.append(f"{speed:+d} ball speed")
 
     # Zorch adds the modifier to every roll they make (Law 21), once:
-    # the thrower's side of a High Ball contest already has it, signed.
+    # the thrower's side of a High Ball contest already has the whole
+    # speed, signed.
     offense_speed, offense_speed_line = (
         (0, "")
         if match.pending_loose_ball_is_high_pass
@@ -1217,10 +1220,9 @@ def score_score_attempt(
 
     # Two dice, one per human: the attacker adds the shooting player's
     # offensive skill and the ball-speed modifier, the defence adds the
-    # defensive skill of every meeple in the way. The speed modifier is
-    # signed -- a High Ball into the goal zone pays it against the
-    # shot -- so it
-    # is added, never abs()'d.
+    # defensive skill of every meeple in the way. What the speed adds is
+    # signed -- a High Ball into the goal zone pays the whole speed
+    # against the shot -- so it is added, never abs()'d.
     attack_roll, defense_roll = scripted_or_random(
         engine, game, "score_attempt", 2,
     )
@@ -1238,8 +1240,9 @@ def score_score_attempt(
     attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
     if speed_modifier:
         attack_detail.append(
-            f"{speed_modifier:+d} ball speed modifier"
-            + (" (halved from midfield)" if match.shot_speed_halved() else ""),
+            f"{speed_modifier:+d} ball speed"
+            if match.pending_high_pass_overshoot
+            else f"{speed_modifier:+d} ball speed modifier",
         )
     if attack_ignite.detail:
         attack_detail.append(attack_ignite.detail)
@@ -1438,7 +1441,7 @@ def score_attempt_step(
     The shot, off the button either coach may press.
 
     **The one contested roll with no tie in it**: level totals are a
-    miss (Law 5.2.3), so there is nothing to re-roll and no token to
+    goal (Law 5.2.3), so there is nothing to re-roll and no token to
     charge. What it always ends on is a run back -- goal or miss, the
     ball is dead and being restarted, so this is a new play and both
     restarts open a substitution window.
@@ -1464,9 +1467,9 @@ def score_attempt_step(
     )
     match.consume_overdrive()
 
-    # A tie is a miss (Law 5.2.3, the author 2026-10-01): the attack has
-    # to beat the defense's total.
-    scored = attack_total > defense_total
+    # A tie scores (Law 5.2.3, the author 2026-10-18): the attack has to
+    # equal or beat the defense's total.
+    scored = attack_total >= defense_total
     dice = ShotDice(
         contestants,
         ((shooter.player_id, attack_ignite),),

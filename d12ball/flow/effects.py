@@ -2019,12 +2019,12 @@ def offer_goal_zone_set_up(
     # pass, and the carrier has to survive that.
     match.set_ball_carrier(shooter_id)
 
-    penalty = match.ball_speed_modifier()
-    # The modifier is the speed itself (Law 7.1), never below 1, so
-    # every pass that reaches the goal zone pays it.
+    penalty = match.high_ball_speed()
+    # The whole speed (Law 7.5), never below 1, so every pass that
+    # reaches the goal zone pays it.
     speed_note = (
-        " The ball comes in too fast to settle -- the ball speed "
-        f"modifier counts **against** what follows ({penalty})."
+        " The ball comes in too fast to settle -- the ball's whole "
+        f"speed counts **against** what follows ({penalty})."
     )
     return StepResult(
         narration=[

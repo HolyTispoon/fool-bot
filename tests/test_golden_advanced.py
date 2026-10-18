@@ -79,7 +79,7 @@ loose at the moment a coach calls one; and full time and the shootout,
 which are past where the step budget stops. Those are Phase 5's ground and want a
 golden of their own.
 
-**The seed has been re-picked nine times.** Once when PR #243 and PR
+**The seed has been re-picked ten times.** Once when PR #243 and PR
 #244 landed on main under this branch: both are rule changes in the code
 this phase moves, so the game seed 44 had played was no longer the game
 it plays. Again when the six-space board was withdrawn (2026-09-22 in
@@ -115,6 +115,10 @@ its speed choice and Double Team came down to a push of 1 with a
 Merging partner (2026-10-03): the pass no longer asks a speed first,
 which moves every draw after it, and seed 360 stopped playing an
 Intercept; seed 169 is the first of 0-2000 that reaches all of it.
+And when the ball speed modifier went back to half the speed and a
+tied shot to a goal (2026-10-18): every shot and steal changed, and
+seed 169 stopped reaching the whole spine; seed 276 is the first of
+0-1400 that reaches all of it.
 Each time the seed was swept and scored on the coverage below, not
 chosen.
 
@@ -167,7 +171,7 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: the engine's own `rng`, where every draw the game makes comes from
 #: (the dice, the shuffle, the AI's picks), rather than the module
 #: `random`, which nothing in the model reads.
-ADVANCED_SEED = 169
+ADVANCED_SEED = 276
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and

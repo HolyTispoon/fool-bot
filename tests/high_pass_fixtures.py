@@ -562,7 +562,7 @@ def an_overshoot_into_a_set_up() -> PassFixture:
         narration=(
             f"{high_pass_text(1)} The ball reaches the goal zone -- a "
             "scoring opportunity! The ball comes in too fast to settle -- the "
-            "ball speed modifier counts **against** what follows (-2)."
+            "ball's whole speed counts **against** what follows (-2)."
         ),
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={
@@ -579,10 +579,11 @@ def an_overshoot_into_a_set_up() -> PassFixture:
 
 def an_overshoot_at_walking_pace() -> PassFixture:
     """
-    The same branch with the ball walking. The modifier is the speed
-    itself (Law 7.1, since 2026-10-01), so even a speed of 1 pays 1 and
-    the note is always there -- it used to be halved, and a walking
-    ball paid nothing and said nothing. The flag is set all the same,
+    The same branch with the ball walking. A pass into the goal zone
+    pays the whole speed, not the halved modifier (Law 7.5), so even a
+    speed of 1 pays 1 and the note is always there -- before
+    2026-10-01 it paid the halved modifier, and a walking ball paid
+    nothing and said nothing. The flag is set all the same,
     because the contest behind a declined set-up reads it too.
     """
     match, passer = stand_a_pass("high_pass", passer_flat=5, speed=1)
@@ -596,7 +597,7 @@ def an_overshoot_at_walking_pace() -> PassFixture:
         narration=(
             f"{high_pass_text(1)} The ball reaches the goal zone -- a "
             "scoring opportunity! The ball comes in too fast to settle -- the "
-            "ball speed modifier counts **against** what follows (-1)."
+            "ball's whole speed counts **against** what follows (-1)."
         ),
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={

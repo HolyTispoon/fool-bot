@@ -416,7 +416,7 @@ def score_attempt_brief(
     if speed_modifier:
         modifiers.append(
             f"{speed_modifier:+d} ball speed ({match.ball.speed}"
-            + (", halved from midfield" if match.shot_speed_halved() else "")
+            + ("" if match.pending_high_pass_overshoot else ", halved")
             + ")"
         )
     striker = (

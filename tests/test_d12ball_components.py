@@ -2106,28 +2106,40 @@ class D12BallScoreAttemptTests(unittest.TestCase):
             for player_id, _ in match.defenders_between_ball_and_goal()
         ]
 
-    def test_a_shot_from_midfield_pays_half_the_speed(self) -> None:
+    def test_a_shot_pays_half_the_speed_from_anywhere(self) -> None:
         """
-        Law 5.2.2 (the author, 2026-10-04): the shot adds the ball speed
-        modifier in full from the outer zone before the goal -- a Third
-        on board 9 -- and half of it, rounded down, from midfield.
+        Law 5.2.2, 7.1.1 (the author, 2026-10-18): the shot adds the
+        ball speed modifier, half the speed rounded down, from midfield
+        and from the outer zone alike -- halved once, never again for
+        the zone -- and nothing at speed 1.
         """
         for board_size in (7, 9, 10):
             match = self.build_match(board_size)
             match.ball.speed = 7
             with self.subTest(board_size=board_size, zone="midfield"):
                 match.ball.zone = Zone.MIDFIELD
-                self.assertTrue(match.shot_speed_halved())
                 self.assertEqual(match.shot_speed_modifier(), 3)
             with self.subTest(board_size=board_size, zone="outer"):
                 match.ball.zone = Zone.VISITORS_ZONE
                 match.ball.space_index = 0
-                self.assertFalse(match.shot_speed_halved())
-                self.assertEqual(match.shot_speed_modifier(), 7)
+                self.assertEqual(match.shot_speed_modifier(), 3)
         match.ball.zone = Zone.MIDFIELD
         match.ball.space_index = 0
         match.ball.speed = 1
         self.assertEqual(match.shot_speed_modifier(), 0)
+
+    def test_a_shot_off_a_pass_into_the_goal_zone_pays_the_whole_speed(
+        self,
+    ) -> None:
+        """
+        Law 5.2.2, 7.5.1: off a High Ball that reached the goal zone the
+        shot pays the whole speed against it, not the halved modifier.
+        """
+        match = self.build_match(9)
+        match.ball.speed = 7
+        match.pending_high_pass_overshoot = True
+        self.assertEqual(match.high_ball_speed(), -7)
+        self.assertEqual(match.shot_speed_modifier(), -7)
 
     def test_spaces_in_order_matches_flat_index(self) -> None:
         match = self.build_match(7)
@@ -4145,7 +4157,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # rather than settling the ball.
         self.assertTrue(kwargs["contest_on_decline"])
         self.assertTrue(match.pending_high_pass_overshoot)
-        self.assertEqual(match.ball_speed_modifier(), -2)
+        self.assertEqual(match.high_ball_speed(), -2)
         self.assertEqual(match.ball_carrier_id, shooter)
 
     async def test_a_moot_high_pass_distance_is_never_asked_for(
