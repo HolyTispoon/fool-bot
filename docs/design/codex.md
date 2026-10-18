@@ -1382,9 +1382,11 @@ of paying that forgets to say so -- is held instead by
 `tests/test_codex_driver_full_game.py`: `play` asserts, for every action
 of every whole game it plays (the duel, the standard games, each colour
 pair, the free-for-alls, the dragons), that a seat whose gold changed
-has its new total said as "left" or "now". The main phase's ask is the
-seat's name and no more ("{player:1}'s main phase."): the gold is on the
-lines above it.
+has its new total said as "left" or "now". The main phase's ask says
+the seat's gold as well ("{player:1}'s main phase, currently {gold:5}."):
+the lines above it may have scrolled away by the time the panel is read,
+and the ask is re-read after every action, so it is always the total now
+(the author, 2026-10-18; it was the seat's name alone from 2026-10-16).
 
 **A line that damages a building or the base says where it now stands,
 out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's
