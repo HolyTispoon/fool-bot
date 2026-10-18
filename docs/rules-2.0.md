@@ -88,7 +88,7 @@ coach's own goal forward:
 Every formation fields one Fullback, one Playmaker and one Striker, and none, one or two
 Defenders, Midfielders and Wingers.
 
-**4.3** **Two unique roles have a fixed space**, in every arrangement a coach settles -- the
+**4.3** **Every unique role has a fixed space**, in every arrangement a coach settles -- the
 standard deal, a formation change and the end of every Coaching Choice (Law 14.8):
 
 - **a.** **The Fullback stands on the last space before their own goal**: space −3, −4 or −5
@@ -97,8 +97,10 @@ standard deal, a formation change and the end of every Coaching Choice (Law 14.8
   nearest the middle: space 0 on boards 7 and 9, and on board 10 space −1 for home and 1 for the
   visitors. Every arrangement therefore covers its own kickoff space (Law 14.8.1) with its
   Playmaker.
-- **c.** The Striker and the standard roles stand on their zone's other spaces, a player a
-  space and any surplus stacking, as Law 14.7.3 deals them.
+- **c.** **The Striker stands on the last space before the goal they attack**: space 3, 4 or 5
+  for home, and −3, −4 or −5 for the visitors.
+- **d.** The standard roles stand on their zone's other spaces, a player a space and any surplus
+  stacking, as Law 14.7.3 deals them.
 
 **4.4** **The Playmaker always takes the kickoff.** A restart from a side's kickoff space -- the
 kickoff of each half (Law 3.4, 16.4.4), after a goal (5.5.2) and after an own goal conceded
@@ -112,9 +114,9 @@ formation's roles in that role's zone.
   zone and their space.
 - **b.** A **zone assignment** trades two fielded players' roles, and their zones, cards and
   meeples with them -- two players in the same zone included. It is how a coach puts a different
-  player at Fullback or Playmaker.
-- **c.** **Space positioning** (Law 14.2.1) never changes a role, and never moves the Fullback or
-  the Playmaker off their space.
+  player in a unique role.
+- **c.** **Space positioning** (Law 14.2.1) never changes a role, and never moves a unique role
+  off its space.
 - **d.** A **formation change** deals the six into zones as Law 14.7.3 does -- by defensive
   skill, highest first, from the coach's own end -- and in each zone the first player dealt takes
   the unique role and its space and the rest the standard role.
@@ -145,4 +147,4 @@ advanced mode. Where Law 21.1.2 plays it beside the player's role ability, in 2.
 role ability to play it beside.
 
 *Note.* For now a role carries no ability in 2.0: it decides which zone a player is in, where
-the Fullback and the Playmaker stand, and who takes the kickoff.
+the three unique roles stand, and who takes the kickoff.

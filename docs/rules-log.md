@@ -175,7 +175,9 @@ rules, 1.0's, are unchanged. Asked the same day, the author answered:
   closet to the goal and the rest are assigned to other spaces. In the midfield the unique role
   is playmaker, which always is assigned as close as possible to the middle, always does the
   kickoff."* The space nearest the middle is the side's own kickoff space on every board, so the
-  Playmaker is what covers it.
+  Playmaker is what covers it. And, asked whether the Striker has a place too: *"Striker is
+  always position in the space closest the opponent goal."* The 1.0 deal already puts them
+  there on every board.
 - **What a role attaches to** (4.5): *"Assignment of players should be to roles. And roles are
   attached to zones by formation."* So a substitution and a zone assignment carry a role, and
   space positioning does not.
@@ -189,13 +191,10 @@ Read from those answers rather than asked, each worth confirming:
   kickoff space -- each half's kickoff, after a goal and after an own goal conceded (4.4).
 - *"Assigned first"* read as the first player a formation change deals into a zone (Law 14.7.3,
   by defensive skill from the coach's own end) taking its unique role (4.5d).
-- Space positioning may not move the Fullback or the Playmaker off their space; another player
-  takes the space by trading roles with them (4.5b, 4.5c).
+- Space positioning may not move a unique role off its space; another player takes the space
+  by trading roles with them (4.5b, 4.5c).
 - On board 10 the 1.0 deal puts each side's Midfielder on its own kickoff space, so in 2.0 the
   Playmaker and Midfielder trade places there (4.6).
-
-Not said, and left open: whether the Striker has a fixed space as the Fullback and the
-Playmaker do (4.3c leaves it to the coach).
 
 **Not built yet.** A 2.0 game on the bot still plays every role ability and deals by the
 players' own roles.
