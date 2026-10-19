@@ -20,7 +20,7 @@ choice's owner** and built from the prompt's options alone:
   card picked in Tech I stays picked while Tech II is shown, and the
   caption -- "Your pick:" -- lists every pick, a second copy as "×2".
   Which cards a view holds is the engine's answer (`codex_view_rows`); the view computes nothing. Offered as the
-  follow-up to the owner's own Lock patrol, and reachable all through
+  follow-up to the owner's own Lock in patrol zone, and reachable all through
   the opponent's turn from **Tech** on the turn message; each save
   replaces the last. Saved in the owner's own ready phase -- **Tech
   nothing** too -- it is the choice, confirmed as made, and the turn

@@ -2355,6 +2355,12 @@ unable to see their hand before confirming. It is `view_for_prompt`'s
 too, asked with `gate` for the two kinds a turn may open on
 (`TECH_GATE_KINDS`), so a kind still becomes a view in one place.
 
+The patrol panel asks "To end your main phase, assign patrollers." --
+the model's ask, with no seat named because the panel goes to the asked
+player alone -- and its button is **Lock in patrol zone** (the author,
+2026-10-19, in place of "<name>, lock your patrollers: the main phase
+ends." and **Lock patrol**).
+
 - **One ephemeral message at a time, edited in place.** Each click
   answers through the service and the panel is built afresh from the
   new prompt's options, and **edited into the panel clicked**
@@ -2889,7 +2895,7 @@ message, none where the picture was kept:
 | An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message edited through the gate | 2: the defer, the panel edited in place; **+1** where the hand changed |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit; **+1** where it pictures something new -- a tech pick, the Show menu, Attack... |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1; **+1** |
-| Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker; **+1** |
+| Lock in patrol zone (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker; **+1** |
 | The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 2 |
 | Concede, the first click | **0** | 1: the confirmation |
 | Concede the game (step 8) | **3**: the last edit, its pin, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
@@ -2901,10 +2907,10 @@ message, none where the picture was kept:
 | A lobby click -- a seat taken, the mode or the variant changed, a third seat's pick (multiplayer step 4) | **0** | 1: the lobby edited in place |
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
 | My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1; **+1** |
-| Lock patrol on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
+| Lock in patrol zone on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
 | **Repair base** on a free-for-all's panel | **1**: the turn message through the gate, as any action | 2: the defer, the panel edited in place |
 | A slot or a patroller chosen in the patrol view, an opponent's open slot among them | **0** | 1: the panel's edit |
-| Lock patrol that lends | **3**, as the duel's Lock | 2, as the duel's |
+| Lock in patrol zone that lends | **3**, as the duel's Lock | 2, as the duel's |
 | An action by either teammate of a dragon (multiplayer step 6) | **1**: the turn message through the gate | 2: the defer, the clicker's own panel edited in place |
 | A dragon teammate's stale click -- the team moved on, or the other's action stands part-way | **0** | 1: the panel edited in place to the prompt as it stands |
 | The first lock of a dragon's turn | **1**: the turn message through the gate | 2: the defer, the panel edited to the waiting panel |
@@ -4006,7 +4012,7 @@ on.
   caption lists each loan under the owner's five, "**Lent to <name> as
   elite**: Tenderfoot 1/2". The view keeps one map keyed by destination
   (`<seat>:<slot>` for a borrower's, the slot's name for the owner's) so
-  a card placed anywhere is offered nowhere else, and **Lock patrol**
+  a card placed anywhere is offered nowhere else, and **Lock in patrol zone**
   splits it (`split_assignment`): `lent`, `{seat: {slot: ref}}` with
   the seat a string as a journal read back has it, beside `assignment`
   where something is lent, and `assignment` alone where nothing is, so

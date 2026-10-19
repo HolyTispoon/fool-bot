@@ -976,7 +976,7 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.phase == "patrol":
         return PendingPrompt(
             PromptKind.PATROL,
-            f"{tokens.player(seat)}, lock your patrollers: the main phase ends.",
+            "To end your main phase, assign patrollers.",
             seat,
         )
     if match.phase == "draw":
@@ -1075,7 +1075,7 @@ def _team_pending(engine, game, match: MatchState) -> list[Union[PendingPrompt, 
             if match.player(seat).locking:
                 found.append(PendingPrompt(
                     PromptKind.PATROL,
-                    f"{tokens.player(seat)}, lock your patrollers: your main phase ends.",
+                    "To end your main phase, assign patrollers.",
                     seat,
                 ))
                 continue

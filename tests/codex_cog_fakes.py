@@ -358,7 +358,7 @@ async def end_main_and_lock(table, who) -> None:
     dragon's."""
     call = await table.turn_button("hand", who)
     view = (await table.press(call.view(), "End main phase", who=who)).view()
-    await table.press(view, "Lock patrol", who=who)
+    await table.press(view, "Lock in patrol zone", who=who)
 
 
 def find_button(view, which) -> discord.ui.Button:

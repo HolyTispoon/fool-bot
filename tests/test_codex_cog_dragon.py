@@ -219,14 +219,14 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_first_lock_waits_and_the_second_ends_the_turn(self) -> None:
         call, view = await self.panel(self.first)
         view = (await self.table.press(view, "End main phase", who=self.who(self.first))).view()
-        locked = await self.table.press(view, "Lock patrol", who=self.who(self.first))
+        locked = await self.table.press(view, "Lock in patrol zone", who=self.who(self.first))
         self.assertIsInstance(locked.view(), WaitingView)
         self.assertIn("Your patrol is locked", locked.text())
         turn = self.table.match.turn
         _, view = await self.panel(self.second)
         view = (await self.table.press(view, "End main phase", who=self.who(self.second))).view()
         mark = len(self.table.game_channel.requests)
-        ended = await self.table.press(view, "Lock patrol", who=self.who(self.second))
+        ended = await self.table.press(view, "Lock in patrol zone", who=self.who(self.second))
         self.assertEqual(self.table.match.turn, turn + 1)
         self.assertEqual([kind for kind, _, _ in self.table.game_channel.since(mark)],
                          ["edit", "pin", "send"])
@@ -485,7 +485,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(label.startswith("Switch to ") for label in labels(other.view())))
         # The first locks: the panel goes on as the second's.
         view = (await self.table.press(view, "End main phase", who=self.table.basher)).view()
-        locked = await self.table.press(view, "Lock patrol", who=self.table.basher)
+        locked = await self.table.press(view, "Lock in patrol zone", who=self.table.basher)
         self.assertEqual(locked.view().seat, second)
         self.assertFalse(any(label.startswith("Switch to ") for label in labels(locked.view())))
 

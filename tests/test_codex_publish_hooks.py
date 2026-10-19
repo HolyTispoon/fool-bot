@@ -93,7 +93,7 @@ class HooksTestCase(unittest.IsolatedAsyncioTestCase):
     async def end_turn(self):
         _, view = await self.table.panel()
         view = (await self.table.press(view, "End main phase")).view()
-        return await self.table.press(view, "Lock patrol")
+        return await self.table.press(view, "Lock in patrol zone")
 
     async def play_a_card(self):
         _, view = await self.table.panel()
