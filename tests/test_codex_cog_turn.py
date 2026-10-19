@@ -239,11 +239,11 @@ class PanelTests(TurnTestCase):
         self.assertIn("more*", text)
         self.assertIn("Line 39 ", text)
         self.assertNotIn("Line 0 ", text)
-        self.assertTrue(text.endswith("*Only you can see this.*"), text[-80:])
         cog.turn_lines.pop(self.game.game_id)
         call, _ = await self.table.panel()
-        text = call.last()[2].get("content") or call.last()[1][0]
-        self.assertNotIn(TURN_LOG_HEADING, text)
+        own = call.last()[2].get("content") or call.last()[1][0]
+        self.assertNotIn(TURN_LOG_HEADING, own)
+        self.assertTrue(text.endswith(own), text[-80:])
 
     async def test_my_deck_answers_beside_the_hand_the_panel_and_the_tech_picker(self) -> None:
         """**My deck** -- on the turn message, under the other player's
