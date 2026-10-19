@@ -2105,8 +2105,6 @@ function drawControls(prompt) {
     controls.append(drawGroup(group));
   }
   appendNotes(controls, groups);
-  const table = handTable(prompt);
-  if (table) controls.append(table);
   const sides = shootoutSides(prompt);
   if (sides) controls.append(sides);
 
@@ -2528,20 +2526,6 @@ function pillFace(pill, { brief = false } = {}) {
         h("span", { class: "pill-foot-rank", style: `color: ${one.colour}` }, one.rank),
         one.names.map((name) => h("span", { class: "pill-names" }, name))))),
     abilities,
-  );
-}
-
-/* The hands this viewer does not hold (`present.hand_table`): only the
-   line that says they are turned over together. Their face-down backs
-   are not drawn in the question box (the author, 2026-09-27); the card
-   this coach laid down is in their own hand, ringed. */
-function handTable(prompt) {
-  const table = prompt.hand;
-  if (!table) return null;
-  return h(
-    "div",
-    { class: "hand-table" },
-    h("p", { class: "note-line" }, table.note),
   );
 }
 

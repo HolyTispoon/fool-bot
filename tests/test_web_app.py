@@ -4323,7 +4323,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [back["side"] for back in hand["backs"]], ["offense", "defense"],
         )
-        self.assertEqual(hand["note"], "The hands are turned over together.")
+        self.assertNotIn("note", hand)
         said = json.dumps(state["prompt"])
         for key in (
             card.key
