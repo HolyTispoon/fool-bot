@@ -184,7 +184,7 @@ def report(usage: Usage, error: Optional[str] = None) -> str:
     free plan, a short line each. `error` is why the bucket could not be
     listed."""
     if usage.stored is None:
-        storage = f"not measured -- the bucket could not be listed ({error})"
+        storage = f"not measured (the bucket could not be listed: {error})"
     else:
         storage = (f"{size(usage.stored)} of the free {size(FREE_STORAGE)} "
                    f"({100 * usage.stored / FREE_STORAGE:.1f}%)")

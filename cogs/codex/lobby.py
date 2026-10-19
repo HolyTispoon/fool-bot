@@ -61,10 +61,10 @@ class LobbyMixin:
                 continue
             specs = game.player_specs.get(seat, ())
             if not specs:
-                rows.append(f"**{label}**: {name} -- *choosing heroes*")
+                rows.append(f"**{label}**: {name}, *choosing heroes*")
                 continue
             heroes = [cards.hero_for(spec) for spec in specs]
-            row = f"**{label}**: {name} -- **{team_name(specs)}**"
+            row = f"**{label}**: {name}, **{team_name(specs)}**"
             if len(heroes) == 1:
                 row += f" ({heroes[0].name})"
             elif cards.color_deck_of(specs) is not None:
@@ -74,7 +74,7 @@ class LobbyMixin:
                 row += f" ({heroes[0].name} first, then " + ", ".join(
                     hero.name for hero in heroes[1:]) + ")"
             if len(specs) < game.heroes_per_seat:
-                row += " -- *choosing heroes*"
+                row += ", *choosing heroes*"
             deck = game.player_decks.get(seat)
             if deck in game.deck_choices(seat):
                 row += f"; the {deck.title()} starting deck"
@@ -87,7 +87,7 @@ class LobbyMixin:
         else:
             waiting = ("Choose your hero to take a seat." if game.mode == "basic" else
                        "Choose a color's deck, or **Mixed colors** for any three heroes "
-                       "-- the first hero's color is the starting deck -- to take a seat.")
+                       "(the first hero's color is the starting deck), to take a seat.")
         if game.mode == "standard":
             kind = "a standard game, three heroes a side"
         else:
@@ -98,8 +98,8 @@ class LobbyMixin:
             kind = "a free-for-all, three to five players, the seats taken in order: " + each
         elif dragon:
             kind = ("a two-headed dragon, two teams of two sharing a base, the seats taken in "
-                    "order -- to change team, leave and sit again: " + each)
-        head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- {kind}.")
+                    "order (to change team, leave and sit again): " + each)
+        head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}**: {kind}.")
         if game.test_game:
             head += (" A **test game**: one person may take both seats and play both sides." if duel
                      else " A **test game**: one person may take all four seats." if dragon
@@ -160,7 +160,7 @@ class LobbyMixin:
             asked = asked[:1]
         tail = f" ({' and '.join(asked)} asked to keep them.)" if asked else ""
         return (
-            f"A rematch of {last}: the teams are swapped, heroes and decks -- unless "
+            f"A rematch of {last}: the teams are swapped, heroes and decks, unless "
             f"both players press **Keep heroes**.{tail}"
         )
 

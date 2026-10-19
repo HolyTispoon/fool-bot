@@ -611,7 +611,7 @@ def _target_ask(engine, match: MatchState, top: dict) -> str:
 
 def _divide_ask(match: MatchState, top: dict, left: int) -> str:
     return (
-        f"{tokens.player(top['seat'])}, {top['by']}: divide its damage -- "
+        f"{tokens.player(top['seat'])}, {top['by']}: divide its damage. "
         f"{left} more to place, a point at a time."
     )
 
@@ -644,7 +644,7 @@ def _level_ask(seat: int, owner: int) -> str:
 def _stash_ask(seat: int) -> str:
     return (
         f"{tokens.player(seat)}, your draw: stash lets you keep a card of your hand and draw "
-        "one less -- choose it, or keep none."
+        "one less. Choose it, or keep none."
     )
 
 
@@ -939,7 +939,7 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             return PendingPrompt(
                 PromptKind.CHOOSE_NUMBER,
                 f"{tokens.player(top['seat'])}, {top['by']}: choose a number from 0 to "
-                f"{effects.NUMBER_MOST} -- opponents can't play spells or upgrades of that cost.",
+                f"{effects.NUMBER_MOST}. Opponents can't play spells or upgrades of that cost.",
                 top["seat"],
             )
         if asks == ASKS_OATH:

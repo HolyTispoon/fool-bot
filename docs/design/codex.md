@@ -2785,8 +2785,14 @@ point them at Tech instead.
 
 ### The turn message, edited
 
+**Nothing the Codex bot posts uses " -- "** (the author, 2026-10-19):
+a heading takes a colon ("**Turn 7**: …", "**Codex game 5**: …"), an
+aside brackets or a comma, and a second clause its own sentence. The
+dashes stay in comments and docstrings, which nobody in a game reads,
+and in `botlog/`, whose notices fool-bot posts too.
+
 Each turn's message is posted when the turn begins: its text
-"**Turn 7** -- @perrytom (Bashing)" -- the model's heading, whose turn
+"**Turn 7**: @perrytom (Bashing)" -- the model's heading, whose turn
 as a mention, which that post pings and no later one does -- then the
 turn's lines, the model's with
 their tokens rendered at the door; the board as its picture; and
@@ -2827,7 +2833,7 @@ more*", since the board carries the position.
   the gate's next write or `/codex resume`.
 
 - **The heading is the model's, and it is not narration** (the author,
-  2026-10-08). "**Turn 7** -- @perrytom (Bashing)" is
+  2026-10-08). "**Turn 7**: @perrytom (Bashing)" is
   `codex.formatting.turn_heading(match)`: the turn, its player
   *addressed* -- `{to:n}`, a token the cog draws as a mention and plain
   text as the name -- and their team, `team_name(player.specs)`, as the
@@ -2838,7 +2844,7 @@ more*", since the board carries the position.
   after a restart that lost the turn's lines. The model used to open
   each turn with a narration line of its own as well ("**Turn 7** --
   perrytom's turn."), which under the heading said it twice; that line
-  is gone. **The turn's end is narration**: "**End of turn 7** --
+  is gone. **The turn's end is narration**: "**End of turn 7**:
   perrytom (Bashing).", naming the player and their deck as the
   heading does (the author, 2026-10-08), the
   last line of `begin_tech`, so the model's own transcript still reads

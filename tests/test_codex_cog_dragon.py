@@ -412,7 +412,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["view"].agreeing, (self.second,))
         self.assertIn(mention[self.second], kwargs["content"])
         self.assertNotIn(mention[self.first], kwargs["content"])
-        self.assertIn("-- your turn --", kwargs["content"])
+        self.assertIn("(your turn)", kwargs["content"])
         confirm = kwargs["view"]
         # The teammate who did not take the extra turn may not agree to
         # undoing it; the seat that took it may.

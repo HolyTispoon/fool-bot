@@ -41,15 +41,15 @@ def keyword_url(slug: str) -> str:
 
 
 def type_line(card: Card | Hero) -> str:
-    """"Neutral Bashing Unit -- Contraption, Tech III"."""
+    """"Neutral Bashing Unit (Contraption, Tech III)"."""
     if isinstance(card, Hero):
         kind = " ".join(part for part in (card.color, card.spec, "Hero") if part)
-        return f"{kind} -- {card.subtype}" if card.subtype else kind
+        return f"{kind} ({card.subtype})" if card.subtype else kind
     kind = " ".join(part for part in (card.color, card.spec, card.type) if part)
     details = [card.subtype] if card.subtype else []
     if card.tech_level and card.is_unit:
         details.append(f"Tech {'I' * card.tech_level}")
-    return f"{kind} -- {', '.join(details)}" if details else kind
+    return f"{kind} ({', '.join(details)})" if details else kind
 
 
 def numbers_line(card: Card | Hero) -> str:

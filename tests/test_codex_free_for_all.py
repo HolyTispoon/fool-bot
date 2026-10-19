@@ -702,7 +702,7 @@ class OpponentCardTests(unittest.TestCase):
         prompt = pending_prompt(engine, game, match)
         self.assertIs(prompt.kind, PromptKind.CHOOSE_NUMBER)
         # The ask says so too, at a duel and a table alike.
-        self.assertTrue(prompt.ask.endswith("-- opponents can't play spells or upgrades of that cost."), prompt.ask)
+        self.assertTrue(prompt.ask.endswith(". Opponents can't play spells or upgrades of that cost."), prompt.ask)
         self.assertNotIn("your opponent", prompt.ask)
         run = apply(engine, game, match, Action(PromptKind.CHOOSE_NUMBER, arguments={"number": 2}))
         self.assertIn("Opponents can't play spells or upgrades that cost 2", said(run))

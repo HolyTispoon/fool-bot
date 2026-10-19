@@ -104,7 +104,7 @@ class ImportTests(hooks.HooksTestCase):
         self.assertTrue(self.published.imported)
         self.assertEqual(self.published.turn, 3)
         for entry in self.published.history:
-            self.assertTrue(entry["heading"].startswith(f"**Turn {entry['turn']}** -- {{to:"),
+            self.assertTrue(entry["heading"].startswith(f"**Turn {entry['turn']}**: {{to:"),
                             entry["heading"])
             self.assertIn(entry["board"], self.store.objects)
             self.assertFalse(any("<@" in line for line in entry["lines"]))

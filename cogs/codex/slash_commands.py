@@ -47,7 +47,7 @@ class SlashCommandsMixin:
             if not game.is_duel:
                 players = f"{VARIANT_LABELS[game.variant]}: {players}"
             where = f" in <#{game.channel_id}>" if game.channel_id else ""
-            lines.append(f"**{game.game_number}** -- {game.status.value}: {players}{where}")
+            lines.append(f"**{game.game_number}** ({game.status.value}): {players}{where}")
         await send_ephemeral(interaction, "\n".join(lines))
 
     @app_commands.command(name="board", description="Show this channel's Codex board, to you alone.")

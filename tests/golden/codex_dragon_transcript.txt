@@ -73,7 +73,7 @@
 --- board changed
 === action 10: PATROL '' {"assignment": {"elite": "hero:river_montoya", "squad_leader": "unit:2"}, "player": 4}
 --- narration
-{player:4} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:3} discards 3 and draws 5. {player:4} discards 3 and draws 5. **End of turn 1** -- {player:3} (Bashing) and {player:4} (Finesse).
+{player:4} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:3} discards 3 and draws 5. {player:4} discards 3 and draws 5. **End of turn 1**: {player:3} (Bashing) and {player:4} (Finesse).
 {player:1} collects {gold:5} from 5 workers: now {gold:5}.
 {player:2} collects {gold:5} from 5 workers: now {gold:5}.
 --- prompt MAIN_ACTION (player 1)
@@ -204,7 +204,7 @@
 {player:2} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:1} discards 3 and draws 5. {player:2} discards 3 and draws 5.
 {player:1}'s Tech I building is finished.
 {player:2}'s Tech I building is finished.
-**End of turn 2** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 2**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -433,7 +433,7 @@
 {player:4} patrols with {card:brick_thief} as squad leader. {player:3} discards 3 and draws 5. {player:3} shuffles their discard pile into their deck. {player:4} discards 3 and draws 5. {player:4} shuffles their discard pile into their deck.
 {player:3}'s Tech I building is finished.
 {player:4}'s Tech I building is finished.
-**End of turn 3** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 3**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)
@@ -663,7 +663,7 @@
 === action 76: PATROL '' {"assignment": {"squad_leader": "unit:10"}, "player": 2}
 --- narration
 {player:2} patrols with {card:older_brother} as squad leader. {player:1} discards 1 and draws 3. {player:1} shuffles their discard pile into their deck. {player:2} discards 1 and draws 3. {player:2} shuffles their discard pile into their deck.
-**End of turn 4** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 4**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -909,7 +909,7 @@
 === action 104: PATROL '' {"assignment": {}, "player": 4}
 --- narration
 {player:4} leaves the patrol zone empty. {player:3} discards 1 and draws 3. {player:4} discards 2 and draws 4. {player:4} shuffles their discard pile into their deck.
-**End of turn 5** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 5**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)
@@ -1109,7 +1109,7 @@
 {player:1} patrols with {card:tenderfoot} as squad leader. {player:1} discards 1 and draws 3. {player:2} discards 1 and draws 3.
 {player:1}'s Tech II building is finished.
 {player:2}'s Tech II building is finished.
-**End of turn 6** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 6**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -1286,7 +1286,7 @@
 {player:3} patrols with {card:revolver_ocelot} as squad leader. {player:3} discards 1 and draws 3. {player:3} shuffles their discard pile into their deck. {player:4} discards 2 and draws 4.
 {player:3}'s Tech II building is finished.
 {player:4}'s Tech II building is finished.
-**End of turn 7** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 7**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)
@@ -1471,7 +1471,7 @@
 === action 169: PATROL '' {"assignment": {}, "player": 2}
 --- narration
 {player:2} leaves the patrol zone empty. {player:1} discards 1 and draws 3. {player:2} discards 0 and draws 2.
-**End of turn 8** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 8**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -1680,7 +1680,7 @@
 === action 193: PATROL '' {"assignment": {"elite": "unit:24", "scavenger": "unit:25", "squad_leader": "unit:22"}, "player": 4}
 --- narration
 {player:4} patrols with {card:tenderfoot} as squad leader, {card:brick_thief} as elite, {card:starcrossed_starlet} as scavenger. {player:3} discards 0 and draws 2. {player:4} discards 0 and draws 2.
-**End of turn 9** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 9**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)
@@ -1849,7 +1849,7 @@
 {player:1} patrols with {card:revolver_ocelot} as squad leader, {card:fruit_ninja} as elite, {hero:troq_bashar} as scavenger. {player:1} discards 0 and draws 2. {player:1} shuffles their discard pile into their deck. {player:2} discards 0 and draws 2. {player:2} shuffles their discard pile into their deck.
 {player:1}'s Tech III building is finished.
 {player:2}'s Tech III building is finished.
-**End of turn 10** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 10**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -2100,7 +2100,7 @@
 {player:4} patrols with {card:granfalloon_flagbearer} as squad leader. {player:3} discards 0 and draws 2. {player:4} discards 0 and draws 2. {player:4} shuffles their discard pile into their deck.
 {player:3}'s Tech III building is finished.
 {player:4}'s Tech III building is finished.
-**End of turn 11** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 11**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)
@@ -2242,7 +2242,7 @@
 --- narration
 {player:2} patrols with {card:leaping_lizard} as squad leader. {player:1} discards 1 and draws 3. {player:2} discards 0 and draws 2.
 {player:1}'s Tech I building is finished.
-**End of turn 12** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 12**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -2382,7 +2382,7 @@
 === action 272: PATROL '' {"assignment": {"elite": "unit:37", "squad_leader": "unit:35"}, "player": 4}
 --- narration
 {player:4} patrols with {card:helpful_turtle} as squad leader, {card:leaping_lizard} as elite. {player:3} discards 0 and draws 2. {player:4} discards 0 and draws 2.
-**End of turn 13** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 13**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)
@@ -2565,7 +2565,7 @@
 === action 293: PATROL '' {"assignment": {"elite": "unit:41", "scavenger": "unit:42", "squad_leader": "unit:39", "technician": "hero:troq_bashar"}, "player": 1}
 --- narration
 {player:1} patrols with {card:brick_thief} as squad leader, {card:iron_man} as elite, {card:eggship} as scavenger, {hero:troq_bashar} as technician. {player:1} discards 0 and draws 2. {player:2} discards 0 and draws 2.
-**End of turn 14** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 14**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -2770,7 +2770,7 @@
 === action 317: PATROL '' {"assignment": {"elite": "hero:troq_bashar", "squad_leader": "unit:46"}, "player": 3}
 --- narration
 {player:3} patrols with {card:iron_man} as squad leader, {hero:troq_bashar} as elite. {player:3} discards 0 and draws 2. {player:4} discards 0 and draws 2.
-**End of turn 15** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 15**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)
@@ -2958,7 +2958,7 @@
 === action 339: PATROL '' {"assignment": {"elite": "unit:50", "scavenger": "hero:river_montoya", "squad_leader": "unit:48"}, "player": 2}
 --- narration
 {player:2} patrols with {card:starcrossed_starlet} as squad leader, {card:fruit_ninja} as elite, {hero:river_montoya} as scavenger. {player:1} discards 0 and draws 2. {player:2} discards 0 and draws 2.
-**End of turn 16** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 16**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -3152,7 +3152,7 @@
 === action 361: PATROL '' {"assignment": {"elite": "unit:54", "scavenger": "hero:troq_bashar", "squad_leader": "unit:52"}, "player": 3}
 --- narration
 {player:3} patrols with {card:older_brother} as squad leader, {card:iron_man} as elite, {hero:troq_bashar} as scavenger. {player:3} discards 0 and draws 2. {player:3} shuffles their discard pile into their deck. {player:4} discards 0 and draws 2.
-**End of turn 17** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 17**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)
@@ -3374,7 +3374,7 @@
 === action 387: PATROL '' {"assignment": {"squad_leader": "unit:56"}, "player": 1}
 --- narration
 {player:1} patrols with {card:tenderfoot} as squad leader. {player:1} discards 0 and draws 2. {player:2} discards 0 and draws 2.
-**End of turn 18** -- {player:1} (Bashing) and {player:2} (Finesse).
+**End of turn 18**: {player:1} (Bashing) and {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 4)
@@ -3556,7 +3556,7 @@
 === action 408: PATROL '' {"assignment": {"squad_leader": "unit:59"}, "player": 4}
 --- narration
 {player:4} patrols with {card:cloud_sprite} as squad leader. {player:3} discards 0 and draws 2. {player:4} discards 0 and draws 2.
-**End of turn 19** -- {player:3} (Bashing) and {player:4} (Finesse).
+**End of turn 19**: {player:3} (Bashing) and {player:4} (Finesse).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- prompt TECH_CONFIRM (player 2)

@@ -86,7 +86,7 @@ class TurnHeadingTests(unittest.TestCase):
         match = svc.load(game)
         seat = match.active
         deck = match.player(seat).specs[0].title()
-        self.assertEqual(turn_heading(match), f"**Turn 1** -- {{to:{seat}}} ({deck})")
+        self.assertEqual(turn_heading(match), f"**Turn 1**: {{to:{seat}}} ({deck})")
 
     def test_a_deck_of_several_specs_is_named_by_all_of_them(self) -> None:
         """The standard game's multicolour deck: "spec1/spec2/spec3"
@@ -193,7 +193,7 @@ class TurnEndGroupTests(unittest.TestCase):
         # naming the player and their deck; the event log says which turn.
         deck = svc.load(game).player(ending).specs[0].title()
         self.assertTrue(closing.lines[-1].endswith(
-            f"**End of turn 1** -- {{player:{ending}}} ({deck})."
+            f"**End of turn 1**: {{player:{ending}}} ({deck})."
         ))
         ended = [event for event in result.match.events if event["kind"] == "turn_ended"]
         self.assertEqual(ended[-1]["turn"], 1)
