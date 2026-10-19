@@ -381,9 +381,11 @@ about them.
 lists the bucket first -- the whole bucket, not `codex/` alone, since the
 allowance counts everything in it -- and once the startup publish has
 settled, `budget.report` goes out through `botlog.post_notice` (and at
-INFO on the console): the storage against the free 10 GB with the share
-and the object count, the month's writes against the free million, and
-why the reads are not counted. It is a notice and not an ERROR, since a
+INFO on the console): the storage against the free 10 GB with the share,
+the month's writes against the free million, and that the reads are not
+counted -- three short lines, since the reasons (why reads need no count,
+where offloading starts) are here and not news at every start (the
+author, 2026-10-19). It is a notice and not an ERROR, since a
 report is not something to fix; like every notice it reaches #logs only
 where `CODEX_LOG_MIRROR` (or `FOOLBOT_LOG_MIRROR`) is on.
 
