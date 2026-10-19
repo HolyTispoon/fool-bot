@@ -1077,15 +1077,23 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     colour of the card it comes from: a feather rune's name, its chit's
     green, and, on a card (step 13), "Copy: Fox Viper", "Jail: Iron
     Man", "3" (Reputable Newsman's number), "Skip draw/discard", and a
-    Graveyard's units by name. Its runes are chits (`rune_counts`)."""
+    Graveyard's units by name; on a hero, the units Prynn's max level
+    ability holds, to come back when she leaves play, by name, the first
+    "Trashed: Iron Man", a long name cut to the card's width. Its runes are chits
+    (`rune_counts`)."""
     found: list[tuple[str, Optional[str]]] = [
         (kind.title(), rune_color(card, kind, cards))
         for kind, count in sorted((getattr(card, "runes", None) or {}).items())
         if count and kind in NAMED_ON_THE_CHIT
     ]
-    if not isinstance(card, CardInstance):
-        return tuple(found)
     name = cards.name if cards is not None else (lambda slug: slug.replace("_", " ").title())
+    if not isinstance(card, CardInstance):
+        # What Prynn has trashed, by name, "Trashed" said once on the
+        # first (the author, 2026-10-19).
+        own = card_color(card.slug, cards)
+        found.extend((cut_tag("" if n else "Trashed: ", name(entry["slug"]), CARD[0]), own)
+                     for n, entry in enumerate(getattr(card, "trashed", None) or ()))
+        return tuple(found)
     own = card_color(card.slug, cards)
     if card.copy_of:
         found.append((f"Copy: {name(card.copy_of)}", card_color(COPY_FROM, cards)))
@@ -1215,10 +1223,15 @@ def lent_tag(lender: Optional[str]) -> str:
     where the frontend gave no name."""
     if not lender:
         return "Lent"
-    name = lender
-    while len(name) > 1 and tag_size(f"Lent from {name}")[0] > LENT_TAG_WIDTH:
+    return cut_tag("Lent from ", lender, LENT_TAG_WIDTH)
+
+
+def cut_tag(words: str, name: str, width: int) -> str:
+    """`words` and `name` as one tag, the name cut with an ellipsis until
+    the tag is no wider than `width`."""
+    while len(name) > 1 and tag_size(f"{words}{name}")[0] > width:
         name = name[:-2 if name.endswith("…") else -1].rstrip() + "…"
-    return f"Lent from {name}"
+    return f"{words}{name}"
 
 
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
@@ -1257,7 +1270,7 @@ def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = Non
                  time_runes=hero.time_runes, disabled=hero.disabled,
                  lent=lent_tag(lender) if hero.lent_to is not None else None,
                  named_runes=rune_counts(hero, cards),
-                 marks=rune_marks(hero)
+                 marks=rune_marks(hero, cards)
                  + effect_tags(hero, cards, stats.auras if stats is not None else ()),
                  stats=stats)
 

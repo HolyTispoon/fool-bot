@@ -485,6 +485,23 @@ class EffectTagTests(unittest.TestCase):
         card = self.unit(modifiers=[{"kind": "doomed", "until": "doom", "seat": 1}])
         self.assertEqual(render.effect_tags(card, self.cards), (("Doomed", None),))
 
+    def test_prynn_names_each_unit_she_has_trashed_saying_trashed_once(self) -> None:
+        from codex.components import HeroState
+        prynn = HeroState(slug="prynn_pasternaak", trashed=[
+            {"slug": "iron_man", "owner": 2, "controller": 2, "id": 4},
+            {"slug": "tiger_cub", "owner": 2, "controller": 2, "id": 5},
+        ])
+        self.assertEqual(render.rune_marks(prynn, self.cards),
+                         (("Trashed: Iron Man", "purple"), ("Tiger Cub", "purple")))
+
+    def test_a_long_trashed_name_is_cut_to_the_cards_width(self) -> None:
+        from codex.components import HeroState
+        prynn = HeroState(slug="prynn_pasternaak", trashed=[
+            {"slug": "jefferson_degrey_ghostly_diplomat", "owner": 2, "controller": 2, "id": 4}])
+        (tag, _), = render.rune_marks(prynn, self.cards)
+        self.assertTrue(tag.startswith("Trashed: Jefferson") and tag.endswith("…"))
+        self.assertLessEqual(render.tag_size(tag)[0], render.CARD[0])
+
 
 class PreloadTests(unittest.TestCase):
     """Every file a picture is drawn from, read into memory once, so no
