@@ -1077,9 +1077,9 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     colour of the card it comes from: a feather rune's name, its chit's
     green, and, on a card (step 13), "Copy: Fox Viper", "Jail: Iron
     Man", "3" (Reputable Newsman's number), "Skip draw/discard", and a
-    Graveyard's units by name; on a hero, "Trashed: Iron Man" for each
-    unit Prynn's max level ability holds, to come back when she leaves
-    play, a long name cut to the card's width. Its runes are chits
+    Graveyard's units by name; on a hero, the units Prynn's max level
+    ability holds, to come back when she leaves play, by name, the first
+    "Trashed: Iron Man", a long name cut to the card's width. Its runes are chits
     (`rune_counts`)."""
     found: list[tuple[str, Optional[str]]] = [
         (kind.title(), rune_color(card, kind, cards))
@@ -1088,10 +1088,11 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     ]
     name = cards.name if cards is not None else (lambda slug: slug.replace("_", " ").title())
     if not isinstance(card, CardInstance):
-        # What Prynn has trashed, by name (the author, 2026-10-19).
+        # What Prynn has trashed, by name, "Trashed" said once on the
+        # first (the author, 2026-10-19).
         own = card_color(card.slug, cards)
-        found.extend((cut_tag("Trashed: ", name(entry["slug"]), CARD[0]), own)
-                     for entry in getattr(card, "trashed", None) or ())
+        found.extend((cut_tag("" if n else "Trashed: ", name(entry["slug"]), CARD[0]), own)
+                     for n, entry in enumerate(getattr(card, "trashed", None) or ()))
         return tuple(found)
     own = card_color(card.slug, cards)
     if card.copy_of:
