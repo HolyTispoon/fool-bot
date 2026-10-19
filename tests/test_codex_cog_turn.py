@@ -137,7 +137,7 @@ class TurnTestCase(unittest.IsolatedAsyncioTestCase):
         view = call.view()
         if patrol is not None:
             view = (await self.table.choose(view, "Who patrols", patrol)).view()
-        lock = await self.table.press(view, "Lock patrol")
+        lock = await self.table.press(view, "Lock in patrol zone")
         self.assertNothingWentWrong(lock)
         return lock
 
@@ -1223,7 +1223,7 @@ class WholeGameTests(TurnTestCase):
             picked = (await pick_tech(table, view, who=who)).view()
             return await table.press(picked, "Save tech", who=who)
         if isinstance(view, PatrolView):
-            return await table.press(view, "Lock patrol")
+            return await table.press(view, "Lock in patrol zone")
         options = view.prompt.options
         if view.prompt.kind is PromptKind.CHOOSE_DEFENDER:
             return await table.press(view, ("defend", options.defenders[0]))
@@ -1569,7 +1569,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
 
     async def lock(self, view):
         ended = await self.table.press(view, "End main phase", who=self.table.basher)
-        return await self.table.press(ended.view(), "Lock patrol", who=self.table.basher)
+        return await self.table.press(ended.view(), "Lock in patrol zone", who=self.table.basher)
 
     async def test_a_target_of_the_other_side_is_named_by_its_team(self) -> None:
         """Both seats are the one person's, so the other side's thing
@@ -2209,7 +2209,7 @@ class EyesOfTheChancellorTests(unittest.IsolatedAsyncioTestCase):
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel(self.table.seated(2))
         view = (await self.table.press(view, "End main phase")).view()
-        call = await self.table.press(view, "Lock patrol")
+        call = await self.table.press(view, "Lock in patrol zone")
         stash = call.view()
         self.assertIs(stash.prompt.kind, PromptKind.STASH)
         call = await self.table.press(stash, ("stash", "jail"))

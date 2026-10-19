@@ -24,7 +24,7 @@
 --- board changed
 === action 4: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 === action 5: PATROL '' {"assignment": {"elite": "hero:river_montoya", "squad_leader": "unit:1"}}
 --- narration
 {player:2} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:2} discards 3 and draws 5. **End of turn 1** -- {player:2} (Finesse).
@@ -67,7 +67,7 @@
 --- board changed
 === action 11: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 12: PATROL '' {"assignment": {"elite": "hero:troq_bashar", "squad_leader": "unit:2"}}
 --- narration
@@ -158,7 +158,7 @@
 --- board changed
 === action 25: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 26: PATROL '' {"assignment": {"squad_leader": "unit:4"}}
 --- narration
@@ -245,7 +245,7 @@
 --- board changed
 === action 38: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 39: PATROL '' {"assignment": {"squad_leader": "unit:6"}}
 --- narration
@@ -337,7 +337,7 @@
 --- board changed
 === action 52: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 53: PATROL '' {"assignment": {"squad_leader": "unit:7"}}
 --- narration
@@ -417,7 +417,7 @@
 --- board changed
 === action 64: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 65: PATROL '' {"assignment": {}}
 --- narration
@@ -487,7 +487,7 @@
 --- board changed
 === action 75: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 76: PATROL '' {"assignment": {}}
 --- narration
@@ -534,7 +534,7 @@
 --- board changed
 === action 82: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 83: PATROL '' {"assignment": {"elite": "unit:10", "squad_leader": "unit:9"}}
 --- narration
@@ -632,7 +632,7 @@
 --- board changed
 === action 97: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 98: PATROL '' {"assignment": {}}
 --- narration
@@ -692,7 +692,7 @@
 --- board changed
 === action 106: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 107: PATROL '' {"assignment": {"elite": "hero:troq_bashar", "squad_leader": "unit:13"}}
 --- narration
@@ -766,7 +766,7 @@
 --- board changed
 === action 117: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 118: PATROL '' {"assignment": {"squad_leader": "unit:14"}}
 --- narration
@@ -854,7 +854,7 @@
 --- board changed
 === action 130: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 131: PATROL '' {"assignment": {"squad_leader": "hero:troq_bashar"}}
 --- narration
@@ -886,7 +886,7 @@
 --- board changed
 === action 135: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 136: PATROL '' {"assignment": {"squad_leader": "unit:16"}}
 --- narration
@@ -951,7 +951,7 @@
 --- board changed
 === action 145: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 146: PATROL '' {"assignment": {"elite": "unit:18", "scavenger": "hero:troq_bashar", "squad_leader": "unit:17"}}
 --- narration
@@ -1018,7 +1018,7 @@
 --- board changed
 === action 155: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 156: PATROL '' {"assignment": {"elite": "unit:20", "scavenger": "hero:river_montoya", "squad_leader": "unit:19"}}
 --- narration
@@ -1098,7 +1098,7 @@
 --- board changed
 === action 167: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 168: PATROL '' {"assignment": {"elite": "unit:22", "squad_leader": "unit:21"}}
 --- narration
@@ -1149,7 +1149,7 @@
 --- board changed
 === action 175: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 176: PATROL '' {"assignment": {"elite": "unit:24", "squad_leader": "unit:23"}}
 --- narration
@@ -1216,7 +1216,7 @@
 --- board changed
 === action 185: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 186: PATROL '' {"assignment": {"elite": "unit:26", "squad_leader": "unit:25"}}
 --- narration
@@ -1280,7 +1280,7 @@
 --- board changed
 === action 195: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 196: PATROL '' {"assignment": {"squad_leader": "unit:28"}}
 --- narration
@@ -1372,7 +1372,7 @@
 --- board changed
 === action 209: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 210: PATROL '' {"assignment": {"squad_leader": "hero:troq_bashar"}}
 --- narration
@@ -1450,7 +1450,7 @@
 --- board changed
 === action 221: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 222: PATROL '' {"assignment": {"squad_leader": "unit:32"}}
 --- narration
@@ -1494,7 +1494,7 @@
 --- board changed
 === action 228: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 229: PATROL '' {"assignment": {"squad_leader": "unit:33"}}
 --- narration
@@ -1574,7 +1574,7 @@
 --- board changed
 === action 240: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 241: PATROL '' {"assignment": {"elite": "hero:river_montoya", "squad_leader": "unit:34"}}
 --- narration
@@ -1655,7 +1655,7 @@
 --- board changed
 === action 252: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 1)
-{player:1}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 253: PATROL '' {"assignment": {"elite": "unit:36", "scavenger": "unit:37", "squad_leader": "unit:35", "technician": "hero:troq_bashar"}}
 --- narration
@@ -1733,7 +1733,7 @@
 --- board changed
 === action 264: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
-{player:2}, lock your patrollers: the main phase ends.
+To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 1)
 === action 265: PATROL '' {"assignment": {"elite": "unit:39", "squad_leader": "unit:38"}}
 --- narration
