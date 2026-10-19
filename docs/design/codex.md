@@ -2388,72 +2388,39 @@ ends." and **Lock patrol**).
   hand messages rather than reposting them"), and `/codex resume`
   brings the board back down when talk has pushed it up.
 - **Discord's phone apps leave a new picture in an ephemeral message a
-  grey box, so the bot draws the message anew** (`redraw_pictures`,
-  2026-10-15 to -17). Every new picture in an ephemeral message -- the
-  hand, the panel, the codex, `/codex card`'s own JPEG -- shows as a
-  grey box of its size in the iPhone and Android apps, for both
-  developers, while the desktop app shows it at once and the public
-  board always loads. Not the format, not the size, not the edit in
-  place (**My hand**'s fresh message stalls too). The phone apps load
-  the picture the next time they draw the message anew: switching
-  channels and back, or a click that keeps the picture
-  (`kept_pictures`) while its words or buttons change.
-  - **Tried and removed: an edit that changed nothing** (#592, #616;
-    removed by #622). Each new picture was edited again with the
-    attachments it already carried and nothing else, 1 s and then
-    3 s later. The edit landed both times and the picture stayed grey:
-    an unchanged message is not drawn anew, however late.
-  - **What it does now: it changes the words, invisibly** (2026-10-17,
-    the author: "I play enough on the phone that I would want to try a
-    fix"). Every write of `edit_clicked` and `send_answer` that uploads
-    a picture into an ephemeral message -- and `/codex card` and
-    `/codex board` beside them -- schedules one edit
-    `PICTURE_REDRAW_DELAY` (1 s) later of the message's words alone,
-    with `REDRAW_MARK`, a zero-width space, put on their end or taken
-    off where an earlier redraw left it (`marked`): always a change,
-    nothing that shows, the pictures and the buttons left as they are.
-    Words at Discord's 2000 can take no mark, and are not redrawn. It
-    is what a click that showed the picture did, short of the click:
-    **one request** on the click's own webhook, none in the channel's
-    bucket (the table below), for every player, the desktop's
-    included, since the bot cannot tell which app is reading. Whether
-    it is enough is the phone's to say; if it is not, the bot cannot
-    fix this in place.
-  - **No read of the message first.** Every write that changes an
-    ephemeral message's pictures is `edit_clicked`'s or `send_answer`'s
-    (the others change only its words or its buttons), and each
-    **drops the redraw waiting on the message it writes** -- a click's
-    write puts its own words up, which is the drawing anew the redraw
-    is for, and a new picture schedules its own. So the one redraw
-    waiting on a message (`_PENDING`, by its id) is the record that
-    nothing has been put up over it since, and the words it went up
-    with are the words it has: five pictures in a row on one panel are
-    one redraw, the last's.
-  - **The edit is made under the game's lock**, named for it by
-    `SafeView._scheduled_task` in a context variable, but the wait is
-    not: the task sleeps first and takes the lock only for its one
-    request. Made outside the lock, a click could write the message
-    between the redraw's turn and its edit landing, and the edit would
-    put the older words back.
-  - **Anything that goes wrong is a console warning** -- the picture
-    is shown or it is not -- and no exception leaves the task, where
-    asyncio would log it at ERROR to #logs. **Every new ephemeral
-    picture ends in one console line**, so a picture still grey can be
-    traced to what became of its redraw: **redrawn** (how long after
-    the picture went up it landed, and what its edit took),
-    **dropped** (its message written again first -- gated on
-    `cancel()`, so a redraw already finished is not said dropped),
-    **gone** (a `NotFound`, with its code: dismissed, an expired
-    token, an unknown webhook), **no message handed back** (nothing to
-    redraw), **at Discord's limit** (no room for the mark), or the
-    warning above. All INFO but the warning, console only: nobody can
-    act on any of them (the review of #616).
-  - The delay is a guess, 1 s because a click seconds later showed the
-    picture and a quicker redraw is a shorter grey; the fakes report
-    which of their messages are ephemeral and what words each carries,
-    so every click of the whole-game test counts its redraw
-    (`FakeInteraction.redraws`, kept apart from what the click
-    answered), an edit of the words alone.
+  grey box; nothing the bot sends fixes that** (2026-10-15 to
+  -18). Every new picture in an ephemeral message -- the hand, the
+  panel, the codex, `/codex card`'s own JPEG -- shows as a grey box of
+  its size in the iPhone and Android apps, for both developers, while
+  the desktop app shows it at once and the public board always loads.
+  Not the format, not the size, not the edit in place (**My hand**'s
+  fresh message stalls too). The phone app loads the picture the next
+  time it draws the message anew: switching channels and back, or a
+  click that keeps the picture (`kept_pictures`) while its words or
+  buttons change.
+  - **Tried and removed: a redraw** (#592, #616; removed 2026-10-17).
+    Each new ephemeral picture was edited again with the attachments
+    it already carried and nothing else, 1 s later and then 3 s later.
+    The edit landed both times and the picture stayed grey, so an edit
+    that changes nothing in the message does not make the phone apps
+    draw it again, however late. It cost every player one request a
+    picture, the desktop's included, for nothing, so it went.
+  - **Tried and removed: the words changed invisibly** (#624; removed
+    2026-10-18). The same redraw, 1 s after the picture, edited the
+    message's words alone, a zero-width space put on their end or
+    taken off. The edit landed and the picture stayed grey, so a change
+    to the words that the eye cannot see does not do it either. What a
+    click does that these edits do not is unproven: the click's edit is
+    the interaction's own answer (an update of the clicked message),
+    where the bot's edits went through the interaction's webhook, and
+    its change is visible. The bot cannot answer an interaction nobody
+    clicked, so that is not a fix it can send.
+  - **What is left** is moving the pictures out of ephemeral messages
+    -- a direct message to the player, which is an ordinary message
+    and loads as the public board does, or a picture hosted elsewhere
+    and named by its address -- and the author chose neither for now
+    (2026-10-18): on a phone, a click that redraws, or a channel
+    switched and back, shows the picture.
 - **The turn's lines head the hand message, and no other ephemeral
   one** (the author, 2026-10-12: "add the turn log to the ephemeral
   message with the hand"; then "only in the hand message and the
@@ -2894,31 +2861,27 @@ more*", since the board carries the position.
 
 ### The requests per click
 
-Measured with the fakes, and held on every click of the whole-game test.
-**+1** on the webhook is a new picture's redraw (above, "Discord's phone apps
-leave a new picture in an ephemeral message a grey box"): one edit of the words,
-`PICTURE_REDRAW_DELAY` after a click that put a new picture up in an ephemeral
-message, none where the picture was kept:
+Measured with the fakes, and held on every click of the whole-game test:
 
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
-| My hand, the active player | **0** | 2: the panel, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech -- and its redraw |
-| Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent; **+1** |
-| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message edited through the gate | 2: the defer, the panel edited in place; **+1** where the hand changed |
-| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit; **+1** where it pictures something new -- a tech pick, the Show menu, Attack... |
-| Save tech | **0**: nothing is said until the owner's ready phase | 1; **+1** |
-| Lock in patrol zone (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker; **+1** |
+| My hand, the active player | **0** | 1: the panel, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech |
+| Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent |
+| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message edited through the gate | 2: the defer, the panel edited in place |
+| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
+| Save tech | **0**: nothing is said until the owner's ready phase | 1 |
+| Lock in patrol zone (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker |
 | The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 2 |
 | Concede, the first click | **0** | 1: the confirmation |
 | Concede the game (step 8) | **3**: the last edit, its pin, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
 | Rematch (step 8) | **1**: the new lobby -- after the channel's move back to Codex Games, on its own route | 1: the button taken off |
-| Undo to the start of the turn | **1** | 2; **+1** |
-| Undo to a point of the turn (the menu) | **1** | 2; **+1** |
-| Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel; **+1** |
+| Undo to the start of the turn | **1** | 2 |
+| Undo to a point of the turn (the menu) | **1** | 2 |
+| Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
 | Take back the end of my turn | **3**: the restored turn's post, the current one's delete, the restored turn's standing one's delete | 3: the Undo menu sent, the click answered in place, the fresh panel |
 | A lobby click -- a seat taken, the mode or the variant changed, a third seat's pick (multiplayer step 4) | **0** | 1: the lobby edited in place |
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
-| My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1; **+1** |
+| My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1 |
 | Lock in patrol zone on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
 | **Repair base** on a free-for-all's panel | **1**: the turn message through the gate, as any action | 2: the defer, the panel edited in place |
 | A slot or a patroller chosen in the patrol view, an opponent's open slot among them | **0** | 1: the panel's edit |
