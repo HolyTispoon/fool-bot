@@ -1769,8 +1769,12 @@ else the bot shows is ephemeral.
     oath's the card that holds it (Jail; Reputable Newsman's number
     alone, "3"; Oathkeeper of Kor Mountain's "Play no cards" or "Skip
     draw/discard", `OATH_TAGS`), a Graveyard's units by name in its
-    black, and the old purple for a neutral card. The tags are
-    `rune_marks`'.
+    black, each unit Prynn's max level ability has trashed as
+    "Trashed: Iron Man" on her in her purple (the author, 2026-10-19:
+    what comes back when she leaves play, which the board said nowhere
+    else), a long name cut with an ellipsis to the card's width
+    (`cut_tag`, which the lent tag uses too), and the old purple for a
+    neutral card. The tags are `rune_marks`'.
   - **Time runes are in the same column**, first, as the purple chit
     of the card they are on (a fading card, Prynn, a card in the
     future), with FUTURE in the waiting card's colour under them (the
