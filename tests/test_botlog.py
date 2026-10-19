@@ -532,9 +532,18 @@ class DeployNoticeTextTests(unittest.TestCase):
             ),
         )
 
-        self.assertIn("`f50e0fe` Resolve maneuvers", message)
-        self.assertIn("Changes in this deploy (1 commit):", message)
+        self.assertIn("now running `f50e0fe`\nChanges in this deploy (1 commit):", message)
+        self.assertNotIn("Resolve maneuvers", message)
         self.assertIn("- `434cf5f` Implement the role abilities", message)
+
+    def test_with_no_change_list_the_headline_keeps_its_subject(self) -> None:
+        message = deploy_notice.deploy_message(
+            deploy_notice.Build("f" * 40, "f50e0fe", "Resolve maneuvers"),
+            None,
+            first_run=True,
+        )
+
+        self.assertIn("`f50e0fe` Resolve maneuvers", message)
 
     def test_the_heading_names_the_pull_requests_that_landed(self) -> None:
         # Several merging between one restart and the next is the normal

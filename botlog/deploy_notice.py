@@ -553,11 +553,15 @@ def deploy_message(
     bot_name names the bot that restarted ("Codex bot"), since two run
     from one checkout and post to one channel, and "Bot" stands in when
     it is empty.
+
+    The build's subject is left off the headline when a change list
+    follows: it is then the list's first line, or a merge's pull request
+    title over the commits listed, and the notice said the same thing
+    twice (the author, 2026-10-19).
     """
-    lines = [
-        f"{_restarted(host, bot_name)} -- now running `{build.short}` "
-        f"{_clean(build.subject)}"
-    ]
+    listing = not first_run and changes is not None and bool(changes.commits)
+    headline = f"{_restarted(host, bot_name)} -- now running `{build.short}`"
+    lines = [headline if listing else f"{headline} {_clean(build.subject)}"]
 
     if first_run:
         lines.append(
