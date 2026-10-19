@@ -451,7 +451,7 @@ class PresentationMixin:
         picks = self.engine.tech_picks_of(match, seat, mate)
         name = seat_label(game, mate)
         if picks is None:
-            await send_answer(interaction, f"{name} has not chosen their tech yet. Only you can see this.",
+            await send_answer(interaction, f"{name} has not chosen their tech yet.",
                               ephemeral=True)
             return
         listed = ", ".join(self.engine.catalog.name(slug) for slug in picks) or "nothing"
@@ -463,7 +463,7 @@ class PresentationMixin:
                 [cards.cards[slug].cost or 0 for slug in picks], cards,
             )
             kwargs["file"] = picture_file(webp, "codex-tech")
-        await send_answer(interaction, f"{name}'s tech: {listed}. Only you can see this.", **kwargs)
+        await send_answer(interaction, f"{name}'s tech: {listed}.", **kwargs)
 
     async def send_codex(self, interaction: discord.Interaction, game: CodexGame, match,
                          seat: int) -> None:

@@ -50,8 +50,6 @@ LOGGER = logging.getLogger(__name__)
 #: answer that began it (`UndoPoint.choice`): its button's own name.
 SILENT_ACTIONS = {"end_main": "End main phase"}
 
-PANEL_NOTE = "*Only you can see this.*"
-
 #: The prompts whose panel is pictured with the asked player's hand, as
 #: the main phase's is: Appel Stomp's place, which is about their own
 #: draw pile, and the card a stash keeps (step 13) -- its owner's alone.
@@ -222,14 +220,12 @@ class TurnsMixin:
         """The panel's text: the model's ask, rendered, what it tells
         the asked player alone (`PendingPrompt.told` -- the cards an
         effect discarded from their hand), what the view adds beneath
-        it, and that it is the clicker's alone -- under the turn's lines
-        so far (`with_turn_log`) where the panel pictures the hand:
+        it -- under the turn's lines so far (`with_turn_log`) where the panel pictures the hand:
         `hand`, or where not given, the prompt's kind (`TURN_LOG_KINDS`)."""
         lines = [self.render_text(prompt.ask, game)]
         lines.extend(self.render_text(line, game) for line in prompt.told)
         if extra:
             lines.append(extra)
-        lines.append(PANEL_NOTE)
         text = "\n".join(lines)
         if hand is None:
             hand = prompt.kind in TURN_LOG_KINDS
@@ -418,7 +414,7 @@ class TurnsMixin:
         files = [*await hand_files(self.engine, match, seat),
                  *await revealed_files(self.engine, match, seat)]
         revealed = revealed_caption(self.engine, match, seat, game)
-        text = self.with_turn_log(game, "\n".join([*lines, *([revealed] if revealed else []), PANEL_NOTE]))
+        text = self.with_turn_log(game, "\n".join([*lines, *([revealed] if revealed else [])]))
         await self.put_panel(interaction, text, files, WaitingView(self, game.game_id, seat), edit=True)
 
     @staticmethod

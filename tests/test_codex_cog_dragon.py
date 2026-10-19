@@ -245,8 +245,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         # Before the teammate has chosen, Tech says so.
         early = await self.table.turn_button("tech", self.who(self.first))
         self.assertEqual(early.last()[1][0],
-                         f"{self.game.seat_name(self.second)} has not chosen their tech yet. "
-                         "Only you can see this.")
+                         f"{self.game.seat_name(self.second)} has not chosen their tech yet.")
         # The second seat saves its choice from Tech.
         call = await self.table.turn_button("tech", self.who(self.second))
         view = call.view()
