@@ -632,7 +632,7 @@ class TurnPanelView(PanelView):
             return ("Pick a card to trash in order to **hire a worker** for "
                     f"{self.prompt.options.hire.cost} gold.")
         if self.mode == "attack":
-            return "**Attack** with which?"
+            return "Choose an eligible card to attack with."
         if self.mode == "boost":
             return f"**{card_name(self.slug)}**: pay its boost?"
         if self.mode == "level":
