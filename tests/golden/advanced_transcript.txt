@@ -8,7 +8,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 2: ManeuverActionPromptView -> 'Dribble'
@@ -60,7 +60,7 @@ Ball is now in space −1, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the green row.
 
 🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 6: ManeuverActionPromptView -> 'Steal'
@@ -147,7 +147,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 14: ManeuverActionPromptView -> 'Dribble'
@@ -243,7 +243,7 @@ Ball is now in space −1, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the green row.
 
 🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 23: ManeuverActionPromptView -> 'Pressure'
@@ -286,7 +286,7 @@ Ball is now in space 0, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the green row.
 
 🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 27: ManeuverActionPromptView -> 'Pressure'
@@ -375,7 +375,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 36: ManeuverActionPromptView -> 'Gambit'
@@ -386,7 +386,7 @@ You declared a gambit: pick one of your advanced maneuvers from the new prompt.
 --- message
 🔥 Dinky AI has changed their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 has declared a gambit.
 === press 37: ManeuverActionPromptView -> 'Pinpoint'
@@ -462,7 +462,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔥 Dinky AI holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 44: ManeuverActionPromptView -> 'Dribble'
@@ -511,7 +511,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔥 Dinky AI holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 48: ManeuverActionPromptView -> 'High Ball'
@@ -587,7 +587,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔥 Dinky AI has declared a gambit.
 === press 55: ManeuverActionPromptView -> 'Pass'
@@ -647,7 +647,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
 === press 62: ManeuverActionPromptView -> 'Dribble'
@@ -709,7 +709,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
 === press 68: ManeuverActionPromptView -> 'Gambit'
@@ -720,7 +720,7 @@ You declared a gambit: pick one of your advanced maneuvers from the new prompt.
 --- message
 🔥 Dinky AI has confirmed their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 has declared a gambit.
 === press 69: ManeuverActionPromptView -> 'Cross'
@@ -802,7 +802,7 @@ No substitutions, and no change of shape.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the green row.
 
 🔥 Dinky AI has declared a gambit. 🔮 Player 1 answers with one of their own.
 === press 76: ManeuverActionPromptView -> 'Clear'
@@ -849,7 +849,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
 === press 80: ManeuverActionPromptView -> 'Gambit'
@@ -860,7 +860,7 @@ You declared a gambit: pick one of your advanced maneuvers from the new prompt.
 --- message
 🔥 Dinky AI has changed their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the red row.
 
 🔮 Player 1 has declared a gambit.
 === press 81: ManeuverActionPromptView -> 'Cross'
@@ -917,7 +917,7 @@ Noxar has moved 1 space.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🔮 <@111>, choose a maneuver from the green row.
 
 🔥 Dinky AI holds the coin, 🪙 Fortune up, and may declare a gambit.
 === press 86: ManeuverActionPromptView -> 'Steal'

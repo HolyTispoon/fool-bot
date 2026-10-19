@@ -36,7 +36,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 5: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
@@ -90,7 +90,7 @@ Ball is now in space 0, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 10: ManeuverActionPromptView -> 'Deflect'
 --- message
 You chose **Deflect**.
@@ -146,7 +146,7 @@ Ball is now in space −2, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 14: ManeuverActionPromptView -> 'Steal'
 --- message
 You chose **Steal**.
@@ -195,7 +195,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 18: ManeuverActionPromptView -> 'High Ball'
 --- message
 You chose **High Ball**.
@@ -224,7 +224,7 @@ Emberdash has moved 1 space.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 20: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
@@ -250,7 +250,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 22: ManeuverActionPromptView -> 'Pass'
 --- message
 You chose **Pass**.
@@ -283,7 +283,7 @@ Ball is now in space −1, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 24: ManeuverActionPromptView -> 'Pressure'
 --- message
 You chose **Pressure**.
@@ -304,7 +304,7 @@ Ball is now in space −2, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 25: ManeuverActionPromptView -> 'Deflect'
 --- message
 You chose **Deflect**.
@@ -364,7 +364,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 30: ManeuverActionPromptView -> 'High Ball'
 --- message
 You chose **High Ball**.
@@ -456,7 +456,7 @@ Who comes on for 🟠 Acidel [SK]? They take their zone and their space exactly.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 39: ManeuverActionPromptView -> 'Pressure'
 --- message
 You chose **Pressure**.
@@ -475,7 +475,7 @@ Ball is now in space 1, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 40: ManeuverActionPromptView -> 'Deflect'
 --- message
 You chose **Deflect**.
@@ -523,7 +523,7 @@ Choose an action:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 44: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
@@ -571,7 +571,7 @@ Ball is now in space 3, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 48: ManeuverActionPromptView -> 'Pressure'
 --- message
 You chose **Pressure**.
@@ -606,7 +606,7 @@ Ball is now in space 3, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 50: ManeuverActionPromptView -> 'Steal'
 --- message
 You chose **Steal**.
@@ -635,7 +635,7 @@ Ball is now in space 0, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 52: ManeuverActionPromptView -> 'Deflect'
 --- message
 You chose **Deflect**.
@@ -662,7 +662,7 @@ Flickerwing has moved 1 space.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 54: ManeuverActionPromptView -> 'Pressure'
 --- message
 You chose **Pressure**.
@@ -683,7 +683,7 @@ Ball is now in space 0, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 55: ManeuverActionPromptView -> 'Deflect'
 --- message
 You chose **Deflect**.
@@ -704,7 +704,7 @@ Ball is now in space −2, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 56: ManeuverActionPromptView -> 'Steal'
 --- message
 You chose **Steal**.
@@ -772,7 +772,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 62: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
@@ -814,7 +814,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 66: ManeuverActionPromptView -> 'High Ball'
 --- message
 You chose **High Ball**.
@@ -847,7 +847,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 69: ManeuverActionPromptView -> 'High Ball'
 --- message
 You chose **High Ball**.
@@ -876,7 +876,7 @@ Emberdash has moved 1 space.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 71: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
@@ -910,7 +910,7 @@ Glompex has moved 1 space.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 74: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
@@ -936,7 +936,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 76: ManeuverActionPromptView -> 'Pass'
 --- message
 You chose **Pass**.
@@ -975,7 +975,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 81: ManeuverActionPromptView -> 'High Ball'
 --- message
 You chose **High Ball**.

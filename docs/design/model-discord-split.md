@@ -1324,10 +1324,12 @@ round: the voice was right, and it was speaking Discord (finding 6 of
   resume, since the result goes through `rendered` and a token the
   resolver does not find is left alone; nothing else in the wire
   format is narration (`record_event` and `record_goal` take ids).
-- **What stays in the model on purpose.** "Only you can see what you
-  picked" and the shootout's "Nobody else sees it": a secret,
-  simultaneous pick is a rule of the game, and a web page keeps the
-  secret too. What left is the *where* -- "from the red row", "from
+- **What stays in the model on purpose.** "Both sides pick privately"
+  and the shootout's "Nobody else sees it": a secret, simultaneous
+  pick is a rule of the game, and a web page keeps the secret too.
+  "Only you can see what you picked" went from the model's line and
+  the Discord captions on 2026-10-19 (the author): Discord already
+  marks a coach's own answer as theirs alone. What left is the *where* -- "from the red row", "from
   the same message", "the prompt at the bottom of the channel", "share
   this channel" -- and only the first of those became a caption
   (`build_maneuver_action_caption`, composed in the cog over the

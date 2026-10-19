@@ -174,13 +174,11 @@ def maneuver_row_instruction(sides: list[str]) -> str:
     if len(sides) == 1:
         return (
             "choose a maneuver from the "
-            f"{MANEUVER_ROW_COLOURS[sides[0]]} row -- only you can "
-            "see what you picked."
+            f"{MANEUVER_ROW_COLOURS[sides[0]]} row."
         )
     return (
         "both sides pick privately from the same message: red "
-        "for the offense, green for the defense. Only you can "
-        "see what you picked."
+        "for the offense, green for the defense."
     )
 
 
@@ -194,11 +192,11 @@ def maneuver_hand_instruction(sides: list[str]) -> str:
     if len(sides) == 1:
         return (
             f"press **{HAND_BUTTON_LABEL}** to see your cards and play "
-            "one -- only you can see them."
+            "one."
         )
     return (
         f"each press **{HAND_BUTTON_LABEL}** to see your own cards and "
-        "play one. Only you can see your cards."
+        "play one."
     )
 
 
