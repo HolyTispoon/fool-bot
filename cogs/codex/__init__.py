@@ -36,7 +36,7 @@ class Codex(
     ReferenceMixin,
     commands.GroupCog,
     group_name="codex",
-    group_description="Play Codex -- one game per channel.",
+    group_description="Play Codex: one game per channel.",
 ):
     """
     A Discord cog for Sirlin Games' Codex.

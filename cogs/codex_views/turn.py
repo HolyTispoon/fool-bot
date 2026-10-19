@@ -644,7 +644,7 @@ class TurnPanelView(PanelView):
         if self.mode == "spec":
             row = self.build_row()
             if row is not None and row.lab_specs:
-                return ("**Build Tech II**: choose its spec, then your tech lab's -- "
+                return ("**Build Tech II**: choose its spec, then your tech lab's, "
                         "a different one.")
             what = "Tech II" if self.building == "tech2" else "your tech lab"
             return f"**Build {what}**: which spec does it unlock?"
@@ -1057,9 +1057,9 @@ class TurnPanelView(PanelView):
             whose = f"{seat_label(game, row.seat)}'s"
         label = f"{whose} {self.label(row.ref, row.seat)}"
         if row.resist:
-            label += f" -- resist: pay {row.resist} gold"
+            label += f", resist: pay {row.resist} gold"
         if row.flagbearer:
-            label += " -- flagbearer"
+            label += ", flagbearer"
         return label
 
     def build_target(self, options) -> None:

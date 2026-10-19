@@ -768,7 +768,7 @@ class Publisher:
         lines = [
             f"**Codex site: {len(taken)} game(s) taken off to stay inside R2's free plan**, "
             f"{budget.size(freed)} downloaded into `{self.offload_folder}` and deleted from the "
-            f"bucket -- abandoned {numbers(GameStatus.ABANDONED)}; "
+            f"bucket: abandoned {numbers(GameStatus.ABANDONED)}; "
             f"finished {numbers(GameStatus.FINISHED)}.",
             f"The bucket now holds {budget.size(self.usage.stored)} of the free "
             f"{budget.size(budget.FREE_STORAGE)}.",

@@ -27,7 +27,7 @@
 To end your main phase, assign patrollers.
 === action 5: PATROL '' {"assignment": {"elite": "hero:river_montoya", "squad_leader": "unit:1"}}
 --- narration
-{player:2} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:2} discards 3 and draws 5. **End of turn 1** -- {player:2} (Finesse).
+{player:2} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:2} discards 3 and draws 5. **End of turn 1**: {player:2} (Finesse).
 {player:3} collects {gold:5} from 5 workers: now {gold:5}.
 --- prompt MAIN_ACTION (player 3)
 {player:3}'s main phase, currently {gold:5}.
@@ -71,7 +71,7 @@ To end your main phase, assign patrollers.
 --- standing TECH_CHOICE (player 2)
 === action 12: PATROL '' {"assignment": {"elite": "hero:troq_bashar", "squad_leader": "unit:2"}}
 --- narration
-{player:3} patrols with {card:tenderfoot} as squad leader, {hero:troq_bashar} as elite. {player:3} discards 3 and draws 5. {player:3}'s Tech I building is finished. **End of turn 2** -- {player:3} (Bashing).
+{player:3} patrols with {card:tenderfoot} as squad leader, {hero:troq_bashar} as elite. {player:3} discards 3 and draws 5. {player:3}'s Tech I building is finished. **End of turn 2**: {player:3} (Bashing).
 {player:1} collects {gold:5} from 5 workers: now {gold:5}.
 {player:1}'s {card:mercenary} arrives.
 --- prompt MAIN_ACTION (player 1)
@@ -125,7 +125,7 @@ To end your main phase, assign patrollers.
 --- narration
 {player:1} patrols with {card:mercenary} as squad leader, {card:tenderfoot} as elite, {hero:troq_bashar} as scavenger. {player:1} discards 3 and draws 5.
 {player:1}'s Tech I building is finished.
-**End of turn 3** -- {player:1} (Bashing).
+**End of turn 3**: {player:1} (Bashing).
 --- prompt TECH_CONFIRM (player 2)
 {player:2}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
@@ -247,7 +247,7 @@ To end your main phase, assign patrollers.
 --- narration
 {player:2} patrols with {card:older_brother} as squad leader. {player:2} discards 2 and draws 4. {player:2} shuffles their discard pile into their deck.
 {player:2}'s Tech I building is finished.
-**End of turn 4** -- {player:2} (Finesse).
+**End of turn 4**: {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
@@ -353,7 +353,7 @@ To end your main phase, assign patrollers.
 === action 49: PATROL '' {"assignment": {"elite": "unit:8", "squad_leader": "unit:7"}}
 --- narration
 {player:3} patrols with {card:brick_thief} as squad leader, {card:older_brother} as elite. {player:3} discards 2 and draws 4. {player:3} shuffles their discard pile into their deck.
-**End of turn 5** -- {player:3} (Bashing).
+**End of turn 5**: {player:3} (Bashing).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 2)
@@ -429,7 +429,7 @@ To end your main phase, assign patrollers.
 === action 59: PATROL '' {"assignment": {"elite": "unit:11", "squad_leader": "unit:10"}}
 --- narration
 {player:1} patrols with {card:helpful_turtle} as squad leader, {card:older_brother} as elite. {player:1} discards 1 and draws 3. {player:1} shuffles their discard pile into their deck.
-**End of turn 6** -- {player:1} (Bashing).
+**End of turn 6**: {player:1} (Bashing).
 --- prompt TECH_CONFIRM (player 2)
 {player:2}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
@@ -550,7 +550,7 @@ To end your main phase, assign patrollers.
 === action 75: PATROL '' {"assignment": {"squad_leader": "unit:12"}}
 --- narration
 {player:2} patrols with {card:fruit_ninja} as squad leader. {player:2} discards 0 and draws 2.
-**End of turn 7** -- {player:2} (Finesse).
+**End of turn 7**: {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
@@ -669,7 +669,7 @@ To end your main phase, assign patrollers.
 --- narration
 {player:3} patrols with {card:tenderfoot} as squad leader. {player:3} discards 2 and draws 4.
 {player:3}'s Tech II building is finished.
-**End of turn 8** -- {player:3} (Bashing).
+**End of turn 8**: {player:3} (Bashing).
 --- prompt TECH_CONFIRM (player 1)
 {player:1}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 2)
@@ -723,7 +723,7 @@ To end your main phase, assign patrollers.
 --- narration
 {player:1} patrols with {hero:troq_bashar} as squad leader. {player:1} discards 2 and draws 4.
 {player:1}'s Tech II building is finished.
-**End of turn 9** -- {player:1} (Bashing).
+**End of turn 9**: {player:1} (Bashing).
 --- prompt TECH_CONFIRM (player 2)
 {player:2}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
@@ -836,7 +836,7 @@ To end your main phase, assign patrollers.
 --- narration
 {player:2} leaves the patrol zone empty. {player:2} discards 0 and draws 2.
 {player:2}'s Tech II building is finished.
-**End of turn 10** -- {player:2} (Finesse).
+**End of turn 10**: {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
@@ -993,7 +993,7 @@ To end your main phase, assign patrollers.
 === action 134: PATROL '' {"assignment": {"elite": "unit:17", "squad_leader": "unit:16"}}
 --- narration
 {player:3} patrols with {card:revolver_ocelot} as squad leader, {card:granfalloon_flagbearer} as elite. {player:3} discards 0 and draws 2. {player:3} shuffles their discard pile into their deck.
-**End of turn 11** -- {player:3} (Bashing).
+**End of turn 11**: {player:3} (Bashing).
 --- prompt TECH_CONFIRM (player 2)
 {player:2}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
@@ -1080,7 +1080,7 @@ To end your main phase, assign patrollers.
 === action 146: PATROL '' {"assignment": {}}
 --- narration
 {player:2} leaves the patrol zone empty. {player:2} discards 0 and draws 2. {player:2} shuffles their discard pile into their deck.
-**End of turn 12** -- {player:2} (Finesse).
+**End of turn 12**: {player:2} (Finesse).
 --- prompt TECH_CONFIRM (player 3)
 {player:3}, your turn: confirm your tech choice, or change it.
 --- standing TECH_CHOICE (player 1)
@@ -1249,7 +1249,7 @@ To end your main phase, assign patrollers.
 --- narration
 {player:3} patrols with {card:iron_man} as squad leader. {player:3} discards 0 and draws 2.
 {player:3}'s Tech III building is finished.
-**End of turn 13** -- {player:3} (Bashing).
+**End of turn 13**: {player:3} (Bashing).
 **{player:3} wins with 20 base HP: the tie is broken.**
 --- prompt GAME_OVER (player None)
 {player:3} wins!

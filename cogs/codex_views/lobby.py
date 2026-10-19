@@ -359,7 +359,7 @@ class MixedTeamView(discord.ui.View):
         lines = ["**Mixed colors**: your first hero's color is your starting deck."]
         if self.first is not None:
             hero = cards.hero_for(self.first)
-            lines.append(f"First: **{hero.name}** ({hero.spec}) -- the {hero.color} starting deck.")
+            lines.append(f"First: **{hero.name}** ({hero.spec}), the {hero.color} starting deck.")
         if self.others:
             lines.append("Then: " + ", ".join(
                 f"{cards.hero_for(spec).name} ({cards.hero_for(spec).spec})" for spec in self.others

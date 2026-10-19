@@ -239,9 +239,9 @@ def turn_heading(match) -> str:
     from codex import seats
 
     # A two-headed dragon's turn is both teammates' (Rulebook p. 13):
-    # "**Turn 7** -- {to:1} (Blood Anarchs) and {to:2} (Moss Sentinels)".
+    # "**Turn 7**: {to:1} (Blood Anarchs) and {to:2} (Moss Sentinels)".
     named = " and ".join(
         f"{tokens.addressed(seat)} ({team_name(match.player(seat).specs)})"
         for seat in seats.turn_seats(match)
     )
-    return f"**Turn {match.turn}** -- {named}"
+    return f"**Turn {match.turn}**: {named}"

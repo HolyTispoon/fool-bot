@@ -764,7 +764,7 @@ class TurnsMixin:
         whose, yours = ("your team's turn", "the end of it") if team else ("your turn", "the end of yours")
         await send_new_prompt(
             interaction,
-            f"{mention}, {asker} asks to undo to the start of turn {turn - 1} -- {whose} -- "
+            f"{mention}, {asker} asks to undo to the start of turn {turn - 1} ({whose}), "
             f"which takes back this turn and {yours}. Do you agree?",
             view=UndoConfirmView(self, game.game_id, seat, turn, opponent, agreeing),
             allowed_mentions=discord.AllowedMentions(

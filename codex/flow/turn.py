@@ -1109,7 +1109,7 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     named = " and ".join(
         f"{tokens.player(seat)} ({team_name(match.player(seat).specs)})" for seat in taking
     )
-    result.narration.append(f"**End of turn {match.turn}** -- {named}.")
+    result.narration.append(f"**End of turn {match.turn}**: {named}.")
     match.record_event("turn_ended")
     match.attacking = None
     match.against = None

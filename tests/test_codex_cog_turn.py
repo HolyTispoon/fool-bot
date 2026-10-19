@@ -842,7 +842,7 @@ class TurnEndTests(TurnTestCase):
         # mention -- which the post pings -- and their deck.
         match = self.table.match
         player_id = self.game.player_1_id if match.active == 1 else self.game.player_2_id
-        heading = f"**Turn 2** -- <@{player_id}> ({match.active_player.specs[0].title()})"
+        heading = f"**Turn 2**: <@{player_id}> ({match.active_player.specs[0].title()})"
         self.assertTrue(self.table.game_channel.texts[new].startswith(heading + "\n"))
         self.assertEqual(self.table.game_channel.texts[new].count("**Turn 2**"), 1)
         mentioned = self.table.game_channel.since(mark)[2][2]["allowed_mentions"].users
