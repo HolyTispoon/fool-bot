@@ -11,8 +11,8 @@ cannot drift (docs/design/pbd-site.md, "Looking at it"):
 
 `--stage <dir>` first writes a sample folder there -- three games, one
 being played with a history, one finished and one abandoned, through
-the publisher's own shapes and boards drawn by `codex.render` -- and
-serves it:
+the publisher's own shapes and boards drawn by `codex.render`, each
+board's map beside it and every card's picture -- and serves it:
 
     python3 scripts/serve_pbd.py --stage /tmp/pbd-data
 
@@ -44,7 +44,7 @@ _PATTERN_LINE = re.compile(r"^\s*/(\^.*\$)/,\s*$")
 #: What a file under `pbd/public/` is served as.
 TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8",
-         ".webp": "image/webp", ".png": "image/png"}
+         ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg"}
 
 
 def function_patterns(source: Path = FUNCTION) -> list[re.Pattern]:
@@ -172,9 +172,9 @@ def stage(folder: Path) -> list[str]:
     from codex.engine import RulesEngine
     from codex.formatting import turn_heading
     from codex.game import CodexGame, GameStatus
-    from codex.render import render_board
+    from codex.render import render_board_mapped
     from cogs.codex_helpers import TOKEN_EMOJI, seat_label
-    from cogs.codex_publish import keys, shapes
+    from cogs.codex_publish import cards, keys, shapes
     from cogs.codex_publish.record import PublishedGame
 
     engine = RulesEngine(seed=7)
@@ -199,10 +199,18 @@ def stage(folder: Path) -> list[str]:
             game.take_seat(1000 + seat, name, [team])
         return game
 
+    #: Every board's map written, which the JSON may name.
+    mapped: set[str] = set()
+
     def board(game: CodexGame, match) -> tuple[str, bytes]:
+        """A board's key and bytes, its map written beside it."""
         names = {seat: seat_label(game, seat) for seat in range(1, game.seat_count + 1)}
-        drawn = render_board(match, game.board_layout, names, engine.catalog, stats=engine.board_reading)
-        return keys.board_key(game.game_id, drawn), drawn
+        drawn, drawn_map = render_board_mapped(match, game.board_layout, names, engine.catalog,
+                                               stats=engine.board_reading)
+        key = keys.board_key(game.game_id, drawn)
+        write(keys.board_map_key(key), shapes.board_map(drawn_map))
+        mapped.add(keys.board_map_key(key))
+        return key, drawn
 
     def turn_lines(seat: int, other: int) -> list[str]:
         one, two = tokens.player(seat), tokens.player(other)
@@ -240,8 +248,8 @@ def stage(folder: Path) -> list[str]:
     )
     for key, drawn in boards.items():
         write(key, drawn)
-    write(keys.live_key(game.game_id), shapes.live(game, middle, published))
-    write(keys.history_key(game.game_id), shapes.history(game, published))
+    write(keys.live_key(game.game_id), shapes.live(game, middle, published, mapped))
+    write(keys.history_key(game.game_id), shapes.history(game, published, mapped))
     playing = [shapes.index_entry(game, middle, published.updated)]
     ids.append(game.game_id)
 
@@ -257,8 +265,8 @@ def stage(folder: Path) -> list[str]:
     published = PublishedGame(turn=21, heading=turn_heading(match),
                               lines=[f"{tokens.player(2)} destroys {tokens.player(3)}'s base. {tokens.player(2)} wins."],
                               board=key, history_version=0, updated=ago(30))
-    write(keys.live_key(finished.game_id), shapes.live(finished, match, published))
-    write(keys.history_key(finished.game_id), shapes.history(finished, published))
+    write(keys.live_key(finished.game_id), shapes.live(finished, match, published, mapped))
+    write(keys.history_key(finished.game_id), shapes.history(finished, published, mapped))
     archived.append(shapes.archive_entry(finished, match, published.updated))
     ids.append(finished.game_id)
 
@@ -272,8 +280,8 @@ def stage(folder: Path) -> list[str]:
     write(key, drawn)
     published = PublishedGame(turn=4, heading=turn_heading(match), lines=[], board=key,
                               updated=ago(100))
-    write(keys.live_key(abandoned.game_id), shapes.live(abandoned, match, published))
-    write(keys.history_key(abandoned.game_id), shapes.history(abandoned, published))
+    write(keys.live_key(abandoned.game_id), shapes.live(abandoned, match, published, mapped))
+    write(keys.history_key(abandoned.game_id), shapes.history(abandoned, published, mapped))
     archived.append(shapes.archive_entry(abandoned, match, published.updated))
     ids.append(abandoned.game_id)
 
@@ -281,6 +289,8 @@ def stage(folder: Path) -> list[str]:
     write(keys.ARCHIVE_KEY, shapes.archive(archived))
     for name in set(TOKEN_EMOJI.values()):
         write(keys.emoji_key(name), (PROJECT_ROOT / "codex" / "images" / "emoji" / f"{name}.png").read_bytes())
+    for slug in cards.pictured():
+        write(cards.key(slug), cards.picture(slug).read_bytes())
     return ids
 
 

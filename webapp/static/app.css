@@ -983,7 +983,6 @@ select {
 }
 
 /* The hands held face down beside the hand. */
-.hand-table { display: flex; flex-direction: column; gap: 6px; }
 
 /* A refusal: a red-edged strip inside the box it refused. */
 .refusal {

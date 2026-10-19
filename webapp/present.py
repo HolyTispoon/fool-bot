@@ -700,15 +700,12 @@ PICTURED = frozenset({"ball", "goal", "time_out_tile", "bench"})
 #: sees their own hand and nobody else's, so it says what the pick is
 #: rather than whose it is -- the instruction is a frontend's own, as
 #: the Discord caption's row colours are
-#: (`cogs.d12ball_helpers.maneuver_row_instruction`).
-MANEUVER_ASK = (
-    "Both sides pick a maneuver privately -- only you can see what you "
-    "pick until both sides' picks are revealed."
-)
-MANEUVER_ASK_WATCHING = (
-    "Both sides pick a maneuver privately -- the picks are revealed "
-    "together."
-)
+#: (`cogs.d12ball_helpers.maneuver_row_instruction`). A coach and an
+#: observer read the same sentence: "only you can see what you pick"
+#: went on 2026-10-19 (the author), and with it the one difference.
+#: When the picks are revealed is said here, and nowhere else in the
+#: box: the hands' "turned over together" line went the same day.
+MANEUVER_ASK = "Both sides pick a maneuver privately. The picks are revealed together."
 
 
 def page_ask(
@@ -725,8 +722,7 @@ def page_ask(
     maneuver pick, whose ask names each coach it waits on for a
     Discord message somebody must be pinged from.
 
-    There the page says `MANEUVER_ASK` (`MANEUVER_ASK_WATCHING` to
-    somebody coaching neither side), and under it who may make a
+    There the page says `MANEUVER_ASK`, and under it who may make a
     gambit -- the model's sentence (`describe_gambit_access`), except
     to the coach it would name as holding the coin: their coin is in
     the box with its own line (`_maneuver`), so the paragraph would be
@@ -741,7 +737,7 @@ def page_ask(
         for hand in wire["options"]["hands"]
     )
     return maneuver_gambit_paragraph(
-        MANEUVER_ASK if mine else MANEUVER_ASK_WATCHING,
+        MANEUVER_ASK,
         "" if holds_the_coin
         else engine.describe_gambit_access(game, match),
     )
@@ -1967,8 +1963,11 @@ def hand_table(
 ) -> Optional[dict]:
     """
     The hands on the maneuver pick this viewer does not hold, face
-    down -- every hand for an observer -- with the line that says they
-    are turned over together (step 5 of docs/web-app-redesign.md).
+    down -- every hand for an observer (step 5 of
+    docs/web-app-redesign.md). The page draws none of it: the line
+    that said they are turned over together went on 2026-10-19 (the
+    author), the ask (`MANEUVER_ASK`) saying the picks are revealed
+    together.
     `None` for any other prompt, or where every hand is this viewer's.
 
     **A back is drawn whether or not that side has picked.** Whether
@@ -1997,13 +1996,7 @@ def hand_table(
         })
     if not backs:
         return None
-    return {
-        "backs": backs,
-        "note": (
-            "Both cards are turned over together."
-            if mine else "The hands are turned over together."
-        ),
-    }
+    return {"backs": backs}
 
 
 #: What the question box says of each side on the shootout's two

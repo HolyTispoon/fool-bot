@@ -40,6 +40,19 @@ way up -- stacked the same way up, the same two panels with neither
 turned, or side by side, the first player's on the left, neither
 turned.
 
+**The board says where its cards are** (`render_board_mapped`): every
+card it draws face up -- a hero, a unit, a building card or upgrade, a
+card in the future, a patroller, an add-on -- as a box in the
+picture's pixels with its slug, and each tech building as a box with
+the codex cards it opens -- Tech I every spec's tech I cards, Tech II
+and III the chosen spec's whole codex, and in a basic game's duel every
+building the one spec's whole codex. A part drawn on its own carries
+its boxes on the picture (`mark`), and `place` and `turned_round` carry
+them through every paste and turn the board is composed by, so a box
+is never worked out a second time from the layout's numbers. The
+pixels are the same with or without the map; the web page shows a
+card from it (docs/design/pbd-site.md, "The board's map").
+
 **Nothing here is tested for how it looks** (CLAUDE.md, "Nothing
 rendered is tested"): `scripts/render_codex_sample.py` draws the
 opening position, a mid-game one and every state on the canvas's
@@ -318,6 +331,8 @@ PLATE_INK = (201, 168, 106)      # #c9a86a
 #: them warm.
 WORD = (242, 242, 242)           # #f2f2f2
 QUIET = (168, 168, 168)          # #a8a8a8
+#: The gold count on its coin (`gold_coin`): the coin's own dark rim.
+WORD_ON_GOLD = (74, 46, 6)
 FAINT_INK = (138, 122, 98)       # #8a7a62
 RULE = (74, 58, 44)              # #4a3a2c
 #: The active nameplate's mark -- its rule and its "<name>'s turn <n>"
@@ -599,6 +614,44 @@ def chit_stack(amount: int, folder: str, largest: int) -> list[Image.Image]:
 
 #: A box on a canvas, (left, top, right, bottom).
 Box = tuple[int, int, int, int]
+
+
+def regions_of(picture: Image.Image) -> list[dict]:
+    """The boxes marked on `picture` (`mark`), carried with it through
+    `place` and `turned_round`; held on the picture itself, so only a
+    picture drawn afresh is ever marked -- never a cached one."""
+    found = getattr(picture, "regions", None)
+    if found is None:
+        found = []
+        picture.regions = found
+    return found
+
+
+def mark(picture: Image.Image, box, **what) -> None:
+    """Note that `box`, in `picture`'s pixels, shows `what`: a `card`'s
+    slug, or a `codex` of slugs under its `title`."""
+    left, top, right, bottom = box
+    regions_of(picture).append({"box": (left, top, right, bottom), **what})
+
+
+def place(canvas: Image.Image, part: Image.Image, at: tuple[int, int]) -> None:
+    """`part` composited onto `canvas` at `at`, its marks with it."""
+    canvas.alpha_composite(part, at)
+    x, y = at
+    for region in getattr(part, "regions", ()):
+        left, top, right, bottom = region["box"]
+        regions_of(canvas).append({**region, "box": (left + x, top + y, right + x, bottom + y)})
+
+
+def turned_round(picture: Image.Image) -> Image.Image:
+    """`picture` turned half round about its centre, its marks with it."""
+    turned = picture.rotate(180)
+    width, height = picture.size
+    for region in getattr(picture, "regions", ()):
+        left, top, right, bottom = region["box"]
+        regions_of(turned).append({**region,
+                                   "box": (width - right, height - bottom, width - left, height - top)})
+    return turned
 
 
 def overlaps(one: Box, other: Box, slack: int = 0) -> bool:
@@ -1024,15 +1077,23 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     colour of the card it comes from: a feather rune's name, its chit's
     green, and, on a card (step 13), "Copy: Fox Viper", "Jail: Iron
     Man", "3" (Reputable Newsman's number), "Skip draw/discard", and a
-    Graveyard's units by name. Its runes are chits (`rune_counts`)."""
+    Graveyard's units by name; on a hero, the units Prynn's max level
+    ability holds, to come back when she leaves play, by name, the first
+    "Trashed: Iron Man", a long name cut to the card's width. Its runes are chits
+    (`rune_counts`)."""
     found: list[tuple[str, Optional[str]]] = [
         (kind.title(), rune_color(card, kind, cards))
         for kind, count in sorted((getattr(card, "runes", None) or {}).items())
         if count and kind in NAMED_ON_THE_CHIT
     ]
-    if not isinstance(card, CardInstance):
-        return tuple(found)
     name = cards.name if cards is not None else (lambda slug: slug.replace("_", " ").title())
+    if not isinstance(card, CardInstance):
+        # What Prynn has trashed, by name, "Trashed" said once on the
+        # first (the author, 2026-10-19).
+        own = card_color(card.slug, cards)
+        found.extend((cut_tag("" if n else "Trashed: ", name(entry["slug"]), CARD[0]), own)
+                     for n, entry in enumerate(getattr(card, "trashed", None) or ()))
+        return tuple(found)
     own = card_color(card.slug, cards)
     if card.copy_of:
         found.append((f"Copy: {name(card.copy_of)}", card_color(COPY_FROM, cards)))
@@ -1162,10 +1223,15 @@ def lent_tag(lender: Optional[str]) -> str:
     where the frontend gave no name."""
     if not lender:
         return "Lent"
-    name = lender
-    while len(name) > 1 and tag_size(f"Lent from {name}")[0] > LENT_TAG_WIDTH:
+    return cut_tag("Lent from ", lender, LENT_TAG_WIDTH)
+
+
+def cut_tag(words: str, name: str, width: int) -> str:
+    """`words` and `name` as one tag, the name cut with an ellipsis until
+    the tag is no wider than `width`."""
+    while len(name) > 1 and tag_size(f"{words}{name}")[0] > width:
         name = name[:-2 if name.endswith("…") else -1].rstrip() + "…"
-    return f"Lent from {name}"
+    return f"{words}{name}"
 
 
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
@@ -1204,7 +1270,7 @@ def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = Non
                  time_runes=hero.time_runes, disabled=hero.disabled,
                  lent=lent_tag(lender) if hero.lent_to is not None else None,
                  named_runes=rune_counts(hero, cards),
-                 marks=rune_marks(hero)
+                 marks=rune_marks(hero, cards)
                  + effect_tags(hero, cards, stats.auras if stats is not None else ()),
                  stats=stats)
 
@@ -1367,6 +1433,7 @@ def command_zone(heroes_in_zone: Sequence[Optional[HeroState]],
                         word, hero_face, FAINT_INK, px(2))
             continue
         tile.alpha_composite(card_face(hero.slug, cards, CARD), (left, top))
+        mark(tile, (left, top, left + CARD[0], top + CARD[1]), card=hero.slug)
         if hero.summoning_runes:
             lay_row(tile, [time_rune_chit(hero.summoning_runes)], px(54),
                     (left - px(8), top - px(8)))
@@ -1573,11 +1640,12 @@ def damaged(hp: int, full: int) -> Optional[int]:
 
 def draw_building_column(body: Image.Image, player: PlayerState, base: int,
                          building_hp: Mapping[str, int], left: int, bottom: int,
-                         joint: bool = False) -> None:
+                         joint: bool = False) -> dict[str, tuple[int, int, int, int]]:
     """
     The column of buildings, bottom-aligned from `bottom`, top to
     bottom: the add-on slot (`draw_add_on`), Tech III, II and I, the
-    base. A tech
+    base -- handing back each one's box by name ("add_on", "tech1"
+    ... "base"), for the board's map. A tech
     building is greyed and half seen until built, in colour once built,
     the house chit on a top corner and UNDER CONSTRUCTION across it while
     under construction (UMR p. 8), dark with the house chit and
@@ -1591,8 +1659,10 @@ def draw_building_column(body: Image.Image, player: PlayerState, base: int,
     house = board_piece("chits", "house.png")
     top = bottom - BUILDING_COLUMN_HEIGHT
     draw_add_on(body, player, building_hp, left, top)
+    boxes = {"add_on": (left, top, left + ADD_ON[0], top + ADD_ON[1])}
     y = top + ADD_ON[1] + TILE_GAP
     for name in reversed(TECH_BUILDINGS):
+        boxes[name] = (left, y, left + TILE[0], y + TILE[1])
         state = player.buildings.get(name)
         standing = state is not None and not state.destroyed
         hp = damaged(state.hp, building_hp[name]) if standing else None
@@ -1629,6 +1699,8 @@ def draw_building_column(body: Image.Image, player: PlayerState, base: int,
         lay_strip(body, (left, y, left + TILE[0], y + TILE[1]), DESTROYED_STRIP)
     elif joint:
         lay_band(body, (left, y, left + TILE[0], y + TILE[1]), JOINT_STRIP)
+    boxes["base"] = (left, y, left + TILE[0], y + TILE[1])
+    return boxes
 
 
 #: A building's house chit, and how far it hangs over its corner, at
@@ -1763,18 +1835,49 @@ def grid_cells(player: PlayerState, cards: CardCatalog, turned: bool = False,
     the command zone, above. `stats`, each unit's and hero's `Stats`;
     `names`, the seats' names, for a lent unit's tag (one sidelined
     off its slot waits here for the upkeep that sends it home)."""
+    return [lying_card(lying, cards, turned and not lying.future)
+            for lying in grid_lyings(player, cards, stats, names)]
+
+
+def grid_lyings(player: PlayerState, cards: CardCatalog,
+                stats: Optional[Callable[[Union[CardInstance, HeroState]], Optional[Stats]]] = None,
+                names: Optional[Mapping[int, str]] = None) -> list[Lying]:
+    """What `grid_cells` draws, cell by cell, before it is drawn."""
     stats = stats or (lambda body: None)
     names = names or {}
-    field = [lying_card(hero_lying(hero, cards, stats(hero)), cards, turned)
+    field = [hero_lying(hero, cards, stats(hero))
              for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
     partners = partner_ids(player)
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
-    units = [lying_card(unit_lying(card, card.id in partners, cards, copy_number(player, card),
-                                   stats(card), lender=names.get(card.owner)),
-                        cards, turned) for card in lying]
-    future = [lying_card(future_lying(card), cards) for card in player.future]
+    units = [unit_lying(card, card.id in partners, cards, copy_number(player, card),
+                        stats(card), lender=names.get(card.owner)) for card in lying]
+    future = [future_lying(card) for card in player.future]
     return field + units + future
+
+
+def tech_codex(player: PlayerState, building: str, cards: CardCatalog,
+               whole: bool = False) -> Optional[tuple[str, list[str]]]:
+    """
+    The codex cards a tech building opens, under a title, for the
+    board's map: Tech I, the tech I cards of every spec the player has
+    -- never a spell, which prints no tech level (the author,
+    2026-10-18); Tech II and III, the whole codex of the spec chosen at
+    Tech II -- the basic game's one spec, which nobody chooses (UMR pp.
+    8-9). `whole`, every building opens the one spec's whole codex: a
+    basic game's duel (the author, 2026-10-18). `None` where no spec is
+    chosen yet.
+    """
+    if building == "tech1" and not whole:
+        specs = list(player.specs)
+        found = [card.slug for spec in specs for card in cards.by_spec(spec)
+                 if card.tech_level == 1]
+        title = "Tech I cards: " + ", ".join(spec.title() for spec in specs)
+        return title, found
+    spec = player.tech2_spec or (player.specs[0] if len(player.specs) == 1 else None)
+    if spec is None:
+        return None
+    return f"{spec.title()} codex", [card.slug for card in cards.by_spec(spec)]
 
 
 PATROL_HEIGHT = 2 * PATROL_PADDING + CARD[1] + BONUS_GAP + BONUS[1]
@@ -1805,15 +1908,24 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     def shown(body):
         return shown_stats(match, body, cards, stats)
 
-    cells = grid_cells(player, cards, turned, shown, names)
+    lyings = grid_lyings(player, cards, shown, names)
+    cells = [lying_card(lying, cards, turned and not lying.future) for lying in lyings]
     inner_width = panel_width(len(heroes(player))) - 2 * PADDING
     height = body_height(1 + len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
     o = OVERHANG
     # A dragon team's one base is drawn on both teammates' columns, marked
     # JOINT (the author, 2026-10-15).
-    draw_building_column(body, player, match.base_of(seat), building_hp, o, o + height,
-                         joint=match.is_dragon)
+    buildings = draw_building_column(body, player, match.base_of(seat), building_hp, o, o + height,
+                                     joint=match.is_dragon)
+    if player.add_on is not None:
+        mark(body, buildings["add_on"], card=player.add_on.slug)
+    # A basic game's duel: one spec a side, so each building opens it whole.
+    whole = match.is_duel and len(player.specs) == 1
+    for name in TECH_BUILDINGS:
+        opened = tech_codex(player, name, cards, whole)
+        if opened is not None:
+            mark(body, buildings[name], codex=opened[1], title=opened[0])
 
     grid_left = o + BUILDING_WIDTH + BUILDING_GAP
     draw = ImageDraw.Draw(body)
@@ -1821,7 +1933,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     card_top = o + PATROL_PADDING
     # The command zone first, beside the buildings, as on the mat.
     zone = command_zone([None if hero.in_play else hero for hero in heroes(player)], cards)
-    body.alpha_composite(zone, (grid_left - OVERHANG, o - OVERHANG))
+    place(body, zone, (grid_left - OVERHANG, o - OVERHANG))
     holder_left = grid_left + command_zone_width(len(heroes(player))) + ZONE_GAP
     # The zone as it stands, a hero another player lent into it included
     # (`<owner seat>:hero:<slug>`, Rulebook p. 14): the player's own
@@ -1861,17 +1973,51 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         # printed under it.
         paste_centred(body, lying_card(lying, cards, turned),
                       (card_left, card_top, card_left + CARD[0], card_top + CARD[1]))
+        mark(body, (card_left, card_top, card_left + CARD[0], card_top + CARD[1]), card=lying.slug)
 
     top = o + PATROL_HEIGHT + CELL_GAP
     # The worker card in the grid's first cell, under the command zone.
     paste_centred(body, worker_card(player.workers, player.deck_color, seat == match.first),
                   (grid_left, top, grid_left + CELL, top + CELL))
-    for index, cell in enumerate(cells, start=1):
+    # The gold, a coin all but filling the space between the building
+    # column and the worker card's face, at the card's foot -- level
+    # with the base in a one-row panel. The worker card is always
+    # upright, so nothing lying in the grid covers it.
+    coin = gold_coin(player.gold, GOLD_COIN, turned)
+    face_left = grid_left + (CELL - CARD[0]) // 2
+    body.alpha_composite(coin, (round((o + BUILDING_WIDTH + face_left - coin.width) / 2),
+                                round(top + CELL - TILE[1] / 2 - coin.height / 2)))
+    for index, (lying, cell) in enumerate(zip(lyings, cells), start=1):
         row, column = divmod(index, columns)
         left = grid_left + column * (CELL + CELL_GAP)
         cell_top = top + row * (CELL + CELL_GAP)
         body.alpha_composite(cell, (left - OVERHANG, cell_top - OVERHANG))
+        # The card's own box in its square cell: across it on its side
+        # when exhausted.
+        across, along = (CARD[1], CARD[0]) if lying.exhausted else CARD
+        mark(body, (left + (CELL - across) // 2, cell_top + (CELL - along) // 2,
+                    left + (CELL + across) // 2, cell_top + (CELL + along) // 2), card=lying.slug)
     return body
+
+
+#: The gold coin's width: the space between the building column and the
+#: worker card's face, less a margin each side.
+GOLD_COIN = BUILDING_GAP + (CELL - CARD[0]) // 2 - px(8)
+
+
+def gold_coin(gold: int, width: int, turned: bool = False) -> Image.Image:
+    """The player's gold: the gold emoji's coin `width` across with the
+    count on it -- the one place the board shows gold. `turned`, the
+    picture is about to be turned round with its panel, so the count is
+    drawn upside down to read upright after."""
+    coin = by_width(image(EMOJI_DIR / "gold.png"), width).copy()
+    text = str(gold)
+    size = round(width * 0.62)
+    while size > 6 and font(size).getlength(text) > width * 0.6:
+        size -= 1
+    ImageDraw.Draw(coin).text((coin.width / 2, coin.height / 2), text, font=font(size),
+                              fill=WORD_ON_GOLD, anchor="mm")
+    return coin.rotate(180) if turned else coin
 
 
 def turn_label(match: MatchState, name: str) -> str:
@@ -1907,11 +2053,11 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
                      width: int, rule_at_top: bool,
                      ground: Optional[Image.Image] = None) -> Image.Image:
     """
-    The nameplate, `NAMEPLATE_HEIGHT` tall: the player, their team (`team_name`: a
+    The nameplate, `NAMEPLATE_HEIGHT` tall: the player, then right beside
+    the name hand, deck, discard and codex, a word and a count each --
+    the gold is a coin in the body (`gold_coin`) -- then their team (`team_name`: a
     colour's deck by its name, "Blood Anarchs", any other team by its
-    specs, "Fire/Feral/Bashing"), then gold
-    (the gold emoji's picture), hand, deck, discard and codex,
-    a word and a count each. The active player's carries a rule and
+    specs, "Fire/Feral/Bashing"). The active player's carries a rule and
     "<name>'s turn <n>" in a pill, both in its first hero's colour
     (`turn_colors`). The rule is on the side the rest of the panel is
     on. Drawn straight onto `ground`, the piece of
@@ -1931,6 +2077,19 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     x = 0
     draw.text((x, middle), name, font=font(px(26)), fill=WORD, anchor="lm")
     x += font(px(26)).getlength(name) + px(18)
+
+    number, word = font(px(20)), font(px(15), bold=False)
+    counts = (
+        ("HAND", len(player.hand)), ("DECK", len(player.deck)),
+        ("DISCARD", len(player.discard)), ("CODEX", sum(player.codex.values())),
+    )
+    for label, count in counts:
+        draw.text((x, middle), label, font=word, fill=QUIET, anchor="lm")
+        x += word.getlength(label) + px(6)
+        text = str(count)
+        draw.text((x, middle), text, font=number, fill=WORD, anchor="lm")
+        x += number.getlength(text) + px(18)
+
     spec = team_name(player.specs)
     draw.text((x, middle), spec, font=font(px(18), bold=False), fill=QUIET, anchor="lm")
     x += font(px(18), bold=False).getlength(spec) + px(18)
@@ -1940,24 +2099,6 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
         pill_width = face.getlength(label) + px(24)
         turn_pill(draw, (x, middle - px(13), x + pill_width, middle + px(13)), px(10), colors)
         draw.text((x + px(12), middle), label, font=face, fill=colors[1], anchor="lm")
-
-    counts = (
-        ("HAND", len(player.hand)), ("DECK", len(player.deck)),
-        ("DISCARD", len(player.discard)), ("CODEX", sum(player.codex.values())),
-    )
-    number, word = font(px(20)), font(px(15), bold=False)
-    right = width
-    for label, count in reversed(counts):
-        text = str(count)
-        draw.text((right, middle), text, font=number, fill=WORD, anchor="rm")
-        right -= number.getlength(text) + px(6)
-        draw.text((right, middle), label, font=word, fill=QUIET, anchor="rm")
-        right -= word.getlength(label) + px(18)
-    text = str(player.gold)
-    draw.text((right, middle), text, font=number, fill=WORD, anchor="rm")
-    right -= number.getlength(text) + px(6)
-    coin = by_width(image(EMOJI_DIR / "gold.png"), px(26))
-    plate.alpha_composite(coin, (round(right - coin.width), round(middle - coin.height / 2)))
     return plate
 
 
@@ -1989,9 +2130,9 @@ def render_panel(match: MatchState, seat: int, name: str,
     # turned round whole -- leather and all, so it reads as one mat
     # turned rather than a turned patch on an upright one.
     panel = leather_ground((width, total))
-    panel.alpha_composite(body, (PADDING - OVERHANG, PADDING - OVERHANG))
+    place(panel, body, (PADDING - OVERHANG, PADDING - OVERHANG))
     if turned:
-        panel = panel.rotate(180)
+        panel = turned_round(panel)
     plate_top = PADDING if turned else total - PADDING - NAMEPLATE_HEIGHT
     box = (PADDING, plate_top, width - PADDING, plate_top + NAMEPLATE_HEIGHT)
     plate = render_nameplate(match, seat, name, cards, width - 2 * PADDING,
@@ -2131,9 +2272,9 @@ def compose_board(match: MatchState, layout: str = "stacked",
         first = match.first
         left, right = panels((first, seats.sole_opponent(match, first)))
         board = Image.new("RGBA", (left.width + DIVIDER_WIDTH + right.width, left.height), GROUND)
-        board.alpha_composite(left, (0, 0))
+        place(board, left, (0, 0))
         board.alpha_composite(vertical_divider(left.height, label), (left.width, 0))
-        board.alpha_composite(right, (left.width + DIVIDER_WIDTH, 0))
+        place(board, right, (left.width + DIVIDER_WIDTH, 0))
         return board
 
     far_seat, near_seat = stacked_seats(match)
@@ -2176,12 +2317,12 @@ def _pair_strip(panels: Sequence[Image.Image], column: int) -> Image.Image:
     width = 2 * column + TABLE_GAP
     strip = Image.new("RGBA", (width, height), GROUND)
     if len(panels) == 1:
-        strip.alpha_composite(panels[0], ((width - panels[0].width) // 2, 0))
+        place(strip, panels[0], ((width - panels[0].width) // 2, 0))
         return strip
-    strip.alpha_composite(panels[0], (0, 0))
+    place(strip, panels[0], (0, 0))
     middle = column + TABLE_GAP // 2
     ImageDraw.Draw(strip).line((middle, 0, middle, height), fill=QUIET, width=px(1))
-    strip.alpha_composite(panels[1], (column + TABLE_GAP, 0))
+    place(strip, panels[1], (column + TABLE_GAP, 0))
     return strip
 
 
@@ -2200,11 +2341,11 @@ def _stack(above: Sequence[Image.Image], bottom: Image.Image, label: str,
         if index:
             middle = top - TABLE_GAP // 2
             draw.line((0, middle, width, middle), fill=QUIET, width=px(1))
-        board.alpha_composite(part, ((width - part.width) // 2, top))
+        place(board, part, ((width - part.width) // 2, top))
         top += part.height + TABLE_GAP
     top -= TABLE_GAP
     board.alpha_composite(horizontal_divider(width, label, centre), (0, top))
-    board.alpha_composite(bottom, ((width - bottom.width) // 2, top + DIVIDER_HEIGHT))
+    place(board, bottom, ((width - bottom.width) // 2, top + DIVIDER_HEIGHT))
     return board
 
 
@@ -2271,9 +2412,9 @@ def _compose_dragon(match: MatchState, layout: str, panels, label: str,
     bottom = row(seats.dragon_of(match, near_seat), False)
     width = max(far.width, bottom.width)
     board = Image.new("RGBA", (width, far.height + DIVIDER_HEIGHT + bottom.height), GROUND)
-    board.alpha_composite(far, (0, 0))
+    place(board, far, (0, 0))
     board.alpha_composite(horizontal_divider(width, label), (0, far.height))
-    board.alpha_composite(bottom, (0, far.height + DIVIDER_HEIGHT))
+    place(board, bottom, (0, far.height + DIVIDER_HEIGHT))
     return board
 
 
@@ -2298,6 +2439,30 @@ def render_board(match: MatchState, layout: str = "stacked",
     they stand on its card.
     """
     return _webp(compose_board(match, layout, names, cards, near, stats))
+
+
+def render_board_mapped(match: MatchState, layout: str = "stacked",
+                        names: Optional[Mapping[int, str]] = None,
+                        cards: Optional[CardCatalog] = None,
+                        near: Optional[int] = None,
+                        stats: Optional[StatsOf] = None) -> tuple[bytes, dict]:
+    """
+    `render_board`'s bytes, and where the cards are in them: the
+    picture's `width` and `height`, and its `regions` -- each a `box`,
+    `[left, top, right, bottom]` in the picture's pixels and inside it,
+    with a `card`'s slug or a `codex` of slugs and its `title`, in the
+    order drawn, so a later box lies over an earlier one.
+    """
+    picture = compose_board(match, layout, names, cards, near, stats)
+    width, height = picture.size
+    regions = []
+    for region in regions_of(picture):
+        left, top, right, bottom = region["box"]
+        box = [max(0, round(left)), max(0, round(top)),
+               min(width, round(right)), min(height, round(bottom))]
+        if box[0] < box[2] and box[1] < box[3]:
+            regions.append({**region, "box": box})
+    return _webp(picture), {"width": width, "height": height, "regions": regions}
 
 
 def render_side(match: MatchState, seat: int, name: str,

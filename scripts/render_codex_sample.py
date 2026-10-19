@@ -217,7 +217,10 @@ def staged_purple_black(engine: RulesEngine) -> MatchState:
     one.gold, one.workers, one.base_hp = 4, 9, 16
     two.gold, two.workers, two.base_hp = 3, 9, 13
     prynn = one.hero_of("prynn_pasternaak")
-    prynn.zone, prynn.level, prynn.time_runes = "play", 5, 2
+    prynn.zone, prynn.level, prynn.time_runes = "play", 7, 2
+    # Two units her max level ability trashed, each a tag on her.
+    prynn.trashed = [{"slug": "bone_collector", "owner": 2, "controller": 2, "id": 90},
+                     {"slug": "lord_of_shadows", "owner": 2, "controller": 2, "id": 91}]
     garth = two.hero_of("garth_torken")
     garth.zone, garth.level = "play", 3
     for player, spec in ((one, "future"), (two, "necromancy")):

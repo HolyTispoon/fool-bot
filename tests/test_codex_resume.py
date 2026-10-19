@@ -77,7 +77,7 @@ class ResumeTests(unittest.IsolatedAsyncioTestCase):
     async def test_resume_hands_the_other_player_their_open_tech(self) -> None:
         _, view = await self.table.panel()
         view = (await self.table.press(view, "End main phase")).view()
-        await self.table.press(view, "Lock patrol")
+        await self.table.press(view, "Lock in patrol zone")
         self.table.restart()
         call = self.table.interaction(self.table.waiting)
         await self.table.cog.resume.callback(self.table.cog, call)

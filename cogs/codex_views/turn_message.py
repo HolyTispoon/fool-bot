@@ -62,7 +62,7 @@ LIVE_BOARD_LABEL = "View live board"
 NOT_YOUR_TABLE = "This table is not yours: only its players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
     "In a test game each seat chooses its tech when its own turn begins, from "
-    "**Tech** or **My hand** -- nothing is chosen during another seat's turn."
+    "**Tech** or **My hand**."
 )
 
 
@@ -242,7 +242,7 @@ class TurnMessageView(SafeView):
             await send_ephemeral(interaction, "Only the player whose turn it is can undo.")
             return
         await interaction.response.send_message(
-            "Undo -- to where?",
+            "Undo: how far back?",
             view=UndoView(self.cog, game.game_id, seat, match.turn, targets, points,
                           end_of_turn=ended),
             ephemeral=True,
@@ -284,7 +284,7 @@ def hand_caption(match, seat: int, side: str = "") -> str:
     pile is not listed beside it -- read under the picture it was taken
     for the hand (the author, 2026-10-11) -- and **My deck** shows it."""
     count = len(match.player(seat).hand)
-    return f"Your hand{side}: {count} card" + ("" if count == 1 else "s") + ". Only you can see this."
+    return f"Your hand{side}: {count} card" + ("" if count == 1 else "s") + "."
 
 
 async def hand_files(engine, match, seat: int, rows=None) -> list[discord.File]:
@@ -489,8 +489,8 @@ class CodexBrowser(SafeView):
 
     def caption(self, view: str) -> str:
         if self.owner != self.seat:
-            return f"{self.mate_name}'s codex: {codex_view_name(view)}. Only you can see this."
-        return f"Your codex{self.side}: {codex_view_name(view)}. Only you can see this."
+            return f"{self.mate_name}'s codex: {codex_view_name(view)}."
+        return f"Your codex{self.side}: {codex_view_name(view)}."
 
     async def picture(self, match, view: str) -> discord.File:
         rows = self.cog.engine.codex_remaining(match, self.owner, view, viewer=self.seat)

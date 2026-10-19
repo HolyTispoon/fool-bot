@@ -38,16 +38,12 @@ LOGGER = logging.getLogger(__name__)
 
 GB = 10**9
 
-#: The free plan, a month: storage, writes and lists (Class A), and
-#: reads (Class B). Deletes are free.
+#: The free plan, a month: storage, and writes and lists (Class A).
+#: Deletes are free; reads (Class B) are not counted -- the Workers free
+#: plan's daily cap on the site's Function keeps them under their
+#: allowance (docs/design/pbd-site.md, "The free plan").
 FREE_STORAGE = 10 * GB
 FREE_CLASS_A = 1_000_000
-FREE_CLASS_B = 10_000_000
-
-#: The Workers free plan's Functions requests a day, which every read of
-#: the bucket goes through: at most about 3.1 million reads a month, so
-#: Class B cannot reach its allowance while the account is on that plan.
-FREE_FUNCTION_REQUESTS_A_DAY = 100_000
 
 #: Where the bucket starts giving games up, and how far down it goes: a
 #: margin of ten points, so one offload is not followed by another a
@@ -185,23 +181,18 @@ def listing_writes(sizes: Mapping[str, int]) -> int:
 
 def report(usage: Usage, error: Optional[str] = None) -> str:
     """What a start says: storage, writes and reads, each against the
-    free plan. `error` is why the bucket could not be listed."""
+    free plan, a short line each. `error` is why the bucket could not be
+    listed."""
     if usage.stored is None:
-        storage = f"not measured -- the bucket could not be listed ({error})"
+        storage = f"not measured (the bucket could not be listed: {error})"
     else:
         storage = (f"{size(usage.stored)} of the free {size(FREE_STORAGE)} "
-                   f"({100 * usage.stored / FREE_STORAGE:.1f}%, {len(usage.sizes):,} objects); "
-                   f"games come off the site from {size(int(OFFLOAD_AT * FREE_STORAGE))}, "
-                   f"down to {size(usage.target)}")
+                   f"({100 * usage.stored / FREE_STORAGE:.1f}%)")
     return "\n".join([
-        "**Codex site on R2, against the free plan**",
+        "**Codex site usage on R2**",
         f"- Storage: {storage}.",
-        f"- Writes (Class A) this month: {usage.writes:,} of the free {FREE_CLASS_A:,}, "
-        "as this bot counts its own.",
-        f"- Reads (Class B): not counted here. Every read goes through the site's Function, "
-        f"which the Workers free plan stops at {FREE_FUNCTION_REQUESTS_A_DAY:,} a day -- at most "
-        f"about {FREE_FUNCTION_REQUESTS_A_DAY * 31 / 10**6:.1f} million a month of the free "
-        f"{FREE_CLASS_B // 10**6} million.",
+        f"- Writes (Class A) this month: {usage.writes:,} of the free {FREE_CLASS_A:,}.",
+        "- Reads (Class B): not counted here.",
     ])
 
 

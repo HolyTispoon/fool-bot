@@ -58,8 +58,8 @@ from codex.components import MatchState
 from codex.formatting import turn_heading
 from codex.game import GameStatus
 from cogs.codex_helpers import TOKEN_EMOJI
-from cogs.codex_publish import budget, keys, pins, shapes
-from cogs.codex_publish.queue import ENDED, PublishQueue
+from cogs.codex_publish import budget, cards, keys, pins, shapes
+from cogs.codex_publish.queue import ENDED, PublishQueue, encode
 from cogs.codex_publish.record import PublishedGame, PublishRecord
 from gamekit.storage import PROJECT_ROOT
 
@@ -92,7 +92,7 @@ class Publisher:
     """
     One per cog, over the cog's games, its turn's lines and its board
     renderer. `cog` is read for `games`, `turn_lines`, `turn_heads`,
-    `service` and `render_match_png` and nothing else -- and `bot`, by
+    `service`, `render_match_png` and `board_map` and nothing else -- and `bot`, by
     the old turns' import alone.
     """
 
@@ -116,6 +116,9 @@ class Publisher:
         # games owed a send, those whose board is still to be drawn, and
         # each game's one task.
         self._boards: dict[str, list[bytes]] = {}
+        #: Per game, the maps of the boards handed over, by the map's key,
+        #: taken from the cog as each board is handed over.
+        self._maps: dict[str, dict[str, bytes]] = {}
         self._owed: set[str] = set()
         self._draw: set[str] = set()
         #: Per game, a count of the changes made: a board drawn for an
@@ -300,6 +303,7 @@ class Publisher:
             self._owed.discard(game_id)
             self._draw.discard(game_id)
             self._boards.pop(game_id, None)
+            self._maps.pop(game_id, None)
             task = self._tasks.get(game_id)
             if task is not None:
                 task.cancel()
@@ -329,7 +333,9 @@ class Publisher:
     def _owe_send(self, game_id: str, boards: Iterable[bytes]) -> None:
         """The game owes a send, with `boards` handed over -- and no
         change to its current board, so a drawing under way stands."""
+        boards = list(boards)
         self._boards.setdefault(game_id, []).extend(boards)
+        self._take_maps(game_id, boards)
         self._owed.add(game_id)
         if game_id not in self._tasks:
             self._tasks[game_id] = asyncio.create_task(self._run(game_id))
@@ -342,7 +348,8 @@ class Publisher:
                     self._draw.discard(game_id)
                     await self._draw_board(game_id)
                 self.record.save()
-                self.queue.game_changed(game_id, self._boards.pop(game_id, []))
+                self.queue.game_changed(game_id, self._boards.pop(game_id, []),
+                                        self._maps.pop(game_id, {}))
                 self.queue.lists_changed()
         except Exception:
             LOGGER.exception("Could not publish Codex game %s.", game_id)
@@ -369,6 +376,18 @@ class Publisher:
             published.board = key
             published.updated = self._clock()
         self._boards.setdefault(game_id, []).append(board)
+        self._take_maps(game_id, [board])
+
+    def _take_maps(self, game_id: str, boards: Iterable[bytes]) -> None:
+        """Each board's map, where the cog drew it lately (`board_map`),
+        as the page's JSON: taken as the board is handed over, while the
+        cog still holds it. A board read back off a pin has none."""
+        for board in boards:
+            drawn = self.cog.board_map(board)
+            if drawn is None:
+                continue
+            key = keys.board_map_key(keys.board_key(game_id, board))
+            self._maps.setdefault(game_id, {})[key] = encode(shapes.board_map(drawn))
 
     @staticmethod
     def _keep_turn(published: PublishedGame, turn: Optional[int], heading: Optional[str],
@@ -392,6 +411,7 @@ class Publisher:
         error = await self._measure()
         try:
             await self._put_emoji()
+            await self._put_cards()
             for game in list(self.cog.games.values()):
                 if self._closed:
                     return
@@ -553,6 +573,30 @@ class Publisher:
                 LOGGER.warning("Could not read the Codex glyph %s: %s", name, error)
                 continue
             await self.queue.put_file(keys.emoji_key(name), body)
+
+    async def _put_cards(self) -> None:
+        """
+        Every card's picture (`cards.pictured`), for the page's hover:
+        each put only where the start's listing of the bucket does not
+        have it at its size, so the art goes up once and not every start
+        (docs/design/pbd-site.md, "The cards' pictures"). Where the
+        bucket could not be listed, every one is put.
+        """
+        listed = self.usage.sizes
+        for slug in cards.pictured():
+            if self._closed:
+                return
+            path = cards.picture(slug)
+            key = cards.key(slug)
+            try:
+                size = await asyncio.to_thread(lambda: path.stat().st_size)
+                if listed is not None and listed.get(key) == size:
+                    continue
+                body = await asyncio.to_thread(path.read_bytes)
+            except OSError as error:
+                LOGGER.warning("Could not read the Codex card %s's picture: %s", slug, error)
+                continue
+            await self.queue.put_file(key, body)
 
     async def _catch_up(self, game: "CodexGame") -> None:
         """
@@ -724,7 +768,7 @@ class Publisher:
         lines = [
             f"**Codex site: {len(taken)} game(s) taken off to stay inside R2's free plan**, "
             f"{budget.size(freed)} downloaded into `{self.offload_folder}` and deleted from the "
-            f"bucket -- abandoned {numbers(GameStatus.ABANDONED)}; "
+            f"bucket: abandoned {numbers(GameStatus.ABANDONED)}; "
             f"finished {numbers(GameStatus.FINISHED)}.",
             f"The bucket now holds {budget.size(self.usage.stored)} of the free "
             f"{budget.size(budget.FREE_STORAGE)}.",

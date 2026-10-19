@@ -14,7 +14,9 @@ const KEYS = [
   /^codex\/games\/[0-9a-f]{32}\/live\.json$/,
   /^codex\/games\/[0-9a-f]{32}\/history\.json$/,
   /^codex\/games\/[0-9a-f]{32}\/board-[0-9a-f]{64}\.webp$/,
+  /^codex\/games\/[0-9a-f]{32}\/board-[0-9a-f]{64}\.json$/,
   /^codex\/emoji\/[A-Za-z0-9_]+\.png$/,
+  /^codex\/cards\/[a-z0-9_]+\.(?:jpg|png)$/,
 ];
 
 const PREFIX = "/data/";

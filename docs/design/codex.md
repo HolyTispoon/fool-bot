@@ -1382,9 +1382,11 @@ of paying that forgets to say so -- is held instead by
 `tests/test_codex_driver_full_game.py`: `play` asserts, for every action
 of every whole game it plays (the duel, the standard games, each colour
 pair, the free-for-alls, the dragons), that a seat whose gold changed
-has its new total said as "left" or "now". The main phase's ask is the
-seat's name and no more ("{player:1}'s main phase."): the gold is on the
-lines above it.
+has its new total said as "left" or "now". The main phase's ask says
+the seat's gold as well ("{player:1}'s main phase, currently {gold:5}."):
+the lines above it may have scrolled away by the time the panel is read,
+and the ask is re-read after every action, so it is always the total now
+(the author, 2026-10-18; it was the seat's name alone from 2026-10-16).
 
 **A line that damages a building or the base says where it now stands,
 out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's
@@ -1767,8 +1769,13 @@ else the bot shows is ephemeral.
     oath's the card that holds it (Jail; Reputable Newsman's number
     alone, "3"; Oathkeeper of Kor Mountain's "Play no cards" or "Skip
     draw/discard", `OATH_TAGS`), a Graveyard's units by name in its
-    black, and the old purple for a neutral card. The tags are
-    `rune_marks`'.
+    black, the units Prynn's max level ability has trashed by name on
+    her in her purple, "Trashed" said once, on the first -- "Trashed:
+    Iron Man", then "Tiger Cub" under it (the author, 2026-10-19: what
+    comes back when she leaves play, which the board said nowhere
+    else), a long name cut with an ellipsis to the card's width
+    (`cut_tag`, which the lent tag uses too), and the old purple for a
+    neutral card. The tags are `rune_marks`'.
   - **Time runes are in the same column**, first, as the purple chit
     of the card they are on (a fading card, Prynn, a card in the
     future), with FUTURE in the waiting card's colour under them (the
@@ -1892,14 +1899,28 @@ else the bot shows is ephemeral.
     4 px taller, and drew its shape 2 px inside the picture each
     way), overlaps the pill's rounded end, and widens for two
     figures.
+  - **The gold is a coin beside the worker card**: the gold emoji's coin
+    with the count on it, all but as wide as the space between the
+    building column and the worker card's face (`GOLD_COIN`), at the
+    card's foot -- level with the base in a one-row panel (`gold_coin`;
+    the author, 2026-10-18: "that should be the way money is shown").
+    Its first day it was only as wide as `BUILDING_GAP`, and too tiny
+    to read; beside the worker card rather than the base because the
+    worker card is always upright, where the cell beside a taller
+    panel's base may hold an exhausted card lying across it. On the far panel its
+    count is drawn upside down, so it reads upright once the panel is
+    turned -- the one part of a turned body that is not the upright
+    one rotated.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
-    their team by `codex.formatting.team_name` -- a colour's three heroes
-    by the deck's own name, "Blood Anarchs", any other team by its specs
-    in the order chosen, "Fire/Feral/Bashing", and the basic game's one
-    hero by its spec, "Bashing" (the author, 2026-10-10: never the
-    heroes' names; "Red · Jaina Stormborne, Captain Zane, Drakk Ramhorn"
-    from step 10 until then) -- then gold (the gold emoji's picture),
-    hand, deck, discard and codex, a word and a count each; the workers
+    then right beside the name hand, deck, discard and codex, a word and
+    a count each -- beside the name rather than at the plate's far end,
+    where on a wide board they sat a panel's width from the player they
+    count (the author, 2026-10-18) -- then their team by `codex.formatting.team_name` -- a
+    colour's three heroes by the deck's own name, "Blood Anarchs", any
+    other team by its specs in the order chosen, "Fire/Feral/Bashing",
+    and the basic game's one hero by its spec, "Bashing" (the author,
+    2026-10-10: never the heroes' names; "Red · Jaina Stormborne,
+    Captain Zane, Drakk Ramhorn" from step 10 until then); the workers
     are counted on the worker card in the grid instead. The active
     player's carries a rule and "<name>'s turn <n>" in a pill, both in
     its first hero's colour (`turn_colors`, below), the player by the
@@ -2339,6 +2360,12 @@ unable to see their hand before confirming. It is `view_for_prompt`'s
 too, asked with `gate` for the two kinds a turn may open on
 (`TECH_GATE_KINDS`), so a kind still becomes a view in one place.
 
+The patrol panel asks "To end your main phase, assign patrollers." --
+the model's ask, with no seat named because the panel goes to the asked
+player alone -- and its button is **Lock in patrol zone** (the author,
+2026-10-19, in place of "<name>, lock your patrollers: the main phase
+ends." and **Lock patrol**).
+
 - **One ephemeral message at a time, edited in place.** Each click
   answers through the service and the panel is built afresh from the
   new prompt's options, and **edited into the panel clicked**
@@ -2712,8 +2739,9 @@ From the third turn on the new turn opens on its player's confirmation:
 the new turn message says it waits on them to confirm their tech (the
 cog's caption, `TECH_WAIT`, gone once the ready phase has run -- worded
 "to choose their tech" where the picker is asked instead, because they
-never picked, or because the game is a test game) and points at
-**Tech**. **Tech** on the turn message, pressed by the player whose
+never picked, or because the game is a test game). It does not name
+**Tech**, which is under the message already (the author, 2026-10-19:
+"The second tech is redundant"). **Tech** on the turn message, pressed by the player whose
 turn it is while the turn waits on their tech, opens it at once:
 `TechConfirmView` -- the picks pictured, **Confirm** and **Change** --
 or the picker (the author, 2026-10-09: "clicking tech should let them
@@ -2736,8 +2764,14 @@ point them at Tech instead.
 
 ### The turn message, edited
 
+**Nothing the Codex bot posts uses " -- "** (the author, 2026-10-19):
+a heading takes a colon ("**Turn 7**: …", "**Codex game 5**: …"), an
+aside brackets or a comma, and a second clause its own sentence. The
+dashes stay in comments and docstrings, which nobody in a game reads,
+and in `botlog/`, whose notices fool-bot posts too.
+
 Each turn's message is posted when the turn begins: its text
-"**Turn 7** -- @perrytom (Bashing)" -- the model's heading, whose turn
+"**Turn 7**: @perrytom (Bashing)" -- the model's heading, whose turn
 as a mention, which that post pings and no later one does -- then the
 turn's lines, the model's with
 their tokens rendered at the door; the board as its picture; and
@@ -2778,7 +2812,7 @@ more*", since the board carries the position.
   the gate's next write or `/codex resume`.
 
 - **The heading is the model's, and it is not narration** (the author,
-  2026-10-08). "**Turn 7** -- @perrytom (Bashing)" is
+  2026-10-08). "**Turn 7**: @perrytom (Bashing)" is
   `codex.formatting.turn_heading(match)`: the turn, its player
   *addressed* -- `{to:n}`, a token the cog draws as a mention and plain
   text as the name -- and their team, `team_name(player.specs)`, as the
@@ -2789,7 +2823,7 @@ more*", since the board carries the position.
   after a restart that lost the turn's lines. The model used to open
   each turn with a narration line of its own as well ("**Turn 7** --
   perrytom's turn."), which under the heading said it twice; that line
-  is gone. **The turn's end is narration**: "**End of turn 7** --
+  is gone. **The turn's end is narration**: "**End of turn 7**:
   perrytom (Bashing).", naming the player and their deck as the
   heading does (the author, 2026-10-08), the
   last line of `begin_tech`, so the model's own transcript still reads
@@ -2836,7 +2870,7 @@ Measured with the fakes, and held on every click of the whole-game test:
 | An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message edited through the gate | 2: the defer, the panel edited in place |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
-| Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker |
+| Lock in patrol zone (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker |
 | The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 2 |
 | Concede, the first click | **0** | 1: the confirmation |
 | Concede the game (step 8) | **3**: the last edit, its pin, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
@@ -2848,10 +2882,10 @@ Measured with the fakes, and held on every click of the whole-game test:
 | A lobby click -- a seat taken, the mode or the variant changed, a third seat's pick (multiplayer step 4) | **0** | 1: the lobby edited in place |
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
 | My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1 |
-| Lock patrol on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
+| Lock in patrol zone on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
 | **Repair base** on a free-for-all's panel | **1**: the turn message through the gate, as any action | 2: the defer, the panel edited in place |
 | A slot or a patroller chosen in the patrol view, an opponent's open slot among them | **0** | 1: the panel's edit |
-| Lock patrol that lends | **3**, as the duel's Lock | 2, as the duel's |
+| Lock in patrol zone that lends | **3**, as the duel's Lock | 2, as the duel's |
 | An action by either teammate of a dragon (multiplayer step 6) | **1**: the turn message through the gate | 2: the defer, the clicker's own panel edited in place |
 | A dragon teammate's stale click -- the team moved on, or the other's action stands part-way | **0** | 1: the panel edited in place to the prompt as it stands |
 | The first lock of a dragon's turn | **1**: the turn message through the gate | 2: the defer, the panel edited to the waiting panel |
@@ -3953,7 +3987,7 @@ on.
   caption lists each loan under the owner's five, "**Lent to <name> as
   elite**: Tenderfoot 1/2". The view keeps one map keyed by destination
   (`<seat>:<slot>` for a borrower's, the slot's name for the owner's) so
-  a card placed anywhere is offered nowhere else, and **Lock patrol**
+  a card placed anywhere is offered nowhere else, and **Lock in patrol zone**
   splits it (`split_assignment`): `lent`, `{seat: {slot: ref}}` with
   the seat a string as a journal read back has it, beside `assignment`
   where something is lent, and `assignment` alone where nothing is, so

@@ -95,11 +95,10 @@ class UsageTests(unittest.TestCase):
         usage.listed({"a": 1_234_000_000, "b": 0})
         usage.wrote(12_345)
         text = budget.report(usage)
-        self.assertIn("1.23 GB of the free 10.00 GB (12.3%, 2 objects)", text)
-        self.assertIn("from 8.00 GB, down to 7.00 GB", text)
-        self.assertIn("12,345 of the free 1,000,000", text)
-        self.assertIn("100,000 a day", text)
-        self.assertIn("not measured -- the bucket could not be listed (down)",
+        self.assertIn("1.23 GB of the free 10.00 GB (12.3%).", text)
+        self.assertIn("12,345 of the free 1,000,000.", text)
+        self.assertIn("Reads (Class B): not counted here.", text)
+        self.assertIn("not measured (the bucket could not be listed: down)",
                       budget.report(self.usage(), "down"))
 
 

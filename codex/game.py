@@ -468,7 +468,7 @@ class CodexGame:
                 raise RuleRefusal("Somebody else is sitting there.")
             if held is None and mine and not self.test_game:
                 raise RuleRefusal(
-                    f"You are already seated -- this game is {self.seat_count} players."
+                    f"You are already seated. This game is {self.seat_count} players."
                 )
             if held is None and self.is_free_for_all and any(
                 self.seat_user_id(earlier) is None for earlier in range(1, seat)
@@ -485,7 +485,7 @@ class CodexGame:
                     if self.seat_user_id(number) is None]
             if not free:
                 raise RuleRefusal(
-                    f"All the seats are taken -- this game is {self.seat_count} players."
+                    f"All the seats are taken. This game is {self.seat_count} players."
                 )
             target = free[0]
         self._set_seat(target, user_id, user_name)

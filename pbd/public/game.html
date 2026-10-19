@@ -7,6 +7,7 @@
   <title>Codex game</title>
   <link rel="stylesheet" href="/codex.css">
   <script src="/viewer.js" defer></script>
+  <script src="/preview.js" defer></script>
   <script src="/codex.js" defer></script>
 </head>
 <body class="game">
@@ -16,9 +17,10 @@
     <button type="button" class="toggle" id="log-toggle" aria-controls="log" aria-expanded="true">Hide log</button>
   </header>
   <main class="game-main" id="game-main">
-    <div class="viewer" id="viewer" tabindex="0" aria-label="The board. Scroll or pinch to zoom, drag to pan, double-click to switch between fit and full size.">
+    <div class="viewer" id="viewer" tabindex="0" aria-label="The board. Scroll or pinch to zoom, drag to pan, double-click to switch between fit and full size. Point at a card and press Space to see it.">
       <img id="board" alt="The board" draggable="false">
       <div class="viewer-controls">
+        <span class="viewer-hint">Point at a card and press Space</span>
         <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
         <button type="button" id="zoom-fit">Fit</button>
         <button type="button" id="zoom-in" aria-label="Zoom in">+</button>

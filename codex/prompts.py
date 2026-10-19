@@ -563,10 +563,12 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
 
 
 def _main_ask(match: MatchState) -> str:
-    """Whose main phase it is, and nothing else: the upkeep's line just
-    said the gold, and the panel's picture shows the workers (the author,
-    2026-10-16)."""
-    return f"{tokens.player(match.active)}'s main phase."
+    """Whose main phase it is and the gold they hold now, "{player:1}'s
+    main phase, currently {gold:5}." -- the lines that moved it may be
+    far up the channel by the time the panel is read (the author,
+    2026-10-18). The panel's picture shows the workers."""
+    gold = match.player(match.active).gold
+    return f"{tokens.player(match.active)}'s main phase, currently {tokens.gold(gold)}."
 
 
 def _tech_ask(engine: "RulesEngine", match: MatchState, seat: int) -> str:
@@ -609,8 +611,7 @@ def _target_ask(engine, match: MatchState, top: dict) -> str:
 
 def _divide_ask(match: MatchState, top: dict, left: int) -> str:
     return (
-        f"{tokens.player(top['seat'])}, {top['by']}: divide its damage -- "
-        f"{left} more to place, a point at a time."
+        f"{tokens.player(top['seat'])}, {top['by']}: {left} damage to place, 1 at a time."
     )
 
 
@@ -641,8 +642,8 @@ def _level_ask(seat: int, owner: int) -> str:
 
 def _stash_ask(seat: int) -> str:
     return (
-        f"{tokens.player(seat)}, your draw: stash lets you keep a card of your hand and draw "
-        "one less -- choose it, or keep none."
+        f"{tokens.player(seat)}: stash lets you keep a card and draw one less. "
+        "Choose up to 1 card to keep."
     )
 
 
@@ -937,7 +938,7 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             return PendingPrompt(
                 PromptKind.CHOOSE_NUMBER,
                 f"{tokens.player(top['seat'])}, {top['by']}: choose a number from 0 to "
-                f"{effects.NUMBER_MOST} -- opponents can't play spells or upgrades of that cost.",
+                f"{effects.NUMBER_MOST}. Opponents can't play spells or upgrades of that cost.",
                 top["seat"],
             )
         if asks == ASKS_OATH:
@@ -974,7 +975,7 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.phase == "patrol":
         return PendingPrompt(
             PromptKind.PATROL,
-            f"{tokens.player(seat)}, lock your patrollers: the main phase ends.",
+            "To end your main phase, assign patrollers.",
             seat,
         )
     if match.phase == "draw":
@@ -1073,7 +1074,7 @@ def _team_pending(engine, game, match: MatchState) -> list[Union[PendingPrompt, 
             if match.player(seat).locking:
                 found.append(PendingPrompt(
                     PromptKind.PATROL,
-                    f"{tokens.player(seat)}, lock your patrollers: your main phase ends.",
+                    "To end your main phase, assign patrollers.",
                     seat,
                 ))
                 continue

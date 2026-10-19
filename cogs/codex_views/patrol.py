@@ -3,16 +3,16 @@
 phase (UMR p. 10), in the panel, from `PatrolOptions` and nothing else.
 
 **Two menus rather than five.** A message carries at most five rows of
-components, and five slot menus would leave no row for **Lock patrol**,
-which stands alone in its row so it is never pressed by mistake
-(decision 11). So the first menu picks a slot -- each named with what
+components, and five slot menus would leave no row for **Lock in
+patrol zone**, which stands alone in its row so it is never pressed by
+mistake (decision 11). So the first menu picks a slot -- each named with what
 holds it so far -- and the second what patrols it: the candidates not
 placed in another slot, or nobody. Choosing moves on to the next empty
 slot. **Clear** empties all five, and **Undo...** beside it offers the
 same undos as the main phase's panel -- to the start of the turn, which
 reopens the main phase, or of the previous one -- with **Back** to the
 patrol as it was. The assignment is the view's alone
-until **Lock patrol** answers with it; nothing is applied before then.
+until **Lock in patrol zone** answers with it; nothing is applied before then.
 
 **A free-for-all lends through the same two menus** (Rulebook p. 14;
 docs/design/codex.md, "Lending is a control change"). Where the options
@@ -21,7 +21,7 @@ those follow the owner's five in the slot menu as destinations,
 "<name>'s elite: empty", and the patroller chosen for one is lent: the
 second menu asks "Who is lent to <name> as elite?". A card goes to one
 destination, the owner's or a borrower's, so a card placed anywhere is
-offered nowhere else. **Lock patrol** answers with `lent`,
+offered nowhere else. **Lock in patrol zone** answers with `lent`,
 `{seat: {slot: ref}}`, beside `assignment` where something is lent, and
 with `assignment` alone where nothing is, so a duel's answer is as it
 was. What lending does -- control to the borrower until their upkeep --
@@ -144,7 +144,7 @@ class PatrolView(PanelView):
         undo = discord.ui.Button(label="Undo...", style=discord.ButtonStyle.secondary, row=2)
         undo.callback = self.open_undo
         self.add_item(undo)
-        lock = discord.ui.Button(label="Lock patrol", style=discord.ButtonStyle.danger, row=3)
+        lock = discord.ui.Button(label="Lock in patrol zone", style=discord.ButtonStyle.danger, row=3)
         lock.callback = self.lock
         self.add_item(lock)
 

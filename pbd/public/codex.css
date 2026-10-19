@@ -154,6 +154,59 @@ button:focus-visible, .viewer:focus-visible, a:focus-visible {
 }
 .viewer-caption[hidden] { display: none; }
 
+.viewer-hint {
+  align-self: center;
+  margin-right: 2px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--ground) 85%, transparent);
+  border-radius: 6px;
+  opacity: 0.9;
+}
+/* Space shows a card under a mouse; a finger has neither. */
+@media not ((hover: hover) and (pointer: fine)) {
+  .viewer-hint { display: none; }
+}
+
+/* A card's picture, or a codex of them, beside the pointer (preview.js):
+   a card named in the log on hover, and Space over the board. */
+.card-preview {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  pointer-events: none;
+  padding: 8px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ground) 92%, transparent);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px #000a;
+}
+.card-preview[hidden] { display: none; }
+.card-preview-title { margin: 0 0 6px; font-weight: 600; color: var(--accent); }
+.card-preview img { display: block; border-radius: 6%/4.4%; }
+.card-preview-one img { width: auto; height: min(450px, 62vh); }
+.card-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--preview-columns, 6), auto);
+  gap: 6px;
+}
+.card-preview-grid img { width: clamp(84px, 11vw, 150px); height: auto; }
+.card-preview-name {
+  display: block;
+  padding: 6px 10px;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+}
+@media (max-width: 960px) {
+  .card-preview-grid { --preview-columns: 4; }
+  .card-preview-grid img { width: clamp(64px, 20vw, 120px); }
+}
+
 /* The divider between the board and the log, dragged to resize the log
    (codex.js, GamePage.splitter). The log keeps at least 240px and leaves
    the board at least 240px, however wide it was dragged. */

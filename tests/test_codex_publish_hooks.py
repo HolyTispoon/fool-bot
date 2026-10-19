@@ -28,7 +28,7 @@ from codex.game import GameStatus
 from codex_cog_fakes import Table, user
 from codex_positions import put
 from cogs.codex_helpers import TOKEN_EMOJI
-from cogs.codex_publish import keys
+from cogs.codex_publish import cards, keys
 from cogs.codex_publish import record as record_module
 from cogs.codex_publish.publisher import Publisher
 from cogs.codex_publish.record import PublishRecord
@@ -92,7 +92,7 @@ class HooksTestCase(unittest.IsolatedAsyncioTestCase):
     async def end_turn(self):
         _, view = await self.table.panel()
         view = (await self.table.press(view, "End main phase")).view()
-        return await self.table.press(view, "Lock patrol")
+        return await self.table.press(view, "Lock in patrol zone")
 
     async def play_a_card(self):
         _, view = await self.table.panel()
@@ -128,6 +128,25 @@ class StartedTests(HooksTestCase):
         # The board the action replaced is gone; the record says what is up.
         boards = [key for key in self.store.objects if key.endswith(".webp")]
         self.assertEqual(boards, [live["board"]])
+
+    async def test_a_board_handed_over_with_its_map_has_it_beside_it(self) -> None:
+        """The cog's map of the board it drew (`board_map`) goes up beside
+        the board, and `live.json` names it; the board it replaced takes
+        its map with it."""
+        drawn = {"width": 10, "height": 10, "regions": [{"box": (0, 0, 5, 5), "card": "iron_man"}]}
+        self.table.cog.board_map = lambda board: drawn
+        await self.play_a_card()
+        await self.settled()
+        first = self.stored(keys.live_key(self.game.game_id))
+        self.assertEqual(first["board_map"], keys.board_map_key(first["board"]))
+        (region,) = self.stored(first["board_map"])["regions"]
+        self.assertEqual(region["cards"], [cards.entry("iron_man")])
+        await self.play_a_card()
+        await self.settled()
+        live = self.stored(keys.live_key(self.game.game_id))
+        self.assertNotEqual(live["board"], first["board"])
+        self.assertIn(live["board_map"], self.store.objects)
+        self.assertNotIn(first["board_map"], self.store.objects)
 
     async def test_the_publisher_spends_no_discord_request(self) -> None:
         """An action is the turn message's one edit, and a turn's end its
@@ -356,6 +375,21 @@ class StartedTests(HooksTestCase):
         for name in set(TOKEN_EMOJI.values()):
             self.assertIn(keys.emoji_key(name), self.store.objects)
         self.assertEqual(len(self.stored(keys.INDEX_KEY)["games"]), 1)
+
+    async def test_the_cards_pictures_go_up_once(self) -> None:
+        """Every card's picture is put at a start whose listing of the
+        bucket lacks it, and not again by the next start."""
+        await self.restart()
+        await self.publisher.start()
+        await self.settled()
+        for slug in cards.pictured():
+            self.assertEqual(self.store.objects[cards.key(slug)].body, cards.picture(slug).read_bytes())
+        self.assertEqual(self.store.objects[cards.key("iron_man")].content_type, "image/jpeg")
+        await self.restart()
+        self.store.calls.clear()
+        await self.publisher.start()
+        await self.settled()
+        self.assertFalse([key for key in self.store.puts() if key.startswith("codex/cards/")])
 
 
 class WholeGameTests(HooksTestCase):

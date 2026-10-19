@@ -35,8 +35,10 @@ function element(tag, className, text) {
   return made;
 }
 
-async function fetchData(key) {
-  const response = await fetch(DATA + key, { cache: "no-cache" });
+// `cache`, "default" for an object named by its bytes -- a board's map --
+// which never changes.
+async function fetchData(key, cache = "no-cache") {
+  const response = await fetch(DATA + key, { cache });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`${key}: ${response.status}`);
   return response.json();
@@ -68,6 +70,8 @@ function segmentNode(segment) {
   } else if (segment.card !== undefined) {
     node = element("span", segment.hero ? "card hero" : "card", segment.name);
     node.dataset.card = segment.card;
+    // Its picture, shown on hover (GamePage.cardNames).
+    if (segment.key) node.dataset.key = segment.key;
   } else {
     node = document.createTextNode(segment.text || "");
   }
@@ -229,6 +233,15 @@ class GamePage {
     // turn's, opened from the log.
     this.looking = null;
     this.viewer = new BoardViewer(document.getElementById("viewer"), document.getElementById("board"));
+    this.preview = new CardPreview(DATA);
+    // Each board's map by its key (null where it has none), and which map
+    // goes with which board's address in the viewer.
+    this.maps = new Map();
+    this.mapOf = new Map();
+    // The board region the preview shows, while it shows one.
+    this.peeking = null;
+    this.cardNames();
+    this.peek();
     document.getElementById("zoom-in").addEventListener("click", () => this.viewer.zoomBy(1.25));
     document.getElementById("zoom-out").addEventListener("click", () => this.viewer.zoomBy(0.8));
     document.getElementById("zoom-fit").addEventListener("click", () => { this.viewer.fit(); this.viewer.draw(); });
@@ -312,6 +325,99 @@ class GamePage {
     });
   }
 
+  // A card named in the log shows its picture while the mouse is over it, and
+  // on a tap or a click, for a finger, until the next.
+  cardNames() {
+    const log = document.getElementById("log");
+    const named = (event) => {
+      const found = event.target.closest(".card[data-key]");
+      return found && log.contains(found) ? found : null;
+    };
+    const cardOf = (node) => [{ slug: node.dataset.card, name: node.textContent, key: node.dataset.key }];
+    const at = (event) => ({ x: event.clientX, y: event.clientY });
+    log.addEventListener("pointerover", (event) => {
+      if (event.pointerType !== "mouse") return;
+      const node = named(event);
+      if (node) this.preview.show(cardOf(node), null, at(event), node);
+    });
+    log.addEventListener("pointermove", (event) => {
+      if (event.pointerType === "mouse" && this.preview.showing === named(event)) this.preview.place(at(event));
+    });
+    log.addEventListener("pointerout", (event) => {
+      if (event.pointerType !== "mouse") return;
+      const node = named(event);
+      if (node && !node.contains(event.relatedTarget) && this.preview.showing === node) this.preview.hide();
+    });
+    document.addEventListener("click", (event) => {
+      const node = named(event);
+      // A click that is not a PointerEvent says no pointer type: a mouse
+      // where the device hovers.
+      const mouse = event.pointerType ? event.pointerType === "mouse" : matchMedia("(hover: hover)").matches;
+      if (mouse && node) return;
+      if (node && this.preview.showing !== node) this.preview.show(cardOf(node), null, at(event), node);
+      else if (!this.peeking) this.preview.hide();
+    });
+    // It stays where it was put, so a scroll -- the log's, or the page's
+    // on a phone -- takes it away.
+    const scrolled = () => { if (!this.peeking) this.preview.hide(); };
+    log.addEventListener("scroll", scrolled);
+    window.addEventListener("scroll", scrolled, { passive: true });
+  }
+
+  // Space over the board shows what the board's map says is under the mouse:
+  // a card, or the codex cards a tech building opens. It stays until Space
+  // again, Escape, or the mouse leaving that card.
+  peek() {
+    const frame = document.getElementById("viewer");
+    const stop = () => {
+      if (this.peeking) this.preview.hide();
+      this.peeking = null;
+    };
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") { stop(); return; }
+      if (event.key !== " " || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (this.viewer.hover === null) return;
+      event.preventDefault();
+      if (event.repeat) return;
+      const region = this.regionUnder(this.viewer.hover);
+      if (!region || region === this.peeking) { stop(); return; }
+      this.peeking = region;
+      this.preview.show(region.cards, region.title || null, this.viewer.hover, region);
+    });
+    frame.addEventListener("pointermove", (event) => {
+      if (!this.peeking || event.pointerType !== "mouse") return;
+      const at = { x: event.clientX, y: event.clientY };
+      if (this.regionUnder(at) === this.peeking) this.preview.place(at);
+      else stop();
+    });
+    frame.addEventListener("pointerleave", stop);
+    frame.addEventListener("pointerdown", stop);
+    this.viewer.image.addEventListener("load", stop);
+  }
+
+  // The board's map's region under a point in the window, for the board the
+  // viewer shows now -- none while its map is not loaded, or does not fit it.
+  regionUnder(at) {
+    const map = this.maps.get(this.mapOf.get(this.viewer.image.getAttribute("src")));
+    if (!map || map.width !== this.viewer.image.naturalWidth) return null;
+    const point = this.viewer.boardPoint(at);
+    return point ? regionAt(map, point.x, point.y) : null;
+  }
+
+  // `board` in the viewer, and its map, `mapKey`, fetched once.
+  showBoard(board, mapKey) {
+    this.mapOf.set(DATA + board, mapKey || null);
+    if (mapKey && !this.maps.has(mapKey)) {
+      this.maps.set(mapKey, null);
+      fetchData(mapKey, "default").then((map) => this.maps.set(mapKey, map), (error) => {
+        // Asked for again the next time the board is shown.
+        this.maps.delete(mapKey);
+        console.warn(error);
+      });
+    }
+    this.viewer.show(DATA + board);
+  }
+
   async refresh() {
     const live = await fetchData(`codex/games/${this.id}/live.json`);
     // Not final: a list can name a game before its first live.json is up,
@@ -344,7 +450,7 @@ class GamePage {
     const turnHeading = document.getElementById("heading");
     turnHeading.replaceChildren(...lineNode("span", live.heading).childNodes);
     fillLines(document.getElementById("lines"), live.lines);
-    if (this.looking === null && live.board) this.viewer.show(DATA + live.board);
+    if (this.looking === null && live.board) this.showBoard(live.board, live.board_map);
   }
 
   showHistory() {
@@ -381,9 +487,9 @@ class GamePage {
     caption.hidden = turn === null;
     if (turn !== null) {
       document.getElementById("viewer-caption-text").textContent = `Turn ${turn.turn}'s last board`;
-      this.viewer.show(DATA + turn.board);
+      this.showBoard(turn.board, turn.board_map);
     } else if (this.live && this.live.board) {
-      this.viewer.show(DATA + this.live.board);
+      this.showBoard(this.live.board, this.live.board_map);
     }
   }
 }

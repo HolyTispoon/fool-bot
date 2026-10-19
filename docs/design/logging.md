@@ -87,6 +87,13 @@ Things to know before changing any of it:
   being a stream of identical posts. It reads HEAD out of the checkout
   with `git log`, so the notice is only as accurate as the deployed tree —
   and degrades to saying nothing at all if git is not on PATH.
+- **A new build's headline is its sha alone when a change list follows**
+  ("now running `3ab3225c`"): the subject was the list's first line, or,
+  for a merge, the pull request's title over the commits listed beneath
+  it, so the notice said the same thing twice (the author, 2026-10-19).
+  Where no list follows -- the first build on record, an unreadable or
+  empty range, the other bot's notice already listed it -- the subject
+  stays, since it is then the only word on what is running.
 - **A restart on a build already announced is one line**, "**Codex bot
   restarted** on `host`", posted once per process, and says nothing about
   the build: its own notice named it and listed its changes already, so

@@ -99,6 +99,66 @@ class RenderTests(unittest.TestCase):
         height = 2 * self.panel_height(1) + render.DIVIDER_HEIGHT
         self.assertEqual(size(png), (render.panel_width(1), height))
 
+    def test_the_board_says_where_its_cards_are(self) -> None:
+        """`render_board_mapped` draws the same bytes as `render_board`,
+        and a box for every card it shows -- the near panel's in the
+        board's lower half, the far one's, turned, in its upper -- each
+        inside the picture, and a box for each tech building with the
+        codex cards it opens."""
+        match = self.engine.new_match(("bashing", "finesse"), first=1)
+        near = match.active
+        far = 3 - near
+        match.new_instance("older_brother", near)
+        tired = match.new_instance("iron_man", near)
+        tired.exhausted = True
+        match.new_instance("nimble_fencer", far)
+        names = {1: "a", 2: "b"}
+        webp, drawn = render.render_board_mapped(match, "stacked", names, self.engine.catalog)
+        self.assertEqual(webp, render.render_board(match, "stacked", names, self.engine.catalog))
+        self.assertEqual((drawn["width"], drawn["height"]), size(webp))
+        middle = drawn["height"] / 2
+        shown = [(region["card"], region["box"][1] > middle)
+                 for region in drawn["regions"] if "card" in region]
+        # The heroes too, in the command zones.
+        self.assertCountEqual(shown, [("older_brother", True), ("iron_man", True),
+                                      ("nimble_fencer", False),
+                                      (match.player(near).heroes[0].slug, True),
+                                      (match.player(far).heroes[0].slug, False)])
+        for region in drawn["regions"]:
+            left, top, right, bottom = region["box"]
+            self.assertTrue(0 <= left < right <= drawn["width"], region)
+            self.assertTrue(0 <= top < bottom <= drawn["height"], region)
+        (iron_man,) = [region["box"] for region in drawn["regions"] if region.get("card") == "iron_man"]
+        # Exhausted, it lies on its side: wider than tall.
+        self.assertGreater(iron_man[2] - iron_man[0], iron_man[3] - iron_man[1])
+        # A basic game's duel: every tech building opens its side's whole
+        # codex, Tech I too.
+        codexes = [region for region in drawn["regions"] if "codex" in region]
+        self.assertEqual(len(codexes), 6)
+        catalog = self.engine.catalog
+        whole = {f"{spec.title()} codex": [card.slug for card in catalog.by_spec(spec)]
+                 for spec in (match.player(near).specs[0], match.player(far).specs[0])}
+        for region in codexes:
+            self.assertEqual(region["codex"], whole[region["title"]])
+
+    def test_a_tech_i_building_opens_its_tech_i_cards_beyond_a_basic_duel(self) -> None:
+        """In a standard game, Tech I opens the tech I cards of every spec
+        the side has -- never a spell, which prints no tech level -- and
+        Tech II and III the spec chosen at Tech II, or nothing before."""
+        catalog = self.engine.catalog
+        specs = ("anarchy", "blood", "fire")
+        match = self.engine.new_match((specs, ("balance", "feral", "growth")), first=1)
+        player = match.player(1)
+        title, codex = render.tech_codex(player, "tech1", catalog)
+        self.assertEqual(title, "Tech I cards: Anarchy, Blood, Fire")
+        self.assertEqual(codex, [card.slug for spec in specs for card in catalog.by_spec(spec)
+                                 if card.tech_level == 1])
+        self.assertFalse([slug for slug in codex if catalog.cards[slug].is_spell])
+        self.assertIsNone(render.tech_codex(player, "tech2", catalog))
+        player.tech2_spec = "fire"
+        self.assertEqual(render.tech_codex(player, "tech3", catalog),
+                         ("Fire codex", [card.slug for card in catalog.by_spec("fire")]))
+
     def test_the_stacked_board_is_seen_from_the_active_players_side(self) -> None:
         """The active player's panel is the lower one -- its nameplate's
         rule in its first hero's colour, Neutral's tan in the basic game
@@ -150,7 +210,8 @@ class RenderTests(unittest.TestCase):
                                  + render.DIVIDER_HEIGHT)
 
     def test_the_far_panel_is_turned_round(self) -> None:
-        """A turned panel's body is the upright one's rotated whole; its
+        """A turned panel's body is the upright one's rotated whole --
+        all but the gold's count, drawn to read upright after -- and its
         nameplate moves to the outer edge, above, the right way up."""
         cards, hp = self.engine.catalog, render.default_building_hp(self.engine.catalog)
         upright = render.render_panel(self.match, 2, "b", cards, hp)
@@ -161,7 +222,20 @@ class RenderTests(unittest.TestCase):
         near = upright.crop((edge, edge, upright.width - edge, edge + span))
         far_top = turned.height - edge - span
         far = turned.crop((edge, far_top, turned.width - edge, far_top + span))
-        self.assertEqual(far.tobytes(), near.rotate(180).tobytes())
+        near = near.rotate(180)
+        # The coin, between the building column and the worker card, is
+        # left out: its box in the upright body, turned round.
+        coin = render.GOLD_COIN
+        o = render.OVERHANG
+        face_left = o + render.BUILDING_WIDTH + render.BUILDING_GAP + (render.CELL - render.CARD[0]) // 2
+        left = round((o + render.BUILDING_WIDTH + face_left - coin) / 2)
+        top = round(o + render.PATROL_HEIGHT + render.CELL_GAP + render.CELL
+                    - render.TILE[1] / 2 - coin / 2)
+        box = (near.width - left - coin - 1, near.height - top - coin - 1,
+               near.width - left + 1, near.height - top + 1)
+        for picture in (near, far):
+            picture.paste((0, 0, 0, 0), box)
+        self.assertEqual(far.tobytes(), near.tobytes())
 
     def test_the_opening_board_side_by_side(self) -> None:
         png = render.render_board(self.match, "side_by_side", {1: "a", 2: "b"}, self.engine.catalog)
@@ -410,6 +484,23 @@ class EffectTagTests(unittest.TestCase):
     def test_an_older_saves_modifier_is_tagged_without_a_colour(self) -> None:
         card = self.unit(modifiers=[{"kind": "doomed", "until": "doom", "seat": 1}])
         self.assertEqual(render.effect_tags(card, self.cards), (("Doomed", None),))
+
+    def test_prynn_names_each_unit_she_has_trashed_saying_trashed_once(self) -> None:
+        from codex.components import HeroState
+        prynn = HeroState(slug="prynn_pasternaak", trashed=[
+            {"slug": "iron_man", "owner": 2, "controller": 2, "id": 4},
+            {"slug": "tiger_cub", "owner": 2, "controller": 2, "id": 5},
+        ])
+        self.assertEqual(render.rune_marks(prynn, self.cards),
+                         (("Trashed: Iron Man", "purple"), ("Tiger Cub", "purple")))
+
+    def test_a_long_trashed_name_is_cut_to_the_cards_width(self) -> None:
+        from codex.components import HeroState
+        prynn = HeroState(slug="prynn_pasternaak", trashed=[
+            {"slug": "jefferson_degrey_ghostly_diplomat", "owner": 2, "controller": 2, "id": 4}])
+        (tag, _), = render.rune_marks(prynn, self.cards)
+        self.assertTrue(tag.startswith("Trashed: Jefferson") and tag.endswith("…"))
+        self.assertLessEqual(render.tag_size(tag)[0], render.CARD[0])
 
 
 class PreloadTests(unittest.TestCase):

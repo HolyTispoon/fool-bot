@@ -901,6 +901,11 @@ class CoachingHubOptions:
     #: occasion's and the half's count, so a frontend that says it
     #: reads it here rather than working it out.
     allowance: str = ""
+    #: The 2.0 teammates left on a unique role's space they may not
+    #: share, who have to move before the window closes
+    #: (`MatchState.unique_space_sharers`); each one's `repositions`
+    #: are the empty spaces open to them.
+    must_move: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -922,6 +927,7 @@ class CoachingHubOptions:
             ],
             "finish_refusal": self.finish_refusal,
             "allowance": self.allowance,
+            "must_move": list(self.must_move),
         }
 
 
@@ -1310,9 +1316,9 @@ def maneuver_prompt_wording(
     ]
 
     instruction = (
-        "choose a maneuver -- only you can see what you picked."
+        "choose a maneuver."
         if len(sides) == 1
-        else "both sides pick privately -- only you can see what you picked."
+        else "both sides pick privately."
     )
     return waiting_on, instruction
 
@@ -2996,10 +3002,14 @@ def _coaching_hub_options(
     positioning = occasion is None or occasion.offers_positioning
     pool = tuple(match.substitution_pool(side))
     fielded = tuple(setup.field_players)
-    team = set(fielded)
 
     swaps: list[SwapOptions] = []
     repositions: list[RepositionOptions] = []
+    # A 2.0 side's roles decide who may move where (docs/rules-2.0.md
+    # 4.6c-e): the same readings `swap_field_positions` and
+    # `position_meeple` refuse against.
+    roles = match.formation_roles.get(side.value)
+    exempt = engine.spread_exempt_ids(game, match, side)
     if positioning:
         for player_id in fielded:
             zone = setup.assigned_zone(player_id)
@@ -3008,24 +3018,23 @@ def _coaching_hub_options(
                 tuple(
                     other for other in fielded
                     if other != player_id
-                    and setup.assigned_zone(other) != zone
+                    and (
+                        setup.assigned_zone(other) != zone
+                        if roles is None
+                        else roles.get(other) != roles.get(player_id)
+                    )
                 ),
             ))
-            standing = match.board.meeple_position(player_id)
-            spaces = []
-            for space_index in range(len(match.board.spaces[zone])):
-                if standing == (zone, space_index):
-                    continue
-                spaces.append(RepositionSpace(
-                    space_index,
-                    tuple(
-                        other
-                        for other in match.board.spaces[zone][space_index]
-                        if other in team
-                    ),
-                ))
+            spaces = tuple(
+                RepositionSpace(space_index, trade_with)
+                for space_index, trade_with in match.positioning_targets(
+                    side, player_id, exempt,
+                )
+            )
+            if roles is not None and not spaces:
+                continue
             repositions.append(
-                RepositionOptions(player_id, tuple(spaces), zone=zone),
+                RepositionOptions(player_id, spaces, zone=zone),
             )
 
 
@@ -3043,6 +3052,10 @@ def _coaching_hub_options(
         repositions=tuple(repositions),
         finish_refusal=engine.coaching_finish_refusal(match, side, game),
         allowance=engine.substitution_allowance_label(match),
+        must_move=(
+            tuple(match.unique_space_sharers(side, exempt))
+            if positioning else ()
+        ),
     )
 
 

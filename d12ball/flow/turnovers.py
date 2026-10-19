@@ -587,6 +587,7 @@ def run_back_kickoff_fill(
     """
     if match.eligible_ball_handlers():
         match.pending_kickoff_fill = False
+        engine.hand_kickoff_to_playmaker(match)
         return True, None
 
     candidates = match.kickoff_fill_candidates()

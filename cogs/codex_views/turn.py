@@ -632,7 +632,7 @@ class TurnPanelView(PanelView):
             return ("Pick a card to trash in order to **hire a worker** for "
                     f"{self.prompt.options.hire.cost} gold.")
         if self.mode == "attack":
-            return "**Attack** with which?"
+            return "Choose an eligible card to attack with."
         if self.mode == "boost":
             return f"**{card_name(self.slug)}**: pay its boost?"
         if self.mode == "level":
@@ -644,8 +644,7 @@ class TurnPanelView(PanelView):
         if self.mode == "spec":
             row = self.build_row()
             if row is not None and row.lab_specs:
-                return ("**Build Tech II**: choose its spec, then your tech lab's -- "
-                        "a different one.")
+                return "**Build Tech II**: choose a spec."
             what = "Tech II" if self.building == "tech2" else "your tech lab"
             return f"**Build {what}**: which spec does it unlock?"
         return ""
@@ -1057,9 +1056,9 @@ class TurnPanelView(PanelView):
             whose = f"{seat_label(game, row.seat)}'s"
         label = f"{whose} {self.label(row.ref, row.seat)}"
         if row.resist:
-            label += f" -- resist: pay {row.resist} gold"
+            label += f", resist: pay {row.resist} gold"
         if row.flagbearer:
-            label += " -- flagbearer"
+            label += ", flagbearer"
         return label
 
     def build_target(self, options) -> None:

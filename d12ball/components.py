@@ -871,6 +871,12 @@ FORMATION_ZONE_ROLES = {
     "midfield": (PlayerRole.PLAYMAKER, PlayerRole.MIDFIELDER),
     "opponent_goal": (PlayerRole.STRIKER, PlayerRole.WINGER),
 }
+# The three unique roles, as saved: a card holding one stands on its
+# zone's fixed space and is not moved by space positioning
+# (docs/rules-2.0.md 4.3b, 4.6d).
+UNIQUE_ROLE_VALUES = frozenset(
+    unique.value for unique, _ in FORMATION_ZONE_ROLES.values()
+)
 FIELD_PLAYER_COUNT = 6
 
 # The shortest High Ball a coach may choose. A Fullback's ability
@@ -5194,14 +5200,28 @@ class MatchState:
         zone = setup.assigned_zone(player_id)
         other_zone = setup.assigned_zone(other_player_id)
         if zone == other_zone:
-            # A swap that moves nobody is not a swap (the author,
-            # 2026-09-21). Moving a meeple within its zone is
-            # `position_meeple`'s.
-            raise RuleRefusal(
-                "Both players are assigned to the same zone; a zone "
-                "assignment trades two players in different zones.",
-                law="what-a-coach-may-do",
-            )
+            roles = self.formation_roles.get(side.value)
+            if roles is None:
+                # A swap that moves nobody is not a swap (the author,
+                # 2026-09-21). Moving a meeple within its zone is
+                # `position_meeple`'s.
+                raise RuleRefusal(
+                    "Both players are assigned to the same zone; a zone "
+                    "assignment trades two players in different zones.",
+                    law="what-a-coach-may-do",
+                )
+            # In 2.0 a zone assignment trades roles, two players in the
+            # same zone included (docs/rules-2.0.md 4.6c) -- so long as
+            # it trades a role: two in the zone's standard role would
+            # only change spaces, which is space positioning.
+            if roles.get(player_id) == roles.get(other_player_id):
+                raise RuleRefusal(
+                    "Both players hold the same role; moving one to "
+                    "another space in the zone is space positioning."
+                )
+            # Both cards stay in the zone; `exchange_field_players`
+            # trades their meeples and their roles.
+            return
 
         setup.zones[zone][setup.zones[zone].index(player_id)] = (
             other_player_id
@@ -5294,6 +5314,163 @@ class MatchState:
                 roles[card] = (unique if card == holder else standard).value
         self.formation_roles[side.value] = roles
 
+    def holds_unique_role(self, side: TeamSide, player_id: str) -> bool:
+        """Whether a 2.0 side has this card in a unique role -- the
+        Fullback, the Playmaker or the Striker. Never in 1.0."""
+        roles = self.formation_roles.get(TeamSide(side).value, {})
+        return roles.get(player_id) in UNIQUE_ROLE_VALUES
+
+    def positioning_targets(
+        self,
+        side: TeamSide,
+        player_id: str,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[tuple[int, tuple[str, ...]]]:
+        """
+        The spaces of their own zone a space-positioning move may take
+        `player_id` to, each with the teammates standing there the move
+        would trade with. The hub's options are built from this and
+        `position_meeple` refuses against it.
+
+        In 1.0 that is every space but where they stand, with every
+        teammate on it (`position_meeple`'s trade rule decides).
+
+        **In 2.0 the role decides** (docs/rules-2.0.md 4.6d): a unique
+        role goes nowhere; a standard role may go to an empty space or
+        trade with a teammate in a standard role, never onto a space a
+        unique role holds. An Ooze bends that (4.6e), being Spreadable:
+        one in a standard role may go anywhere in its zone and shares
+        the space rather than trading, and one in a unique role still
+        goes nowhere but lets a standard teammate share its space.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        zone = setup.assigned_zone(player_id)
+        team = set(setup.field_players)
+        standing = self.board.meeple_position(player_id)
+        spaces = [
+            index
+            for index in range(len(self.board.spaces[zone]))
+            if standing != (zone, index)
+        ]
+
+        def teammates(index: int) -> list[str]:
+            return [
+                other
+                for other in self.board.spaces[zone][index]
+                if other in team and other != player_id
+            ]
+
+        if side.value not in self.formation_roles:
+            return [(index, tuple(teammates(index))) for index in spaces]
+        if self.holds_unique_role(side, player_id):
+            return []
+        exempt = set(spread_exempt_ids)
+        if player_id in exempt:
+            return [(index, ()) for index in spaces]
+        # Somebody who has to move off a unique role's space goes to an
+        # empty one: a trade would only put the teammate there instead
+        # (see `unique_space_sharers`).
+        moving_off = player_id in self.unique_space_sharers(side, exempt)
+        unique_space = self.unique_role_space(side, area_for_zone(side, zone))
+        holder = next(
+            (
+                card for card in setup.zones.get(zone, [])
+                if self.holds_unique_role(side, card)
+            ),
+            None,
+        )
+        targets = []
+        for index in spaces:
+            others = teammates(index)
+            locked = index == unique_space and holder not in exempt
+            if locked or any(
+                self.holds_unique_role(side, other) and other not in exempt
+                for other in others
+            ):
+                continue
+            trade = tuple(
+                other for other in others
+                if other not in exempt
+                and not self.holds_unique_role(side, other)
+            )
+            if moving_off and trade:
+                continue
+            targets.append((index, trade))
+        return targets
+
+    def unique_space_sharers(
+        self,
+        side: TeamSide,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[str]:
+        """
+        A 2.0 side's teammates standing on a unique role's space they
+        may not share -- the Fullback's, the Playmaker's or the
+        Striker's, where the holder is not a Spreadable Ooze. Nobody
+        puts one there: a teammate may share an Ooze's space
+        (docs/rules-2.0.md 4.6e), and a zone assignment or a
+        substitution can then put somebody who is not an Ooze in that
+        role. The trade stands and the teammate moves off (the author,
+        2026-10-18) -- `settle_unique_space_sharers` where only one
+        space is open to them, the coach where several are, and the
+        window may not close until they have
+        (`RulesEngine.coaching_finish_refusal`). An Ooze in a standard
+        role may stand anywhere, so it never has to move.
+        """
+        side = TeamSide(side)
+        if side.value not in self.formation_roles:
+            return []
+        setup = self.setup_for_side(side)
+        team = set(setup.field_players)
+        exempt = set(spread_exempt_ids)
+        sharers = []
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            holder = next(
+                (
+                    card for card in setup.zones.get(zone, [])
+                    if self.holds_unique_role(side, card)
+                ),
+                None,
+            )
+            if holder is None or holder in exempt:
+                continue
+            space = self.unique_role_space(side, area)
+            sharers.extend(
+                card for card in self.board.spaces[zone][space]
+                if card in team and card != holder and card not in exempt
+            )
+        return sharers
+
+    def settle_unique_space_sharers(
+        self,
+        side: TeamSide,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[tuple[str, Zone, int]]:
+        """
+        Move off every teammate `unique_space_sharers` names who has
+        exactly one space to go to, and report each move; one with a
+        choice stays for the coach. A zone never holds more players
+        than spaces, so with two on one space there is always an empty
+        one (docs/rules-2.0.md 4.3c).
+        """
+        side = TeamSide(side)
+        moved = []
+        for card in self.unique_space_sharers(side, spread_exempt_ids):
+            open_spaces = [
+                index
+                for index, trade in self.positioning_targets(
+                    side, card, spread_exempt_ids,
+                )
+                if not trade
+            ]
+            if len(open_spaces) == 1:
+                zone = self.setup_for_side(side).assigned_zone(card)
+                self.board.place_meeple(card, zone, open_spaces[0])
+                moved.append((card, zone, open_spaces[0]))
+        return moved
+
     def positioning_swap_candidates(
         self,
         side: TeamSide,
@@ -5342,11 +5519,18 @@ class MatchState:
         player_id: str,
         space_index: int,
         swap_with: Optional[str] = None,
+        spread_exempt_ids: Collection[str] = (),
     ) -> Optional[str]:
         """
         Move one meeple to another space in its own assigned zone, for
         no exhaustion, and report who it traded with (None for an
         ordinary move).
+
+        **In 2.0 the player's role decides** (docs/rules-2.0.md 4.6d):
+        the move must be one `positioning_targets` offers, which says
+        who it trades with -- `spread_exempt_ids` are the side's
+        Spreadable Oozes, which bend the rule (4.6e). What follows here
+        is 1.0's.
 
         The rule is local rather than a coverage check, and that is
         what lets every space of the zone simply be offered: **if the
@@ -5367,9 +5551,25 @@ class MatchState:
         if self.board.meeple_position(player_id) == (zone, space_index):
             raise RuleRefusal("They are already standing there.")
 
-        candidates = self.positioning_swap_candidates(
-            side, player_id, space_index,
-        )
+        if side.value in self.formation_roles:
+            if self.holds_unique_role(side, player_id):
+                raise RuleRefusal(
+                    "A Fullback, Playmaker or Striker holds their space; "
+                    "a zone assignment puts somebody else in the role."
+                )
+            targets = dict(self.positioning_targets(
+                side, player_id, spread_exempt_ids,
+            ))
+            if space_index not in targets:
+                raise RuleRefusal(
+                    "A player in a standard role may not move onto a "
+                    "Fullback's, Playmaker's or Striker's space."
+                )
+            candidates = list(targets[space_index])
+        else:
+            candidates = self.positioning_swap_candidates(
+                side, player_id, space_index,
+            )
         if not candidates:
             if swap_with is not None:
                 raise RuleRefusal("That move does not trade with anybody.")
@@ -5430,8 +5630,9 @@ class MatchState:
         for player_id, zone, space_index in placement:
             self.board.place_meeple(player_id, Zone(zone), space_index)
         # A 2.0 side's roles go with the new shape (docs/rules-2.0.md
-        # 4.2). Until a formation change keeps the three unique roles on
-        # their spaces, the shape it deals decides who holds them.
+        # 4.2): read off the spaces, which `RulesEngine.formation_placement`
+        # deals with each unique role's holder on its own space and
+        # first in its zone, so a tie goes to them.
         if side.value in self.formation_roles:
             self.assign_formation_roles(side)
 
@@ -6334,6 +6535,15 @@ def zone_for_area(side: TeamSide, area: str) -> Zone:
             else Zone.HOME_ZONE
         )
     raise ValueError(f"Unknown setup area: {area}")
+
+
+def area_for_zone(side: TeamSide, zone: Zone) -> str:
+    """The setup area a board zone is for one side -- `zone_for_area`
+    read the other way."""
+    for area in SETUP_AREAS:
+        if zone_for_area(side, area) == Zone(zone):
+            return area
+    raise ValueError(f"Unknown zone: {zone}")
 
 
 def default_formation_deal(

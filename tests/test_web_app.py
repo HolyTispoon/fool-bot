@@ -4220,7 +4220,6 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         from webapp.present import (
             COIN_LINE,
             MANEUVER_ASK,
-            MANEUVER_ASK_WATCHING,
         )
 
         fixture = self.level()
@@ -4239,13 +4238,11 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coin["place"], {"at": "coin"})
         self.assertEqual(coin["said"], COIN_LINE)
         self.assertTrue(coin["image"].startswith("/emoji/"))
-        for state, ask in (
-            (other, MANEUVER_ASK), (watching, MANEUVER_ASK_WATCHING),
-        ):
+        for state in (other, watching):
             first, coin_said = html.unescape(
                 state["prompt"]["ask"],
             ).split("\n\n")
-            self.assertEqual(first, ask)
+            self.assertEqual(first, MANEUVER_ASK)
             self.assertIn("holds the coin, ", coin_said)
             self.assertIn("Fortune up, and may declare a gambit.", coin_said)
             self.assertNotIn('class="coach"', state["prompt"]["ask"])
@@ -4326,7 +4323,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [back["side"] for back in hand["backs"]], ["offense", "defense"],
         )
-        self.assertEqual(hand["note"], "The hands are turned over together.")
+        self.assertNotIn("note", hand)
         said = json.dumps(state["prompt"])
         for key in (
             card.key

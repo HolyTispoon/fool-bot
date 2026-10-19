@@ -136,7 +136,7 @@ class TurnTestCase(unittest.IsolatedAsyncioTestCase):
         view = call.view()
         if patrol is not None:
             view = (await self.table.choose(view, "Who patrols", patrol)).view()
-        lock = await self.table.press(view, "Lock patrol")
+        lock = await self.table.press(view, "Lock in patrol zone")
         self.assertNothingWentWrong(lock)
         return lock
 
@@ -215,7 +215,8 @@ class PanelTests(TurnTestCase):
         match = self.table.match
         # The class's own, under the table's stand-in for the pictures.
         draw_board = type(cog).render_match_png
-        with mock.patch("cogs.codex.presentation.render_board", return_value=b"board") as draw:
+        with mock.patch("cogs.codex.presentation.render_board_mapped",
+                        return_value=(b"board", {"regions": []})) as draw:
             await draw_board(cog, self.game, match)
             match.journal.append({"action": {"kind": "said only"}})
             self.assertEqual(await draw_board(cog, self.game, match), b"board")
@@ -237,11 +238,11 @@ class PanelTests(TurnTestCase):
         self.assertIn("more*", text)
         self.assertIn("Line 39 ", text)
         self.assertNotIn("Line 0 ", text)
-        self.assertTrue(text.endswith("*Only you can see this.*"), text[-80:])
         cog.turn_lines.pop(self.game.game_id)
         call, _ = await self.table.panel()
-        text = call.last()[2].get("content") or call.last()[1][0]
-        self.assertNotIn(TURN_LOG_HEADING, text)
+        own = call.last()[2].get("content") or call.last()[1][0]
+        self.assertNotIn(TURN_LOG_HEADING, own)
+        self.assertTrue(text.endswith(own), text[-80:])
 
     async def test_my_deck_answers_beside_the_hand_the_panel_and_the_tech_picker(self) -> None:
         """**My deck** -- on the turn message, under the other player's
@@ -793,7 +794,7 @@ class TurnEndTests(TurnTestCase):
         # mention -- which the post pings -- and their deck.
         match = self.table.match
         player_id = self.game.player_1_id if match.active == 1 else self.game.player_2_id
-        heading = f"**Turn 2** -- <@{player_id}> ({match.active_player.specs[0].title()})"
+        heading = f"**Turn 2**: <@{player_id}> ({match.active_player.specs[0].title()})"
         self.assertTrue(self.table.game_channel.texts[new].startswith(heading + "\n"))
         self.assertEqual(self.table.game_channel.texts[new].count("**Turn 2**"), 1)
         mentioned = self.table.game_channel.since(mark)[2][2]["allowed_mentions"].users
@@ -828,8 +829,8 @@ class TurnEndTests(TurnTestCase):
         actions."""
         first, picker = await self.reach_turn_three()
         text = self.table.game_channel.texts[self.game.turn_message_id]
-        self.assertIn("waits on them", text)
-        self.assertIn("**Tech**", text)
+        self.assertIn("*The turn waits on them to confirm their tech.*", text)
+        self.assertNotIn("**Tech**", text)
         self.assertIn("**Turn 3**", text)
         self.assertEqual(text.count("<@"), 1, text)
 
@@ -1167,7 +1168,7 @@ class WholeGameTests(TurnTestCase):
             picked = (await pick_tech(table, view, who=who)).view()
             return await table.press(picked, "Save tech", who=who)
         if isinstance(view, PatrolView):
-            return await table.press(view, "Lock patrol")
+            return await table.press(view, "Lock in patrol zone")
         options = view.prompt.options
         if view.prompt.kind is PromptKind.CHOOSE_DEFENDER:
             return await table.press(view, ("defend", options.defenders[0]))
@@ -1513,7 +1514,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
 
     async def lock(self, view):
         ended = await self.table.press(view, "End main phase", who=self.table.basher)
-        return await self.table.press(ended.view(), "Lock patrol", who=self.table.basher)
+        return await self.table.press(ended.view(), "Lock in patrol zone", who=self.table.basher)
 
     async def test_a_target_of_the_other_side_is_named_by_its_team(self) -> None:
         """Both seats are the one person's, so the other side's thing
@@ -2153,7 +2154,7 @@ class EyesOfTheChancellorTests(unittest.IsolatedAsyncioTestCase):
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel(self.table.seated(2))
         view = (await self.table.press(view, "End main phase")).view()
-        call = await self.table.press(view, "Lock patrol")
+        call = await self.table.press(view, "Lock in patrol zone")
         stash = call.view()
         self.assertIs(stash.prompt.kind, PromptKind.STASH)
         call = await self.table.press(stash, ("stash", "jail"))

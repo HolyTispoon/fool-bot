@@ -7,7 +7,7 @@ the right seat -- and the end of the game, **Rematch** with the same
 seats and every seat's heroes cleared; and the free-for-all's two
 additions on the panel (Rulebook p. 14): **Repair base** on the board's
 row, and each opponent's open slots as destinations in the patrol view,
-which **Lock patrol** answers with `lent` beside the assignment -- a
+which **Lock in patrol zone** answers with `lent` beside the assignment -- a
 duel's panel with no repair, a dragon's patrol view with no loan.
 
 The requests each click spends are counted as the duel's are
@@ -406,7 +406,7 @@ class LendingTests(unittest.IsolatedAsyncioTestCase):
     """Lending from the patrol view (Rulebook p. 14; docs/design/codex.md,
     "Lending is a control change"): each opponent's open slots follow the
     owner's five in the slot menu, the patroller chosen for one is lent,
-    and **Lock patrol** answers with `lent` beside the assignment -- with
+    and **Lock in patrol zone** answers with `lent` beside the assignment -- with
     the assignment alone where nothing is lent, as a duel's lock does."""
 
     async def asyncSetUp(self) -> None:
@@ -479,7 +479,7 @@ class LendingTests(unittest.IsolatedAsyncioTestCase):
         mark = len(self.table.game_channel.requests)
         service = self.table.cog.service
         with mock.patch.object(service, "apply_action", wraps=service.apply_action) as applied:
-            lock = await self.table.press(view, "Lock patrol")
+            lock = await self.table.press(view, "Lock in patrol zone")
         action = applied.call_args[0][1]
         self.assertEqual(action.arguments, {
             "assignment": {}, "lent": {str(self.borrower): {"elite": self.card.ref}},
@@ -502,7 +502,7 @@ class LendingTests(unittest.IsolatedAsyncioTestCase):
         view = (await self.table.choose(view, "Who patrols", self.card.ref)).view()
         service = self.table.cog.service
         with mock.patch.object(service, "apply_action", wraps=service.apply_action) as applied:
-            await self.table.press(view, "Lock patrol")
+            await self.table.press(view, "Lock in patrol zone")
         self.assertEqual(applied.call_args[0][1].arguments,
                          {"assignment": {"squad_leader": self.card.ref}})
         self.assertEqual(self.table.match.instance(self.card.id).controller, self.seat)
