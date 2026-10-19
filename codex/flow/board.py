@@ -406,7 +406,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
 
 
 def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
-                  result: StepResult, by: str = "") -> None:
+                  result: StepResult, by: str = "", faded: Optional[str] = None) -> None:
     # A lent hero is named where it stands, on its borrower's side, and
     # leaves play for its owner.
     owner = engine.owner_of_hero(match, hero)
@@ -415,7 +415,15 @@ def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: Her
         f"{named(match, seat, ref)} dies and returns to the command zone with "
         f"{SUMMONING_RUNES_ON_DEATH} summoning runes."
     )
-    if by:
+    if faded is not None:
+        # Her fading, her death and what dying from fading does, said once
+        # (the author, 2026-10-19).
+        line = (
+            f"{named(match, seat, ref)} loses her last time rune and fades away, back to the "
+            f"command zone with {SUMMONING_RUNES_ON_DEATH} summoning runes."
+            + (f" {faded}" if faded else "")
+        )
+    elif by:
         line = f"{by} destroys {named(match, seat, ref)}, which returns to the command zone with {SUMMONING_RUNES_ON_DEATH} summoning runes."
     hero.zone = "command"
     hero.level = 1
@@ -476,16 +484,18 @@ def hero_left(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroSta
     trashed." -- each fresh, under whoever controlled it when it went (her
     rulings)."""
     trashed, hero.trashed = list(hero.trashed), []
+    # Why they come back, said once, on the first that says anything (the
+    # author, 2026-10-19): a forecast card goes to the future unsaid.
+    why = f" as {tokens.hero(hero.slug)} leaves it"
     for entry in trashed:
-        result.narration.append(
-            f"{tokens.card(entry['slug'])} returns to play as {tokens.hero(hero.slug)} leaves it."
-        )
-        return_fresh(engine, match, entry["slug"], entry["controller"], entry["owner"], result)
+        if return_fresh(engine, match, entry["slug"], entry["controller"], entry["owner"], result,
+                        why=why) is not None:
+            why = ""
 
 
 def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int, str]],
             result: StepResult, by: str = "", cause: Optional[int] = None,
-            forced: bool = False, combat: bool = False) -> None:
+            forced: bool = False, combat: bool = False, faded: Optional[str] = None) -> None:
     """
     Destroy each of these units and heroes -- a unit face-down to its
     owner's discard pile, a hero to the command zone -- and give the
@@ -505,6 +515,9 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     An indestructible unit is spared instead (`spare`, step 12) unless
     `forced` -- the second copy of a legendary card, which no rule saves
     (UMR p. 15).
+
+    `faded` says a hero lost its last time rune: its line says so, with
+    what dying from fading did after it where that is not empty.
     """
     things = list(things)
     witnesses = _witnesses(engine, match)
@@ -519,7 +532,7 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
             ):
                 continue
             if hero is not None and hero.in_play:
-                _destroy_hero(engine, match, seat, hero, result, by)
+                _destroy_hero(engine, match, seat, hero, result, by, faded)
                 heroes.append(seat)
                 dead_heroes.append((seat, hero))
             continue
@@ -1312,9 +1325,8 @@ def remove_time_rune(engine: "RulesEngine", match: MatchState, seat: int, ref: s
     if not engine.fading(thing):
         return True
     if isinstance(thing, HeroState):
-        result.narration.append(f"{tokens.hero(thing.slug)} loses her last time rune and fades away.")
-        died_from_fading(engine, match, seat, thing, result, by_fading)
-        destroy(engine, match, [(seat, hero_ref(thing.slug))], result, cause=seat)
+        skipped = died_from_fading(engine, match, seat, thing, by_fading)
+        destroy(engine, match, [(seat, hero_ref(thing.slug))], result, cause=seat, faded=skipped)
         return True
     result.narration.append(f"{named(match, seat, thing.ref)} loses its last time rune and is sacrificed.")
     sacrifice(engine, match, thing, result)
@@ -1336,22 +1348,20 @@ def _remember(match: MatchState, seat: int, card: CardInstance) -> None:
 
 
 def died_from_fading(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
-                     result: StepResult, by_fading: bool) -> None:
+                     by_fading: bool) -> str:
     """
     Prynn at 4: "Dies from fading: Opponents skip their next draw/discard
     step (they keep their hand cards)." -- only where the upkeep's fading
     took her last rune, never Time Spiral or her own ability (her rulings).
+    The sentence that says so, for her death's line, or "".
     """
     slug, level = effects.PRYNN_FADES
     if not by_fading or hero.slug != slug or hero.level < level:
-        return
+        return ""
     for foe in engine.opponents(match, seat):
         match.player(foe).skip_draw = True
     skipping = ", ".join(tokens.player(foe) for foe in engine.opponents(match, seat))
-    result.narration.append(
-        f"{tokens.hero(hero.slug)} died from fading: {skipping} skips their next "
-        "draw and discard."
-    )
+    return f"{skipping} skips their next draw and discard."
 
 
 def spare(engine: "RulesEngine", match: MatchState, card: CardInstance,
@@ -1501,15 +1511,18 @@ def golgort(engine: "RulesEngine", match: MatchState, seat: int, result: StepRes
 
 
 def return_fresh(engine: "RulesEngine", match: MatchState, slug: str, controller: int,
-                 owner: int, result: StepResult) -> Optional[CardInstance]:
+                 owner: int, result: StepResult, why: str = "") -> Optional[CardInstance]:
     """A card back into play "fresh" -- a new object, under the player who
     controlled it when it left, with arrival fatigue and none of what it
     had (Max Geiger's, Prynn's and Second Chances' rulings); a forecast
-    card goes to the future."""
+    card goes to the future. `why`, said before its stats: " as Prynn
+    Pasternaak leaves it"."""
     card = put_into_play(engine, match, slug, controller, from_hand=False, owner=owner)
     if card is not None:
         atk, hp = engine.unit_stats(card, match)
-        result.narration.append(f"{tokens.card(slug)} returns to play under {tokens.player(controller)}: {atk}/{hp}.")
+        result.narration.append(
+            f"{tokens.card(slug)} returns to play under {tokens.player(controller)}{why}: {atk}/{hp}."
+        )
     return card
 
 

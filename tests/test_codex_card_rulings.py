@@ -3720,6 +3720,30 @@ class PurpleRulingTests(unittest.TestCase):
         back = next(card for card in match.player(1).play if card.slug == "bone_collector")
         self.assertEqual((back.owner, back.controller), (2, 1))
 
+    def test_prynn_fading_away_is_said_once(self) -> None:
+        """Her last time rune, her death and what dying from fading does are
+        one line, and why the units she trashed come back is said on the
+        first of them alone (the author, 2026-10-19)."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 1
+        prynn.trashed = [{"slug": "bone_collector", "owner": 2, "controller": 2, "id": 90},
+                         {"slug": "plague_spitter", "owner": 2, "controller": 2, "id": 91}]
+        result = StepResult()
+        board.remove_time_rune(engine, match, 1, hero(match, 1, "prynn_pasternaak"), result,
+                               by_fading=True)
+        prynn_said = tokens.hero("prynn_pasternaak")
+        self.assertEqual(result.narration[0].count(prynn_said), 1)
+        self.assertIn("loses her last time rune and fades away, back to the command zone with 2 "
+                      f"summoning runes. {tokens.player(2)} skips their next draw and discard.",
+                      result.narration[0])
+        self.assertEqual(result.narration[1:], [
+            f"{tokens.card('bone_collector')} returns to play under {tokens.player(2)} "
+            f"as {prynn_said} leaves it: 3/3.",
+            f"{tokens.card('plague_spitter')} returns to play under {tokens.player(2)}: 3/3.",
+        ])
+
     def test_prynn_pasternaak_5(self) -> None:
         """When her max level ability returns a unit to play, it returns in a
         "fresh" state. It's a new object, and no longer has any properties of
