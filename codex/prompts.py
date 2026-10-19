@@ -611,8 +611,7 @@ def _target_ask(engine, match: MatchState, top: dict) -> str:
 
 def _divide_ask(match: MatchState, top: dict, left: int) -> str:
     return (
-        f"{tokens.player(top['seat'])}, {top['by']}: divide its damage. "
-        f"{left} more to place, a point at a time."
+        f"{tokens.player(top['seat'])}, {top['by']}: {left} damage to place, 1 at a time."
     )
 
 
@@ -643,8 +642,8 @@ def _level_ask(seat: int, owner: int) -> str:
 
 def _stash_ask(seat: int) -> str:
     return (
-        f"{tokens.player(seat)}, your draw: stash lets you keep a card of your hand and draw "
-        "one less. Choose it, or keep none."
+        f"{tokens.player(seat)}: stash lets you keep a card and draw one less. "
+        "Choose up to 1 card to keep."
     )
 
 

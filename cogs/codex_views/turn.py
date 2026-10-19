@@ -644,8 +644,7 @@ class TurnPanelView(PanelView):
         if self.mode == "spec":
             row = self.build_row()
             if row is not None and row.lab_specs:
-                return ("**Build Tech II**: choose its spec, then your tech lab's, "
-                        "a different one.")
+                return "**Build Tech II**: choose a spec."
             what = "Tech II" if self.building == "tech2" else "your tech lab"
             return f"**Build {what}**: which spec does it unlock?"
         return ""
