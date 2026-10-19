@@ -62,7 +62,7 @@ LIVE_BOARD_LABEL = "View live board"
 NOT_YOUR_TABLE = "This table is not yours: only its players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
     "In a test game each seat chooses its tech when its own turn begins, from "
-    "**Tech** or **My hand**. Nothing is chosen during another seat's turn."
+    "**Tech** or **My hand**."
 )
 
 
@@ -242,7 +242,7 @@ class TurnMessageView(SafeView):
             await send_ephemeral(interaction, "Only the player whose turn it is can undo.")
             return
         await interaction.response.send_message(
-            "Undo to where?",
+            "Undo: how far back?",
             view=UndoView(self.cog, game.game_id, seat, match.turn, targets, points,
                           end_of_turn=ended),
             ephemeral=True,
