@@ -1404,9 +1404,13 @@ chooser, or puts a refusal away.
   see [maneuvers.md](maneuvers.md), "The coin"). **The pick's ask names nobody** (`present.page_ask`): the
   model's ask addresses each coach by name, which a Discord message
   needs to ping them, but a page is read by one person who sees only
-  their own hand, so it says "Both sides pick a maneuver privately --
-  only you can see what you pick until both sides' picks are revealed."
-  (the observer's says the picks are revealed together). The
+  their own hand, so it says "Both sides pick a maneuver privately.",
+  to a coach and an observer alike; the face-down hands under it say
+  they are turned over together (until 2026-10-19 a coach's ask added
+  "only you can see what you pick until both sides' picks are
+  revealed" and an observer's "the picks are revealed together"; the
+  author had the first removed with the bot's, and the second only
+  repeated the hands' note). The
   instruction is a frontend's own, as the Discord caption's row colours
   are; who holds the coin stays the model's sentence
   (`describe_gambit_access`), left out only for the coach it names,
