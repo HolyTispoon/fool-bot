@@ -1316,9 +1316,9 @@ def maneuver_prompt_wording(
     ]
 
     instruction = (
-        "choose a maneuver -- only you can see what you picked."
+        "choose a maneuver."
         if len(sides) == 1
-        else "both sides pick privately -- only you can see what you picked."
+        else "both sides pick privately."
     )
     return waiting_on, instruction
 

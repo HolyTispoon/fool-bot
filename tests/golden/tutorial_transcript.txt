@@ -44,7 +44,7 @@ Dinky's playmaker is standing on the ball, so they are the one challenging you.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 5: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
@@ -100,7 +100,7 @@ Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is 
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 12: ManeuverActionPromptView -> 'Pass'
 --- message
 You chose **Pass**.
@@ -168,7 +168,7 @@ Defending, your hand is the other half of the cycle:
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 18: ManeuverActionPromptView -> 'Pressure'
 --- message
 You chose **Pressure**.
@@ -206,7 +206,7 @@ Then you get to set the **ball's speed**, up to your stealer's defensive skill. 
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the green row.
 === press 22: ManeuverActionPromptView -> 'Steal'
 --- message
 You chose **Steal**.
@@ -270,7 +270,7 @@ Their fullback is standing on space 3, so you get their whole defensive skill of
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+🟠 <@111>, choose a maneuver from the red row.
 === press 27: ManeuverActionPromptView -> 'High Ball'
 --- message
 You chose **High Ball**.

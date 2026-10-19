@@ -1404,9 +1404,12 @@ chooser, or puts a refusal away.
   see [maneuvers.md](maneuvers.md), "The coin"). **The pick's ask names nobody** (`present.page_ask`): the
   model's ask addresses each coach by name, which a Discord message
   needs to ping them, but a page is read by one person who sees only
-  their own hand, so it says "Both sides pick a maneuver privately --
-  only you can see what you pick until both sides' picks are revealed."
-  (the observer's says the picks are revealed together). The
+  their own hand, so it says "Both sides pick a maneuver privately. The
+  picks are revealed together.", to a coach and an observer alike
+  (until 2026-10-19 a coach's ask added "only you can see what you pick
+  until both sides' picks are revealed"; the author had it removed with
+  the bot's, kept "the picks are revealed together" and took the
+  hands' "turned over together" line, which said it twice). The
   instruction is a frontend's own, as the Discord caption's row colours
   are; who holds the coin stays the model's sentence
   (`describe_gambit_access`), left out only for the coach it names,
@@ -1443,9 +1446,11 @@ chooser, or puts a refusal away.
 - **The other hand is a back, `present.hand_table`**: every hand this
   viewer does not hold, as the cards' shared back
   (`pictures.maneuver_back_png`, at `maneuver_reference_tier`, served by
-  `GET /api/game/{id}/maneuver-back.png`), with "turned over together".
-  **The page draws only that line** (2026-09-27): the backs are still
-  in the state but not put in the question box. **A back is drawn whether or not that side has picked**:
+  `GET /api/game/{id}/maneuver-back.png`). **The page draws none of
+  it**: the backs are in the state but not put in the question box
+  (2026-09-27), and the "turned over together" line it drew instead
+  went on 2026-10-19, since the ask says the picks are revealed
+  together. **A back is drawn whether or not that side has picked**:
   on Discord whether the other coach has chosen is not said either, so
   a back that came up with the pick would publish it; the secret test
   holds the table the same before the other side picks and after. An
