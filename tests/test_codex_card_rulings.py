@@ -3722,8 +3722,8 @@ class PurpleRulingTests(unittest.TestCase):
 
     def test_prynn_fading_away_is_said_once(self) -> None:
         """Her last time rune, her death and what dying from fading does are
-        one line, and why the units she trashed come back is said on the
-        first of them alone (the author, 2026-10-19)."""
+        one line, and the units she trashed come back in one line (the
+        author, 2026-10-19)."""
         engine, game, match = purple()
         hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
         prynn = match.player(1).hero_of("prynn_pasternaak")
@@ -3735,14 +3735,28 @@ class PurpleRulingTests(unittest.TestCase):
                                by_fading=True)
         prynn_said = tokens.hero("prynn_pasternaak")
         self.assertEqual(result.narration[0].count(prynn_said), 1)
-        self.assertIn("loses her last time rune and fades away, back to the command zone with 2 "
-                      f"summoning runes. {tokens.player(2)} skips their next draw and discard.",
-                      result.narration[0])
+        self.assertIn("loses her last time rune and fades away, returning to the command zone "
+                      f"with 2 summoning runes. {tokens.player(2)} skips their next draw and "
+                      "discard phase.", result.narration[0])
         self.assertEqual(result.narration[1:], [
-            f"{tokens.card('bone_collector')} returns to play under {tokens.player(2)} "
-            f"as {prynn_said} leaves it: 3/3.",
-            f"{tokens.card('plague_spitter')} returns to play under {tokens.player(2)}: 3/3.",
+            f"When {prynn_said} leaves play, {tokens.card('bone_collector')} 3/3, "
+            f"{tokens.card('plague_spitter')} 3/3 return to play under {tokens.player(2)}.",
         ])
+
+    def test_prynns_returns_are_grouped_by_who_gets_them(self) -> None:
+        """One unit "returns"; units going back to different players are
+        one clause each, in one line."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.trashed = [{"slug": "bone_collector", "owner": 2, "controller": 1, "id": 90},
+                         {"slug": "plague_spitter", "owner": 2, "controller": 2, "id": 91}]
+        result = StepResult()
+        board.destroy(engine, match, [(1, hero(match, 1, "prynn_pasternaak"))], result, cause=2)
+        self.assertEqual(result.narration[-1], (
+            f"When {tokens.hero('prynn_pasternaak')} leaves play, "
+            f"{tokens.card('bone_collector')} 3/3 returns to play under {tokens.player(1)}; "
+            f"{tokens.card('plague_spitter')} 3/3 returns to play under {tokens.player(2)}."))
 
     def test_prynn_pasternaak_5(self) -> None:
         """When her max level ability returns a unit to play, it returns in a

@@ -419,8 +419,8 @@ def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: Her
         # Her fading, her death and what dying from fading does, said once
         # (the author, 2026-10-19).
         line = (
-            f"{named(match, seat, ref)} loses her last time rune and fades away, back to the "
-            f"command zone with {SUMMONING_RUNES_ON_DEATH} summoning runes."
+            f"{named(match, seat, ref)} loses her last time rune and fades away, returning to "
+            f"the command zone with {SUMMONING_RUNES_ON_DEATH} summoning runes."
             + (f" {faded}" if faded else "")
         )
     elif by:
@@ -484,13 +484,25 @@ def hero_left(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroSta
     trashed." -- each fresh, under whoever controlled it when it went (her
     rulings)."""
     trashed, hero.trashed = list(hero.trashed), []
-    # Why they come back, said once, on the first that says anything (the
-    # author, 2026-10-19): a forecast card goes to the future unsaid.
-    why = f" as {tokens.hero(hero.slug)} leaves it"
+    # One line for them all, before anything their arrivals say (the
+    # author, 2026-10-19): "When Prynn Pasternaak leaves play, Hooded
+    # Executioner 3/3, Plague Spitter 3/3 return to play under bo." A
+    # forecast card goes to the future unsaid.
+    at = len(result.narration)
+    back: dict[int, list[str]] = {}
     for entry in trashed:
-        if return_fresh(engine, match, entry["slug"], entry["controller"], entry["owner"], result,
-                        why=why) is not None:
-            why = ""
+        card = return_fresh(engine, match, entry["slug"], entry["controller"], entry["owner"],
+                            result, said=False)
+        if card is not None:
+            atk, hp = engine.unit_stats(card, match)
+            back.setdefault(entry["controller"], []).append(f"{tokens.card(card.slug)} {atk}/{hp}")
+    if back:
+        clauses = "; ".join(
+            f"{', '.join(cards)} {'return' if len(cards) > 1 else 'returns'} to play under "
+            f"{tokens.player(controller)}"
+            for controller, cards in back.items()
+        )
+        result.narration.insert(at, f"When {tokens.hero(hero.slug)} leaves play, {clauses}.")
 
 
 def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int, str]],
@@ -1361,7 +1373,7 @@ def died_from_fading(engine: "RulesEngine", match: MatchState, seat: int, hero: 
     for foe in engine.opponents(match, seat):
         match.player(foe).skip_draw = True
     skipping = ", ".join(tokens.player(foe) for foe in engine.opponents(match, seat))
-    return f"{skipping} skips their next draw and discard."
+    return f"{skipping} skips their next draw and discard phase."
 
 
 def spare(engine: "RulesEngine", match: MatchState, card: CardInstance,
@@ -1511,18 +1523,16 @@ def golgort(engine: "RulesEngine", match: MatchState, seat: int, result: StepRes
 
 
 def return_fresh(engine: "RulesEngine", match: MatchState, slug: str, controller: int,
-                 owner: int, result: StepResult, why: str = "") -> Optional[CardInstance]:
+                 owner: int, result: StepResult, said: bool = True) -> Optional[CardInstance]:
     """A card back into play "fresh" -- a new object, under the player who
     controlled it when it left, with arrival fatigue and none of what it
     had (Max Geiger's, Prynn's and Second Chances' rulings); a forecast
-    card goes to the future. `why`, said before its stats: " as Prynn
-    Pasternaak leaves it"."""
+    card goes to the future. `said` false leaves its line to the caller:
+    Prynn's returns are one line together."""
     card = put_into_play(engine, match, slug, controller, from_hand=False, owner=owner)
-    if card is not None:
+    if card is not None and said:
         atk, hp = engine.unit_stats(card, match)
-        result.narration.append(
-            f"{tokens.card(slug)} returns to play under {tokens.player(controller)}{why}: {atk}/{hp}."
-        )
+        result.narration.append(f"{tokens.card(slug)} returns to play under {tokens.player(controller)}: {atk}/{hp}.")
     return card
 
 
