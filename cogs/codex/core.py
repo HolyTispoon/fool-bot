@@ -113,10 +113,12 @@ TECH_GATE_KINDS = (PromptKind.TECH_CONFIRM, PromptKind.TECH_CHOICE)
 #: tech -- the cog's caption, not the model's line -- worded for the
 #: prompt Tech opens: the confirmation of picks made during the
 #: opponent's turn, or the picker itself where none were made (always,
-#: in a test game: `codex.prompts.tech_stands`).
+#: in a test game: `codex.prompts.tech_stands`). It does not name the
+#: **Tech** button: the button is under the message, and naming it again
+#: said "tech" twice (the author, 2026-10-19).
 TECH_WAIT = {
-    PromptKind.TECH_CONFIRM: "*The turn waits on {who} to confirm their tech: **Tech**.*",
-    PromptKind.TECH_CHOICE: "*The turn waits on {who} to choose their tech: **Tech**.*",
+    PromptKind.TECH_CONFIRM: "*The turn waits on {who} to confirm their tech.*",
+    PromptKind.TECH_CHOICE: "*The turn waits on {who} to choose their tech.*",
 }
 
 

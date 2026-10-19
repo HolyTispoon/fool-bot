@@ -2761,8 +2761,9 @@ From the third turn on the new turn opens on its player's confirmation:
 the new turn message says it waits on them to confirm their tech (the
 cog's caption, `TECH_WAIT`, gone once the ready phase has run -- worded
 "to choose their tech" where the picker is asked instead, because they
-never picked, or because the game is a test game) and points at
-**Tech**. **Tech** on the turn message, pressed by the player whose
+never picked, or because the game is a test game). It does not name
+**Tech**, which is under the message already (the author, 2026-10-19:
+"The second tech is redundant"). **Tech** on the turn message, pressed by the player whose
 turn it is while the turn waits on their tech, opens it at once:
 `TechConfirmView` -- the picks pictured, **Confirm** and **Change** --
 or the picker (the author, 2026-10-09: "clicking tech should let them
