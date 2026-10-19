@@ -17,7 +17,7 @@ from pathlib import Path
 
 from codex.game import MODES, VARIANT_LABELS, VARIANTS
 from cogs.codex_views.lobby import MODE_LABELS
-from cogs.codex_publish import keys
+from cogs.codex_publish import cards, keys
 
 ROOT = Path(__file__).resolve().parents[1]
 PBD = ROOT / "pbd"
@@ -94,10 +94,14 @@ class FunctionPatternsTests(unittest.TestCase):
             keys.live_key(GAME_ID),
             keys.history_key(GAME_ID),
             keys.board_key(GAME_ID, b"a board"),
+            keys.board_map_key(keys.board_key(GAME_ID, b"a board")),
             keys.emoji_key("gold"),
             keys.emoji_key("codex_exhaust"),
+            cards.key("brick_thief"),
+            cards.key("squirrel"),
+            cards.key("tech_ii_building"),
         ]
-        self.assertEqual(len(self.patterns), 6)
+        self.assertEqual(len(self.patterns), 8)
         for key in written:
             self.assertTrue(self.server.answered(key, self.patterns), key)
 
@@ -110,6 +114,9 @@ class FunctionPatternsTests(unittest.TestCase):
             f"codex/games/{GAME_ID}/board-{'0' * 64}.png",
             "codex/games/../index.json", "codex/emoji/../index.json", "codex/emoji/a-b.png",
             "codex/emoji/gold.webp", f"codex/games/{GAME_ID}/live.json\n",
+            f"codex/games/{GAME_ID}/board-abc.json", "codex/cards/Brick_Thief.jpg",
+            "codex/cards/brick-thief.jpg", "codex/cards/brick_thief.webp",
+            "codex/cards/../index.json", "codex/cards/brick_thief.jpg.json",
         ]
         for key in refused:
             self.assertFalse(self.server.answered(key, self.patterns), repr(key))

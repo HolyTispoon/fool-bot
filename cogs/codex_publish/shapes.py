@@ -8,7 +8,8 @@ What the publisher writes into the bucket, as the dicts dumped to JSON
   abandoned, the same fields and the winner, each in its own section;
 - `index` and `archive` -- the two lists whole;
 - `live` -- a game's `live.json`, what its page polls;
-- `history` -- a game's `history.json`, one entry per finished turn.
+- `history` -- a game's `history.json`, one entry per finished turn;
+- `board_map` -- a board's map, where its cards are, beside it.
 
 Pure functions of the record, the match and the publisher's own entry.
 They read only what the channel already shows: the seats' names, the
@@ -25,7 +26,7 @@ from codex import seats
 from codex.formatting import team_name
 from codex.game import GameStatus
 from cogs.codex_helpers import seat_label
-from cogs.codex_publish import keys
+from cogs.codex_publish import cards, keys
 from cogs.codex_publish.record import PublishedGame
 from cogs.codex_publish.segments import segments
 
@@ -129,37 +130,75 @@ def archive(entries: Iterable[dict]) -> dict:
     }
 
 
-def live(game: "CodexGame", match: "Optional[MatchState]", published: PublishedGame) -> dict:
+def mapped_key(board: Optional[str], mapped: Iterable[str]) -> Optional[str]:
+    """The key of `board`'s map where it is among `mapped` -- the maps up,
+    or going up before the JSON that names them -- else `None`."""
+    if not board:
+        return None
+    found = keys.board_map_key(board)
+    return found if found in mapped else None
+
+
+def live(game: "CodexGame", match: "Optional[MatchState]", published: PublishedGame,
+         mapped: Iterable[str] = ()) -> dict:
     """
     A game's `live.json`: the game as the lists name it, its status, the
     current turn's heading and lines as segments, the current board's
-    key, and the history's version -- which changes whenever
-    `history.json` does, so the page fetches it only then.
+    key and its map's (`board_map`, `None` where it has none up), and
+    the history's version -- which changes whenever `history.json`
+    does, so the page fetches it only then.
     """
+    mapped = set(mapped)
     return {
         **archive_entry(game, match, published.updated),
         "heading": segments(published.heading, game) if published.heading else [],
         "lines": [segments(line, game) for line in published.lines],
         "board": published.board,
+        "board_map": mapped_key(published.board, mapped),
         "history_version": published.history_version,
         "history": keys.history_key(game.game_id),
     }
 
 
-def history(game: "CodexGame", published: PublishedGame) -> dict:
+def history(game: "CodexGame", published: PublishedGame, mapped: Iterable[str] = ()) -> dict:
     """
     A game's `history.json`: one entry per finished turn, oldest first
     -- its `turn`, `heading` and `lines` as segments, the `board` it
-    ended on -- every line whole, never folded at Discord's 2000
+    ended on and that board's map (`board_map`, `None` where it has
+    none up) -- every line whole, never folded at Discord's 2000
     characters. Any other field an entry carries is passed through, so
     a later per-action history adds one rather than changing the shape
     (docs/pbd-site.md, decision 5).
     """
+    mapped = set(mapped)
     turns = []
     for entry in published.history:
         written = dict(entry)
+        written["board_map"] = mapped_key(entry.get("board"), mapped)
         written["heading"] = segments(entry["heading"], game) if entry.get("heading") else []
         written["lines"] = [segments(line, game) for line in entry.get("lines", [])]
         turns.append(written)
     return {"id": game.game_id, "version": published.history_version, "turns": turns}
 
+
+
+def board_map(drawn: dict) -> dict:
+    """
+    A board's map as the page reads it, from `render_board_mapped`'s:
+    the picture's `width` and `height`, and its `regions` -- each a
+    `box` in the picture's pixels, the `cards` it shows (`cards.entry`:
+    one for a card on the table, a codex's for a tech building) and,
+    for a codex, its `title`. The boxes are the board's, which shows
+    only what the channel sees; a codex is the spec's printed cards,
+    never what is left in a player's own.
+    """
+    regions = []
+    for region in drawn.get("regions", []):
+        found = {"box": list(region["box"])}
+        if "card" in region:
+            found["cards"] = [cards.entry(region["card"])]
+        else:
+            found["cards"] = [cards.entry(slug) for slug in region.get("codex", [])]
+            found["title"] = region.get("title")
+        regions.append(found)
+    return {"width": drawn.get("width"), "height": drawn.get("height"), "regions": regions}

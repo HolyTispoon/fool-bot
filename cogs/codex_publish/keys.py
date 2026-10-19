@@ -49,6 +49,19 @@ def board_key(game_id: str, board: bytes) -> str:
     return f"{game_prefix(game_id)}board-{hashlib.sha256(board).hexdigest()}.webp"
 
 
+def board_map_key(board: str) -> str:
+    """Where the cards are on a board (`codex.render.render_board_mapped`),
+    beside it, by the board's own key: the same drawing is the same map."""
+    return board[: -len(".webp")] + ".json"
+
+
+def card_key(slug: str, suffix: str) -> str:
+    """A card's picture, by its slug and its file's suffix -- ".jpg" for
+    the database's art, ".png" for the module's tokens, buildings and
+    worker cards."""
+    return f"{PREFIX}cards/{slug}{suffix}"
+
+
 def emoji_key(name: str) -> str:
     """A glyph's picture, by its file's name under `codex/images/emoji/`."""
     return f"{PREFIX}emoji/{name}.png"
@@ -56,8 +69,9 @@ def emoji_key(name: str) -> str:
 
 #: How long a browser and Cloudflare may keep each kind of object
 #: (docs/pbd-site.md, "The bucket's layout"). The JSON is asked again on
-#: every poll; a board is named by its bytes, so it never changes; a
-#: glyph's picture changes only when the emoji are redrawn.
+#: every poll; a board and its map are named by the board's bytes, so
+#: neither ever changes; a glyph's picture and a card's change only when
+#: the emoji are redrawn or the art imported again.
 NO_CACHE = "no-cache"
 IMMUTABLE = "public, max-age=31536000, immutable"
 A_DAY = "public, max-age=86400"
@@ -71,14 +85,18 @@ def content_type(key: str) -> str:
         return "image/webp"
     if key.endswith(".png"):
         return "image/png"
+    if key.endswith(".jpg"):
+        return "image/jpeg"
     raise ValueError(f"Not a key the publisher writes: {key}")
 
 
 def cache_control(key: str) -> str:
     """The object's `Cache-Control`, by which kind of key it is."""
+    if key.startswith(f"{PREFIX}games/") and "/board-" in key:
+        return IMMUTABLE
     if key.endswith(".json"):
         return NO_CACHE
-    if key.startswith(f"{PREFIX}emoji/"):
+    if key.startswith((f"{PREFIX}emoji/", f"{PREFIX}cards/")):
         return A_DAY
     if key.endswith(".webp"):
         return IMMUTABLE

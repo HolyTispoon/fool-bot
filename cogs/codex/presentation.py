@@ -11,6 +11,7 @@ their whole deck and their codex sent to them alone.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import logging
@@ -21,7 +22,7 @@ import discord
 
 from codex.game import CodexGame, GameStatus
 from codex.prompts import tech_is_owed
-from codex.render import render_board, render_hand
+from codex.render import render_board_mapped, render_hand
 from cogs.codex_helpers import (
     BOARD_IMAGE_FILENAME_PREFIX,
     channel_name,
@@ -65,6 +66,11 @@ def board_key(match, layout: str, names) -> str:
     return json.dumps([position, layout, sorted(names.items())], sort_keys=True, default=str)
 
 
+#: How many boards' maps `board_map` keeps, across games: the publisher
+#: asks for one as the bytes are handed to it, right after they are drawn.
+BOARD_MAPS_KEPT = 32
+
+
 class PresentationMixin:
     async def render_match_png(self, game: CodexGame, match=None) -> bytes:
         """The board as WebP bytes (`render.WEBP_QUALITY`), drawn off
@@ -82,12 +88,21 @@ class PresentationMixin:
             # something -- so the board is the one already drawn, and
             # the gate edits the text alone (`BoardRefresher.write`).
             return drawn[1]
-        webp = await asyncio.to_thread(
-            render_board, match, game.board_layout, names, self.engine.catalog,
+        webp, drawn_map = await asyncio.to_thread(
+            render_board_mapped, match, game.board_layout, names, self.engine.catalog,
             stats=self.engine.board_reading,
         )
         self.boards_drawn[game.game_id] = (key, webp)
+        self.board_maps[hashlib.sha256(webp).hexdigest()] = drawn_map
+        while len(self.board_maps) > BOARD_MAPS_KEPT:
+            del self.board_maps[next(iter(self.board_maps))]
         return webp
+
+    def board_map(self, board: bytes) -> Optional[dict]:
+        """Where the cards are on `board` (`render_board_mapped`), for
+        the site's hover -- `None` for bytes this process did not draw
+        lately, a board read back off a pin among them."""
+        return self.board_maps.get(hashlib.sha256(board).hexdigest())
 
     def match_file_from_png(self, game: CodexGame, png: bytes) -> discord.File:
         return discord.File(

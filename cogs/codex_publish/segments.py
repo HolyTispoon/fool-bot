@@ -13,8 +13,9 @@ text between them a text segment, so the page builds the line with
 - `{"player": n, "name": ...}` for `{player:n}` and `{to:n}` alike --
   the seat's name off the record (`seat_label`), never a mention: the
   web pings nobody;
-- `{"card": slug, "name": ...}` for `{card:slug}`, and `{hero:slug}`
-  with `"hero": true`;
+- `{"card": slug, "name": ..., "key": ...}` for `{card:slug}`, and
+  `{hero:slug}` with `"hero": true` -- `key` the card's picture in the
+  bucket (`cards.key`), left out where it has none;
 - `{"glyph": kind, "key": ...}` for `{exhaust}`, `{target}`, `{codex}`
   and `{gold:n}` (with `"n"`), `key` the picture's in the bucket --
   `exhaust`'s is `codex_exhaust.png`, as on Discord (`TOKEN_EMOJI`) --
@@ -32,6 +33,7 @@ from typing import TYPE_CHECKING, Optional
 from codex import tokens
 from codex.formatting import plain_token
 from cogs.codex_helpers import TOKEN_EMOJI, seat_label
+from cogs.codex_publish import cards
 from cogs.codex_publish.keys import emoji_key
 
 if TYPE_CHECKING:
@@ -54,6 +56,9 @@ def segment(kind: str, arguments: tuple[str, ...], game: "Optional[CodexGame]") 
         found = {"card": arguments[0], "name": plain_token(kind, arguments)}
         if kind == "hero":
             found["hero"] = True
+        picture = cards.key(arguments[0])
+        if picture is not None:
+            found["key"] = picture
         return found
     if kind in TOKEN_EMOJI:
         found = {"glyph": kind, "key": emoji_key(TOKEN_EMOJI[kind])}

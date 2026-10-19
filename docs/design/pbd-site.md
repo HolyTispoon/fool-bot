@@ -39,6 +39,14 @@ read back into the model's tokens, and the publisher's import after its
 startup publish, so a game played before the site went live has its
 history from its channel's pins.
 
+After the steps, a card on hover: the board's map -- where each card is
+on a board, from `codex/render.py` (`render_board_mapped`) -- uploaded
+beside the board, every card's picture uploaded once
+(`cogs/codex_publish/cards.py`), and `pbd/public/preview.js`, which shows
+a card named in the log on hover and, with Space, the card or the tech
+building's codex under the mouse on the board ("The board's map", "The
+cards' pictures", "Showing a card").
+
 ## What the publisher is, and is not
 
 **The publisher is a frontend, like the cog**, and a second door out of the
@@ -82,7 +90,9 @@ builds each of them; nothing else spells one.
 | `codex/games/<id>/live.json` | `shapes.live` | The game as the lists name it, the current turn's `heading` and `lines`, the current `board`'s key, `history_version` and the history's key |
 | `codex/games/<id>/history.json` | `shapes.history` | `version`, and `turns`: one entry per finished turn -- `turn`, `heading`, `lines`, `board` |
 | `codex/games/<id>/board-<sha256>.webp` | `keys.board_key` | A board |
+| `codex/games/<id>/board-<sha256>.json` | `keys.board_map_key`, `shapes.board_map` | The board's map, by the board's own hash: where each card is on it ("The board's map") |
 | `codex/emoji/<name>.png` | `keys.emoji_key` | A glyph's picture, by its file's name under `codex/images/emoji/` |
+| `codex/cards/<slug>.jpg` or `.png` | `keys.card_key`, `cards.key` | A card's picture, the file the board draws it from ("The cards' pictures") |
 
 - **A key in the JSON is the whole key**, `codex/` included, so the page
   fetches `/data/` plus what it was handed and builds no key of its own.
@@ -117,6 +127,64 @@ builds each of them; nothing else spells one.
   four, so a later per-action history adds one rather than changing the
   shape (the worksheet's decision 5).
 
+### The board's map
+
+**A board's map says where its cards are**: `codex.render.render_board_mapped`
+draws the board and hands back, beside its bytes, a box in the picture's
+pixels for every card it shows face up -- a hero on the field or in the
+command zone, a unit, a building card or upgrade, a card in the future,
+a patroller, an add-on -- with the card's slug (the face it shows: a
+Squirrel's under Polymorph), and a box for each tech building with the
+codex cards it opens: **Tech I**, the tech I cards of every spec the
+player has; **Tech II and III**, the whole codex of the spec chosen at
+Tech II, or the basic game's one spec, which nobody chooses (UMR pp.
+8-9); none for a Tech II whose spec is not chosen yet. **In a basic
+game's duel every building opens the one spec's whole codex**, Tech I
+too (the author, 2026-10-18): one spec a side, so the whole codex is
+what a player wants to read. Elsewhere Tech I's list leaves the spells
+out (the author, 2026-10-18) -- a spell prints no tech level -- so it is
+the units and buildings printed tech I, two a spec in every spec today.
+
+- **The boxes are carried, never worked out again.** A part drawn on its
+  own marks its boxes on the picture (`render.mark`), and every paste and
+  turn the board is composed by -- `place`, `turned_round` -- carries
+  them, so the far panel's turned boxes and a dragon's reversed row come
+  out right by construction rather than from a second copy of the
+  layout's numbers. Only a picture drawn afresh is marked; a cached one
+  never is. **The pixels are the same with or without it**: the sample
+  script's 55 pictures were byte-identical before and after (SHA-256).
+- **It is named by the board's hash** (`keys.board_map_key`): the same
+  drawing is the same map, so it is `immutable` like the board, goes up
+  once, and is deleted with the board.
+- **The cog keeps the maps of the boards it drew lately** (`Codex.board_map`,
+  by the bytes' SHA-256, `BOARD_MAPS_KEPT`), and the publisher takes a
+  board's map **as the board is handed over** (`Publisher._take_maps`),
+  while the cog still holds it. A board read back off a pin has none, so
+  an imported turn has no hover; nor does a board that went up before this
+  change, until the game's next one.
+- **The queue puts a map right after its board** and before the JSON, and
+  `live.json` and a history entry name it (`board_map`) only once it is up
+  or goes up in the same send -- otherwise `null`, and the page shows no
+  card for that board.
+- **It shows nothing secret.** A box is a card the board already shows,
+  and a tech building's codex is the spec's printed cards
+  (`CardCatalog.by_spec`), never what is left in a player's own codex or
+  what they teched.
+
+### The cards' pictures
+
+**Every card's picture is in the bucket once**, under `codex/cards/`: the
+file the board draws it from (`Card.picture`, `Hero.picture`) -- the
+database's art as `.jpg`, the module's tokens, buildings and worker cards as `.png` --
+330 and 32 files, about 39 MB, under 0.4% of the free storage. The startup
+puts each one the start's listing of the bucket lacks at its size
+(`Publisher._put_cards`), so the art goes up at the first start after this
+change and not again; where the listing failed, every one is put, 362
+writes. They are cached a day, as the glyphs are, since the art may be
+imported again. `cogs/codex_publish/cards.py` is the one place a card's
+picture and key are read: a line's card, a map's card and a codex's all
+carry the same key.
+
 ### Why a board is named by its hash
 
 A board's key is its bytes' SHA-256. The same picture is then the same key
@@ -138,8 +206,8 @@ segments:
 | --- | --- |
 | text between tokens | `{"text": ...}` |
 | `{player:n}`, `{to:n}` | `{"player": n, "name": ...}` -- `seat_label`, the record's name or "Player n" |
-| `{card:slug}` | `{"card": slug, "name": ...}` |
-| `{hero:slug}` | `{"card": slug, "name": ..., "hero": true}` |
+| `{card:slug}` | `{"card": slug, "name": ..., "key": ...}` |
+| `{hero:slug}` | `{"card": slug, "name": ..., "hero": true, "key": ...}` |
 | `{gold:n}` | `{"glyph": "gold", "n": n, "key": ..., "alt": "n gold"}` |
 | `{exhaust}`, `{target}`, `{codex}` | `{"glyph": kind, "key": ..., "alt": ...}` |
 | `{arrow}` | text, `->`, as on Discord |
@@ -158,8 +226,9 @@ and Discord's `**bold**` and `*italic*` become `"bold": true` and
   `TOKEN_EMOJI` in `cogs/codex_helpers.py` -- `exhaust`'s file is
   `codex_exhaust.png`, since `exhaust` is D12 Ball's -- and the segment
   carries the key, so the page holds no second copy of the map.
-- **A card carries its slug**, so a later step can show the card's picture
-  on hover without changing the JSON.
+- **A card carries its slug and its picture's key** (`cards.key`), so the
+  page shows the picture on hover and builds no key of its own; a card
+  with no picture on disk has no `key`, and the page shows its name.
 - **The tokens are found by `codex.tokens.render`**, as `CodexTokens` finds
   them, never by a pattern of the publisher's: each token is held as a
   placeholder while the emphasis is read, then becomes its segment. The
@@ -467,8 +536,9 @@ history entry, with the last board the site had for it.
 ### Startup
 
 `cog_load` starts a task, since the views are re-armed in `__init__` and
-a click may land before it is done. It puts the four glyphs' pictures,
-then gives every game the site does not have a board for one: a game
+a click may land before it is done. It puts the four glyphs' pictures and
+whichever cards' pictures the bucket lacks ("The cards' pictures"), then
+gives every game the site does not have a board for one: a game
 being played the record never saw, or whose board did not go up before
 the restart; and a finished or abandoned game that started and the
 record has no entry for, with its last board and no `updated`, so it
@@ -604,6 +674,8 @@ framework") and a page anyone can open should call no other host.
   wrapped round whatever segment carries the flag. A glyph is its picture
   with its `alt`, and its word where the picture does not load. No file
   under `pbd/public/` uses `innerHTML` (the test).
+- **A card is shown on demand** (`preview.js`, `CardPreview`; "Showing a
+  card" below).
 - **What a mode and a variant are called** is a copy in `codex.js` of
   `cogs/codex_views/lobby.py`'s `MODE_LABELS` and `codex/game.py`'s
   `VARIANT_LABELS`, held to both by the test: five words are not worth a
@@ -640,15 +712,39 @@ picture, and is fitted afresh. The new picture is loaded off screen and
 swapped in whole, so the viewer never shows half a board; one that fails
 to load is asked for again on the next poll.
 
+### Showing a card
+
+`preview.js`'s `CardPreview` is one floating box beside the pointer, built
+from image sources and `textContent`: one card large, or a codex as a grid
+of six (four on a phone) under its title, kept inside the window.
+
+- **In the log**, a card's name shows its picture while the mouse is over
+  it; a tap or a click shows it on a touch screen, and a tap elsewhere or
+  a scroll takes it away.
+- **On the board**, Space shows what the board's map says is under the
+  mouse: the card, or a tech building's codex. It stays until Space again,
+  Escape, the mouse leaving that card, a press on the board, or a new
+  board. The point is read through the viewer's own zoom and pan
+  (`BoardViewer.boardPoint`); a map whose width is not the board's is not
+  used. The keys `+`, `-` and `0` stay the viewer's zoom, which is why the
+  codex is Space too. A finger has no hover, so the board's cards are
+  desktop-only, and the hint beside the zoom buttons ("Point at a card and
+  press Space") shows only under a fine pointer that hovers.
+- **A map is fetched once per board**, with the browser's cache, since its
+  key never names another; a finished turn's board opened from the log
+  brings its own.
+
 ### The Function
 
 `pbd/functions/data/[[path]].js` answers `GET` and `HEAD` under `/data/`
 and nothing else (a `405` otherwise). The key is the address after `/data/`
 as written -- `codex/` included, since the JSON carries whole keys -- and is
-answered only where it matches one of `KEYS`, six regex literals at the top
+answered only where it matches one of `KEYS`, eight regex literals at the top
 of the file: the two lists, a game's `live.json` and `history.json` under a
-32-character lowercase hex id, a board under a 64-character hex hash, and a
-glyph named by letters, digits and underscores. Anything else is a `404`
+32-character lowercase hex id, a board and its map under a 64-character hex
+hash, a glyph named by letters, digits and underscores, and a card's
+picture by its slug, lowercase letters, digits and underscores, as `.jpg`
+or `.png`. Anything else is a `404`
 before the bucket is asked, so the bucket cannot be walked. The patterns
 allow no character a browser encodes, so nothing is decoded first, and no
 `..` can reach a key the publisher did not write.

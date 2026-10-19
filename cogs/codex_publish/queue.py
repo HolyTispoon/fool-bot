@@ -15,6 +15,8 @@ burst of three is one upload. Per game:
   lands between two puts never names an object that is not there. A
   failed put stops the send before anything that would name it.
 - **A board goes up once**: the record's `uploaded` says what is there.
+  Its map, where it was handed over, goes up right after it, and the
+  JSON names a map only once it is up or going up in the same send.
 - **A board nothing names is deleted** once the `live.json` that
   replaced it is up -- the board the game has moved past, unless the
   history keeps it as the board a turn ended on ("What it costs").
@@ -74,6 +76,11 @@ def encode(document: dict) -> bytes:
     return json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
+def with_maps(boards: Iterable[str]) -> set[str]:
+    """`boards` and each one's map's key."""
+    return {found for board in boards for found in (board, keys.board_map_key(board))}
+
+
 def named_boards(published: Optional[PublishedGame]) -> list[str]:
     """Every board key the game's JSON names: the current board first,
     then each the history keeps, each once."""
@@ -110,6 +117,9 @@ class PublishQueue:
         # Per game: the boards handed over and not yet sent, by key; the
         # games with a change not yet sent; the one send in flight.
         self._boards: dict[str, dict[str, bytes]] = {}
+        # Per game, the boards' maps handed over and not yet sent, by
+        # the map's key.
+        self._maps: dict[str, dict[str, bytes]] = {}
         self._changed: set[str] = set()
         self._tasks: dict[str, asyncio.Task] = {}
         # The lists' own queue.
@@ -130,17 +140,20 @@ class PublishQueue:
 
     # -- What the cog calls ----------------------------------------------
 
-    def game_changed(self, game_id: str, boards: Iterable[bytes] = ()) -> None:
+    def game_changed(self, game_id: str, boards: Iterable[bytes] = (),
+                     maps: Optional[Mapping[str, bytes]] = None) -> None:
         """
         The record for `game_id` changed; send it. `boards` are the bytes
         of every board the change named -- the current one, and a
-        finished turn's -- since the record keeps only their keys.
+        finished turn's -- since the record keeps only their keys, and
+        `maps` the maps of those that have one, by the map's key.
         """
         if self._closed:
             return
         held = self._boards.setdefault(game_id, {})
         for board in boards:
             held[keys.board_key(game_id, board)] = board
+        self._maps.setdefault(game_id, {}).update(maps or {})
         self._changed.add(game_id)
         if game_id not in self._tasks:
             self._tasks[game_id] = asyncio.create_task(self._run_game(game_id))
@@ -172,11 +185,12 @@ class PublishQueue:
                 task.cancel()
             self._changed.discard(game_id)
             self._boards.pop(game_id, None)
+            self._maps.pop(game_id, None)
             self._dropped.update([*boards, keys.live_key(game_id), keys.history_key(game_id)])
         self.lists_changed()
 
     async def put_file(self, key: str, body: bytes) -> bool:
-        """A file that is no game's -- a glyph's picture -- put now,
+        """A file that is no game's -- a glyph's or a card's picture -- put now,
         unless this process has put the same bytes under its key
         already. False where the put failed."""
         if self._closed:
@@ -211,20 +225,24 @@ class PublishQueue:
             while game_id in self._changed and not self._closed:
                 self._changed.discard(game_id)
                 boards = self._boards.pop(game_id, {})
-                if not await self._send_game(game_id, boards):
+                maps = self._maps.pop(game_id, {})
+                if not await self._send_game(game_id, boards, maps):
                     # Kept for the next change, which sends everything again;
                     # a board handed over since is the same bytes by its key.
-                    held = self._boards.setdefault(game_id, {})
-                    for key, board in boards.items():
-                        held.setdefault(key, board)
+                    for kept, held in ((boards, self._boards), (maps, self._maps)):
+                        holding = held.setdefault(game_id, {})
+                        for key, body in kept.items():
+                            holding.setdefault(key, body)
         except Exception:  # pragma: no cover - the queue's own bug
             LOGGER.exception("Publishing Codex game %s failed.", game_id)
         finally:
             self._tasks.pop(game_id, None)
 
-    async def _send_game(self, game_id: str, boards: dict[str, bytes]) -> bool:
+    async def _send_game(self, game_id: str, boards: dict[str, bytes],
+                         maps: Optional[dict[str, bytes]] = None) -> bool:
         """Put the game as the record has it now. False where it stopped
-        short, so its boards are kept for the next change."""
+        short, so its boards and maps are kept for the next change."""
+        maps = maps or {}
         game = self._games().get(game_id)
         published = self.record.games.get(game_id)
         if game is None or published is None or published.offloaded or not shapes.on_site(game):
@@ -232,37 +250,46 @@ class PublishQueue:
         match = self._match(game)
         # Everything this send puts is built before its first await, so a
         # change made while it is in flight goes in the next send whole.
-        history = encode(shapes.history(game, published))
-        live = encode(shapes.live(game, match, published))
         named = named_boards(published)
         uploaded = published.uploaded
+        # A map is named once it is up or goes up in this send -- which
+        # it does only after its board.
+        mapped = {keys.board_map_key(key) for key in named
+                  if keys.board_map_key(key) in uploaded
+                  or (keys.board_map_key(key) in maps and (key in uploaded or key in boards))}
+        history = encode(shapes.history(game, published, mapped))
+        live = encode(shapes.live(game, match, published, mapped))
         saved = list(uploaded)
 
         try:
             for key in named:
-                if key in uploaded:
-                    continue
-                board = boards.get(key)
-                if board is None:
-                    if key == published.board:
+                if key not in uploaded:
+                    board = boards.get(key)
+                    if board is None:
+                        if key == published.board:
+                            LOGGER.warning(
+                                "Codex game %s's current board is not up and was not handed "
+                                "over; the site waits for the next change.", game_id)
+                            return False
                         LOGGER.warning(
-                            "Codex game %s's current board is not up and was not handed over; "
-                            "the site waits for the next change.", game_id)
+                            "Codex game %s's history names a board that is not up and was not "
+                            "handed over: %s", game_id, key)
+                        continue
+                    if not await self._put(key, board):
                         return False
-                    LOGGER.warning(
-                        "Codex game %s's history names a board that is not up and was not "
-                        "handed over: %s", game_id, key)
-                    continue
-                if not await self._put(key, board):
-                    return False
-                uploaded.append(key)
+                    uploaded.append(key)
+                map_key = keys.board_map_key(key)
+                if map_key in maps and map_key not in uploaded:
+                    if not await self._put(map_key, maps[map_key]):
+                        return False
+                    uploaded.append(map_key)
             if not await self._put_changed(keys.history_key(game_id), history):
                 return False
             if not await self._put_changed(keys.live_key(game_id), live):
                 return False
             # What a change made in the meantime names is kept too: its
             # send is next, and would only put it back.
-            keep = set(named) | set(named_boards(self.record.games.get(game_id)))
+            keep = with_maps([*named, *named_boards(self.record.games.get(game_id))])
             for key in [key for key in uploaded if key not in keep]:
                 if await self._delete(key):
                     uploaded.remove(key)

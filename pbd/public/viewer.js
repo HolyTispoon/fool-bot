@@ -19,6 +19,9 @@ class BoardViewer {
     this.pointers = new Map();
     this.lastTap = null;
     this.wanted = null;
+    // Where a mouse is over the frame, in the window's coordinates, or null:
+    // what Space shows a card under (codex.js, GamePage.peek).
+    this.hover = null;
 
     image.style.transformOrigin = "0 0";
     image.addEventListener("load", () => this.loaded());
@@ -27,6 +30,7 @@ class BoardViewer {
     frame.addEventListener("pointermove", (event) => this.move(event));
     frame.addEventListener("pointerup", (event) => this.up(event));
     frame.addEventListener("pointercancel", (event) => this.up(event));
+    frame.addEventListener("pointerleave", () => { this.hover = null; });
     // A double click on a zoom button is two zooms, never fit and full size.
     frame.addEventListener("dblclick", (event) => {
       if (event.target.closest("button")) return;
@@ -103,6 +107,14 @@ class BoardViewer {
     return { x: this.frame.clientWidth / 2, y: this.frame.clientHeight / 2 };
   }
 
+  // A point in the window, as the board's own pixels: where it falls on the
+  // picture as it is zoomed and panned now.
+  boardPoint(at) {
+    if (!this.ready) return null;
+    const box = this.frame.getBoundingClientRect();
+    return { x: (at.x - box.left - this.x) / this.scale, y: (at.y - box.top - this.y) / this.scale };
+  }
+
   // Zoom to `scale`, keeping the board's point under `at` where it is.
   zoomTo(scale, at) {
     if (!this.ready) return;
@@ -166,6 +178,7 @@ class BoardViewer {
   }
 
   move(event) {
+    if (event.pointerType === "mouse") this.hover = { x: event.clientX, y: event.clientY };
     const before = this.pointers.get(event.pointerId);
     if (!before) return;
     const now = this.point(event);
