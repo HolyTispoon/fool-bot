@@ -577,15 +577,19 @@ def _main_ask(match: MatchState) -> str:
     return f"{tokens.player(match.active)}'s main phase, currently {tokens.gold(gold)}."
 
 
-def _tech_ask(engine: "RulesEngine", match: MatchState, seat: int) -> str:
-    """The tech choice's ask, the count and that it comes first: "To
-    start your turn, you must tech 2 cards.", and "... tech 0-2 cards."
-    where the player's workers allow none (UMR p. 5). The panel is the
-    player's alone and the turn message says whose it is, so the ask
-    names nobody (the author, 2026-10-11, 2026-10-20)."""
+def _tech_ask(engine: "RulesEngine", match: MatchState, seat: int,
+              standing: bool = False) -> str:
+    """The tech choice's ask, the count and when it is owed: "To start
+    your turn, you must tech 2 cards." in the player's own turn, and
+    "Before your next turn, ..." while it stands through another's
+    (`standing_prompts`); "... tech 0-2 cards." where the player's
+    workers allow none (UMR p. 5). The panel is the player's alone and
+    the turn message says whose it is, so the ask names nobody (the
+    author, 2026-10-11, 2026-10-20)."""
     minimum, maximum = engine.tech_bounds(match.player(seat))
     count = str(maximum) if minimum == maximum else f"{minimum}-{maximum}"
-    return f"To start your turn, you must tech {count} card{'' if count == '1' else 's'}."
+    when = "Before your next turn" if standing else "To start your turn"
+    return f"{when}, you must tech {count} card{'' if count == '1' else 's'}."
 
 
 def _obliterate_ask(seat: int) -> str:
@@ -1188,7 +1192,7 @@ def standing_prompts(engine: "RulesEngine", match: MatchState,
         if other in taking:
             continue
         if tech_is_owed(match, other):
-            prompt = PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(engine, match, other), other)
+            prompt = PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(engine, match, other, standing=True), other)
             owed.append(with_options(engine, game, match, prompt))
     return tuple(owed)
 
