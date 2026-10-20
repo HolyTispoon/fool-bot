@@ -301,10 +301,11 @@ class RenderTests(unittest.TestCase):
 
     def test_the_codex_is_laid_out_by_spec(self) -> None:
         """Where a codex is three specs: Tech I runs on, each spec's Tech
-        II and III are a line of their own, and each spec's four spells
-        are a block two wide, two on top and two below, the ultimate
-        last (the author, 2026-10-10 and 2026-10-12); the other views,
-        and a spec's own, run on; Tech II's view holds Tech III's."""
+        II and III are a block two wide and three high, Tech III last,
+        and each spec's four spells a block two wide, two on top and two
+        below, the ultimate last, in the same two columns as its tech
+        (the author, 2026-10-10, 2026-10-12 and 2026-10-20); the other
+        views, and a spec's own, run on; Tech II's view holds Tech III's."""
         engine = RulesEngine(seed=7)
         match = engine.new_match((("fire", "anarchy", "blood"), ("bashing", "finesse", "necromancy")),
                                  first=1)
@@ -314,12 +315,15 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(len(set(places)), len(places))
         self.assertEqual({row for (row, _), card in zip(places, cards) if card.tech_level == 1}, {0})
         for spec in {card.spec for card in cards}:
-            lines = {row for (row, _), card in zip(places, cards)
-                     if card.spec == spec and (card.tech_level or 0) >= 2}
-            self.assertEqual(len(lines), 1, spec)
+            tech = [place for place, card in zip(places, cards)
+                    if card.spec == spec and (card.tech_level or 0) >= 2]
+            self.assertEqual(len({column for _, column in tech}), 2, spec)
+            self.assertEqual(len({row for row, _ in tech}), 3, spec)
+            self.assertEqual(engine.catalog.cards[rows[places.index(max(tech))][0]].tech_level,
+                             3, spec)
             spells = [place for place, card in zip(places, cards)
                       if card.spec == spec and card.is_spell]
-            self.assertEqual(len({column for _, column in spells}), 2, spec)
+            self.assertEqual({column for _, column in spells}, {column for _, column in tech}, spec)
             self.assertEqual(len({row for row, _ in spells}), 2, spec)
         self.assertEqual(max(places), (5, 5))
         self.assertTrue("Ultimate" in cards[places.index((5, 5))].type)
