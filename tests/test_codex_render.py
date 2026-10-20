@@ -224,6 +224,14 @@ class RenderTests(unittest.TestCase):
                                            wraps=render.horizontal_divider) as divider:
                         render.compose_board(match, layout, names, self.engine.catalog)
                     self.assertEqual(divider.call_args.args[3], "p2")
+                    # Side by side, over the panel right of the active
+                    # player's -- the board's right half; stacked, beside
+                    # the turn's pill.
+                    upcoming_centre = divider.call_args.args[4]
+                    if layout == "side_by_side":
+                        self.assertGreater(upcoming_centre, divider.call_args.args[0] / 2)
+                    else:
+                        self.assertIsNone(upcoming_centre)
         match = self.engine.new_match(("bashing", "finesse", "bashing"), first=1, variant="free_for_all")
         match.winner = 1
         with mock.patch.object(render, "horizontal_divider", wraps=render.horizontal_divider) as divider:

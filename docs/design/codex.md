@@ -4190,8 +4190,11 @@ free-for-all stacked alone.
   turn's pill on the same divider, a second, quieter one names whose
   turn is next, "NEXT: KIME" (`render.DIVIDER_NEXT`, `seats.next_seat`
   -- an extra turn and the playoff included), in both views and every
-  table size; stacked, the two pills are centred together, and a long
-  name is cut with an ellipsis where the rule runs out. A finished game
+  table size. Side by side it is centred over the panel right of the
+  active player's, the next to play's, as the turn's is over the active
+  player's (the author, 2026-10-20); stacked, where no panel is to the
+  right, the two pills are centred together. A long name is cut with an
+  ellipsis where the pill would pass the turn's or the rule's end. A finished game
   names nobody. The author asked for it on the divider rather than in
   the room beside a lone top panel, which four players and the stacked
   view do not have (2026-10-20). Three or four open

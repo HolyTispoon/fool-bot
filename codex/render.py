@@ -2215,7 +2215,8 @@ def next_label(name: str) -> str:
 
 
 def horizontal_divider(width: int, label: str, centre: Optional[float] = None,
-                       upcoming: Optional[str] = None) -> Image.Image:
+                       upcoming: Optional[str] = None,
+                       upcoming_centre: Optional[float] = None) -> Image.Image:
     """
     The stacked board's divider: "<NAME>'S TURN <N>", the active player
     by name, bold and dark on a white pill (`DIVIDER_TURN`) between two
@@ -2225,7 +2226,9 @@ def horizontal_divider(width: int, label: str, centre: Optional[float] = None,
     board's middle -- a free-for-all side by side (the author,
     2026-10-14). `upcoming`, a free-for-all's, is a second, quieter pill
     right of the first on the same rule (`DIVIDER_NEXT`), so whose turn
-    follows reads without counting seats (the author, 2026-10-20).
+    follows reads without counting seats (the author, 2026-10-20) -- at
+    `upcoming_centre` where given, over the next player's panel, or
+    else the two pills centred together.
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
@@ -2244,16 +2247,28 @@ def horizontal_divider(width: int, label: str, centre: Optional[float] = None,
         def span() -> float:
             return text_width + gap + spaced_width(next_label(words), face, px(2))
 
-        # The pair centred where the turn's pill was; the name cut with
-        # an ellipsis where the rule runs out first.
-        room = (width if centre is None else width - left) - 2 * (pad + clear)
-        while len(words) > 1 and span() > room:
-            words = words[:-2 if words.endswith("…") else -1].rstrip() + "…"
-        if centre is None:
-            left = (width - span()) / 2
-            pills[0] = (left, text_width, label, DIVIDER_TURN)
-        pills.append((left + text_width + gap, spaced_width(next_label(words), face, px(2)),
-                      next_label(words), DIVIDER_NEXT))
+        def next_width() -> int:
+            return spaced_width(next_label(words), face, px(2))
+
+        if upcoming_centre is not None:
+            # Centred at `upcoming_centre`, the name cut with an ellipsis
+            # where the pill would pass the turn's or the board's edge.
+            room = 2 * min(upcoming_centre - (left + text_width + pad + clear),
+                           width - upcoming_centre) - 2 * (pad + clear)
+            while len(words) > 1 and next_width() > room:
+                words = words[:-2 if words.endswith("…") else -1].rstrip() + "…"
+            at = upcoming_centre - next_width() / 2
+        else:
+            # The pair centred where the turn's pill was; the name cut
+            # with an ellipsis where the rule runs out first.
+            room = (width if centre is None else width - left) - 2 * (pad + clear)
+            while len(words) > 1 and span() > room:
+                words = words[:-2 if words.endswith("…") else -1].rstrip() + "…"
+            if centre is None:
+                left = (width - span()) / 2
+                pills[0] = (left, text_width, label, DIVIDER_TURN)
+            at = left + text_width + gap
+        pills.append((at, next_width(), next_label(words), DIVIDER_NEXT))
     start = 0
     for at, span, _, _ in pills:
         draw.line((start, middle, at - pad - clear, middle), fill=QUIET, width=px(2))
@@ -2364,10 +2379,12 @@ def _pair_strip(panels: Sequence[Image.Image], column: int) -> Image.Image:
 
 
 def _stack(above: Sequence[Image.Image], bottom: Image.Image, label: str,
-           centre: Optional[float] = None, upcoming: Optional[str] = None) -> Image.Image:
+           centre: Optional[float] = None, upcoming: Optional[str] = None,
+           upcoming_centre: Optional[float] = None) -> Image.Image:
     """`above` stacked top to bottom, a quiet rule between each two, over
     the turn's divider and `bottom` -- each centred on the board, the
-    pill at `centre`, and `upcoming` named beside it (`horizontal_divider`)."""
+    pill at `centre`, and `upcoming` named beside it or at
+    `upcoming_centre` (`horizontal_divider`)."""
     width = max(part.width for part in (*above, bottom))
     height = (sum(part.height for part in above) + TABLE_GAP * (len(above) - 1)
               + DIVIDER_HEIGHT + bottom.height)
@@ -2381,7 +2398,8 @@ def _stack(above: Sequence[Image.Image], bottom: Image.Image, label: str,
         place(board, part, ((width - part.width) // 2, top))
         top += part.height + TABLE_GAP
     top -= TABLE_GAP
-    board.alpha_composite(horizontal_divider(width, label, centre, upcoming), (0, top))
+    board.alpha_composite(horizontal_divider(width, label, centre, upcoming, upcoming_centre),
+                          (0, top))
     place(board, bottom, ((width - bottom.width) // 2, top + DIVIDER_HEIGHT))
     return board
 
@@ -2418,9 +2436,10 @@ def _compose_rows(match: MatchState, panels, label: str, near: Optional[int],
     column = max(panel.width for row in rows for panel in row)
     drawn = [_pair_strip(row, column) for row in rows]
     # The pill over the active player's own panel, the bottom row's left
-    # (the author, 2026-10-14).
+    # (the author, 2026-10-14), and the next pill over the panel to its
+    # right (the author, 2026-10-20).
     return _stack(list(reversed(drawn[1:])), drawn[0], label, centre=column / 2,
-                  upcoming=upcoming)
+                  upcoming=upcoming, upcoming_centre=column + TABLE_GAP + rows[0][1].width / 2)
 
 
 def _compose_dragon(match: MatchState, layout: str, panels, label: str,
