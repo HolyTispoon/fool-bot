@@ -4193,11 +4193,14 @@ class RulesEngine:
         deck is more than one spec (the standard game's three, step 10),
         one view per spec, since a seventy-two card codex is three
         binders. The Codex button's menu and the tech picker's are both
-        this list, so the two narrow the same way.
+        this list, so the two narrow the same way. **A codex of one spec
+        -- the basic game's twelve -- is shown whole, always** (the
+        author, 2026-10-20: "with 1v1 basic game, always show ALL the
+        codex"): its one view is Everything, so neither offers a menu.
         """
         specs = player.specs
         if len(specs) < 2:
-            return CODEX_VIEWS
+            return ("everything",)
         return CODEX_VIEWS + tuple(spec_view(spec) for spec in specs)
 
     def tech_focus_view(self, player: PlayerState) -> str:
@@ -4207,14 +4210,16 @@ class RulesEngine:
         every Tech I card and every spell (`TECH1_SPELLS_VIEW`); once one
         is built -- destroyed since or not, its spec being kept -- that
         spec's Tech II and III and every spell (`tech2_spec_view`). A
-        basic game's one spec is the Tech II's, which `tech2_spec` never
-        records. A standard game's Tech II always has one, its build
+        standard game's Tech II always has one, its build
         refused without it (`_check_spec`); a position staged by hand
-        without one is "everything".
+        without one is "everything". A codex of one spec -- the basic
+        game's -- is always "everything" (`codex_views`).
         """
+        if len(player.specs) < 2:
+            return "everything"
         if player.buildings.get("tech2") is None:
             return TECH1_SPELLS_VIEW
-        spec = player.tech2_spec or (player.specs[0] if len(player.specs) == 1 else None)
+        spec = player.tech2_spec
         return "everything" if spec is None else tech2_spec_view(spec)
 
     def tech_opening_view(self, player: PlayerState) -> str:

@@ -574,11 +574,16 @@ class CodexViewTests(unittest.TestCase):
         match = engine.new_match(("bashing", "finesse"), first=1)
         everything = engine.codex_remaining(match, 1, "everything")
         self.assertEqual(len(everything), 12)
-        self.assertIn("trojan_duck", {slug for slug, _ in engine.codex_remaining(match, 1, "tech2")})
-        self.assertEqual(len(engine.codex_remaining(match, 1, "tech2")), 6)
-        self.assertEqual(len(engine.codex_remaining(match, 1, "spells")), 4)
-        self.assertEqual(sum(len(engine.codex_remaining(match, 1, view))
+        self.assertIn("trojan_duck", {slug for slug, _ in engine.codex_view_rows(everything, "tech2")})
+        self.assertEqual(len(engine.codex_view_rows(everything, "tech2")), 6)
+        self.assertEqual(len(engine.codex_view_rows(everything, "spells")), 4)
+        self.assertEqual(sum(len(engine.codex_view_rows(everything, view))
                              for view in ("tech1", "tech2", "spells")), 12)
+        # A basic codex is shown whole, always: nothing narrower is offered
+        # for it (the author, 2026-10-20).
+        for view in ("tech1", "tech2", "spells"):
+            with self.assertRaises(ValueError):
+                engine.codex_remaining(match, 1, view)
 
     def test_a_tech_level_is_every_card_printed_with_it(self) -> None:
         """A Tech II building or upgrade is a Tech II card as much as a
@@ -603,12 +608,17 @@ class CodexViewTests(unittest.TestCase):
 
     def test_a_spec_view_is_its_own_twelve(self) -> None:
         """The standard game's menu: one view per spec of the deck. The
-        basic game's deck is one spec, so it offers none."""
+        basic game's deck is one spec, shown whole, always: Everything
+        alone (the author, 2026-10-20)."""
         from codex.engine import CODEX_VIEWS, spec_view
         from codex.formatting import codex_view_name
         engine = RulesEngine(seed=7)
         match = engine.new_match(("bashing", "finesse"), first=1)
-        self.assertEqual(engine.codex_views(match.player(1)), CODEX_VIEWS)
+        self.assertEqual(engine.codex_views(match.player(1)), ("everything",))
+        standard = engine.new_match((("fire", "anarchy", "blood"), ("bashing", "finesse", "necromancy")),
+                                    first=1)
+        self.assertEqual(engine.codex_views(standard.player(1)),
+                         CODEX_VIEWS + tuple(spec_view(spec) for spec in ("fire", "anarchy", "blood")))
         catalog = engine.catalog
         rows = tuple((slug, 2) for spec in ("bashing", "anarchy")
                      for slug in dict.fromkeys(catalog.codex_for(spec)))
@@ -624,22 +634,31 @@ class CodexViewTests(unittest.TestCase):
             engine.codex_view_rows(rows, "tech4")
 
     def test_the_tech_pickers_opening_view(self) -> None:
-        """The picker opens on Tech I and the spells until a Tech II is
-        built; then on its spec's Tech II and III and the spells -- in the
-        basic game, the deck's one spec (the author, 2026-10-20)."""
+        """In the standard game the picker opens on Tech I and the spells
+        until a Tech II is built; then on its spec's Tech II and III and
+        the spells. The basic game's codex opens whole, always, and its
+        Show menu is Everything alone (the author, 2026-10-20)."""
         from codex.components import BuildingState
         from codex.engine import TECH1_SPELLS_VIEW, tech2_spec_view
         from codex.formatting import codex_view_name
         engine = RulesEngine(seed=7)
-        match = engine.new_match(("bashing", "finesse"), first=1)
+        basic = engine.new_match(("bashing", "finesse"), first=1).player(1)
+        self.assertEqual(engine.tech_opening_view(basic), "everything")
+        self.assertEqual(engine.tech_views(basic), ("everything",))
+        basic.buildings["tech2"] = BuildingState(hp=5)
+        self.assertEqual(engine.tech_opening_view(basic), "everything")
+        self.assertEqual(engine.tech_views(basic), ("everything",))
+        match = engine.new_match((("fire", "anarchy", "blood"), ("bashing", "finesse", "necromancy")),
+                                 first=1)
         player = match.player(1)
         self.assertEqual(engine.tech_opening_view(player), TECH1_SPELLS_VIEW)
         self.assertEqual(engine.tech_views(player)[0], TECH1_SPELLS_VIEW)
         self.assertEqual(engine.tech_views(player)[1:], engine.codex_views(player))
         self.assertEqual(codex_view_name(TECH1_SPELLS_VIEW), "Tech I & Spells")
         player.buildings["tech2"] = BuildingState(hp=5)
-        self.assertEqual(engine.tech_opening_view(player), tech2_spec_view("bashing"))
-        self.assertEqual(codex_view_name(tech2_spec_view("bashing")), "Bashing Tech II & III, Spells")
+        player.tech2_spec = "anarchy"
+        self.assertEqual(engine.tech_opening_view(player), tech2_spec_view("anarchy"))
+        self.assertEqual(codex_view_name(tech2_spec_view("anarchy")), "Anarchy Tech II & III, Spells")
         catalog = engine.catalog
         rows = tuple((slug, 2) for spec in ("bashing", "anarchy")
                      for slug in dict.fromkeys(catalog.codex_for(spec)))
@@ -656,7 +675,7 @@ class CodexViewTests(unittest.TestCase):
         # and the focused view stays first on its Show menu.
         player.codex = {slug: 0 for slug in player.codex}
         self.assertEqual(engine.tech_opening_view(player), "everything")
-        self.assertEqual(engine.tech_views(player)[0], tech2_spec_view("bashing"))
+        self.assertEqual(engine.tech_views(player)[0], tech2_spec_view("anarchy"))
 
     def test_nothing_is_playable_off_the_main_phase(self) -> None:
         engine = RulesEngine(seed=7)
