@@ -58,7 +58,7 @@ import discord
 from codex.formatting import card_label, codex_view_name
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
-from cogs.codex_views.base import edit_clicked, kept_pictures
+from cogs.codex_views.base import drawn_acknowledged, edit_clicked, kept_pictures
 from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut, concede_button
 from cogs.codex_views.turn_message import board_button, codex_button, codex_view_menu, deck_button
 
@@ -225,7 +225,10 @@ async def _put_picker(clicked: PanelView, interaction: discord.Interaction, game
     """The picker in place of the panel clicked: the picks and the view
     given, the picture narrowed to the view with the picks marked."""
     panel = TechChoiceView(clicked.cog, clicked.game_id, clicked.prompt, clicked.match, picks, view)
-    picture = await clicked.cog.render_prompt(game, clicked.prompt, picks=picks, view=view)
+    picture = await drawn_acknowledged(
+        interaction, lambda: clicked.cog.render_prompt(game, clicked.prompt, picks=picks, view=view),
+        private=False,
+    )
     await edit_clicked(
         interaction,
         content=clicked.cog.panel_caption(game, clicked.prompt, panel.caption()),

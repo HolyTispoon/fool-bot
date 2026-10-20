@@ -38,9 +38,9 @@ from cogs.codex_views import (
     LobbyView,
     TurnMessageView,
     acknowledge,
-    acknowledge_privately,
     deck_caption,
     deck_file,
+    drawn_acknowledged,
     hand_caption,
     hand_files,
     picture_file,
@@ -391,9 +391,12 @@ class PresentationMixin:
         """A player's hand pictured, **ephemeral to them alone** -- the
         first hidden thing the bot shows -- under the turn's lines so far
         (`with_turn_log`), with **My deck** under it."""
+        async def draw() -> list[discord.File]:
+            return [*await hand_files(self.engine, match, seat),
+                    *await revealed_files(self.engine, match, seat)]
+
         started = time.perf_counter()
-        files = [*await hand_files(self.engine, match, seat),
-                 *await revealed_files(self.engine, match, seat)]
+        files = await drawn_acknowledged(interaction, draw, private=True)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
         caption = hand_caption(match, seat, side_label(game, match, seat))
@@ -421,10 +424,12 @@ class PresentationMixin:
         panel's edit, so the hand, the panel or the tech picker it was
         pressed under stays up beside it.
         """
-        deck = self.engine.own_deck(match, seat)
-        await acknowledge_privately(interaction)
+        async def draw():
+            deck = self.engine.own_deck(match, seat)
+            return deck, await deck_file(self.engine, deck)
+
         started = time.perf_counter()
-        file = await deck_file(self.engine, deck)
+        deck, file = await drawn_acknowledged(interaction, draw, private=True)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
         await send_answer(
@@ -473,12 +478,15 @@ class PresentationMixin:
         **ephemeral to them alone** -- from **Codex** on the turn message,
         under the hand and on the panel. A message of its own, as
         `send_deck`'s is, so whatever it was pressed under stays up."""
-        view = CodexBrowser(self, game.game_id, seat, side=side_label(game, match, seat),
-                            mate=None if game.test_game else self.engine.team_sees(match, seat),
-                            mate_name=self.mate_name(game, self.engine.team_sees(match, seat)))
-        await acknowledge_privately(interaction)
+        async def draw():
+            mate = self.engine.team_sees(match, seat)
+            view = CodexBrowser(self, game.game_id, seat, side=side_label(game, match, seat),
+                                mate=None if game.test_game else mate,
+                                mate_name=self.mate_name(game, mate))
+            return view, await view.picture(match, "everything")
+
         started = time.perf_counter()
-        file = await view.picture(match, "everything")
+        view, file = await drawn_acknowledged(interaction, draw, private=True)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
         await send_answer(

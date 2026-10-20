@@ -51,7 +51,10 @@ from codex.game import GameStatus, RuleRefusal, by_variant
 from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import elapsed_ms, pictures_size, seat_label
 from cogs.codex_publish import keys
-from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
+from cogs.codex_views.base import (
+    SafeView, acknowledge, drawn_acknowledged, edit_clicked, kept_pictures, picture_file,
+    send_answer, send_ephemeral,
+)
 from cogs.codex_views.turn import UndoView, concede_button, opponent_started
 
 LOGGER = logging.getLogger(__name__)
@@ -112,6 +115,12 @@ def swap_label(layout: str, table: bool = False) -> str:
 
 
 class TurnMessageView(SafeView):
+    #: A click behind a busy game -- the active player's panel putting
+    #: its pictures up -- is deferred before it waits, as the panel's own
+    #: are (`botkit.views.GameLockedView`); every answer below works on a
+    #: click answered already.
+    acknowledges_while_waiting = True
+
     def __init__(self, cog, game_id: str) -> None:
         super().__init__(timeout=None)
         self.cog = cog
@@ -241,7 +250,8 @@ class TurnMessageView(SafeView):
         else:
             await send_ephemeral(interaction, "Only the player whose turn it is can undo.")
             return
-        await interaction.response.send_message(
+        await send_answer(
+            interaction,
             "Undo: how far back?",
             view=UndoView(self.cog, game.game_id, seat, match.turn, targets, points,
                           end_of_turn=ended),
@@ -267,7 +277,7 @@ class TurnMessageView(SafeView):
             return
         # Acknowledged with nothing to show: the board itself is the
         # answer, and it goes up through the gate like every other write.
-        await interaction.response.defer()
+        await acknowledge(interaction)
         await self.cog.refresh_match_image(game)
 
 
@@ -393,6 +403,8 @@ class HandView(SafeView):
     with the client's session.
     """
 
+    acknowledges_while_waiting = True  # as the turn message's
+
     def __init__(self, cog, game_id: str, seat: int) -> None:
         super().__init__(timeout=900)
         self.cog = cog
@@ -460,6 +472,8 @@ class CodexBrowser(SafeView):
     **Codex** on the turn message makes a fresh one.
     """
 
+    acknowledges_while_waiting = True  # as the turn message's
+
     def __init__(self, cog, game_id: str, seat: int, side: str = "",
                  mate: int | None = None, mate_name: str = "") -> None:
         super().__init__(timeout=900)
@@ -512,12 +526,12 @@ class CodexBrowser(SafeView):
         owner, _, rest = picked.partition(":")
         self.owner, view = (int(owner), rest) if owner.isdigit() else (self.seat, picked)
         started = time.perf_counter()
-        pictures = kept_pictures([await self.picture(match, view)], interaction.message)
+        picture = await drawn_acknowledged(interaction, lambda: self.picture(match, view),
+                                           private=False)
+        pictures = kept_pictures([picture], interaction.message)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
-        await interaction.response.edit_message(
-            content=self.caption(view), attachments=pictures, view=self,
-        )
+        await edit_clicked(interaction, content=self.caption(view), attachments=pictures, view=self)
         LOGGER.info("Codex game #%s: the codex's %s drawn in %d ms (%d KB), shown in place in %d ms",
                     game.game_number, codex_view_name(view), drawn,
                     pictures_size(pictures) // 1024, elapsed_ms(started))

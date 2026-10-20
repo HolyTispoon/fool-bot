@@ -2888,11 +2888,13 @@ Measured with the fakes, and held on every click of the whole-game test:
 
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
-| My hand, the active player | **0** | 1: the panel, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech |
-| Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent |
+| My hand, the active player | **0** | 2: the private defer, the panel its follow-up, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech |
+| My hand, the other player | **0** | 2: the private defer, the hand its follow-up |
+| Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 2: the defer and the panel's edit, or the private defer and the confirmation its follow-up |
 | An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message edited through the gate | 2: the defer, the panel edited in place |
-| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
-| Save tech | **0**: nothing is said until the owner's ready phase | 1 |
+| A choice that moves nothing public and draws nothing (a patrol slot, Hire worker, Undo... opening its choices) | **0** | 1: the panel's edit |
+| A choice that moves nothing public and draws a picture (End main phase, a tech pick before saving, the tech picker's Show menu and Clear, Change on saved picks, Attack... picturing what may attack, a view chosen in the codex's menu) | **0** | 2: the defer, the panel's edit |
+| Save tech | **0**: nothing is said until the owner's ready phase | 2: the defer, the picker edited to the saved picks |
 | Lock in patrol zone (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker |
 | The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 2 |
 | Concede, the first click | **0** | 1: the confirmation |
@@ -2904,18 +2906,18 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Take back the end of my turn | **3**: the restored turn's post, the current one's delete, the restored turn's standing one's delete | 3: the Undo menu sent, the click answered in place, the fresh panel |
 | A lobby click -- a seat taken, the mode or the variant changed, a third seat's pick (multiplayer step 4) | **0** | 1: the lobby edited in place |
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
-| My hand, **Tech** of any seat of a table (step 4) | **0** | 1 |
+| My hand, **Tech** of any seat of a table (step 4) | **0** | 2, as the duel's |
 | **My deck**, **Codex** -- of any seat, from the turn message, the hand, the panel or the tech picker | **0** | 2: the private defer, the picture its follow-up |
 | Lock in patrol zone on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
 | **Repair base** on a free-for-all's panel | **1**: the turn message through the gate, as any action | 2: the defer, the panel edited in place |
 | A slot or a patroller chosen in the patrol view, an opponent's open slot among them | **0** | 1: the panel's edit |
 | Lock in patrol zone that lends | **3**, as the duel's Lock | 2, as the duel's |
 | An action by either teammate of a dragon (multiplayer step 6) | **1**: the turn message through the gate | 2: the defer, the clicker's own panel edited in place |
-| A dragon teammate's stale click -- the team moved on, or the other's action stands part-way | **0** | 1: the panel edited in place to the prompt as it stands |
+| A dragon teammate's stale click -- the team moved on, or the other's action stands part-way | **0** | 2: the defer, the panel edited in place to the prompt as it stands |
 | The first lock of a dragon's turn | **1**: the turn message through the gate | 2: the defer, the panel edited to the waiting panel |
 | The second lock (the team's turn ends) | **3**, as the duel's Lock | 2, as the duel's |
-| **Tech** by a dragon seat while the teammate owes a choice | **0** | 2: the clicker's own answer, the teammate's picks (or that they have not chosen yet) |
-| **Switch to <name>** on a dragon test game's panel | **0** | 1: the panel edited in place to the other seat's |
+| **Tech** by a dragon seat while the teammate owes a choice | **0** | 3: the private defer, the clicker's own answer its follow-up, the teammate's picks (or that they have not chosen yet) |
+| **Switch to <name>** on a dragon test game's panel | **0** | 2: the defer, the panel edited in place to the other seat's |
 | Concede in a dragon, the second click | **1**: the public question to the teammate | 1: the confirmation edited |
 | Its **Agree** | **3**, as the duel's concession | 1: the question edited in place |
 
@@ -2929,7 +2931,10 @@ pressed on the live host on 2026-10-11, most likely while the click before it wa
 still putting its pictures up. The apply was ruled out by measure (about
 10 ms a click to the end of a 26-turn game, the save included), which
 left the wait. So the panel's views, `UndoView` and `UndoConfirmView`
-set `acknowledges_while_waiting` (`botkit.views.GameLockedView`): a
+-- and since 2026-10-20 the turn message's (`TurnMessageView`), the
+other player's hand menu (`HandView`, and the dragon's `WaitingView`
+under it) and the codex browser (`CodexBrowser`) -- set
+`acknowledges_while_waiting` (`botkit.views.GameLockedView`): a
 click that finds its game's lock held is deferred at once, and then
 waits. Every answer those views make works on a click answered already
 -- `edit_clicked` edits the message clicked through the webhook
@@ -2939,25 +2944,44 @@ The cost is one webhook request, and only on a click that would
 otherwise have waited unanswered: an in-place edit becomes the defer
 and the edit; an action's two stay two, since its defer is the one
 it would have made anyway. Nothing in the channel's bucket changes. The
-lobby, the turn message's buttons and D12 Ball's views do not opt in --
-their callbacks answer with `interaction.response` directly -- and wait
-as before.
+lobby and D12 Ball's views do not opt in -- their callbacks answer with
+`interaction.response` directly -- and wait as before. The turn
+message's buttons did not either until **My deck** and **Codex** on it
+could be the click queued behind a panel putting its pictures up, with
+nothing sent while it waited (the author's review of PR #663).
 
-**A deck or a codex is acknowledged before it is drawn.** **My deck**
-and **Codex** answered with the picture as the click's first response:
-drawn, then uploaded, before Discord had heard anything. On the live
-host on 2026-10-20 **Codex** under the hand's picture, while the turn
-waited on a tech choice (`TechGateView`), failed on that response with
-a 10062 -- not behind a busy game, since a panel's click waiting on the
-lock is deferred first, so the click's own draw and upload, or the
-event loop held up as long, outlasted the three seconds. Which, the
-host's console line cannot say: it is logged after the send, and the
-send failed. Both are answered
-whatever the picture costs: `send_deck` and `send_codex` defer the click
-as a private "thinking" message first (`acknowledge_privately`,
-`cogs/codex_views/base.py`) and send the picture as the follow-up that
-fills it -- one more webhook request a click, nothing in the channel's
-bucket. A click deferred already by the lock is left as it is.
+**A picture is acknowledged before it is drawn.** Every answer that
+pictured something -- the panel (`show_panel`, through `panel_parts`),
+the other player's hand (`send_hand`), a dragon's waiting panel
+(`put_waiting`), the deck, the codex and a view chosen in its menu, the
+tech picker's redraw (`_put_picker`), **Attack...**'s side of the board
+-- drew it and then sent it, or the edit carrying it, as the click's
+first response. On the live host on 2026-10-20 **Codex** under the
+hand's picture, while the turn waited on a tech choice
+(`TechGateView`), failed on that response with a 10062 -- not behind a
+busy game, since a panel's click waiting on the lock is deferred first,
+so the click's own draw and upload, or the event loop held up as long,
+outlasted the three seconds. Now each draws through
+`drawn_acknowledged` (`cogs/codex_views/base.py`): the click is
+acknowledged first and the drawing runs beside the acknowledgement's
+round trip (`asyncio.gather`, the acknowledgement started first) --
+privately, as a "thinking" message the answer then fills as its
+follow-up, where the answer is a message of its own
+(`acknowledge_privately`), and as a plain defer where it edits the
+message clicked (`acknowledge`). A click deferred already -- by the
+lock, or by an action putting something in public -- is left as it is.
+The cost is one webhook request on each such click, counted in the table
+above; nothing in the channel's bucket. A choice that only changes the
+panel's buttons (**Hire worker**, **Undo...**, a patrol slot) draws
+nothing and is answered in one, as before.
+
+**How late a click was acknowledged is logged before the
+acknowledgement goes out** (`_log_click_age`: the host's clock against
+the interaction's id, Discord's, so a host clock that is off by a second
+is off by that second here): INFO, console-only, one line a defer. A defer that fails
+with a 10062 fails before any picture's line is logged, so this is the
+line that says whether the click arrived late -- the lock, a stalled
+event loop -- or the bot was slow after it.
 
 The gate's full-image link adds one settling edit after a burst of
 clicks, at most one per interval, as it does for D12 Ball (step 3 turned
