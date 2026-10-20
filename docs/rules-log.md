@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-18.
+**As of:** 2026-10-20.
 
 ## Where the rules come from
 
@@ -154,6 +154,35 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-20 -- author, 2.0: the coin settles tied rolls, and a maneuver costs its rank
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) section 5). The author: *"ties
+are resolved by the state of the coin. At the start of the game, the coin is flipped into
+fortune or doom. While the coin is on fortune, offense wins ties and vice versa. Every time there
+is a contest or a challenge where an advanced maneuver is played, the coin is tossed again and a
+new state holds until the next time an advanced maneuver is played. That applies to ties in
+contests as well, so there's no more rerolls of ties. Also, ties don't cost exhaustion anymore.
+Maneuver costs exhaustion according to the rank. Whoever last held the ball is considered the
+offense, and the coin is tossed after the maneuver is fully resolved."* Asked the same day, the
+author answered:
+
+- **Which ties** (5.1c): equal ranks still go to the skill test, and the coin settles only an
+  equal total on the dice -- chosen over the coin deciding a tie on the cards with nothing rolled.
+- **Who pays a card's rank** (5.4): every player who plays a card, the handler of an unchallenged
+  maneuver included -- chosen over the two in a challenged maneuver alone, a tie on the cards
+  alone, or the loser alone.
+- **An unchallenged advanced card tosses the coin** (5.3), though it resolves as its basic
+  maneuver (2.3).
+- **A contest for the ball** (5.1): the dice are rolled as before, a tied total goes to the coin,
+  and nothing is paid for it.
+
+Two readings the answers left, written into 5.4 and put to the author on PR #656: a test
+Scorchit forces still costs Scorchit 2, as the price of the ability rather than of entering the
+test -- *"keep the cost for Scorchit's ability until I revise the special abilities for 2.0"*; and the tokens a card costs are paid at the reveal, so they count toward that
+maneuver's injury checks -- *"when the maneuver is revealed is correct"* (5.5). Asked whether the
+coin's face should be shown on the turn message and the board as well as said when it changes:
+*"yes and yes"*.
 
 ### 2026-10-18 -- author, 2.0: a recommended arrangement for a first game, and moving off a unique role's space
 

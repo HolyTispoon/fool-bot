@@ -627,6 +627,66 @@ class RulesEngine:
             game,
         )
 
+    def tie_coin_applies(self, game: Optional[D12BallGame]) -> bool:
+        """
+        Whether **the coin settles a tied roll** rather than its being
+        rolled again (docs/rules-2.0.md, section 5; the author,
+        2026-10-20), and whether a maneuver costs its card's rank
+        rather than the skill test costing its token. Both are 2.0's,
+        so this is the deck's own answer -- asked under its own name
+        so a reader of a tie or an exhaustion charge sees which rule it
+        is.
+        """
+        return self.maneuver_deck_applies(game)
+
+    @staticmethod
+    def tie_coin_winner(match: MatchState) -> str:
+        """
+        Which maneuver side the coin gives a tied roll: the offense
+        while it shows Fortune, the defense while it shows Doom
+        (rules-2.0 5.1a). In a contest for the ball the offense is the
+        side that last held it, which is `ball.possession` there as it
+        is for every contest's skill (5.1b).
+        """
+        return (
+            "offense"
+            if match.tie_coin == CoinFace.FORTUNE.value
+            else "defense"
+        )
+
+    def tie_coin_face(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> Optional[CoinFace]:
+        """
+        The face 2.0's coin shows, for a frontend to draw on the turn
+        message and the board (the author, 2026-10-20) -- None in 1.0
+        and before the first flip.
+        """
+        if not self.tie_coin_applies(game) or match.tie_coin is None:
+            return None
+        return CoinFace(match.tie_coin)
+
+    def tie_coin_caption(self, match: MatchState) -> str:
+        """What the coin's face means, in the fewest words: the board's
+        caption under the coin and the turn message's line."""
+        return (
+            "Offense wins ties"
+            if self.tie_coin_winner(match) == "offense"
+            else "Defense wins ties"
+        )
+
+    def maneuver_rank_cost(
+        self, game: Optional[D12BallGame], maneuver_key: Optional[str],
+    ) -> int:
+        """
+        The tokens playing this card costs its player: its rank in 2.0
+        -- an advanced card the rank it shares with its basic maneuver
+        -- and nothing in 1.0 (rules-2.0 5.4).
+        """
+        if maneuver_key is None or not self.tie_coin_applies(game):
+            return 0
+        return self.maneuver_catalog.definition(maneuver_key).rank
+
     def maneuver_reference_tier(
         self, game: Optional[D12BallGame],
     ) -> str:
@@ -2823,13 +2883,15 @@ class RulesEngine:
         """
         What entering a maneuver skill test costs `player_id`: 1, or
         under a test Scorchit forced (`forced_by`) 2 to Scorchit and
-        nothing to their opponent.
+        nothing to their opponent. In 2.0 a card costs its rank at the
+        reveal instead and the test is free, but for Scorchit's 2,
+        which is the ability's price (rules-2.0 5.4).
         """
         if forced_by is not None:
             return (
                 SCORCHIT_FORCED_TEST_TOKENS if player_id == forced_by else 0
             )
-        return 1
+        return 0 if self.tie_coin_applies(game) else 1
 
     def contest_auto_winner(
         self,
@@ -5216,6 +5278,14 @@ class RulesEngine:
             mention=player_number is not None,
         )
 
+        # 2.0's coin, on every turn message (the author, 2026-10-20).
+        face = self.tie_coin_face(game, match)
+        coin_line = (
+            f"\n\n{tokens.coin(face)} **{COIN_FACE_WORDS[face]}**: "
+            f"{self.tie_coin_caption(match).lower()}."
+            if face is not None else ""
+        )
+
         if match.active_player_id is None:
             # There used to be a second line here, for Slip in: a
             # named carrier *plus* the Telekinetics who could take the
@@ -5225,7 +5295,7 @@ class RulesEngine:
             # (2026-09-20), so a carrier is now always the whole list
             # and the branch had become unreachable.
             return (
-                f"{controller}, it is your turn.\n\n"
+                f"{controller}, it is your turn.{coin_line}\n\n"
                 "Choose which player in the ball's space will take "
                 "an action."
             )
@@ -5268,7 +5338,7 @@ class RulesEngine:
                 "Maneuver:"
             )
         return (
-            f"{controller}, it is your turn.\n\n"
+            f"{controller}, it is your turn.{coin_line}\n\n"
             f"{handler_line}\n\n"
             f"{action_line}"
         )

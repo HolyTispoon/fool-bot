@@ -1,8 +1,9 @@
 # D12 Ball 2.0
 
 **D12 Ball 2.0 is the Charter ([living-rules.md](living-rules.md)) with the rules below: a
-maneuver deck in place of how a coach chooses a maneuver (sections 1 to 3), and roles that
-belong to the formation rather than to the players, with no role abilities (section 4).**
+maneuver deck in place of how a coach chooses a maneuver (sections 1 to 3), roles that
+belong to the formation rather than to the players, with no role abilities (section 4), and a
+coin that settles tied rolls, with a maneuver costing exhaustion by its rank (section 5).**
 Everything the Charter does not change here plays exactly as it says. D12 Ball 1.0 is the
 Charter unchanged. The edition is chosen at setup, beside the mode, and either edition goes
 with any of the three modes: the mode still decides which abilities are played (Law 18). Where
@@ -38,8 +39,9 @@ maneuver its half for that side shows, an advanced card only on its own side. A 
 holds a card either side can play, because only three of the fifteen are offense alone and
 three defense alone.
 
-**2.2** **There is no coin and no gambit declaration** (Law 19.3 does not apply). Playing an
-advanced card is making a gambit, and it succeeds and fails on rank as Law 19.4 says.
+**2.2** **There is no gambit declaration** (Law 19.3 does not apply): no coach holds a coin
+to make a gambit with. Playing an advanced card is making a gambit, and it succeeds and fails on
+rank as Law 19.4 says. The coin 2.0 does have settles tied rolls (section 5).
 
 **2.3** An advanced card may be played against no challenge (Law 6.1.4), and then **resolves
 as the basic maneuver on its rank**, since there is no card for it to win against.
@@ -181,3 +183,41 @@ role ability to play it beside.
 
 *Note.* For now a role carries no ability in 2.0: it decides which zone a player is in, where
 the three unique roles stand, who may be moved in a Coaching Choice, and who takes the kickoff.
+
+## 5. Ties and the coin
+
+**5.1** **The coin settles every tied roll** -- a maneuver's skill test (Law 6.4) and a contest
+for the ball, a High Ball contest included (Law 10.2, 10.4). Nothing is rolled again, and so
+nothing is paid for a re-roll (Law 6.4.4, 10.2.2 and the re-roll in Law 15.1.1 do not apply).
+
+- **a.** **While the coin shows Fortune the offense wins a tied roll; while it shows Doom the
+  defense does.**
+- **b.** In a skill test the offense is the handler's side. In a contest for the ball it is the
+  side that last held the ball -- the side that adds its offensive skill (Law 10.2.1).
+- **c.** A tie on the cards is still a skill test (Law 6.3.1), and a tie a player loses for being
+  injured is still lost with nothing rolled (Law 15.4.2a). Only an equal total on the dice goes to
+  the coin. A score attempt (Law 5.2.3) and a shootout test (Law 17.4.3) are not settled by it.
+
+**5.2** **The coin is flipped at the start of the game**, before the first turn, and lands on
+Fortune or Doom.
+
+**5.3** **Whenever an advanced card is played** -- by either coach, challenged or not -- **the
+coin is tossed again once that maneuver is fully resolved**, every contest it leads to
+included, and its new face holds until the next maneuver an advanced card is played in. So a
+tied roll in that maneuver is settled by the face the coin showed when the cards were revealed.
+
+**5.4** **A maneuver costs exhaustion by its rank.** Every player who plays a card exhausts its
+rank -- 1, 2 or 3, an advanced card the rank it shares with its basic maneuver (Law 19.1.2) --
+when the cards are revealed, win or lose, and the handler of an unchallenged maneuver too.
+**Entering a skill test costs nothing** (Law 6.4.1 does not apply), except that a test
+Scorchit forces in advanced mode still costs Scorchit 2, the price of the ability (Law 21.3.8),
+and their opponent nothing. Merging into a roll still costs 1 (Law 20.5). So the first row of Law
+15.1.1 reads:
+
+| What costs tokens | How many |
+| --- | --- |
+| Playing a maneuver card | its rank, to the player who plays it |
+
+**5.5** The tokens a card costs count toward the injury checks of the skill test it leads to
+(Law 15.3.2). A maneuver settled on the cards owes no injury check, however many tokens it cost
+(Law 15.3.3). An injured player still never exhausts (Law 15.1.3).

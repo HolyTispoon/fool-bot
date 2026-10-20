@@ -132,6 +132,43 @@ field strip is.
 deck, shuffles and deals four (`maneuver_deck.reshuffled`), and says so in halftime's opening
 message. A 1.0 halftime is unchanged, which the windows golden pins.
 
+## The coin
+
+**2.0's coin settles a tied roll** (rules-2.0 section 5; the author, 2026-10-20) -- a skill
+test's and a contest for the ball's, never the cards' and never a shot's. It is not 1.0's gambit
+coin, which `coin_applies` still gates and 2.0 still has none of; it is
+**`MatchState.tie_coin`**, the face it shows, with **`tie_coin_owed`** beside it. Both are
+`MATCH_EXPLICIT_FIELDS`, written only once the coin has been flipped, so a 1.0 match is saved
+byte for byte as before. `RulesEngine.tie_coin_applies` is the gate (2.0's, so the deck's
+answer under its own name) and `tie_coin_winner` the one reading of whom the face favours.
+
+- **A tie is settled where 1.0 re-rolls it.** `skill_test_step` and `loose_ball_test_step` ask
+  `coin_settles_tie` in place of `pay_contest_tie`: the winner is the coin's side, nothing is
+  charged, and the tie is said above the winner's line. The contest's offense is
+  `ball.possession`, the side that last held the ball, which is already the side adding its
+  offensive skill there.
+- **Flipped and tossed at the start of a turn** (`settle_tie_coin`, in `start_turn`). The rules
+  toss it once the advanced maneuver is fully resolved, every contest it leads to included, and
+  only a maneuver leads to a tied roll, so the next turn's start is the first point after which
+  the new face can matter -- and one place reaches every ending, a goal and a period's end
+  included, where the maneuver's own finish has several. The reveal marks the toss owed
+  (`pay_for_cards`), which is why the flag is saved: a restart between the two must not lose
+  it. An unflipped coin is flipped the same way, which is both the game's first flip and a 2.0
+  game saved before the coin; a tie met with no coin at all (such a save, mid-maneuver) flips it
+  there and says so.
+- **The face is always in view** (the author, 2026-10-20): every turn message carries it
+  (`build_turn_prompt`, "Doom: defense wins ties.") and the board draws the game's own coin
+  showing it on the jumbotron, between the visiting side and the clock, with the same words
+  under it (`draw_jumbotron_coin`). The engine answers both -- `tie_coin_face` and
+  `tie_coin_caption` -- and the cog hands the renderer the picture's name and the caption
+  (`D12Ball.tie_coin_brief`), so the renderer reads no rule. With no coin the jumbotron is
+  drawn exactly as before, byte for byte; the web page has no 2.0 and passes none.
+- **A card costs its rank** (rules-2.0 5.4): `pay_for_cards` charges the handler, and the
+  challenger where there is one, `maneuver_rank_cost` at the reveal in `resolve_maneuver` --
+  which runs once a maneuver, so nothing is charged twice -- worded under the cards. So the
+  tokens count toward the skill test's injury checks, and `skill_test_tokens` answers 0 in 2.0
+  but for the 2 Scorchit pays to force a test, which is the ability's price.
+
 ## Roles
 
 **`RulesEngine.role_of(match, player_id)` is the one reading of which role a card is
