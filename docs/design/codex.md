@@ -2720,7 +2720,8 @@ whole codex at once is too much to pick from -- "need a way to filter
 and look just at several pieces, by tech level, by spec"). Its first
 row is the same menu the Codex button carries -- Everything, Tech I to
 III, Spells, and in the standard game one spec (`codex_view_menu`, over
-the engine's `codex_views`) -- and choosing one re-renders the picture
+the engine's `codex_views`), with the picker's opening view first (below)
+-- and choosing one re-renders the picture
 and rebuilds the cards' menu from that view alone
 (`codex_view_rows` over `TechOptions.codex`, so the picker reads the
 prompt's list, narrowed by the engine, and computes nothing). **The
@@ -2732,8 +2733,25 @@ Save is held to the bounds by the driver whatever view is shown. A change of
 view is the picker's own edit through the interaction's webhook and
 spends nothing public, like a pick before saving. Save sends the picks
 whatever view is shown. After Save, or from **Tech**, the picker opens
-on Everything again: which view was shown is not remembered, since the
-picker is an ephemeral message made afresh each time.
+on its opening view again: which view was shown is not remembered, since
+the picker is an ephemeral message made afresh each time.
+
+**The picker opens on the part a choice is likeliest made from** (the
+author, 2026-10-20): before the player's first Tech II building, every
+Tech I card and every spell ("Tech I & Spells"); once one is built, the
+spec chosen for it -- its Tech II and III -- and every spell, every
+spec's ("Anarchy Tech II & III, Spells"). A Tech II destroyed since
+still counts, its spec being kept (`tech2_spec`); the basic game's one
+spec is the Tech II's, though `tech2_spec` never records it there.
+**Whole codex** beside the buttons shows everything, and on any other
+view the same button, named for the opening view, goes back to it. The
+reading is the engine's -- `tech_focus_view`, and `tech_opening_view`,
+which falls back to Everything where the focused view has no copy left,
+so the picker never opens on an empty menu -- carried on the prompt as
+`TechOptions.opening` and `TechOptions.views` (the Show menu: the
+focused view first, then `codex_views`), so the view reads its options
+and computes nothing. The focused view is the picker's alone; the Codex
+button's menu is unchanged.
 
 From the third turn on the new turn opens on its player's confirmation:
 the new turn message says it waits on them to confirm their tech (the

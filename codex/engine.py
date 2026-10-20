@@ -118,6 +118,20 @@ def spec_view(spec: str) -> str:
     return SPEC_VIEW_PREFIX + spec.strip().lower()
 
 
+#: The tech picker's two opening views (`RulesEngine.tech_opening_view`):
+#: before a Tech II building, every Tech I card and every spell; after it,
+#: the Tech II spec's Tech II and III and every spell, as
+#: `tech2spec:<key>` (`tech2_spec_view`).
+TECH1_SPELLS_VIEW = "tech1spells"
+TECH2_SPEC_VIEW_PREFIX = "tech2spec:"
+
+
+def tech2_spec_view(spec: str) -> str:
+    """The picker's view of one spec's Tech II and III and every spell:
+    "tech2spec:anarchy"."""
+    return TECH2_SPEC_VIEW_PREFIX + spec.strip().lower()
+
+
 #: What a hero's death costs and gives (UMR p. 7).
 SUMMONING_RUNES_ON_DEATH = 2
 LEVELS_FOR_A_KILL = 2
@@ -4186,6 +4200,37 @@ class RulesEngine:
             return CODEX_VIEWS
         return CODEX_VIEWS + tuple(spec_view(spec) for spec in specs)
 
+    def tech_focus_view(self, player: PlayerState) -> str:
+        """
+        The part of the codex a tech choice is likeliest made from (the
+        author, 2026-10-20): before the player's first Tech II building,
+        every Tech I card and every spell (`TECH1_SPELLS_VIEW`); once one
+        is built -- destroyed since or not, its spec being kept -- that
+        spec's Tech II and III and every spell (`tech2_spec_view`). A
+        basic game's one spec is the Tech II's, which `tech2_spec` never
+        records; a standard game's save with no `tech2_spec` has none,
+        and is "everything".
+        """
+        if player.buildings.get("tech2") is None:
+            return TECH1_SPELLS_VIEW
+        spec = player.tech2_spec or (player.specs[0] if len(player.specs) == 1 else None)
+        return "everything" if spec is None else tech2_spec_view(spec)
+
+    def tech_opening_view(self, player: PlayerState) -> str:
+        """The view the tech picker opens on: `tech_focus_view`, or the
+        whole codex where that view has no copy left to pick."""
+        focus = self.tech_focus_view(player)
+        if any(left for _, left in self.codex_view_rows(self.codex_counts(player), focus)):
+            return focus
+        return "everything"
+
+    def tech_views(self, player: PlayerState) -> tuple[str, ...]:
+        """The tech picker's Show menu: `tech_focus_view` first, then the
+        views the Codex button offers (`codex_views`)."""
+        views = self.codex_views(player)
+        focus = self.tech_focus_view(player)
+        return views if focus in views else (focus,) + views
+
     def codex_view_rows(self, rows: Sequence[tuple[str, int]],
                         view: str) -> tuple[tuple[str, int], ...]:
         """
@@ -4200,6 +4245,20 @@ class RulesEngine:
         """
         if view == "everything":
             return tuple(rows)
+        if view == TECH1_SPELLS_VIEW:
+            return tuple(
+                row for row in rows
+                if self.catalog.cards[row[0]].is_spell or self.catalog.cards[row[0]].tech_level == 1
+            )
+        if view.startswith(TECH2_SPEC_VIEW_PREFIX):
+            key = view[len(TECH2_SPEC_VIEW_PREFIX):]
+
+            def held(slug: str) -> bool:
+                card = self.catalog.cards[slug]
+                return card.is_spell or ((card.tech_level or 0) >= 2
+                                         and (card.spec or "").strip().lower() == key)
+
+            return tuple(row for row in rows if held(row[0]))
         if view.startswith(SPEC_VIEW_PREFIX):
             key = view[len(SPEC_VIEW_PREFIX):]
             return tuple(
@@ -4236,7 +4295,8 @@ class RulesEngine:
         """
         cards = [self.catalog.cards[slug] for slug, _ in rows]
         grouped = (len({card.spec for card in cards}) > 1
-                   and view in ("everything", "tech2", "spells"))
+                   and (view in ("everything", "tech2", "spells", TECH1_SPELLS_VIEW)
+                        or view.startswith(TECH2_SPEC_VIEW_PREFIX)))
 
         def band(card) -> tuple:
             if not grouped:

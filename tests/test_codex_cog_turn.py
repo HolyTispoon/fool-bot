@@ -947,16 +947,18 @@ class TurnEndTests(TurnTestCase):
         picker's own edit and spends nothing public (the author,
         2026-10-09: the whole codex at once is too much to pick from).
         """
+        from codex.engine import TECH1_SPELLS_VIEW
+
         await self.end_turn()
         engine = self.table.cog.engine
         mark = len(self.table.game_channel.requests)
         tech = await self.table.turn_button("tech", self.table.waiting)
         picker = tech.view()
         self.assertIsInstance(picker, TechChoiceView)
-        self.assertEqual(picker.view, "everything")
+        self.assertEqual(picker.view, TECH1_SPELLS_VIEW)
         codex = picker.prompt.options.codex
         self.assertEqual([option.value for menu in picker.menus for option in menu.options],
-                         [slug for slug, _ in codex])
+                         [slug for slug, _ in engine.codex_view_rows(codex, TECH1_SPELLS_VIEW)])
         self.assertTrue(all((menu.min_values, menu.max_values) == (1, 1) for menu in picker.menus))
         self.assertTrue(picker.menus[0].placeholder.startswith("Choose your first card of 2"))
 
@@ -2205,13 +2207,75 @@ class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
         seat = match.active
         engine = self.table.cog.engine
         prompt = with_options(engine, self.game, match, tech_prompt(engine, seat, match))
-        picker = TechChoiceView(self.table.cog, self.game.game_id, prompt, match)
+        picker = TechChoiceView(self.table.cog, self.game.game_id, prompt, match, view="everything")
         offered = [option.value for menu in picker.menus for option in menu.options]
         self.assertGreater(len(prompt.options.codex), 25)
         self.assertGreater(len(picker.menus), 1)
         self.assertEqual(offered, [slug for slug, _ in prompt.options.codex])
         self.assertTrue(all(len(menu.options) <= 25 for menu in picker.menus))
         self.assertLessEqual(max(item.row for item in picker.children), 4)
+
+    async def test_the_tech_picker_opens_on_tech_i_and_the_spells(self) -> None:
+        """Before a Tech II building the picker opens on every Tech I
+        card and every spell, with **Whole codex** a click away, which
+        offers every card and a button back (the author, 2026-10-20)."""
+        from codex.engine import TECH1_SPELLS_VIEW
+        from codex.prompts import tech_prompt, with_options
+
+        match = self.table.match
+        seat = match.active
+        engine = self.table.cog.engine
+        catalog = engine.catalog
+        prompt = with_options(engine, self.game, match, tech_prompt(engine, seat, match))
+        self.assertEqual(prompt.options.opening, TECH1_SPELLS_VIEW)
+        self.assertEqual(prompt.options.views[0], TECH1_SPELLS_VIEW)
+        picker = TechChoiceView(self.table.cog, self.game.game_id, prompt, match)
+        offered = [option.value for menu in picker.menus for option in menu.options]
+        expected = [slug for slug, _ in prompt.options.codex
+                    if catalog.cards[slug].is_spell or catalog.cards[slug].tech_level == 1]
+        self.assertEqual(offered, expected)
+        self.assertTrue(any(catalog.cards[slug].is_spell for slug in offered))
+        labels = [item.label for item in picker.children if isinstance(item, discord.ui.Button)]
+        self.assertIn("Whole codex", labels)
+        self.assertLessEqual(max(item.row for item in picker.children), 4)
+        whole = await self.table.press(picker, "Whole codex")
+        widened = whole.view()
+        self.assertEqual(widened.view, "everything")
+        self.assertEqual([option.value for menu in widened.menus for option in menu.options],
+                         [slug for slug, _ in prompt.options.codex])
+        labels = [item.label for item in widened.children if isinstance(item, discord.ui.Button)]
+        self.assertIn("Tech I & Spells", labels)
+        self.assertNotIn("Whole codex", labels)
+
+    async def test_the_tech_picker_opens_on_the_tech_ii_spec(self) -> None:
+        """Once a Tech II building is built with a spec, the picker opens
+        on that spec's Tech II and III and every spell; it is still
+        built, destroyed or not."""
+        from codex.components import BuildingState
+        from codex.engine import tech2_spec_view
+        from codex.formatting import codex_view_name
+        from codex.prompts import tech_prompt, with_options
+
+        match = self.table.match
+        seat = match.active
+        engine = self.table.cog.engine
+        catalog = engine.catalog
+        player = match.player(seat)
+        spec = player.specs[1]
+        player.buildings["tech2"] = BuildingState(hp=5, under_construction=False, destroyed=True)
+        player.tech2_spec = spec
+        prompt = with_options(engine, self.game, match, tech_prompt(engine, seat, match))
+        self.assertEqual(prompt.options.opening, tech2_spec_view(spec))
+        picker = TechChoiceView(self.table.cog, self.game.game_id, prompt, match)
+        offered = [catalog.cards[option.value] for menu in picker.menus for option in menu.options]
+        units = [card for card in offered if not card.is_spell]
+        self.assertTrue(units)
+        self.assertTrue(all((card.tech_level or 0) >= 2 and card.spec.lower() == spec.lower()
+                            for card in units))
+        self.assertEqual({card.spec for card in offered if card.is_spell},
+                         {catalog.cards[slug].spec for slug, _ in prompt.options.codex
+                          if catalog.cards[slug].is_spell})
+        self.assertTrue(codex_view_name(prompt.options.opening).endswith("Tech II & III, Spells"))
 
     async def test_build_tech_ii_asks_its_spec_in_the_panel(self) -> None:
         match = self.table.match

@@ -167,17 +167,21 @@ CODEX_VIEW_NAMES = {
     "tech1": "Tech I",
     "tech2": "Tech II & III",
     "spells": "Spells",
+    "tech1spells": "Tech I & Spells",
 }
 
 
 def codex_view_name(view: str) -> str:
     """
     A codex view by name: "Everything", "Tech I", "Tech II & III", "Spells",
-    and a spec's view by the spec -- "Anarchy" -- as `deck_name` spells
-    it. The Codex menu and the tech picker's both say it.
+    a spec's view by the spec -- "Anarchy" -- as `deck_name` spells
+    it, and the tech picker's two opening views, "Tech I & Spells" and
+    "Anarchy Tech II & III, Spells". The Codex menu and the tech picker's both say it.
     """
     if view.startswith("spec:"):
         return deck_name((view[len("spec:"):],))
+    if view.startswith("tech2spec:"):
+        return f"{deck_name((view[len('tech2spec:'):],))} Tech II & III, Spells"
     return CODEX_VIEW_NAMES.get(view, view)
 
 
