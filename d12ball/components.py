@@ -1955,6 +1955,9 @@ MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
         # it was before 2.0.
         "maneuver_decks",
         "formation_roles",
+        # 2.0's coin, likewise written only where it has been flipped.
+        "tie_coin",
+        "tie_coin_owed",
         "ruleset_id",
         "player_data_version",
         "board",
@@ -2060,6 +2063,18 @@ class MatchState:
     maneuver_decks: dict[str, dict[str, list[str]]] = field(
         default_factory=dict,
     )
+    # D12 Ball 2.0's coin (docs/rules-2.0.md, section 5): the face it
+    # shows, which settles a tied roll -- the offense's on Fortune, the
+    # defense's on Doom -- and whether it is owed a toss, because an
+    # advanced card was played in a maneuver not yet over. Flipped at
+    # the first turn and tossed at the first turn after that maneuver
+    # (`d12ball.flow.turn.settle_tie_coin`). None and False in a 1.0
+    # game and in every save before the coin, and saved explicitly,
+    # only where it has been flipped, so a 1.0 match is written exactly
+    # as before (`MATCH_EXPLICIT_FIELDS`). It outlives every maneuver,
+    # so `reset_maneuver` leaves it alone.
+    tie_coin: Optional[str] = None
+    tie_coin_owed: bool = False
     # **Volatile's tier rider**: the skill test that just resolved was
     # ignited in a way that raises the *winner's* maneuver to its
     # gambit -- see "Volatile (Fire Demon)" in
@@ -6133,6 +6148,10 @@ class MatchState:
         # 2.0's roles, likewise only where there are any.
         if self.formation_roles:
             saved["formation_roles"] = copy_roles(self.formation_roles)
+        # 2.0's coin, likewise only once it has been flipped.
+        if self.tie_coin is not None:
+            saved["tie_coin"] = self.tie_coin
+            saved["tie_coin_owed"] = self.tie_coin_owed
         return saved
 
     @classmethod
@@ -6272,6 +6291,10 @@ class MatchState:
             # Absent from every 1.0 save, and from a 2.0 save made
             # before roles were the formation's: each card's own role.
             formation_roles=copy_roles(data.get("formation_roles", {})),
+            # Absent from every 1.0 save and every 2.0 save before the
+            # coin: unflipped, which the next turn's start flips.
+            tie_coin=data.get("tie_coin"),
+            tie_coin_owed=bool(data.get("tie_coin_owed", False)),
             **{
                 saved_field.name: saved_field.restored(data)
                 for saved_field in MATCH_SAVED_FIELDS

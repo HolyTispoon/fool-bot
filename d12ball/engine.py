@@ -627,6 +627,45 @@ class RulesEngine:
             game,
         )
 
+    def tie_coin_applies(self, game: Optional[D12BallGame]) -> bool:
+        """
+        Whether **the coin settles a tied roll** rather than its being
+        rolled again (docs/rules-2.0.md, section 5; the author,
+        2026-10-20), and whether a maneuver costs its card's rank
+        rather than the skill test costing its token. Both are 2.0's,
+        so this is the deck's own answer -- asked under its own name
+        so a reader of a tie or an exhaustion charge sees which rule it
+        is.
+        """
+        return self.maneuver_deck_applies(game)
+
+    @staticmethod
+    def tie_coin_winner(match: MatchState) -> str:
+        """
+        Which maneuver side the coin gives a tied roll: the offense
+        while it shows Fortune, the defense while it shows Doom
+        (rules-2.0 5.1a). In a contest for the ball the offense is the
+        side that last held it, which is `ball.possession` there as it
+        is for every contest's skill (5.1b).
+        """
+        return (
+            "offense"
+            if match.tie_coin == CoinFace.FORTUNE.value
+            else "defense"
+        )
+
+    def maneuver_rank_cost(
+        self, game: Optional[D12BallGame], maneuver_key: Optional[str],
+    ) -> int:
+        """
+        The tokens playing this card costs its player: its rank in 2.0
+        -- an advanced card the rank it shares with its basic maneuver
+        -- and nothing in 1.0 (rules-2.0 5.4).
+        """
+        if maneuver_key is None or not self.tie_coin_applies(game):
+            return 0
+        return self.maneuver_catalog.definition(maneuver_key).rank
+
     def maneuver_reference_tier(
         self, game: Optional[D12BallGame],
     ) -> str:
@@ -2823,13 +2862,15 @@ class RulesEngine:
         """
         What entering a maneuver skill test costs `player_id`: 1, or
         under a test Scorchit forced (`forced_by`) 2 to Scorchit and
-        nothing to their opponent.
+        nothing to their opponent. In 2.0 a card costs its rank at the
+        reveal instead and the test is free, but for Scorchit's 2,
+        which is the ability's price (rules-2.0 5.4).
         """
         if forced_by is not None:
             return (
                 SCORCHIT_FORCED_TEST_TOKENS if player_id == forced_by else 0
             )
-        return 1
+        return 0 if self.tie_coin_applies(game) else 1
 
     def contest_auto_winner(
         self,
