@@ -3893,7 +3893,10 @@ on.
 - **A lent card that dies pays its owner** (the scavenger's gold, the
   technician's card) and leaves play to its owner's discard pile; a lent
   hero goes to its owner's command zone with its two summoning runes,
-  its levels to an opponent of its controller.
+  its levels to an opponent of its controller. A hero pays the
+  scavenger's and technician's bonuses as a unit does, lent or not --
+  "Finds 1 gold for you if it dies while patrolling" (Rulebook p. 7)
+  names no kind of card -- always to its owner (`board._patrol_payout`).
 - **Taking the end of a turn back takes the lending back**: the undo
   replays to the last point before the lock, and the lock is journaled
   only where a choice is asked before the next turn begins.
