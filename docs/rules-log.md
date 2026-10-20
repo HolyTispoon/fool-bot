@@ -179,7 +179,7 @@ author answered:
 
 Two readings the answers left, written into 5.4 and put to the author on PR #656: a test
 Scorchit forces still costs Scorchit 2, as the price of the ability rather than of entering the
-test (still open); and the tokens a card costs are paid at the reveal, so they count toward that
+test -- *"keep the cost for Scorchit's ability until I revise the special abilities for 2.0"*; and the tokens a card costs are paid at the reveal, so they count toward that
 maneuver's injury checks -- *"when the maneuver is revealed is correct"* (5.5). Asked whether the
 coin's face should be shown on the turn message and the board as well as said when it changes:
 *"yes and yes"*.
