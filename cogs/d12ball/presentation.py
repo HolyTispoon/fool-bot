@@ -26,7 +26,7 @@ from d12ball.dice_brief import (
     maneuver_challenge_notes,
     score_attempt_brief,
 )
-from d12ball.game import D12BallGame, Team, team_display_name
+from d12ball.game import D12BallGame, Team, coin_face_name, team_display_name
 from d12ball.player_cards import render_player_card, render_player_card_back
 from d12ball.render import (
     IgnitionDie,
@@ -638,8 +638,23 @@ class PresentationMixin:
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
             card_skills=self.engine.card_skills(game, match),
             coaches=coaches,
+            tie_coin=self.tie_coin_brief(game, match),
         )
         return image.getvalue()
+
+    def tie_coin_brief(
+        self, game: D12BallGame, match: MatchState,
+    ) -> Optional[tuple[str, str]]:
+        """2.0's coin for the board's jumbotron -- the game's own coin
+        showing the face the engine reads, and its caption -- or None
+        in 1.0 and before the first flip."""
+        face = self.engine.tie_coin_face(game, match)
+        if face is None:
+            return None
+        return (
+            coin_face_name(game.game_coin, face),
+            self.engine.tie_coin_caption(match),
+        )
 
     def match_file_from_png(
         self,

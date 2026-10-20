@@ -32,8 +32,10 @@ is a rule rather than an accident:
   the shootout, and not in the skill test or the score attempt.** See
   "Injured players" in docs/living-rules.md.
 - **A tie is re-rolled in the skill test and the loose ball**, at a
-  token each; a score attempt scores on level totals (Law 5.2.3, the
-  author 2026-10-18), and a shootout tie simply scores for nobody.
+  token each -- in 1.0; in 2.0 the coin settles it, unrolled and free
+  (`coin_settles_tie`, rules-2.0 section 5). A score attempt scores on
+  level totals (Law 5.2.3, the author 2026-10-18), and a shootout tie
+  simply scores for nobody.
 - **The tutorial scripts the skill test's dice and the loose ball's**,
   and deliberately scripts neither of the other two -- a beat only
   fixes a roll the next beat depends on. See
@@ -89,7 +91,7 @@ from d12ball.formatting import (
     summed_modifier_line,
     total_modifier_line,
 )
-from d12ball.game import D12BallGame, Team
+from d12ball.game import COIN_FACE_WORDS, CoinFace, D12BallGame, Team
 from d12ball.special_abilities import (
     BOOST_BONUS,
     BOOST_DRAIN_COST,
@@ -251,6 +253,37 @@ def _with_extras(
     ):
         if line:
             detail.append(line)
+
+
+def coin_settles_tie(
+    engine: RulesEngine,
+    match: MatchState,
+    offense_total: int,
+    defense_total: int,
+) -> tuple[str, str]:
+    """
+    **D12 Ball 2.0: a tied roll goes to the side the coin favours**
+    (rules-2.0 5.1; the author, 2026-10-20) -- the offense on Fortune,
+    the defense on Doom -- and is not rolled again, so nobody pays for
+    it. Shared, like `pay_contest_tie`, by the skill test and the
+    contest for the ball. Returns the winning maneuver side and the
+    tie's lines, headed like `pay_contest_tie`'s.
+
+    A 2.0 game saved before the coin, mid-maneuver, has none flipped
+    yet: it is flipped here, and said.
+    """
+    flipped = ""
+    if match.tie_coin is None:
+        match.tie_coin = engine.flip_coin().value
+        flipped = "The coin is flipped. "
+    face = CoinFace(match.tie_coin)
+    outcome = engine.tie_coin_winner(match)
+    side = "offense" if outcome == "offense" else "defense"
+    return outcome, (
+        f"## **It's a tie ({offense_total}-{defense_total})!**\n"
+        f"{flipped}The coin shows {tokens.coin(face)} "
+        f"**{COIN_FACE_WORDS[face]}**, so the {side} wins it."
+    )
 
 
 def pay_contest_tie(
@@ -605,7 +638,14 @@ def skill_test_step(
         defense_key=match.defense_maneuver,
     )
 
-    if offense_total == defense_total:
+    tie_text = ""
+    if offense_total != defense_total:
+        outcome = "offense" if offense_total > defense_total else "defense"
+    elif engine.tie_coin_applies(game):
+        outcome, tie_text = coin_settles_tie(
+            engine, match, offense_total, defense_total,
+        )
+    else:
         return dice, StepResult(
             board_changed=True,
             next=PendingPrompt(
@@ -622,7 +662,6 @@ def skill_test_step(
             ),
         )
 
-    outcome = "offense" if offense_total > defense_total else "defense"
     winner_key = (
         match.offense_maneuver
         if outcome == "offense"
@@ -728,7 +767,8 @@ def skill_test_step(
     wins = f"**{winner_name}** wins the skill test!"
     result.narration.insert(
         0,
-        f"## {wins}{volatile_note}" + (f"\n{clock}" if clock else ""),
+        (f"{tie_text}\n" if tie_text else "")
+        + f"## {wins}{volatile_note}" + (f"\n{clock}" if clock else ""),
     )
     result.headlines = (Headline(
         wins,
@@ -923,6 +963,7 @@ def settle_loose_ball_winner(
     defense_player: PlayerDefinition,
     offense_total: int,
     defense_total: int,
+    tie_winner: Optional[str] = None,
 ) -> tuple[str, list[PlayerDefinition], int, bool, tuple[Headline, ...]]:
     """
     Give the ball to whoever won the contest and word the result: the
@@ -930,8 +971,13 @@ def settle_loose_ball_winner(
     behind it needs -- both read off the match before this clears
     them -- and the announcement's `Headline`s: the turnover where
     there was one, and who won, each worded once for both.
+
+    `tie_winner` is the side 2.0's coin gave level totals
+    (`coin_settles_tie`); a 1.0 tie never reaches here.
     """
-    outcome = "offense" if offense_total > defense_total else "defense"
+    outcome = tie_winner or (
+        "offense" if offense_total > defense_total else "defense"
+    )
     winner_side = (
         match.ball.possession
         if outcome == "offense"
@@ -1104,7 +1150,13 @@ def loose_ball_test_step(
     )
     match.consume_overdrive()
 
-    if offense_total == defense_total:
+    tie_text = ""
+    tie_winner = None
+    if offense_total == defense_total and engine.tie_coin_applies(game):
+        tie_winner, tie_text = coin_settles_tie(
+            engine, match, offense_total, defense_total,
+        )
+    elif offense_total == defense_total:
         return dice, StepResult(
             board_changed=True,
             next=PendingPrompt(
@@ -1130,8 +1182,10 @@ def loose_ball_test_step(
         headlines,
     ) = settle_loose_ball_winner(
         engine, game, match, offense_player, defense_player,
-        offense_total, defense_total,
+        offense_total, defense_total, tie_winner,
     )
+    if tie_text:
+        announcement = f"{tie_text}\n{announcement}"
     working = contest_working(
         engine, match, (offense_player, defense_player), contestants,
     )

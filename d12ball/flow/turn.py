@@ -238,6 +238,9 @@ def resolve_maneuver(
         engine.defending_player_number(game, match),
     )
 
+    paid = pay_for_cards(engine, game, match)
+    paid_line = f"\n{paid}" if paid else ""
+
     if match.maneuver_uncontested:
         # Nothing to reveal against and nothing to rank: the offense's
         # pick is the winner, and its effect runs the same pipeline a
@@ -258,7 +261,7 @@ def resolve_maneuver(
         return StepResult(
             narration=[
                 f"{offense_display} chose **{offense_name}**, "
-                f"unchallenged.{plays_as}\n\n## {succeeds}"
+                f"unchallenged.{plays_as}{paid_line}\n\n## {succeeds}"
                 + (f"\n{clock}" if clock else "")
             ],
             headlines=(Headline(succeeds, match.ball.possession),),
@@ -271,6 +274,7 @@ def resolve_maneuver(
     reveal = (
         f"{offense_display} chose **{offense_name}**.\n"
         f"{defense_display} chose **{defense_name}**."
+        f"{paid_line}"
     )
 
     # Who wins is settled_maneuver_winner's alone to say; what is
@@ -860,6 +864,80 @@ def play_maneuver_cards(
     return lines
 
 
+def pay_for_cards(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    **D12 Ball 2.0: the cards just revealed are paid for** (rules-2.0
+    5.3, 5.4; the author, 2026-10-20). Each player who played a card
+    exhausts its rank -- the handler, and the challenger where there is
+    one -- win or lose, and an advanced card on either side owes the
+    coin a toss once this maneuver is over (`settle_tie_coin`).
+    Nothing in 1.0, where the skill test charges its token instead.
+
+    At the reveal, in `resolve_maneuver`, which runs once a maneuver:
+    the tokens are said under the cards that cost them, and they count
+    toward the injury checks of the test the reveal may lead to (5.5).
+    Returns the lines, joined; "" where nothing was charged.
+    """
+    if not engine.tie_coin_applies(game):
+        return ""
+    plays = [(match.active_player_id, match.offense_maneuver)]
+    if not match.maneuver_uncontested:
+        plays.append((match.challenger_id, match.defense_maneuver))
+    lines = []
+    for player_id, key in plays:
+        if player_id is None or key is None:
+            continue
+        if engine.maneuver_catalog.definition(key).is_gambit:
+            match.tie_coin_owed = True
+        lines.append(engine.apply_exhaustion(
+            game, match, player_id, engine.maneuver_rank_cost(game, key),
+        ))
+    return "\n".join(filter(None, lines))
+
+
+def settle_tie_coin(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    **D12 Ball 2.0's coin, flipped and tossed** (rules-2.0 5.2, 5.3):
+    flipped before the first turn, and tossed again at the first turn
+    after a maneuver an advanced card was played in -- which is after
+    that maneuver is fully resolved, every contest it led to included,
+    since only a maneuver leads to a tied roll. A 2.0 game saved before
+    the coin is flipped at its next turn the same way. Says the face
+    and what it means, since the coin is public; "" where nothing was
+    thrown.
+    """
+    if not engine.tie_coin_applies(game):
+        return ""
+    if match.tie_coin is not None and not match.tie_coin_owed:
+        return ""
+    first = match.tie_coin is None
+    face = engine.flip_coin()
+    match.tie_coin = face.value
+    match.tie_coin_owed = False
+    winner = (
+        "the offense" if engine.tie_coin_winner(match) == "offense"
+        else "the defense"
+    )
+    word = COIN_FACE_WORDS[face]
+    thrown = (
+        "The coin is flipped"
+        if first
+        else "An advanced maneuver was played, so the coin is tossed again"
+    )
+    return (
+        f"{thrown}: {tokens.coin(face)} **{word}**. "
+        f"While it shows {word}, {winner} wins a tied roll."
+    )
+
+
 def _maneuver_side_number(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1443,6 +1521,11 @@ def start_turn(
             "The team in possession has no player in the ball's space."
         )
     carrying = match.ball_carrier_id in eligible_handlers
+
+    # 2.0's coin, before the turn's first question (rules-2.0 5.2, 5.3).
+    coin = settle_tie_coin(engine, game, match)
+    if coin:
+        narration.append(coin)
 
     # **A declared last possession becomes this side's here** (Law
     # 16.3.2, the author, 2026-09-28): "the next time an offensive

@@ -17,7 +17,6 @@ from codex import tokens
 from codex.cards import catalog
 from codex.formatting import team_name
 from codex.game import CodexGame, GameStatus, RuleRefusal
-from cogs.codex_helpers import seat_label
 from cogs.codex_views import LobbyView, send_ephemeral
 
 LOGGER = logging.getLogger(__name__)
@@ -108,7 +107,7 @@ class LobbyMixin:
         if game.mode == "basic" and game.status is GameStatus.LOBBY:
             lines.append(self.basic_matchups_line())
         lines.extend(rows)
-        if game.rematch_specs or (game.rematch_of and not game.is_duel):
+        if game.rematch_of:
             lines.append(self.rematch_line(game))
         return "\n".join([*lines, waiting])
 
@@ -141,28 +140,15 @@ class LobbyMixin:
             pass
 
     def rematch_line(self, game: CodexGame) -> str:
-        """What a rematch's lobby says about its heroes: swapped from
-        the last game, or kept because both players asked."""
+        """What a rematch's lobby says: whose rematch it is, and that
+        every seat chooses its heroes again (`CodexGame.rematch`)."""
         played = next(
             (other for other in self.games.values() if other.game_id == game.rematch_of), None,
         )
         last = f"game {played.game_number}" if played is not None else "the last game"
-        if not game.rematch_specs:
-            # A table's rematch keeps its seats and clears every seat's
-            # heroes (docs/codex-multiplayer.md, decision 16).
-            if game.is_dragon:
-                return f"A rematch of {last}: the same seats and teams, each choosing heroes again."
-            return f"A rematch of {last}: the same seats, each choosing heroes again."
-        if game.heroes_kept:
-            return f"A rematch of {last}: both players keep their heroes."
-        asked = [seat_label(game, seat) for seat in game.kept_heroes]
-        if game.test_game and asked:
-            asked = asked[:1]
-        tail = f" ({' and '.join(asked)} asked to keep them.)" if asked else ""
-        return (
-            f"A rematch of {last}: the teams are swapped, heroes and decks, unless "
-            f"both players press **Keep heroes**.{tail}"
-        )
+        if game.is_dragon:
+            return f"A rematch of {last}: the same seats and teams, each choosing heroes again."
+        return f"A rematch of {last}: the same seats, each choosing heroes again."
 
     @app_commands.command(name="create_game", description="Open a Codex lobby: in a channel of its own, else a thread, else here.")
     @app_commands.describe(test_game="A test game: you may take every seat and play them all")

@@ -1243,7 +1243,10 @@ match as its saved dict, as D12 Ball's record does; its file,
   ended on a destroyed base, and in an older save), and five on the
   record, each read with a default: `final_message_id`,
   `rematch_game_id`, `rematch_of`, `rematch_specs` and `kept_heroes`
-  ("The end of a game", below).
+  ("The end of a game", below). The last two, and step 10's
+  `rematch_decks`, went with **Keep heroes** on 2026-10-20: `from_dict`
+  drops them from an older save, and a newer save never writes them,
+  which an older checkout reads with its defaults.
 
 - **Step 10 added five on a side and one on the add-on**, each with its
   fallback, and changed two keys' shape ("The standard game", below):
@@ -3160,20 +3163,18 @@ way and nothing is written from it.
   (2026-10-09).
 - **Rematch** (either player, or a helper, as the lobby's Start) opens a
   new lobby through `GameService.rematch` -- a rule on the record,
-  `CodexGame.rematch`: the same two seats, the same people or the one
-  person of a test game, in the same channel, with **the heroes swapped**
-  -- since step 10 the teams swapped whole, heroes and decks, in the same
-  game, basic or standard --
-  (each seat plays the spec the other played), the finished game's specs
-  kept as `rematch_specs`. The button comes off its line in the click's
-  own response, the channel moves back under Codex Games -- a thread
-  comes out of the archive -- since a game is about to be played in it,
-  and the lobby is posted there with **Keep heroes** beside its buttons. The finished record remembers its
-  rematch (`rematch_game_id`), so a second press finds the lobby. **Keep
-  heroes** (`CodexGame.keep_heroes`) is each seat's toggle; the heroes are
-  the last game's while both have pressed it, and swapped otherwise -- the
-  one person of a test game presses once for both. **Who goes first is
-  drawn again** at Start, as every game's is (`RulesEngine.new_match`).
+  `CodexGame.rematch`: the same seats, the same people or the one person
+  of a test game, in the same channel, the same mode and variant, and
+  **every seat choosing its heroes and deck again**, as in a lobby
+  `/codex create_game` opened. Until 2026-10-20 a duel's rematch swapped
+  the two teams and offered **Keep heroes**; the author asked for a plain
+  lobby instead (2026-10-20), as the multiplayer rematch already was.
+  The button comes off its line in the click's own response, the channel
+  moves back under Codex Games -- a thread comes out of the archive --
+  since a game is about to be played in it, and the lobby is posted
+  there. The finished record remembers its rematch (`rematch_game_id`),
+  so a second press finds the lobby. **Who goes first is drawn again** at
+  Start, as every game's is (`RulesEngine.new_match`).
   Start renames the channel for the new game's number, as any Start does.
 - **`/codex admin reset_channels`**, for the test server: every channel
   named `codex-<n>` outside Codex Archive deleted -- `/debug`'s
@@ -3342,7 +3343,7 @@ of heroes makes no distinction the rules do not.
 The lobby is rebuilt from the record on every change
 (`cogs/codex_views/lobby.py`): its first row **Basic game** / **Standard
 game** -- either seated player's, a helper's, or anyone's while nobody
-sits -- **Leave** and **Start** (and a rematch's **Keep heroes**).
+sits -- **Leave** and **Start**.
 
 **A lobby opens on the standard game** (the author, 2026-10-15:
 `LOBBY_MODE` in `cogs/codex/lobby.py`, which `/codex create_game` hands
@@ -3409,8 +3410,7 @@ A **test game** shows the picks twice, one set per side, since one
 person plays both: the basic game's two menus, or a row of deck buttons
 and **Mixed colors** per side, "P1: Blood Anarchs (Red)", its team lit.
 Changing the mode keeps every seat's player and clears its heroes -- a
-team of one is no team of three -- and in a rematch's lobby drops the
-last game's teams and **Keep heroes** with them. The catalog names the
+team of one is no team of three. The catalog names the
 heroes, and the cog's old `SPEC_HEROES` table went.
 
 **The multicolour costs are the engine's and stay so** ("The multicolour
@@ -3426,8 +3426,8 @@ page, since the rulebook allows it and the bot does not play it yet. A
 basic game's deck is its hero's colour; a standard game's the first
 hero's. Both seats may choose the same hero, or the same colour's
 deck -- **mirror games are fine** (the author, 2026-10-09). Start waits
-on both seats complete -- heroes and deck. A rematch swaps the two
-teams whole, heroes and decks, in the same game.
+on both seats complete -- heroes and deck. A rematch's lobby starts
+with every seat's picks empty, as a new one does.
 
 ### The record's keys, the match's fields, and the hero refs
 
@@ -4374,9 +4374,8 @@ free-for-all stacked alone.
   or a helper's; one player may abandon a game of five (question 11).
 - **Rematch** is a fresh pick of heroes (decision 16; question 8): the
   same seats and, in a dragon, the same teams, every seat's heroes
-  cleared (`CodexGame.rematch`), no **Keep heroes** -- a swap needs two
-  seats -- and the first player or team drawn again at Start. The
-  duel's rematch is unchanged.
+  cleared (`CodexGame.rematch`), and the first player or team drawn
+  again at Start. Since 2026-10-20 the duel's rematch is the same.
 
 ### The goldens and the whole-game test
 

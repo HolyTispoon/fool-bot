@@ -99,10 +99,6 @@ class LobbyView(SafeView):
                 for name in VARIANTS
             ),
         ]
-        if game is not None and game.rematch_specs:
-            # A rematch's lobby: the teams are swapped unless both
-            # players ask to keep them.
-            buttons.insert(3, ("Keep heroes", "keep", discord.ButtonStyle.secondary, 0))
         for label, action, style, row in buttons:
             button = discord.ui.Button(
                 label=label, style=style, custom_id=f"codex:lobby:{action}:{game_id}", row=row,
@@ -199,9 +195,6 @@ class LobbyView(SafeView):
                 await self.set_mode(interaction, action[len("mode_"):])
             elif action.startswith("variant_"):
                 await self.set_variant(interaction, action[len("variant_"):])
-            elif action == "keep":
-                await self.move(interaction, lambda: self.cog.service.keep_heroes(
-                    self.game_id, interaction.user.id))
             elif action == "leave":
                 await self.move(interaction, lambda: self.cog.service.leave(
                     self.game_id, interaction.user.id))

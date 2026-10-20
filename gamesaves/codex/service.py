@@ -11,7 +11,7 @@ and hands back a `GameResult` the frontend renders. It formats nothing.
 
 **The lobby is service methods, not prompt kinds**: `create_game`,
 `take_seat`, `set_mode`, `set_variant`, `choose_deck`, `leave`, `start`, `abandon`, `set_board_layout`, and after
-a game `rematch` and `keep_heroes`, each
+a game `rematch`, each
 load the record, apply one change the record itself rules on
 (`CodexGame`, which refuses with `RuleRefusal`), and save once. A
 refusal is the exception itself: nothing was written.
@@ -400,8 +400,8 @@ class GameService:
 
     def rematch(self, game_id: str) -> CodexGame:
         """
-        A finished game played again: a new lobby with the same two
-        seats, the heroes swapped (`CodexGame.rematch`), in the same
+        A finished game played again: a new lobby with the same seats,
+        each choosing heroes again (`CodexGame.rematch`), in the same
         channel -- remembered on the finished game, so a second press
         finds it rather than opening another. Saved once.
         """
@@ -414,14 +414,6 @@ class GameService:
         game.rematch_game_id = rematch.game_id
         self.save()
         return rematch
-
-    def keep_heroes(self, game_id: str, user_id: int) -> CodexGame:
-        """Keep heroes in a rematch's lobby (`CodexGame.keep_heroes`),
-        saved."""
-        game = self.game(game_id)
-        game.keep_heroes(user_id)
-        self.save()
-        return game
 
     def set_board_layout(self, game_id: str, layout: str) -> CodexGame:
         """Swap view: a change to the record, saved."""
