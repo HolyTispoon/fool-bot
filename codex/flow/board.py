@@ -378,6 +378,20 @@ def _is_a_kill(engine: "RulesEngine", match: MatchState, card: CardInstance,
     return killer in engine.turn_seats(match) and card.controller in engine.opponents(match, match.active)
 
 
+def _patrol_payout(engine: "RulesEngine", match: MatchState, slot: Optional[str], paid: int,
+                   result: StepResult) -> str:
+    """The scavenger's gold or the technician's card for a patroller that
+    died in that slot, unit or hero alike -- "Finds 1 gold for you if it
+    dies while patrolling" (Rulebook p. 7) -- paid to `paid`, the owner of
+    a lent one (p. 14); the clause its death's line ends with, or ""."""
+    if slot == "scavenger":
+        gained = gain_gold(match, paid, SCAVENGER_GOLD)
+        return f" As scavenger, it gives {tokens.player(paid)} {tokens.gold(gained)}: {gold_now(match, paid)}."
+    if slot == "technician" and draw_cards(engine, match, paid, TECHNICIAN_CARDS, result):
+        return f" As technician, it draws {tokens.player(paid)} a card."
+    return ""
+
+
 def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
                   result: StepResult, by: str = "", bounty: bool = False) -> None:
     if by:
@@ -387,14 +401,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
     leave_play(engine, match, card, "died")
     match.record_event("destroyed", slug=card.slug, owner=card.owner)
     # A lent card pays its owner, not the borrower (Rulebook p. 14).
-    paid = home_seat(card)
-    if card.patrol_slot == "scavenger":
-        gained = gain_gold(match, paid, SCAVENGER_GOLD)
-        line += f" As scavenger, it gives {tokens.player(paid)} {tokens.gold(gained)}: {gold_now(match, paid)}."
-    elif card.patrol_slot == "technician":
-        drawn = draw_cards(engine, match, paid, TECHNICIAN_CARDS, result)
-        if drawn:
-            line += f" As technician, it draws {tokens.player(paid)} a card."
+    line += _patrol_payout(engine, match, card.patrol_slot, home_seat(card), result)
     if bounty:
         active = match.active_player
         paid = gain_gold(match, match.active, min(BOUNTY, BOUNTIES_A_TURN - active.bounties))
@@ -425,6 +432,9 @@ def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: Her
         )
     elif by:
         line = f"{by} destroys {named(match, seat, ref)}, which returns to the command zone with {SUMMONING_RUNES_ON_DEATH} summoning runes."
+    # A hero is controlled by its owner or, lent, by its borrower, and
+    # pays its owner either way (Rulebook p. 14).
+    line += _patrol_payout(engine, match, hero.patrol_slot, owner, result)
     hero.zone = "command"
     hero.level = 1
     hero.damage = 0

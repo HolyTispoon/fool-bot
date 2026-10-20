@@ -585,6 +585,42 @@ class LoanEndsTests(unittest.TestCase):
         here is one nobody can click on again."""
         MatchState.from_dict(self.match.to_dict()).validate(self.engine.catalog)
 
+    def test_a_lent_hero_scavenger_that_dies_pays_its_owner(self) -> None:
+        """A hero patrols as a unit does, and the scavenger's gold for a
+        lent one is its owner's, not the borrower's (Rulebook p. 7, 14)."""
+        hero = self.lend_hero(slot="scavenger")
+        hero.damage = 99
+        self.match.player(2).gold = self.match.player(3).gold = 0
+        iron = put(self.match, 1, "iron_man")
+        heard = attack(self.engine, self.game, self.match, iron.ref, f"3:hero:{hero.slug}", 2)
+        self.assertEqual(hero.zone, "command")
+        self.assertEqual((self.match.player(3).gold, self.match.player(2).gold), (1, 0))
+        self.assertIn("As scavenger, it gives {player:3} {gold:1}", heard)
+
+    def test_a_lent_hero_technician_that_dies_draws_for_its_owner(self) -> None:
+        hero = self.lend_hero(slot="technician")
+        hero.damage = 99
+        hands = {seat: len(self.match.player(seat).hand) for seat in (2, 3)}
+        iron = put(self.match, 1, "iron_man")
+        heard = attack(self.engine, self.game, self.match, iron.ref, f"3:hero:{hero.slug}", 2)
+        self.assertEqual(hero.zone, "command")
+        self.assertEqual(len(self.match.player(3).hand), hands[3] + 1)
+        self.assertEqual(len(self.match.player(2).hand), hands[2])
+        self.assertIn("As technician, it draws {player:3} a card.", heard)
+
+    def test_a_hero_scavenger_of_its_own_pays_its_owner(self) -> None:
+        hero_in_play(self.match, 2, patrol="scavenger")
+        hero = self.match.player(2).heroes[0]
+        lock(self.engine, self.game, self.match)
+        self.assertEqual(self.match.active, 1)
+        hero.damage = 99
+        self.match.player(2).gold = 0
+        iron = put(self.match, 1, "iron_man")
+        heard = attack(self.engine, self.game, self.match, iron.ref, f"hero:{hero.slug}", 2)
+        self.assertEqual(hero.zone, "command")
+        self.assertEqual(self.match.player(2).gold, 1)
+        self.assertIn("As scavenger, it gives {player:2} {gold:1}", heard)
+
     def test_a_sidelined_lent_hero_goes_home_to_its_owner(self) -> None:
         """Appel Stomp (River at max level) sidelines the hero seat 3 lent
         seat 2: out of the zone and home, the owner's again, nothing else

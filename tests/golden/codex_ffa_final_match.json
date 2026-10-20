@@ -556,6 +556,27 @@
       "turn": 9
     },
     {
+      "cost": 1,
+      "kind": "played",
+      "seat": 1,
+      "slug": "timely_messenger",
+      "turn": 9
+    },
+    {
+      "attacker": "unit:14",
+      "defender": "unit:12",
+      "kind": "attacked",
+      "seat": 1,
+      "turn": 9
+    },
+    {
+      "kind": "destroyed",
+      "owner": 1,
+      "seat": 1,
+      "slug": "timely_messenger",
+      "turn": 9
+    },
+    {
       "kind": "patrolled",
       "seat": 1,
       "slots": {
@@ -629,7 +650,7 @@
       "turn": 10
     },
     {
-      "attacker": "unit:14",
+      "attacker": "unit:15",
       "defender": "base",
       "kind": "attacked",
       "seat": 2,
@@ -715,7 +736,7 @@
       "turn": 11
     },
     {
-      "attacker": "unit:15",
+      "attacker": "unit:16",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
@@ -743,8 +764,8 @@
       "kind": "patrolled",
       "seat": 3,
       "slots": {
-        "elite": "unit:17",
-        "squad_leader": "unit:16"
+        "elite": "unit:18",
+        "squad_leader": "unit:17"
       },
       "turn": 11
     },
@@ -772,14 +793,14 @@
       "turn": 12
     },
     {
-      "attacker": "unit:14",
+      "attacker": "unit:15",
       "defender": "tech1",
       "kind": "attacked",
       "seat": 2,
       "turn": 12
     },
     {
-      "attacker": "unit:18",
+      "attacker": "unit:19",
       "defender": "tech1",
       "kind": "attacked",
       "seat": 2,
@@ -857,13 +878,6 @@
       "turn": 13
     },
     {
-      "attacker": "unit:15",
-      "defender": "base",
-      "kind": "attacked",
-      "seat": 3,
-      "turn": 13
-    },
-    {
       "attacker": "unit:16",
       "defender": "base",
       "kind": "attacked",
@@ -872,6 +886,13 @@
     },
     {
       "attacker": "unit:17",
+      "defender": "base",
+      "kind": "attacked",
+      "seat": 3,
+      "turn": 13
+    },
+    {
+      "attacker": "unit:18",
       "defender": "base",
       "kind": "attacked",
       "seat": 3,
@@ -888,7 +909,7 @@
       "kind": "patrolled",
       "seat": 3,
       "slots": {
-        "squad_leader": "unit:19"
+        "squad_leader": "unit:20"
       },
       "turn": 13
     },
@@ -1049,27 +1070,6 @@
     {
       "action": {
         "arguments": {
-          "attacker": "unit:15"
-        },
-        "choice": "attack",
-        "kind": "main_action"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
-          "against": 2,
-          "defender": "base"
-        },
-        "choice": "",
-        "kind": "choose_defender"
-      },
-      "outcomes": []
-    },
-    {
-      "action": {
-        "arguments": {
           "attacker": "unit:16"
         },
         "choice": "attack",
@@ -1092,6 +1092,27 @@
       "action": {
         "arguments": {
           "attacker": "unit:17"
+        },
+        "choice": "attack",
+        "kind": "main_action"
+      },
+      "outcomes": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "against": 2,
+          "defender": "base"
+        },
+        "choice": "",
+        "kind": "choose_defender"
+      },
+      "outcomes": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "attacker": "unit:18"
         },
         "choice": "attack",
         "kind": "main_action"
@@ -1142,7 +1163,7 @@
       "action": {
         "arguments": {
           "assignment": {
-            "squad_leader": "unit:19"
+            "squad_leader": "unit:20"
           }
         },
         "choice": "",
@@ -1152,12 +1173,12 @@
     }
   ],
   "lost_by_debt": null,
-  "next_instance_id": 20,
+  "next_instance_id": 21,
   "phase": "tech",
   "players": [
     {
       "add_on": null,
-      "arrived_from_hand": false,
+      "arrived_from_hand": true,
       "base_hp": 0,
       "buildings": {
         "tech1": {
@@ -1192,7 +1213,8 @@
       "constructed_once": true,
       "debt": 0,
       "deck": [
-        "tenderfoot"
+        "tenderfoot",
+        "brick_thief"
       ],
       "deck_color": "neutral",
       "discard": [
@@ -1200,8 +1222,8 @@
         "older_brother",
         "iron_man",
         "iron_man",
-        "revolver_ocelot",
-        "timely_messenger"
+        "timely_messenger",
+        "revolver_ocelot"
       ],
       "discards_at_main_end": false,
       "discards_untold": [],
@@ -1210,8 +1232,7 @@
       "hand": [
         "wither",
         "revolver_ocelot",
-        "fruit_ninja",
-        "brick_thief"
+        "fruit_ninja"
       ],
       "heroes": [
         {
@@ -1241,7 +1262,7 @@
       "lasting": [],
       "peace": false,
       "play": [],
-      "played_from_hand": 0,
+      "played_from_hand": 1,
       "promised": false,
       "reshuffled_this_phase": false,
       "seat": 1,
@@ -1366,7 +1387,7 @@
           "disabled": false,
           "exhausted": true,
           "flipped": false,
-          "id": 14,
+          "id": 15,
           "jailed": null,
           "made_by": null,
           "minus_runes": 0,
@@ -1379,7 +1400,7 @@
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 20,
+          "sequence": 21,
           "slug": "timely_messenger",
           "time_runes": 0
         },
@@ -1396,7 +1417,7 @@
           "disabled": false,
           "exhausted": true,
           "flipped": false,
-          "id": 18,
+          "id": 19,
           "jailed": null,
           "made_by": null,
           "minus_runes": 0,
@@ -1409,7 +1430,7 @@
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 25,
+          "sequence": 26,
           "slug": "nimble_fencer",
           "time_runes": 0
         }
@@ -1502,7 +1523,7 @@
           "attacked_this_turn": true,
           "bands": {
             "1": 3,
-            "5": 21
+            "5": 22
           },
           "damage": 0,
           "disabled": false,
@@ -1629,36 +1650,6 @@
           "disabled": false,
           "exhausted": true,
           "flipped": false,
-          "id": 15,
-          "jailed": null,
-          "made_by": null,
-          "minus_runes": 0,
-          "modifiers": [],
-          "number": null,
-          "oath": null,
-          "owner": 3,
-          "patrol_slot": null,
-          "plus_runes": 0,
-          "printed": null,
-          "returns_to": null,
-          "runes": {},
-          "sequence": 22,
-          "slug": "timely_messenger",
-          "time_runes": 0
-        },
-        {
-          "armor": 0,
-          "arrived_this_turn": false,
-          "attached": [],
-          "attached_hero": null,
-          "attacked_this_turn": true,
-          "buried": [],
-          "controller": 3,
-          "copy_of": null,
-          "damage": 0,
-          "disabled": false,
-          "exhausted": true,
-          "flipped": false,
           "id": 16,
           "jailed": null,
           "made_by": null,
@@ -1673,7 +1664,7 @@
           "returns_to": null,
           "runes": {},
           "sequence": 23,
-          "slug": "revolver_ocelot",
+          "slug": "timely_messenger",
           "time_runes": 0
         },
         {
@@ -1703,6 +1694,36 @@
           "returns_to": null,
           "runes": {},
           "sequence": 24,
+          "slug": "revolver_ocelot",
+          "time_runes": 0
+        },
+        {
+          "armor": 0,
+          "arrived_this_turn": false,
+          "attached": [],
+          "attached_hero": null,
+          "attacked_this_turn": true,
+          "buried": [],
+          "controller": 3,
+          "copy_of": null,
+          "damage": 0,
+          "disabled": false,
+          "exhausted": true,
+          "flipped": false,
+          "id": 18,
+          "jailed": null,
+          "made_by": null,
+          "minus_runes": 0,
+          "modifiers": [],
+          "number": null,
+          "oath": null,
+          "owner": 3,
+          "patrol_slot": null,
+          "plus_runes": 0,
+          "printed": null,
+          "returns_to": null,
+          "runes": {},
+          "sequence": 25,
           "slug": "granfalloon_flagbearer",
           "time_runes": 0
         },
@@ -1719,7 +1740,7 @@
           "disabled": false,
           "exhausted": false,
           "flipped": false,
-          "id": 19,
+          "id": 20,
           "jailed": null,
           "made_by": null,
           "minus_runes": 0,
@@ -1732,7 +1753,7 @@
           "printed": null,
           "returns_to": null,
           "runes": {},
-          "sequence": 26,
+          "sequence": 27,
           "slug": "iron_man",
           "time_runes": 0
         }
@@ -1759,7 +1780,7 @@
     }
   ],
   "resolving": [],
-  "sequence": 26,
+  "sequence": 27,
   "tied": [
     2,
     3
@@ -2324,6 +2345,27 @@
           "turn": 9
         },
         {
+          "cost": 1,
+          "kind": "played",
+          "seat": 1,
+          "slug": "timely_messenger",
+          "turn": 9
+        },
+        {
+          "attacker": "unit:14",
+          "defender": "unit:12",
+          "kind": "attacked",
+          "seat": 1,
+          "turn": 9
+        },
+        {
+          "kind": "destroyed",
+          "owner": 1,
+          "seat": 1,
+          "slug": "timely_messenger",
+          "turn": 9
+        },
+        {
           "kind": "patrolled",
           "seat": 1,
           "slots": {
@@ -2397,7 +2439,7 @@
           "turn": 10
         },
         {
-          "attacker": "unit:14",
+          "attacker": "unit:15",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -2586,7 +2628,7 @@
         {
           "action": {
             "arguments": {
-              "attacker": "unit:15"
+              "attacker": "unit:16"
             },
             "choice": "attack",
             "kind": "main_action"
@@ -2635,12 +2677,12 @@
         }
       ],
       "lost_by_debt": null,
-      "next_instance_id": 15,
+      "next_instance_id": 16,
       "phase": "ready",
       "players": [
         {
           "add_on": null,
-          "arrived_from_hand": false,
+          "arrived_from_hand": true,
           "base_hp": 8,
           "buildings": {
             "tech1": {
@@ -2675,7 +2717,8 @@
           "constructed_once": true,
           "debt": 0,
           "deck": [
-            "tenderfoot"
+            "tenderfoot",
+            "brick_thief"
           ],
           "deck_color": "neutral",
           "discard": [
@@ -2683,8 +2726,8 @@
             "older_brother",
             "iron_man",
             "iron_man",
-            "revolver_ocelot",
-            "timely_messenger"
+            "timely_messenger",
+            "revolver_ocelot"
           ],
           "discards_at_main_end": false,
           "discards_untold": [],
@@ -2693,8 +2736,7 @@
           "hand": [
             "wither",
             "revolver_ocelot",
-            "fruit_ninja",
-            "brick_thief"
+            "fruit_ninja"
           ],
           "heroes": [
             {
@@ -2724,7 +2766,7 @@
           "lasting": [],
           "peace": false,
           "play": [],
-          "played_from_hand": 0,
+          "played_from_hand": 1,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 1,
@@ -2849,7 +2891,7 @@
               "disabled": false,
               "exhausted": true,
               "flipped": false,
-              "id": 14,
+              "id": 15,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -2862,7 +2904,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 20,
+              "sequence": 21,
               "slug": "timely_messenger",
               "time_runes": 0
             }
@@ -2948,7 +2990,7 @@
               "attacked_this_turn": false,
               "bands": {
                 "1": 3,
-                "5": 21
+                "5": 22
               },
               "damage": 0,
               "disabled": false,
@@ -3088,7 +3130,7 @@
         }
       ],
       "resolving": [],
-      "sequence": 21,
+      "sequence": 22,
       "turn": 11,
       "variant": "free_for_all",
       "winner": null
@@ -3651,6 +3693,27 @@
           "turn": 9
         },
         {
+          "cost": 1,
+          "kind": "played",
+          "seat": 1,
+          "slug": "timely_messenger",
+          "turn": 9
+        },
+        {
+          "attacker": "unit:14",
+          "defender": "unit:12",
+          "kind": "attacked",
+          "seat": 1,
+          "turn": 9
+        },
+        {
+          "kind": "destroyed",
+          "owner": 1,
+          "seat": 1,
+          "slug": "timely_messenger",
+          "turn": 9
+        },
+        {
           "kind": "patrolled",
           "seat": 1,
           "slots": {
@@ -3724,7 +3787,7 @@
           "turn": 10
         },
         {
-          "attacker": "unit:14",
+          "attacker": "unit:15",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -3810,7 +3873,7 @@
           "turn": 11
         },
         {
-          "attacker": "unit:15",
+          "attacker": "unit:16",
           "defender": "base",
           "kind": "attacked",
           "seat": 3,
@@ -3838,8 +3901,8 @@
           "kind": "patrolled",
           "seat": 3,
           "slots": {
-            "elite": "unit:17",
-            "squad_leader": "unit:16"
+            "elite": "unit:18",
+            "squad_leader": "unit:17"
           },
           "turn": 11
         },
@@ -3899,7 +3962,7 @@
         {
           "action": {
             "arguments": {
-              "attacker": "unit:14"
+              "attacker": "unit:15"
             },
             "choice": "attack",
             "kind": "main_action"
@@ -3920,7 +3983,7 @@
         {
           "action": {
             "arguments": {
-              "attacker": "unit:18"
+              "attacker": "unit:19"
             },
             "choice": "attack",
             "kind": "main_action"
@@ -3969,12 +4032,12 @@
         }
       ],
       "lost_by_debt": null,
-      "next_instance_id": 18,
+      "next_instance_id": 19,
       "phase": "ready",
       "players": [
         {
           "add_on": null,
-          "arrived_from_hand": false,
+          "arrived_from_hand": true,
           "base_hp": 0,
           "buildings": {
             "tech1": {
@@ -4009,7 +4072,8 @@
           "constructed_once": true,
           "debt": 0,
           "deck": [
-            "tenderfoot"
+            "tenderfoot",
+            "brick_thief"
           ],
           "deck_color": "neutral",
           "discard": [
@@ -4017,8 +4081,8 @@
             "older_brother",
             "iron_man",
             "iron_man",
-            "revolver_ocelot",
-            "timely_messenger"
+            "timely_messenger",
+            "revolver_ocelot"
           ],
           "discards_at_main_end": false,
           "discards_untold": [],
@@ -4027,8 +4091,7 @@
           "hand": [
             "wither",
             "revolver_ocelot",
-            "fruit_ninja",
-            "brick_thief"
+            "fruit_ninja"
           ],
           "heroes": [
             {
@@ -4058,7 +4121,7 @@
           "lasting": [],
           "peace": false,
           "play": [],
-          "played_from_hand": 0,
+          "played_from_hand": 1,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 1,
@@ -4183,7 +4246,7 @@
               "disabled": false,
               "exhausted": true,
               "flipped": false,
-              "id": 14,
+              "id": 15,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -4196,7 +4259,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 20,
+              "sequence": 21,
               "slug": "timely_messenger",
               "time_runes": 0
             }
@@ -4283,7 +4346,7 @@
               "attacked_this_turn": true,
               "bands": {
                 "1": 3,
-                "5": 21
+                "5": 22
               },
               "damage": 0,
               "disabled": false,
@@ -4410,7 +4473,7 @@
               "disabled": false,
               "exhausted": true,
               "flipped": false,
-              "id": 15,
+              "id": 16,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -4423,38 +4486,8 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 22,
-              "slug": "timely_messenger",
-              "time_runes": 0
-            },
-            {
-              "armor": 0,
-              "arrived_this_turn": true,
-              "attached": [],
-              "attached_hero": null,
-              "attacked_this_turn": false,
-              "buried": [],
-              "controller": 3,
-              "copy_of": null,
-              "damage": 0,
-              "disabled": false,
-              "exhausted": false,
-              "flipped": false,
-              "id": 16,
-              "jailed": null,
-              "made_by": null,
-              "minus_runes": 0,
-              "modifiers": [],
-              "number": null,
-              "oath": null,
-              "owner": 3,
-              "patrol_slot": "squad_leader",
-              "plus_runes": 0,
-              "printed": null,
-              "returns_to": null,
-              "runes": {},
               "sequence": 23,
-              "slug": "revolver_ocelot",
+              "slug": "timely_messenger",
               "time_runes": 0
             },
             {
@@ -4478,12 +4511,42 @@
               "number": null,
               "oath": null,
               "owner": 3,
-              "patrol_slot": "elite",
+              "patrol_slot": "squad_leader",
               "plus_runes": 0,
               "printed": null,
               "returns_to": null,
               "runes": {},
               "sequence": 24,
+              "slug": "revolver_ocelot",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": false,
+              "flipped": false,
+              "id": 18,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": "elite",
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 25,
               "slug": "granfalloon_flagbearer",
               "time_runes": 0
             }
@@ -4513,7 +4576,7 @@
         3
       ],
       "resolving": [],
-      "sequence": 24,
+      "sequence": 25,
       "tied": [
         2,
         3
@@ -5080,6 +5143,27 @@
           "turn": 9
         },
         {
+          "cost": 1,
+          "kind": "played",
+          "seat": 1,
+          "slug": "timely_messenger",
+          "turn": 9
+        },
+        {
+          "attacker": "unit:14",
+          "defender": "unit:12",
+          "kind": "attacked",
+          "seat": 1,
+          "turn": 9
+        },
+        {
+          "kind": "destroyed",
+          "owner": 1,
+          "seat": 1,
+          "slug": "timely_messenger",
+          "turn": 9
+        },
+        {
           "kind": "patrolled",
           "seat": 1,
           "slots": {
@@ -5153,7 +5237,7 @@
           "turn": 10
         },
         {
-          "attacker": "unit:14",
+          "attacker": "unit:15",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -5239,7 +5323,7 @@
           "turn": 11
         },
         {
-          "attacker": "unit:15",
+          "attacker": "unit:16",
           "defender": "base",
           "kind": "attacked",
           "seat": 3,
@@ -5267,8 +5351,8 @@
           "kind": "patrolled",
           "seat": 3,
           "slots": {
-            "elite": "unit:17",
-            "squad_leader": "unit:16"
+            "elite": "unit:18",
+            "squad_leader": "unit:17"
           },
           "turn": 11
         },
@@ -5296,14 +5380,14 @@
           "turn": 12
         },
         {
-          "attacker": "unit:14",
+          "attacker": "unit:15",
           "defender": "tech1",
           "kind": "attacked",
           "seat": 2,
           "turn": 12
         },
         {
-          "attacker": "unit:18",
+          "attacker": "unit:19",
           "defender": "tech1",
           "kind": "attacked",
           "seat": 2,
@@ -5338,12 +5422,12 @@
       "extra_turns": [],
       "first": 2,
       "lost_by_debt": null,
-      "next_instance_id": 19,
+      "next_instance_id": 20,
       "phase": "ready",
       "players": [
         {
           "add_on": null,
-          "arrived_from_hand": false,
+          "arrived_from_hand": true,
           "base_hp": 0,
           "buildings": {
             "tech1": {
@@ -5378,7 +5462,8 @@
           "constructed_once": true,
           "debt": 0,
           "deck": [
-            "tenderfoot"
+            "tenderfoot",
+            "brick_thief"
           ],
           "deck_color": "neutral",
           "discard": [
@@ -5386,8 +5471,8 @@
             "older_brother",
             "iron_man",
             "iron_man",
-            "revolver_ocelot",
-            "timely_messenger"
+            "timely_messenger",
+            "revolver_ocelot"
           ],
           "discards_at_main_end": false,
           "discards_untold": [],
@@ -5396,8 +5481,7 @@
           "hand": [
             "wither",
             "revolver_ocelot",
-            "fruit_ninja",
-            "brick_thief"
+            "fruit_ninja"
           ],
           "heroes": [
             {
@@ -5427,7 +5511,7 @@
           "lasting": [],
           "peace": false,
           "play": [],
-          "played_from_hand": 0,
+          "played_from_hand": 1,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 1,
@@ -5552,7 +5636,7 @@
               "disabled": false,
               "exhausted": true,
               "flipped": false,
-              "id": 14,
+              "id": 15,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -5565,7 +5649,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 20,
+              "sequence": 21,
               "slug": "timely_messenger",
               "time_runes": 0
             },
@@ -5582,7 +5666,7 @@
               "disabled": false,
               "exhausted": true,
               "flipped": false,
-              "id": 18,
+              "id": 19,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -5595,7 +5679,7 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 25,
+              "sequence": 26,
               "slug": "nimble_fencer",
               "time_runes": 0
             }
@@ -5679,7 +5763,7 @@
               "attacked_this_turn": false,
               "bands": {
                 "1": 3,
-                "5": 21
+                "5": 22
               },
               "damage": 0,
               "disabled": false,
@@ -5806,7 +5890,7 @@
               "disabled": false,
               "exhausted": true,
               "flipped": false,
-              "id": 15,
+              "id": 16,
               "jailed": null,
               "made_by": null,
               "minus_runes": 0,
@@ -5819,42 +5903,12 @@
               "printed": null,
               "returns_to": null,
               "runes": {},
-              "sequence": 22,
+              "sequence": 23,
               "slug": "timely_messenger",
               "time_runes": 0
             },
             {
               "armor": 1,
-              "arrived_this_turn": true,
-              "attached": [],
-              "attached_hero": null,
-              "attacked_this_turn": false,
-              "buried": [],
-              "controller": 3,
-              "copy_of": null,
-              "damage": 0,
-              "disabled": false,
-              "exhausted": false,
-              "flipped": false,
-              "id": 16,
-              "jailed": null,
-              "made_by": null,
-              "minus_runes": 0,
-              "modifiers": [],
-              "number": null,
-              "oath": null,
-              "owner": 3,
-              "patrol_slot": "squad_leader",
-              "plus_runes": 0,
-              "printed": null,
-              "returns_to": null,
-              "runes": {},
-              "sequence": 23,
-              "slug": "revolver_ocelot",
-              "time_runes": 0
-            },
-            {
-              "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -5874,12 +5928,42 @@
               "number": null,
               "oath": null,
               "owner": 3,
-              "patrol_slot": "elite",
+              "patrol_slot": "squad_leader",
               "plus_runes": 0,
               "printed": null,
               "returns_to": null,
               "runes": {},
               "sequence": 24,
+              "slug": "revolver_ocelot",
+              "time_runes": 0
+            },
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attached": [],
+              "attached_hero": null,
+              "attacked_this_turn": false,
+              "buried": [],
+              "controller": 3,
+              "copy_of": null,
+              "damage": 0,
+              "disabled": false,
+              "exhausted": false,
+              "flipped": false,
+              "id": 18,
+              "jailed": null,
+              "made_by": null,
+              "minus_runes": 0,
+              "modifiers": [],
+              "number": null,
+              "oath": null,
+              "owner": 3,
+              "patrol_slot": "elite",
+              "plus_runes": 0,
+              "printed": null,
+              "returns_to": null,
+              "runes": {},
+              "sequence": 25,
               "slug": "granfalloon_flagbearer",
               "time_runes": 0
             }
@@ -5909,7 +5993,7 @@
         }
       ],
       "resolving": [],
-      "sequence": 25,
+      "sequence": 26,
       "tied": [
         2,
         3
