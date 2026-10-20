@@ -38,6 +38,7 @@ from cogs.codex_views import (
     LobbyView,
     TurnMessageView,
     acknowledge,
+    acknowledge_privately,
     deck_caption,
     deck_file,
     hand_caption,
@@ -421,6 +422,7 @@ class PresentationMixin:
         pressed under stays up beside it.
         """
         deck = self.engine.own_deck(match, seat)
+        await acknowledge_privately(interaction)
         started = time.perf_counter()
         file = await deck_file(self.engine, deck)
         drawn = elapsed_ms(started)
@@ -474,6 +476,7 @@ class PresentationMixin:
         view = CodexBrowser(self, game.game_id, seat, side=side_label(game, match, seat),
                             mate=None if game.test_game else self.engine.team_sees(match, seat),
                             mate_name=self.mate_name(game, self.engine.team_sees(match, seat)))
+        await acknowledge_privately(interaction)
         started = time.perf_counter()
         file = await view.picture(match, "everything")
         drawn = elapsed_ms(started)

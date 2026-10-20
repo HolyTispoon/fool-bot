@@ -2904,7 +2904,8 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Take back the end of my turn | **3**: the restored turn's post, the current one's delete, the restored turn's standing one's delete | 3: the Undo menu sent, the click answered in place, the fresh panel |
 | A lobby click -- a seat taken, the mode or the variant changed, a third seat's pick (multiplayer step 4) | **0** | 1: the lobby edited in place |
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
-| My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1 |
+| My hand, **Tech** of any seat of a table (step 4) | **0** | 1 |
+| **My deck**, **Codex** -- of any seat, from the turn message, the hand, the panel or the tech picker | **0** | 2: the private defer, the picture its follow-up |
 | Lock in patrol zone on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
 | **Repair base** on a free-for-all's panel | **1**: the turn message through the gate, as any action | 2: the defer, the panel edited in place |
 | A slot or a patroller chosen in the patrol view, an opponent's open slot among them | **0** | 1: the panel's edit |
@@ -2941,6 +2942,22 @@ it would have made anyway. Nothing in the channel's bucket changes. The
 lobby, the turn message's buttons and D12 Ball's views do not opt in --
 their callbacks answer with `interaction.response` directly -- and wait
 as before.
+
+**A deck or a codex is acknowledged before it is drawn.** **My deck**
+and **Codex** answered with the picture as the click's first response:
+drawn, then uploaded, before Discord had heard anything. On the live
+host on 2026-10-20 **Codex** under the hand's picture, while the turn
+waited on a tech choice (`TechGateView`), failed on that response with
+a 10062 -- not behind a busy game, since a panel's click waiting on the
+lock is deferred first, so the click's own draw and upload, or the
+event loop held up as long, outlasted the three seconds. Which, the
+host's console line cannot say: it is logged after the send, and the
+send failed. Both are answered
+whatever the picture costs: `send_deck` and `send_codex` defer the click
+as a private "thinking" message first (`acknowledge_privately`,
+`cogs/codex_views/base.py`) and send the picture as the follow-up that
+fills it -- one more webhook request a click, nothing in the channel's
+bucket. A click deferred already by the lock is left as it is.
 
 The gate's full-image link adds one settling edit after a burst of
 clicks, at most one per interval, as it does for D12 Ball (step 3 turned

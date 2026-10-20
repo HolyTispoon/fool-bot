@@ -84,6 +84,18 @@ async def acknowledge(interaction: discord.Interaction) -> None:
         await interaction.response.defer()
 
 
+async def acknowledge_privately(interaction: discord.Interaction) -> None:
+    """Defer the click as a private message to come -- "thinking", seen
+    by the clicker alone -- unless it was answered already. For an
+    answer that draws a picture and uploads it before anything else:
+    the two together can outlast the three seconds Discord waits for a
+    click's first response, and the click fails with a 10062 (**Codex**
+    on the live host, 2026-10-20). `send_answer` then sends the answer
+    as the follow-up that fills the deferred message."""
+    if not interaction.response.is_done():
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+
 async def edit_clicked(interaction: discord.Interaction, **fields) -> None:
     """Edit the message clicked: the click's own response, or, on a
     click answered already, the interaction's original message -- which

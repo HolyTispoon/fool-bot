@@ -61,6 +61,11 @@ CHANNEL_REQUESTS = ("send", "edit", "pin", "unpin", "delete")
 #: panel clicked edited in place (`TurnsMixin.put_panel`).
 PANEL_EDITED = ["response.defer", "original.edit"]
 
+#: **My deck** and **Codex**: the click deferred as a private message
+#: before the picture is drawn, the picture its follow-up
+#: (`acknowledge_privately`).
+PRIVATELY_DEFERRED = ["response.defer", "followup.send"]
+
 
 def channel_requests(table: Table, mark: int) -> list[tuple[str, int]]:
     return [(kind, message_id) for kind, message_id, _ in table.game_channel.since(mark)
@@ -255,7 +260,10 @@ class PanelTests(TurnTestCase):
         mark = len(self.table.game_channel.requests)
         call = await self.table.press(view, "My deck")
         self.assertNothingWentWrong(call)
-        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        # Deferred privately before the picture is drawn, so the draw
+        # and the upload never outlast Discord's three seconds.
+        self.assertEqual([answer[0] for answer in call.answers], PRIVATELY_DEFERRED)
+        self.assertEqual(call.answers[0][2], {"ephemeral": True, "thinking": True})
         kwargs = call.last()[2]
         self.assertTrue(kwargs["ephemeral"])
         self.assertNotIn("view", kwargs)
@@ -292,7 +300,8 @@ class PanelTests(TurnTestCase):
         mark = len(self.table.game_channel.requests)
         call = await self.table.press(view, "Codex")
         self.assertNothingWentWrong(call)
-        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        self.assertEqual([answer[0] for answer in call.answers], PRIVATELY_DEFERRED)
+        self.assertEqual(call.answers[0][2], {"ephemeral": True, "thinking": True})
         kwargs = call.last()[2]
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(kwargs["view"], CodexBrowser)
