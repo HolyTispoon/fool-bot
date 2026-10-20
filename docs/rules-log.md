@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-18.
+**As of:** 2026-10-20.
 
 ## Where the rules come from
 
@@ -154,6 +154,31 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-20 -- author, 2.0: twelve basic cards and a hand of five
+
+**A rule changed, in 2.0 alone.** The author: *"I want 12 cards of basic maneuvers. 6 advanced
+still"*, and after the simulations below, *"Make it 12+6 with a hand of 5"*. So the deck is
+eighteen cards -- four two-headed cards a rank and the six advanced maneuvers -- and a coach
+holds five (rules-2.0 1.1, 1.2, 3.1, 3.3). Nothing else in 2.0 moved: one card is still drawn
+after each card played, the reshuffle is still at the last card drawn, and halftime still
+shuffles everything back.
+
+**What it was decided on.** Dinky against Dinky, 1,000 whole games through the driver per
+deck, hand and mode (standard and advanced; the two never differed by more than 0.4 points),
+counting the hand each coach held at every card picked, about 48 a game:
+
+| Deck | Hand | Every playable card one rank | Two ranks | All three ranks | Advanced cards played |
+|---|---|---|---|---|---|
+| 9 + 6 | 4 | 13.1-13.4% | 59.4% | 27.4% | 35.1% |
+| 12 + 6 | 4 | 12.3% | 59.8% | 27.8% | 28.8% |
+| 9 + 6 | 5 | 4.5-4.6% | 50.7% | 44.8% | 34.8% |
+| 12 + 6 | 5 | 4.6-4.8% | 50.8% | 44.5% | 29.0% |
+
+The fifth card is what moves the choice; the three more basic cards alone change it by a point
+at four and nothing at five, and they make an advanced card a smaller share of what is played.
+Dinky picks a rank on a d6 and never plays to keep its ranks spread, so a coach who does sees
+fewer one-rank hands than this.
 
 ### 2026-10-18 -- author, 2.0: a recommended arrangement for a first game, and moving off a unique role's space
 
