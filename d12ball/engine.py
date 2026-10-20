@@ -654,6 +654,27 @@ class RulesEngine:
             else "defense"
         )
 
+    def tie_coin_face(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> Optional[CoinFace]:
+        """
+        The face 2.0's coin shows, for a frontend to draw on the turn
+        message and the board (the author, 2026-10-20) -- None in 1.0
+        and before the first flip.
+        """
+        if not self.tie_coin_applies(game) or match.tie_coin is None:
+            return None
+        return CoinFace(match.tie_coin)
+
+    def tie_coin_caption(self, match: MatchState) -> str:
+        """What the coin's face means, in the fewest words: the board's
+        caption under the coin and the turn message's line."""
+        return (
+            "Offense wins ties"
+            if self.tie_coin_winner(match) == "offense"
+            else "Defense wins ties"
+        )
+
     def maneuver_rank_cost(
         self, game: Optional[D12BallGame], maneuver_key: Optional[str],
     ) -> int:
@@ -5257,6 +5278,14 @@ class RulesEngine:
             mention=player_number is not None,
         )
 
+        # 2.0's coin, on every turn message (the author, 2026-10-20).
+        face = self.tie_coin_face(game, match)
+        coin_line = (
+            f"\n\n{tokens.coin(face)} **{COIN_FACE_WORDS[face]}**: "
+            f"{self.tie_coin_caption(match).lower()}."
+            if face is not None else ""
+        )
+
         if match.active_player_id is None:
             # There used to be a second line here, for Slip in: a
             # named carrier *plus* the Telekinetics who could take the
@@ -5266,7 +5295,7 @@ class RulesEngine:
             # (2026-09-20), so a carrier is now always the whole list
             # and the branch had become unreachable.
             return (
-                f"{controller}, it is your turn.\n\n"
+                f"{controller}, it is your turn.{coin_line}\n\n"
                 "Choose which player in the ball's space will take "
                 "an action."
             )
@@ -5309,7 +5338,7 @@ class RulesEngine:
                 "Maneuver:"
             )
         return (
-            f"{controller}, it is your turn.\n\n"
+            f"{controller}, it is your turn.{coin_line}\n\n"
             f"{handler_line}\n\n"
             f"{action_line}"
         )

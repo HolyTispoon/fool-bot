@@ -153,6 +153,13 @@ answer under its own name) and `tie_coin_winner` the one reading of whom the fac
   it. An unflipped coin is flipped the same way, which is both the game's first flip and a 2.0
   game saved before the coin; a tie met with no coin at all (such a save, mid-maneuver) flips it
   there and says so.
+- **The face is always in view** (the author, 2026-10-20): every turn message carries it
+  (`build_turn_prompt`, "Doom: defense wins ties.") and the board draws the game's own coin
+  showing it on the jumbotron, between the visiting side and the clock, with the same words
+  under it (`draw_jumbotron_coin`). The engine answers both -- `tie_coin_face` and
+  `tie_coin_caption` -- and the cog hands the renderer the picture's name and the caption
+  (`D12Ball.tie_coin_brief`), so the renderer reads no rule. With no coin the jumbotron is
+  drawn exactly as before, byte for byte; the web page has no 2.0 and passes none.
 - **A card costs its rank** (rules-2.0 5.4): `pay_for_cards` charges the handler, and the
   challenger where there is one, `maneuver_rank_cost` at the reveal in `resolve_maneuver` --
   which runs once a maneuver, so nothing is charged twice -- worded under the cards. So the
@@ -237,7 +244,6 @@ since `has_role_ability` answers no only for a match whose roles are the formati
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.
 
-What is not done yet: the coin's face shown anywhere but the narration (the turn message,
-the board); a 2.0 hand on the web page; a printed two-headed card for the
+What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
 print-and-play kit; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the
 author, 2026-10-18): roles in the labels and pictures, a bench player named by their skills.

@@ -5879,16 +5879,64 @@ def render_maneuver_reference_image(
     return png_bytes(canvas)
 
 
+#: 2.0's coin on the jumbotron, between the visiting side's name and
+#: the clock: its picture's side, and where its centre and caption sit.
+JUMBOTRON_COIN_SIZE = 92
+JUMBOTRON_COIN_CENTER_X = JUMBOTRON_RIGHT - 490
+JUMBOTRON_COIN_TOP = JUMBOTRON_TOP + 16
+JUMBOTRON_COIN_CAPTION_Y = JUMBOTRON_TOP + 120
+
+
+def draw_jumbotron_coin(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    tie_coin: tuple[str, str],
+) -> None:
+    """
+    D12 Ball 2.0's coin, showing the face it lands on, with what that
+    face means under it (docs/rules-2.0.md, section 5; the author,
+    2026-10-20). `tie_coin` is the face's picture, as
+    `game.coin_face_name` names it, and the caption the engine words
+    (`RulesEngine.tie_coin_caption`) -- the picture knows no rule. A
+    missing picture leaves the caption alone, as every bundled image's
+    miss does.
+    """
+    picture_name, caption = tie_coin
+    coin = _load_icon(
+        TEAM_EMOJI_DIR / f"{picture_name}.png",
+        JUMBOTRON_COIN_SIZE,
+        f"jumbotron_{picture_name}",
+    )
+    if coin is not None:
+        canvas.alpha_composite(
+            coin,
+            (
+                round(JUMBOTRON_COIN_CENTER_X - coin.width / 2),
+                JUMBOTRON_COIN_TOP,
+            ),
+        )
+    draw_centered_text(
+        draw,
+        JUMBOTRON_COIN_CENTER_X,
+        JUMBOTRON_COIN_CAPTION_Y,
+        caption,
+        FONT_SMALL_BOLD,
+        "#ffffff",
+    )
+
+
 def draw_jumbotron(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     match: MatchState,
     coaches: Mapping[TeamSide, str] = {},
+    tie_coin: Optional[tuple[str, str]] = None,
 ) -> None:
     """
     The scoreboard over the field: each side above its score, named the
     short way where `coaches` names it ("{team:purple} perrytom", the
-    author, 2026-10-05) and by its team's name where it does not.
+    author, 2026-10-05) and by its team's name where it does not -- and
+    2.0's coin where `tie_coin` is given (`draw_jumbotron_coin`).
     """
     draw.rounded_rectangle(
         (
@@ -5971,6 +6019,8 @@ def draw_jumbotron(
         FONT_BODY,
         "#ffffff",
     )
+    if tie_coin is not None:
+        draw_jumbotron_coin(canvas, draw, tie_coin)
 
 
 def draw_team_board(
@@ -6420,13 +6470,15 @@ def render_match_image(
     cyborg_ids: frozenset[str] = frozenset(),
     card_skills: Mapping[str, tuple[int, int]] = {},
     coaches: Mapping[TeamSide, str] = {},
+    tie_coin: Optional[tuple[str, str]] = None,
 ) -> BytesIO:
     """
     The board. `title` may carry team marks (`draw_marked_text`) -- the
     bot's names each coach the long way, "{team:purple} perrytom (Home)"
     -- and `coaches` names each side the short way over its score and
     its bench (the author, 2026-10-05); with neither, every side is its
-    team's name, as it always was.
+    team's name, as it always was. `tie_coin` is 2.0's coin on the
+    jumbotron (`draw_jumbotron_coin`), and None everywhere else.
     """
     players = player_index(catalog)
     canvas = Image.new(
@@ -6456,7 +6508,7 @@ def render_match_image(
         "#ffffff",
     )
 
-    draw_jumbotron(canvas, draw, match, coaches)
+    draw_jumbotron(canvas, draw, match, coaches, tie_coin)
     bounds = zone_bounds(match)
     draw_assignment_cards(
         canvas,

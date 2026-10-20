@@ -177,9 +177,12 @@ author answered:
 - **A contest for the ball** (5.1): the dice are rolled as before, a tied total goes to the coin,
   and nothing is paid for it.
 
-Two readings the answers left, written into 5.4 and open to the author: a test Scorchit forces
-still costs Scorchit 2, as the price of the ability rather than of entering the test; and the
-tokens a card costs are paid at the reveal, so they count toward that maneuver's injury checks.
+Two readings the answers left, written into 5.4 and put to the author on PR #656: a test
+Scorchit forces still costs Scorchit 2, as the price of the ability rather than of entering the
+test (still open); and the tokens a card costs are paid at the reveal, so they count toward that
+maneuver's injury checks -- *"when the maneuver is revealed is correct"* (5.5). Asked whether the
+coin's face should be shown on the turn message and the board as well as said when it changes:
+*"yes and yes"*.
 
 ### 2026-10-18 -- author, 2.0: a recommended arrangement for a first game, and moving off a unique role's space
 

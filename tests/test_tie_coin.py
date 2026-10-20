@@ -178,6 +178,28 @@ class TieCoinTests(unittest.TestCase):
         self.assertEqual(settle_tie_coin(ENGINE, self.game, self.match), "")
         self.assertIsNone(self.match.tie_coin)
 
+    # -- Shown -------------------------------------------------------------
+
+    def test_the_turn_message_shows_the_coin_once_flipped(self) -> None:
+        self.assertNotIn("{coin:", ENGINE.build_turn_prompt(self.game, self.match))
+        self.match.tie_coin = CoinFace.DOOM.value
+        prompt = ENGINE.build_turn_prompt(self.game, self.match)
+        self.assertIn("{coin:doom} **Doom**: defense wins ties.", prompt)
+        self.game.edition = Edition.ONE
+        self.assertNotIn("{coin:", ENGINE.build_turn_prompt(self.game, self.match))
+
+    def test_the_board_is_drawn_with_the_coin(self) -> None:
+        from d12ball.render import render_match_image
+        self.match.tie_coin = CoinFace.FORTUNE.value
+        png = render_match_image(
+            self.match, ENGINE.player_catalog,
+            tie_coin=("coin_gold_3_fortune", ENGINE.tie_coin_caption(self.match)),
+        ).getvalue()
+        self.assertTrue(png.startswith(b"\x89PNG"))
+        self.assertEqual(
+            ENGINE.tie_coin_caption(self.match), "Offense wins ties",
+        )
+
     # -- Saved -------------------------------------------------------------
 
     def test_saved_only_once_flipped(self) -> None:
