@@ -120,7 +120,10 @@ card's two halves both upright, offense over defense, an advanced card one block
 colour with its "ADVANCED ..." line (`discard_chip`). The pile is read for what has gone, and a
 coach knows the fifteen cards, so nothing a card spells out for playing it is on the chip. Copies
 of a card are one chip with the count on it -- only a two-headed card has copies -- so a pile is
-at most nine chips, two short rows. The model's reading is
+at most nine chips. **Each pile is a column, the two side by side**, home's first, with 4 px
+between chips and 20 px between the columns (the author, 2026-10-20: "stack discard piles
+vertically side by side and make it closer together"; they had been two blocks of rows, one
+above the other). The model's reading is
 `RulesEngine.maneuver_discards`; a picture is not a button, so it is read off the match, as the
 field strip is.
 
