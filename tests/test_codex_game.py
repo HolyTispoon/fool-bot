@@ -81,7 +81,7 @@ class LobbyTests(unittest.TestCase):
         self.game.take_seat(1, "a", "bashing")
         self.game.take_seat(2, "b", "finesse")
         older = self.game.to_dict()
-        for key in ("mode", "player_decks", "rematch_decks"):
+        for key in ("mode", "player_decks"):
             older.pop(key)
         older["player_specs"] = {"1": "bashing", "2": "finesse"}
         read = CodexGame.from_dict(older)
@@ -218,7 +218,7 @@ class StandardLobbyTests(unittest.TestCase):
         with self.assertRaises(RuleRefusal):
             self.game.set_mode("draft")
 
-    def test_a_rematch_swaps_the_teams_whole(self) -> None:
+    def test_a_rematch_keeps_the_seats_and_clears_the_teams(self) -> None:
         self.game.take_seat(1, "a", ["fire", "feral", "bashing"])
         self.game.choose_deck(1, "green")
         self.game.take_seat(2, "b", self.GREEN)
@@ -226,10 +226,8 @@ class StandardLobbyTests(unittest.TestCase):
         self.game.status = GameStatus.FINISHED
         rematch = self.game.rematch("g9", 9)
         self.assertEqual(rematch.mode, "standard")
-        self.assertEqual(rematch.player_specs, {1: self.GREEN, 2: ["feral", "fire", "bashing"]})
-        self.assertEqual(rematch.player_decks, {1: "green", 2: "green"})
-        self.assertTrue(rematch.may_start())
-        rematch.keep_heroes(1)
-        rematch.keep_heroes(2)
-        self.assertEqual(rematch.player_specs[1], ["feral", "fire", "bashing"])
-        self.assertEqual(rematch.player_decks, {1: "green", 2: "green"})
+        self.assertEqual((rematch.player_1_id, rematch.player_2_id), (1, 2))
+        self.assertEqual((rematch.player_specs, rematch.player_decks), ({}, {}))
+        self.assertFalse(rematch.may_start())
+        rematch.take_seat(2, "b", ["fire", "feral", "bashing"])
+        self.assertEqual(rematch.seat_of(2), 2, "a seated player picks in their own seat")

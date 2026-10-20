@@ -1,8 +1,8 @@
 """
 A Codex game's end (docs/codex-bot.md, step 8; docs/design/codex.md,
 "The end of a game"): the concession in the model and through the
-service, the finished record, the rematch's record and its Keep heroes
--- and on Discord, with the fakes of `tests/codex_cog_fakes.py`:
+service, the finished record, the rematch's record -- the same seats,
+every pick made again -- and on Discord, with the fakes of `tests/codex_cog_fakes.py`:
 **Concede** behind its second click, `/codex abandon`, **Rematch**, the
 channel moved to Codex Archive, `/codex admin reset_channels`, the
 startup sweep, and nothing hidden in the log line a click's error
@@ -23,7 +23,7 @@ from codex.engine import RulesEngine
 from codex.flow import turn
 from codex.game import CodexGame, GameStatus, RuleRefusal
 from codex.prompts import PromptKind, pending_prompt
-from codex_cog_fakes import Table, find_button, user
+from codex_cog_fakes import Table, find_button, labels, user
 from cogs.codex_helpers import CODEX_ARCHIVE_CATEGORY_NAME
 from cogs.codex_views import (
     ConcedeConfirmView,
@@ -115,7 +115,7 @@ class ServiceEndingTests(unittest.TestCase):
         with self.assertRaises(RuleRefusal):
             service.concede(game.game_id, 2)
 
-    def test_the_rematch_is_the_same_seats_with_the_heroes_swapped(self) -> None:
+    def test_the_rematch_is_the_same_seats_choosing_heroes_again(self) -> None:
         engine, game, service = started()
         service.concede(game.game_id, 1)
         rematch = service.rematch(game.game_id)
@@ -123,31 +123,23 @@ class ServiceEndingTests(unittest.TestCase):
         self.assertEqual(rematch.game_number, 2)
         self.assertEqual(rematch.channel_id, game.channel_id)
         self.assertEqual((rematch.player_1_id, rematch.player_2_id), (101, 202))
-        self.assertEqual(rematch.player_specs, {1: ["finesse"], 2: ["bashing"]})
+        self.assertEqual((rematch.mode, rematch.variant), (game.mode, game.variant))
+        self.assertEqual((rematch.player_specs, rematch.player_decks), ({}, {}))
         self.assertEqual(rematch.rematch_of, game.game_id)
         self.assertIs(service.rematch(game.game_id), rematch, "a second press finds it")
+        self.assertFalse(rematch.may_start())
+        service.take_seat(rematch.game_id, 101, "basher", ["bashing"])
+        service.take_seat(rematch.game_id, 202, "fencer", ["finesse"])
+        self.assertEqual(rematch.player_specs, {1: ["bashing"], 2: ["finesse"]})
         self.assertTrue(rematch.may_start())
 
-    def test_keep_heroes_needs_both_players(self) -> None:
-        engine, game, service = started()
-        service.concede(game.game_id, 1)
-        rematch = service.rematch(game.game_id)
-        service.keep_heroes(rematch.game_id, 101)
-        self.assertEqual(rematch.player_specs, {1: ["finesse"], 2: ["bashing"]})
-        service.keep_heroes(rematch.game_id, 202)
-        self.assertEqual(rematch.player_specs, {1: ["bashing"], 2: ["finesse"]})
-        service.keep_heroes(rematch.game_id, 101)
-        self.assertEqual(rematch.player_specs, {1: ["finesse"], 2: ["bashing"]}, "pressed again, taken back")
-        with self.assertRaises(RuleRefusal):
-            service.keep_heroes(rematch.game_id, 999)
-
-    def test_a_test_games_one_person_keeps_both(self) -> None:
+    def test_a_test_games_rematch_is_still_a_test_game(self) -> None:
         engine, game, service = started(test_game=True)
         service.concede(game.game_id, 1)
         rematch = service.rematch(game.game_id)
         self.assertTrue(rematch.test_game)
-        service.keep_heroes(rematch.game_id, 101)
-        self.assertEqual(rematch.player_specs, {1: ["bashing"], 2: ["finesse"]})
+        self.assertEqual((rematch.player_1_id, rematch.player_2_id), (101, 101))
+        self.assertEqual(rematch.player_specs, {})
 
     def test_the_first_player_is_drawn_again(self) -> None:
         """Who goes first is the engine's draw at every Start, a rematch's
@@ -174,14 +166,23 @@ class ServiceEndingTests(unittest.TestCase):
         engine, game, service = started()
         service.concede(game.game_id, 1)
         rematch = service.rematch(game.game_id)
-        service.keep_heroes(rematch.game_id, 101)
         again = CodexGame.from_dict(json.loads(json.dumps(rematch.to_dict())))
         self.assertEqual(again, rematch)
         older = game.to_dict()
-        for key in ("final_message_id", "rematch_game_id", "rematch_of", "rematch_specs", "kept_heroes",
-                    "venue"):
+        for key in ("final_message_id", "rematch_game_id", "rematch_of", "venue"):
             older.pop(key)
-        self.assertEqual(CodexGame.from_dict(older).rematch_specs, {})
+        self.assertIsNone(CodexGame.from_dict(older).rematch_of)
+        # A rematch's lobby saved with Keep heroes, before 2026-10-20:
+        # the keys are dropped and the seats' picks stand.
+        kept = rematch.to_dict()
+        kept["player_specs"] = {"1": ["finesse"], "2": ["bashing"]}
+        kept["player_decks"] = {"1": "neutral", "2": "neutral"}
+        kept.update(rematch_specs={"1": ["bashing"], "2": ["finesse"]},
+                    rematch_decks={"1": "neutral", "2": "neutral"}, kept_heroes=[1])
+        read = CodexGame.from_dict(kept)
+        self.assertEqual(read.player_specs, {1: ["finesse"], 2: ["bashing"]})
+        self.assertTrue(read.may_start())
+        self.assertNotIn("rematch_specs", read.to_dict())
         # A save older than the thread and the in-place lobby knew only
         # a channel of the game's own.
         self.assertEqual(CodexGame.from_dict(older).venue, "channel")
@@ -271,8 +272,8 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         lobby = requests[1][2]
         self.assertIsInstance(lobby["view"], LobbyView)
         self.assertEqual(rematch.message_id, requests[1][1])
-        self.assertIn("swapped", lobby["content"])
-        find_button(lobby["view"], "Keep heroes")
+        self.assertIn("the same seats, each choosing heroes again", lobby["content"])
+        self.assertNotIn("Keep heroes", labels(lobby["view"]))
         # A second press finds it, and posts nothing.
         mark = len(self.table.game_channel.requests)
         again = self.table.interaction(self.table.basher)
@@ -280,18 +281,16 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("already open", again.text())
         self.assertEqual(self.table.game_channel.since(mark), [])
 
-    async def test_keep_heroes_and_start_the_rematch(self) -> None:
+    async def test_pick_heroes_and_start_the_rematch(self) -> None:
         await self.finish()
-        played = dict(self.game.player_specs)
         rematch_view = RematchView(self.table.cog, self.game.game_id)
         await rematch_view._scheduled_task(rematch_view.children[0], self.table.interaction(self.table.basher))
         rematch = self.table.cog.games[self.game.rematch_game_id]
+        self.assertEqual(rematch.player_specs, {})
         lobby = LobbyView(self.table.cog, rematch.game_id)
-        for who in (self.table.basher, self.table.fencer):
-            click = self.table.interaction(who)
-            await next(item for item in lobby.children if ":keep:" in item.custom_id).callback(click)
-        self.assertIn("keep their heroes", click.last()[2]["content"])
-        self.assertEqual(rematch.player_specs, played)
+        await self.table.pick_heroes(lobby, self.table.basher, "finesse")
+        await self.table.pick_heroes(lobby, self.table.fencer, "bashing")
+        self.assertEqual(rematch.player_specs, {1: ["finesse"], 2: ["bashing"]})
         start = self.table.interaction(self.table.basher)
         await next(item for item in lobby.children if ":start:" in item.custom_id).callback(start)
         self.assertIs(rematch.status, GameStatus.PLAYING)

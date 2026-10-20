@@ -332,8 +332,8 @@ class EndingMixin:
 
     async def open_rematch(self, interaction: discord.Interaction, game: CodexGame) -> None:
         """
-        **Rematch**: the service opens the new lobby (the same two seats,
-        the heroes swapped until both press **Keep heroes**); the button
+        **Rematch**: the service opens the new lobby (the same seats, each
+        choosing heroes again); the button
         comes off the finished game's line in the click's own response;
         the channel goes back under Codex Games, since a game is about to
         be played in it; and the lobby is posted there. A second press

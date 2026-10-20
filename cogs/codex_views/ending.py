@@ -122,8 +122,8 @@ class TeamConcedeView(SafeView):
 class RematchView(SafeView):
     """
     **Rematch** under a finished game's last line: a new lobby in the
-    same channel with the same two seats, the heroes swapped unless both
-    press **Keep heroes** there. Persistent -- the custom id carries the
+    same channel with the same seats, each choosing heroes and a deck
+    again. Persistent -- the custom id carries the
     finished game's id -- and taken off the message once pressed.
     """
 

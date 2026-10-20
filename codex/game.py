@@ -179,16 +179,12 @@ class CodexGame:
     #: The rematch opened from this finished game, so a second press
     #: finds it rather than opening another.
     rematch_game_id: Optional[str] = None
-    #: The finished game this lobby is the rematch of, and the teams it
-    #: was played with by seat -- each seat's heroes as specs -- and
-    #: their decks: what **Keep heroes** keeps. Empty for a lobby
-    #: `/codex create_game` opened.
+    #: The finished game this lobby is the rematch of. `None` for a lobby
+    #: `/codex create_game` opened. A save from before 2026-10-20 may
+    #: also hold `rematch_specs`, `rematch_decks` and `kept_heroes`, the
+    #: last game's teams and **Keep heroes**, which are dropped as it is
+    #: read (`from_dict`).
     rematch_of: Optional[str] = None
-    rematch_specs: dict[int, list[str]] = field(default_factory=dict)
-    rematch_decks: dict[int, str] = field(default_factory=dict)
-    #: The seats whose player has pressed **Keep heroes** in a rematch's
-    #: lobby; the heroes are kept only while both have.
-    kept_heroes: list[int] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         # A record made for a free-for-all has its five seats from the
@@ -325,8 +321,7 @@ class CodexGame:
         """
         Play the basic game or the standard one. The lobby's until Start;
         every seat keeps its player and loses its heroes, since a team of
-        one is no team of three -- each picks again. In a rematch's lobby
-        the last game's teams go with them, and so does **Keep heroes**.
+        one is no team of three -- each picks again.
         """
         self._require_lobby()
         if mode not in MODES:
@@ -336,9 +331,6 @@ class CodexGame:
         self.mode = mode
         self.player_specs = {}
         self.player_decks = {}
-        self.rematch_specs = {}
-        self.rematch_decks = {}
-        self.kept_heroes = []
 
     def set_variant(self, variant: str) -> None:
         """
@@ -365,7 +357,6 @@ class CodexGame:
             self.player_decks.pop(seat, None)
         self.seats = [dict(held) for held in self.seats[:count]]
         self.seats += _empty_seats(count - len(self.seats))
-        self.kept_heroes = [seat for seat in self.kept_heroes if seat <= count]
         if self.is_free_for_all:
             self._close_gaps()
 
@@ -381,7 +372,6 @@ class CodexGame:
         self.seats += _empty_seats(self.seat_count - len(self.seats))
         self.player_specs = {moved[old]: specs for old, specs in self.player_specs.items() if old in moved}
         self.player_decks = {moved[old]: deck for old, deck in self.player_decks.items() if old in moved}
-        self.kept_heroes = sorted(moved[old] for old in self.kept_heroes if old in moved)
 
     def _check_team(self, specs: list[str]) -> list[str]:
         """
@@ -544,8 +534,6 @@ class CodexGame:
             self._set_seat(seat, None, None)
             self.player_specs.pop(seat, None)
             self.player_decks.pop(seat, None)
-            if seat in self.kept_heroes:
-                self.kept_heroes.remove(seat)
         if self.is_free_for_all:
             # Turn order is seat order: the seats after move up.
             self._close_gaps()
@@ -647,37 +635,17 @@ class CodexGame:
 
     def rematch(self, game_id: str, game_number: int) -> "CodexGame":
         """
-        The lobby of this finished game played again: the same two
-        seats -- the same people, or the one person of a test game --
-        in the same channel, in the same game, **the teams swapped**
-        whole (each seat plays the heroes and the deck the other played)
-        until both press **Keep heroes**
-        (`keep_heroes`). Who goes first is drawn again at Start, as
-        every game's is (`RulesEngine.new_match`). Refused for a game
-        that is not finished: an abandoned game is not played again.
+        The lobby of this finished game played again: the same seats --
+        the same people, or the one person of a test game -- in the same
+        channel, the same mode and variant, and every seat choosing its
+        heroes and deck again, as in any new lobby (the author,
+        2026-10-20; docs/codex-multiplayer.md, decision 16). Who goes
+        first is drawn again at Start, as every game's is
+        (`RulesEngine.new_match`). Refused for a game that is not
+        finished: an abandoned game is not played again.
         """
         if self.status is not GameStatus.FINISHED:
             raise RuleRefusal("Only a finished game can be played again.")
-        played = {seat: list(specs) for seat, specs in self.player_specs.items()}
-        decks = dict(self.player_decks)
-        if not self.is_duel:
-            # A multiplayer rematch is a fresh pick of heroes, the same
-            # seats (docs/codex-multiplayer.md, decision 16); its lobby on
-            # Discord is multiplayer step 4's.
-            return CodexGame(
-                game_id=game_id,
-                game_number=game_number,
-                guild_id=self.guild_id,
-                channel_id=self.channel_id,
-                venue=self.venue,
-                seats=[dict(held) for held in self.seats],
-                test_game=self.test_game,
-                mode=self.mode,
-                variant=self.variant,
-                board_layout=self.board_layout,
-                rematch_of=self.game_id,
-            )
-        swapped = self._swapped()
         return CodexGame(
             game_id=game_id,
             game_number=game_number,
@@ -687,59 +655,10 @@ class CodexGame:
             seats=[dict(held) for held in self.seats],
             test_game=self.test_game,
             mode=self.mode,
-            player_specs={seat: list(played[order]) for seat, order in swapped.items()},
-            player_decks={seat: decks[order] for seat, order in swapped.items()},
+            variant=self.variant,
             board_layout=self.board_layout,
             rematch_of=self.game_id,
-            rematch_specs=played,
-            rematch_decks=decks,
         )
-
-    def _swapped(self) -> dict[int, int]:
-        """Each seat to the seat whose heroes it plays when they are
-        swapped: the first two trade, as a duel's always did."""
-        order = {seat: seat for seat in range(1, self.seat_count + 1)}
-        order[1], order[2] = 2, 1
-        return order
-
-    def keep_heroes(self, user_id: int) -> bool:
-        """
-        **Keep heroes** in a rematch's lobby: `user_id`'s seat -- both,
-        in a test game -- asks to play the hero it played last game, or,
-        pressed again, takes that back. The heroes are the last game's
-        while both seats have asked, and swapped otherwise. Returns
-        whether they are kept now.
-        """
-        self._require_lobby()
-        if not self.rematch_specs:
-            raise RuleRefusal("Only a rematch has heroes to keep.")
-        seats = self.seats_of(user_id)
-        if not seats:
-            raise RuleRefusal("You are not seated in this lobby.")
-        asking = not all(seat in self.kept_heroes for seat in seats)
-        for seat in seats:
-            if asking and seat not in self.kept_heroes:
-                self.kept_heroes.append(seat)
-            elif not asking and seat in self.kept_heroes:
-                self.kept_heroes.remove(seat)
-        self.kept_heroes.sort()
-        kept = self.heroes_kept
-        numbers = range(1, self.seat_count + 1)
-        if all(self.seat_user_id(seat) is not None for seat in numbers):
-            last, decks = self.rematch_specs, self.rematch_decks
-            order = {seat: seat for seat in numbers} if kept else self._swapped()
-            self.player_specs = {seat: list(last[order[seat]]) for seat in numbers}
-            if decks:
-                self.player_decks = {seat: decks[order[seat]] for seat in numbers}
-            else:
-                for seat in numbers:
-                    self._settle_deck(seat)
-        return kept
-
-    @property
-    def heroes_kept(self) -> bool:
-        """Whether every seat has pressed Keep heroes."""
-        return set(self.kept_heroes) >= set(range(1, self.seat_count + 1))
 
     def abandon(self) -> None:
         """End a game nobody is going to finish. Refused for one already
@@ -761,8 +680,6 @@ class CodexGame:
             data[f"player_{number}_name"] = held["name"]
         data["player_specs"] = {str(seat): list(specs) for seat, specs in self.player_specs.items()}
         data["player_decks"] = {str(seat): deck for seat, deck in self.player_decks.items()}
-        data["rematch_specs"] = {str(seat): list(specs) for seat, specs in self.rematch_specs.items()}
-        data["rematch_decks"] = {str(seat): deck for seat, deck in self.rematch_decks.items()}
         if self.is_duel:
             # Written only for a multiplayer game, so a duel's record is the
             # record it always was -- and still reads on a checkout older
@@ -796,14 +713,10 @@ class CodexGame:
             # Older than step 10: every seat played the neutral deck.
             data["player_decks"] = {seat: "neutral" for seat in data["player_specs"]}
         data["observer_ids"] = list(data.get("observer_ids") or [])
-        data["rematch_specs"] = _read_teams(data.get("rematch_specs"))
-        if "rematch_decks" in data:
-            data["rematch_decks"] = {
-                int(seat): deck for seat, deck in (data.get("rematch_decks") or {}).items()
-            }
-        else:
-            data["rematch_decks"] = {seat: "neutral" for seat in data["rematch_specs"]}
-        data["kept_heroes"] = [int(seat) for seat in (data.get("kept_heroes") or [])]
+        # A rematch's lobby saved before 2026-10-20 held the last game's
+        # teams and who had pressed Keep heroes; its seats' picks stand.
+        for key in ("rematch_specs", "rematch_decks", "kept_heroes"):
+            data.pop(key, None)
         if data.get("venue") not in VENUES:
             data["venue"] = "channel"
         if data.get("board_layout") not in BOARD_LAYOUTS:
