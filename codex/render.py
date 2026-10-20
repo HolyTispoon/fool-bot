@@ -2266,7 +2266,8 @@ def compose_board(match: MatchState, layout: str = "stacked",
         return _compose_dragon(match, layout, panels, label, near)
     if match.is_free_for_all:
         if layout == "side_by_side":
-            return _compose_rows(match, panels, label, near)
+            upcoming = None if match.winner is not None else name(seats.next_seat(match))
+            return _compose_rows(match, panels, label, near, upcoming)
         return _compose_table(match, panels, label, near)
     if layout == "side_by_side":
         first = match.first
@@ -2326,6 +2327,47 @@ def _pair_strip(panels: Sequence[Image.Image], column: int) -> Image.Image:
     return strip
 
 
+#: The free-for-all's next-turn note (`next_turn_note`): its heading's
+#: size and the name's, which shrinks to fit the room it has.
+NEXT_TURN_HEADING = px(30)
+NEXT_TURN_NAME = px(60)
+
+
+def next_turn_note(strip: Image.Image, panel_width: int, name: str) -> None:
+    """
+    "NEXT TURN" and `name` under it, in the room to the right of a
+    `_pair_strip`'s lone, centred panel -- a free-for-all's top row of
+    three or five, side by side -- centred in that room and on the
+    strip's height, so whose turn follows reads without counting seats
+    (the author, 2026-10-20). The name shrinks to fit and is cut with
+    an ellipsis below half its size.
+    """
+    room = (strip.width - panel_width) // 2
+    margin = px(20)
+    width = room - 2 * margin
+    if width <= 0:
+        return
+    left = (strip.width + panel_width) // 2 + margin
+    centre = left + width / 2
+    draw = ImageDraw.Draw(strip)
+    heading = font(NEXT_TURN_HEADING)
+    size = NEXT_TURN_NAME
+    face = font(size)
+    while face.getlength(name) > width and size > NEXT_TURN_NAME // 2:
+        size -= px(2)
+        face = font(size)
+    while len(name) > 1 and face.getlength(name) > width:
+        name = name[:-2 if name.endswith("…") else -1].rstrip() + "…"
+    words = "NEXT TURN"
+    words_width = spaced_width(words, heading, px(2))
+    gap = px(12)
+    top = (strip.height - NEXT_TURN_HEADING - gap - size) / 2
+    spaced_text(draw, (centre - words_width / 2, top + NEXT_TURN_HEADING / 2), words, heading,
+                QUIET, px(2))
+    draw.text((centre, top + NEXT_TURN_HEADING + gap + size / 2), name, font=face, fill=WORD,
+              anchor="mm")
+
+
 def _stack(above: Sequence[Image.Image], bottom: Image.Image, label: str,
            centre: Optional[float] = None) -> Image.Image:
     """`above` stacked top to bottom, a quiet rule between each two, over
@@ -2362,7 +2404,8 @@ def _compose_table(match: MatchState, panels, label: str, near: Optional[int]) -
     return _stack([panels((seat,))[0] for seat in reversed(others)], panels((near_seat,))[0], label)
 
 
-def _compose_rows(match: MatchState, panels, label: str, near: Optional[int]) -> Image.Image:
+def _compose_rows(match: MatchState, panels, label: str, near: Optional[int],
+                  upcoming: Optional[str] = None) -> Image.Image:
     """
     A free-for-all's board side by side: rows of two panels, every one
     upright (the author, 2026-10-14). Seats go in turn order from the seat
@@ -2370,13 +2413,17 @@ def _compose_rows(match: MatchState, panels, label: str, near: Optional[int]) ->
     bottom under the turn's divider, the active player on its left and the
     next to play beside them -- so three players are one panel above two,
     four are two above two, as a dragon's board is, and five are three
-    rows with one panel at the top. A lone panel is centred.
+    rows with one panel at the top. A lone panel is centred, and
+    `upcoming`, whose turn is next, is named in the room to its right
+    (`next_turn_note`; the author, 2026-10-20).
     """
     near_seat = match.active if near is None else near
     order = seats.turn_order(match, near_seat)
     rows = [panels(order[at:at + 2]) for at in range(0, len(order), 2)]
     column = max(panel.width for row in rows for panel in row)
     drawn = [_pair_strip(row, column) for row in rows]
+    if upcoming and len(rows[-1]) == 1:
+        next_turn_note(drawn[-1], rows[-1][0].width, upcoming)
     # The pill over the active player's own panel, the bottom row's left
     # (the author, 2026-10-14).
     return _stack(list(reversed(drawn[1:])), drawn[0], label, centre=column / 2)
