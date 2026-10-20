@@ -3572,13 +3572,14 @@ engine's too, `codex_places` -- each card's row and column -- and
 uses. Where a codex is more than one spec, the Everything, Tech II & III
 and Spells views are laid out by spec: Tech I runs on, a row of six; each
 spec's Tech II and III are a block two cards wide and three high, Tech
-III last; and each spec's four spells are a block two cards wide, two
+III last, in the bottom right (the author, 2026-10-20); and each spec's four spells are a block two cards wide, two
 on top and two below, the specs' blocks side by side, so a spec's tech
 and spells sit in the same two columns (the author, 2026-10-20: tech 2
 and 3 "as a block of 2x3 instead of row"; until then each spec's six
 were a row of their own -- the same rows either way, 1 + 3 + 2). One
 spec's Tech II and III alone, as a `tech2spec:` view holds them, stay
-a line: a block of two would leave four columns empty. Tech I, a spec's
+a line (the author, 2026-10-20: "single spec view should not use this
+block") -- a block of two would leave four columns empty. Tech I, a spec's
 own view, and a codex of one spec run on.
 The
 Everything view of seventy-two (36 cards, two copies each) at
