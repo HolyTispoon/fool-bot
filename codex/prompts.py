@@ -806,7 +806,7 @@ def _tech_options(engine, game, match, prompt) -> TechOptions:
     return TechOptions(
         prompt.asked_player, engine.codex_counts(player), minimum, maximum,
         tuple(player.tech_choice or ()), player.tech_choice is not None,
-        engine.tech_opening_view(player), engine.tech_views(player),
+        engine.tech_opening_view(match, player), engine.tech_views(match, player),
     )
 
 

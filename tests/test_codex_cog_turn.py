@@ -946,19 +946,20 @@ class TurnEndTests(TurnTestCase):
         click (the author, 2026-10-10). Each change of view is the
         picker's own edit and spends nothing public (the author,
         2026-10-09: the whole codex at once is too much to pick from).
+        A basic game of two players opens on the whole codex (the author,
+        2026-10-20).
         """
-        from codex.engine import TECH1_SPELLS_VIEW
-
         await self.end_turn()
         engine = self.table.cog.engine
         mark = len(self.table.game_channel.requests)
         tech = await self.table.turn_button("tech", self.table.waiting)
         picker = tech.view()
         self.assertIsInstance(picker, TechChoiceView)
-        self.assertEqual(picker.view, TECH1_SPELLS_VIEW)
+        self.assertEqual(picker.view, "everything")
         codex = picker.prompt.options.codex
         self.assertEqual([option.value for menu in picker.menus for option in menu.options],
-                         [slug for slug, _ in engine.codex_view_rows(codex, TECH1_SPELLS_VIEW)])
+                         [slug for slug, _ in codex])
+        self.assertFalse(any(getattr(item, "label", None) == "Whole codex" for item in picker.children))
         self.assertTrue(all((menu.min_values, menu.max_values) == (1, 1) for menu in picker.menus))
         self.assertTrue(picker.menus[0].placeholder.startswith("Choose your first card of 2"))
 

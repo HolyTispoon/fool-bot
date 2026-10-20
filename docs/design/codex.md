@@ -2740,7 +2740,13 @@ on its opening view again: which view was shown is not remembered, since
 the picker is an ephemeral message made afresh each time.
 
 **The picker opens on the part a choice is likeliest made from** (the
-author, 2026-10-20): before the player's first Tech II building, every
+author, 2026-10-20). **In a basic game of two players that is the whole
+codex**, always: one spec's twenty-four cards are few enough to pick
+from at once, so there is no Tech I & Spells or Tech II view to open on
+and no **Whole codex** button (the author, 2026-10-20). The reading is
+one spec and a duel (`match.is_duel`), since the match carries no mode
+and a basic deck is one spec; a basic free-for-all or dragon keeps the
+narrowed views below. Otherwise: before the player's first Tech II building, every
 Tech I card and every spell ("Tech I & Spells"); once one is built, the
 spec chosen for it -- its Tech II and III -- and every spell, every
 spec's ("Anarchy Tech II & III, Spells"). A Tech II destroyed since

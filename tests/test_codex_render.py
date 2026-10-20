@@ -624,21 +624,30 @@ class CodexViewTests(unittest.TestCase):
             engine.codex_view_rows(rows, "tech4")
 
     def test_the_tech_pickers_opening_view(self) -> None:
-        """The picker opens on Tech I and the spells until a Tech II is
-        built; then on its spec's Tech II and III and the spells -- in the
-        basic game, the deck's one spec (the author, 2026-10-20)."""
+        """The picker opens on the whole codex in a basic game of two
+        players, whatever is built (the author, 2026-10-20). Elsewhere it
+        opens on Tech I and the spells until a Tech II is built; then on
+        its spec's Tech II and III and the spells -- in the basic game,
+        the deck's one spec (the author, 2026-10-20)."""
         from codex.components import BuildingState
         from codex.engine import TECH1_SPELLS_VIEW, tech2_spec_view
         from codex.formatting import codex_view_name
+        from codex.game import FREE_FOR_ALL
         engine = RulesEngine(seed=7)
-        match = engine.new_match(("bashing", "finesse"), first=1)
+        duel = engine.new_match(("bashing", "finesse"), first=1)
+        player = duel.player(1)
+        self.assertEqual(engine.tech_opening_view(duel, player), "everything")
+        self.assertEqual(engine.tech_views(duel, player), engine.codex_views(player))
+        player.buildings["tech2"] = BuildingState(hp=5)
+        self.assertEqual(engine.tech_opening_view(duel, player), "everything")
+        match = engine.new_match(("bashing", "finesse", "bashing"), first=1, variant=FREE_FOR_ALL)
         player = match.player(1)
-        self.assertEqual(engine.tech_opening_view(player), TECH1_SPELLS_VIEW)
-        self.assertEqual(engine.tech_views(player)[0], TECH1_SPELLS_VIEW)
-        self.assertEqual(engine.tech_views(player)[1:], engine.codex_views(player))
+        self.assertEqual(engine.tech_opening_view(match, player), TECH1_SPELLS_VIEW)
+        self.assertEqual(engine.tech_views(match, player)[0], TECH1_SPELLS_VIEW)
+        self.assertEqual(engine.tech_views(match, player)[1:], engine.codex_views(player))
         self.assertEqual(codex_view_name(TECH1_SPELLS_VIEW), "Tech I & Spells")
         player.buildings["tech2"] = BuildingState(hp=5)
-        self.assertEqual(engine.tech_opening_view(player), tech2_spec_view("bashing"))
+        self.assertEqual(engine.tech_opening_view(match, player), tech2_spec_view("bashing"))
         self.assertEqual(codex_view_name(tech2_spec_view("bashing")), "Bashing Tech II & III, Spells")
         catalog = engine.catalog
         rows = tuple((slug, 2) for spec in ("bashing", "anarchy")
@@ -655,8 +664,8 @@ class CodexViewTests(unittest.TestCase):
         # Nothing left to pick there: the picker opens on the whole codex,
         # and the focused view stays first on its Show menu.
         player.codex = {slug: 0 for slug in player.codex}
-        self.assertEqual(engine.tech_opening_view(player), "everything")
-        self.assertEqual(engine.tech_views(player)[0], tech2_spec_view("bashing"))
+        self.assertEqual(engine.tech_opening_view(match, player), "everything")
+        self.assertEqual(engine.tech_views(match, player)[0], tech2_spec_view("bashing"))
 
     def test_nothing_is_playable_off_the_main_phase(self) -> None:
         engine = RulesEngine(seed=7)

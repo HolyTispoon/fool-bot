@@ -118,8 +118,9 @@ def spec_view(spec: str) -> str:
     return SPEC_VIEW_PREFIX + spec.strip().lower()
 
 
-#: The tech picker's two opening views (`RulesEngine.tech_opening_view`):
-#: before a Tech II building, every Tech I card and every spell; after it,
+#: The tech picker's two opening views (`RulesEngine.tech_opening_view`)
+#: outside a basic duel, which opens on the whole codex: before a Tech II
+#: building, every Tech I card and every spell; after it,
 #: the Tech II spec's Tech II and III and every spell, as
 #: `tech2spec:<key>` (`tech2_spec_view`).
 TECH1_SPELLS_VIEW = "tech1spells"
@@ -4200,10 +4201,12 @@ class RulesEngine:
             return CODEX_VIEWS
         return CODEX_VIEWS + tuple(spec_view(spec) for spec in specs)
 
-    def tech_focus_view(self, player: PlayerState) -> str:
+    def tech_focus_view(self, match: MatchState, player: PlayerState) -> str:
         """
         The part of the codex a tech choice is likeliest made from (the
-        author, 2026-10-20): before the player's first Tech II building,
+        author, 2026-10-20): in a basic game of two players, the whole
+        codex, which is small enough to pick from at once (the author,
+        2026-10-20); otherwise, before the player's first Tech II building,
         every Tech I card and every spell (`TECH1_SPELLS_VIEW`); once one
         is built -- destroyed since or not, its spec being kept -- that
         spec's Tech II and III and every spell (`tech2_spec_view`). A
@@ -4212,24 +4215,26 @@ class RulesEngine:
         refused without it (`_check_spec`); a position staged by hand
         without one is "everything".
         """
+        if match.is_duel and len(player.specs) == 1:
+            return "everything"
         if player.buildings.get("tech2") is None:
             return TECH1_SPELLS_VIEW
         spec = player.tech2_spec or (player.specs[0] if len(player.specs) == 1 else None)
         return "everything" if spec is None else tech2_spec_view(spec)
 
-    def tech_opening_view(self, player: PlayerState) -> str:
+    def tech_opening_view(self, match: MatchState, player: PlayerState) -> str:
         """The view the tech picker opens on: `tech_focus_view`, or the
         whole codex where that view has no copy left to pick."""
-        focus = self.tech_focus_view(player)
+        focus = self.tech_focus_view(match, player)
         if any(left for _, left in self.codex_view_rows(self.codex_counts(player), focus)):
             return focus
         return "everything"
 
-    def tech_views(self, player: PlayerState) -> tuple[str, ...]:
+    def tech_views(self, match: MatchState, player: PlayerState) -> tuple[str, ...]:
         """The tech picker's Show menu: `tech_focus_view` first, then the
         views the Codex button offers (`codex_views`)."""
         views = self.codex_views(player)
-        focus = self.tech_focus_view(player)
+        focus = self.tech_focus_view(match, player)
         return views if focus in views else (focus,) + views
 
     def codex_view_rows(self, rows: Sequence[tuple[str, int]],
