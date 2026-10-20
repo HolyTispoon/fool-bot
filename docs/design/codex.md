@@ -2705,9 +2705,16 @@ cards than one menu holds is now split over as many menus as it needs
 (`MENU_ROWS`, three, each labelled with the cards it runs from and to),
 none cut short. **Save tech** is held to the bounds, and where ten
 workers allow none (UMR p. 5) **Tech nothing** saves the empty choice;
-the ask says so by its range. **The ask is the count and nothing
-else** -- "Tech 2 cards.", and "Tech 0-2 cards." where the workers
-allow none (the author, 2026-10-11). The first reading named the
+the ask says so by its range. **The ask is the count and when it is
+owed** -- "To start your turn, you must tech 2 cards." in the player's
+own turn, "Before your next turn, you must tech 2 cards." while the
+choice stands through another's (`standing_prompts`), and "... tech 0-2
+cards." where the workers allow none (the author, 2026-10-11,
+2026-10-20); under the hand's picture, before the picker is open, the
+gate's caption says how to open it, on the ask's own line (its
+`caption_runs_on`) -- "Click *Tech* to open the tech menu.", where it
+was "**Tech** opens it; the turn's actions come after it." on a line
+of its own. The first reading named the
 player, said the cards came from the codex, said when they reach the
 discard pile and, where none was allowed, why; read at the start of the
 player's own turn, "when your next turn begins" was confusing, and the
@@ -3581,11 +3588,16 @@ engine's too, `codex_places` -- each card's row and column -- and
 `render_codex` draws the cards there, the grid as big as the places it
 uses. Where a codex is more than one spec, the Everything, Tech II & III
 and Spells views are laid out by spec: Tech I runs on, a row of six; each
-spec's Tech II and III are a line of their own, six cards; and each
-spec's four spells are a block two cards wide, two on top and two
-below, the specs' blocks side by side, so a spec's spells sit in the
-same two columns. Tech I, a spec's own view, and a codex of one spec
-run on.
+spec's Tech II and III are a block two cards wide and three high, Tech
+III last, in the bottom right (the author, 2026-10-20); and each spec's four spells are a block two cards wide, two
+on top and two below, the specs' blocks side by side, so a spec's tech
+and spells sit in the same two columns (the author, 2026-10-20: tech 2
+and 3 "as a block of 2x3 instead of row"; until then each spec's six
+were a row of their own -- the same rows either way, 1 + 3 + 2). One
+spec's Tech II and III alone, as a `tech2spec:` view holds them, stay
+a line (the author, 2026-10-20: "single spec view should not use this
+block") -- a block of two would leave four columns empty. Tech I, a spec's
+own view, and a codex of one spec run on.
 The
 Everything view of seventy-two (36 cards, two copies each) at
 `CODEX_COLUMNS` -- six; twelve, a row a spec, was tried and put back --
