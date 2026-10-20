@@ -4186,12 +4186,15 @@ free-for-all stacked alone.
   player and the next to play under the divider -- three players one
   panel above two, four two above two, five three rows with one at the
   top, a lone panel centred -- and the turn's pill over the acting
-  player's own panel rather than the board's middle. The room to the
-  right of a lone top panel names whose turn is next, "NEXT TURN" over
-  the player's name (`render.next_turn_note`, `seats.next_seat` -- an
-  extra turn and the playoff included; the author, 2026-10-20); four
-  players leave no room and the stacked view has none, so neither
-  carries it, and a finished game names nobody. Three or four open
+  player's own panel rather than the board's middle. Beside the
+  turn's pill on the same divider, a second, quieter one names whose
+  turn is next, "NEXT: KIME" (`render.DIVIDER_NEXT`, `seats.next_seat`
+  -- an extra turn and the playoff included), in both views and every
+  table size; stacked, the two pills are centred together, and a long
+  name is cut with an ellipsis where the rule runs out. A finished game
+  names nobody. The author asked for it on the divider rather than in
+  the room beside a lone top panel, which four players and the stacked
+  view do not have (2026-10-20). Three or four open
   side by side and five stacked (`CodexGame.start`); **Swap view**
   toggles the two (`swapped_layout(layout, table=True)`), and `/codex
   side_by_side` is the same toggle. The record's `board_layout` keeps

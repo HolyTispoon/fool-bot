@@ -358,6 +358,10 @@ TURN_COLORS: dict[str, TurnColors] = {
     "purple": ((125, 71, 168), WORD, None),       # #7d47a8
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
+#: A free-for-all's "NEXT: <NAME>" pill beside the turn's, on the same
+#: divider (the author, 2026-10-20): the ground edged grey with white
+#: words, quieter than the turn's white pill.
+DIVIDER_NEXT: TurnColors = (GROUND, WORD, QUIET)
 #: ARRIVED and DISABLED, on grey (the author, 2026-10-11): states, not
 #: anything a card of a colour put there; a lent patroller's tag with
 #: them -- "Lent from bo" (the author, 2026-10-15) -- the zone it lies
@@ -2205,7 +2209,13 @@ def divider_label(match: MatchState, name: str) -> str:
     return turn_label(match, name).upper()
 
 
-def horizontal_divider(width: int, label: str, centre: Optional[float] = None) -> Image.Image:
+def next_label(name: str) -> str:
+    """A free-for-all's next-turn pill: "NEXT: KIME"."""
+    return f"Next: {name}".upper()
+
+
+def horizontal_divider(width: int, label: str, centre: Optional[float] = None,
+                       upcoming: Optional[str] = None) -> Image.Image:
     """
     The stacked board's divider: "<NAME>'S TURN <N>", the active player
     by name, bold and dark on a white pill (`DIVIDER_TURN`) between two
@@ -2213,7 +2223,9 @@ def horizontal_divider(width: int, label: str, centre: Optional[float] = None) -
     2026-10-09: more prominent, and neither gold nor cream). `centre`
     puts the pill over the acting player's panel where that is not the
     board's middle -- a free-for-all side by side (the author,
-    2026-10-14).
+    2026-10-14). `upcoming`, a free-for-all's, is a second, quieter pill
+    right of the first on the same rule (`DIVIDER_NEXT`), so whose turn
+    follows reads without counting seats (the author, 2026-10-20).
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
@@ -2221,12 +2233,35 @@ def horizontal_divider(width: int, label: str, centre: Optional[float] = None) -
     text_width = spaced_width(label, face, px(2))
     middle = DIVIDER_HEIGHT // 2
     left = (width - text_width) / 2 if centre is None else centre - text_width / 2
-    pad, half = px(18), px(18)
-    draw.line((0, middle, left - pad - px(14), middle), fill=QUIET, width=px(2))
-    draw.line((left + text_width + pad + px(14), middle, width, middle), fill=QUIET, width=px(2))
-    turn_pill(draw, (left - pad, middle - half, left + text_width + pad, middle + half),
-              half, DIVIDER_TURN)
-    spaced_text(draw, (left, middle), label, face, DIVIDER_TURN[1], px(2))
+    pad, half, clear = px(18), px(18), px(14)
+    pills = [(left, text_width, label, DIVIDER_TURN)]
+    if upcoming:
+        # From the turn's words to the next pill's: the two pills and
+        # the rule's gap between them.
+        gap = 2 * pad + 2 * clear
+        words = upcoming
+
+        def span() -> float:
+            return text_width + gap + spaced_width(next_label(words), face, px(2))
+
+        # The pair centred where the turn's pill was; the name cut with
+        # an ellipsis where the rule runs out first.
+        room = (width if centre is None else width - left) - 2 * (pad + clear)
+        while len(words) > 1 and span() > room:
+            words = words[:-2 if words.endswith("…") else -1].rstrip() + "…"
+        if centre is None:
+            left = (width - span()) / 2
+            pills[0] = (left, text_width, label, DIVIDER_TURN)
+        pills.append((left + text_width + gap, spaced_width(next_label(words), face, px(2)),
+                      next_label(words), DIVIDER_NEXT))
+    start = 0
+    for at, span, _, _ in pills:
+        draw.line((start, middle, at - pad - clear, middle), fill=QUIET, width=px(2))
+        start = at + span + pad + clear
+    draw.line((start, middle, width, middle), fill=QUIET, width=px(2))
+    for at, span, words, colors in pills:
+        turn_pill(draw, (at - pad, middle - half, at + span + pad, middle + half), half, colors)
+        spaced_text(draw, (at, middle), words, face, colors[1], px(2))
     return strip
 
 
@@ -2265,10 +2300,11 @@ def compose_board(match: MatchState, layout: str = "stacked",
     if match.is_dragon:
         return _compose_dragon(match, layout, panels, label, near)
     if match.is_free_for_all:
+        # Whose turn follows, beside the turn's pill -- none once the game is over.
+        upcoming = None if match.winner is not None else name(seats.next_seat(match))
         if layout == "side_by_side":
-            upcoming = None if match.winner is not None else name(seats.next_seat(match))
             return _compose_rows(match, panels, label, near, upcoming)
-        return _compose_table(match, panels, label, near)
+        return _compose_table(match, panels, label, near, upcoming)
     if layout == "side_by_side":
         first = match.first
         left, right = panels((first, seats.sole_opponent(match, first)))
@@ -2327,52 +2363,11 @@ def _pair_strip(panels: Sequence[Image.Image], column: int) -> Image.Image:
     return strip
 
 
-#: The free-for-all's next-turn note (`next_turn_note`): its heading's
-#: size and the name's, which shrinks to fit the room it has.
-NEXT_TURN_HEADING = px(30)
-NEXT_TURN_NAME = px(60)
-
-
-def next_turn_note(strip: Image.Image, panel_width: int, name: str) -> None:
-    """
-    "NEXT TURN" and `name` under it, in the room to the right of a
-    `_pair_strip`'s lone, centred panel -- a free-for-all's top row of
-    three or five, side by side -- centred in that room and on the
-    strip's height, so whose turn follows reads without counting seats
-    (the author, 2026-10-20). The name shrinks to fit and is cut with
-    an ellipsis below half its size.
-    """
-    room = (strip.width - panel_width) // 2
-    margin = px(20)
-    width = room - 2 * margin
-    if width <= 0:
-        return
-    left = (strip.width + panel_width) // 2 + margin
-    centre = left + width / 2
-    draw = ImageDraw.Draw(strip)
-    heading = font(NEXT_TURN_HEADING)
-    size = NEXT_TURN_NAME
-    face = font(size)
-    while face.getlength(name) > width and size > NEXT_TURN_NAME // 2:
-        size -= px(2)
-        face = font(size)
-    while len(name) > 1 and face.getlength(name) > width:
-        name = name[:-2 if name.endswith("…") else -1].rstrip() + "…"
-    words = "NEXT TURN"
-    words_width = spaced_width(words, heading, px(2))
-    gap = px(12)
-    top = (strip.height - NEXT_TURN_HEADING - gap - size) / 2
-    spaced_text(draw, (centre - words_width / 2, top + NEXT_TURN_HEADING / 2), words, heading,
-                QUIET, px(2))
-    draw.text((centre, top + NEXT_TURN_HEADING + gap + size / 2), name, font=face, fill=WORD,
-              anchor="mm")
-
-
 def _stack(above: Sequence[Image.Image], bottom: Image.Image, label: str,
-           centre: Optional[float] = None) -> Image.Image:
+           centre: Optional[float] = None, upcoming: Optional[str] = None) -> Image.Image:
     """`above` stacked top to bottom, a quiet rule between each two, over
     the turn's divider and `bottom` -- each centred on the board, the
-    pill at `centre` (`horizontal_divider`)."""
+    pill at `centre`, and `upcoming` named beside it (`horizontal_divider`)."""
     width = max(part.width for part in (*above, bottom))
     height = (sum(part.height for part in above) + TABLE_GAP * (len(above) - 1)
               + DIVIDER_HEIGHT + bottom.height)
@@ -2386,12 +2381,13 @@ def _stack(above: Sequence[Image.Image], bottom: Image.Image, label: str,
         place(board, part, ((width - part.width) // 2, top))
         top += part.height + TABLE_GAP
     top -= TABLE_GAP
-    board.alpha_composite(horizontal_divider(width, label, centre), (0, top))
+    board.alpha_composite(horizontal_divider(width, label, centre, upcoming), (0, top))
     place(board, bottom, ((width - bottom.width) // 2, top + DIVIDER_HEIGHT))
     return board
 
 
-def _compose_table(match: MatchState, panels, label: str, near: Optional[int]) -> Image.Image:
+def _compose_table(match: MatchState, panels, label: str, near: Optional[int],
+                   upcoming: Optional[str] = None) -> Image.Image:
     """
     A free-for-all's board stacked (decision 14): the seat looked from
     (the active player's) at the bottom under the turn's divider, and
@@ -2401,7 +2397,8 @@ def _compose_table(match: MatchState, panels, label: str, near: Optional[int]) -
     """
     near_seat = match.active if near is None else near
     others = seats.turn_order(match, near_seat, inclusive=False)[:-1]
-    return _stack([panels((seat,))[0] for seat in reversed(others)], panels((near_seat,))[0], label)
+    return _stack([panels((seat,))[0] for seat in reversed(others)], panels((near_seat,))[0], label,
+                  upcoming=upcoming)
 
 
 def _compose_rows(match: MatchState, panels, label: str, near: Optional[int],
@@ -2413,20 +2410,17 @@ def _compose_rows(match: MatchState, panels, label: str, near: Optional[int],
     bottom under the turn's divider, the active player on its left and the
     next to play beside them -- so three players are one panel above two,
     four are two above two, as a dragon's board is, and five are three
-    rows with one panel at the top. A lone panel is centred, and
-    `upcoming`, whose turn is next, is named in the room to its right
-    (`next_turn_note`; the author, 2026-10-20).
+    rows with one panel at the top. A lone panel is centred.
     """
     near_seat = match.active if near is None else near
     order = seats.turn_order(match, near_seat)
     rows = [panels(order[at:at + 2]) for at in range(0, len(order), 2)]
     column = max(panel.width for row in rows for panel in row)
     drawn = [_pair_strip(row, column) for row in rows]
-    if upcoming and len(rows[-1]) == 1:
-        next_turn_note(drawn[-1], rows[-1][0].width, upcoming)
     # The pill over the active player's own panel, the bottom row's left
     # (the author, 2026-10-14).
-    return _stack(list(reversed(drawn[1:])), drawn[0], label, centre=column / 2)
+    return _stack(list(reversed(drawn[1:])), drawn[0], label, centre=column / 2,
+                  upcoming=upcoming)
 
 
 def _compose_dragon(match: MatchState, layout: str, panels, label: str,

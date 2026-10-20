@@ -209,26 +209,35 @@ class RenderTests(unittest.TestCase):
                 self.assertEqual(board.height, rows * panel + (rows - 2) * render.TABLE_GAP
                                  + render.DIVIDER_HEIGHT)
 
-    def test_a_free_for_all_side_by_side_names_the_next_turn(self) -> None:
-        """The author, 2026-10-20: the room beside a lone top panel names
-        whose turn is next -- drawn on three and five players, not on four,
-        and not once the game is over."""
+    def test_a_free_for_all_divider_names_the_next_turn(self) -> None:
+        """The author, 2026-10-20: a free-for-all's divider names whose
+        turn is next beside the turn's pill -- every table size, both
+        views -- and nobody once the game is over."""
         from unittest import mock
-        for count, drawn in ((3, True), (4, False), (5, True)):
-            with self.subTest(players=count):
-                match = self.engine.new_match(("bashing", "finesse", "bashing", "finesse", "bashing")[:count],
-                                              first=1, variant="free_for_all")
-                names = {seat: f"p{seat}" for seat in range(1, count + 1)}
-                with mock.patch.object(render, "next_turn_note") as note:
-                    render.compose_board(match, "side_by_side", names, self.engine.catalog)
-                self.assertEqual(note.called, drawn)
-                if drawn:
-                    self.assertEqual(note.call_args.args[2], "p2")
+        for count in (3, 4, 5):
+            for layout in ("stacked", "side_by_side"):
+                with self.subTest(players=count, layout=layout):
+                    match = self.engine.new_match(("bashing", "finesse", "bashing", "finesse", "bashing")[:count],
+                                                  first=1, variant="free_for_all")
+                    names = {seat: f"p{seat}" for seat in range(1, count + 1)}
+                    with mock.patch.object(render, "horizontal_divider",
+                                           wraps=render.horizontal_divider) as divider:
+                        render.compose_board(match, layout, names, self.engine.catalog)
+                    self.assertEqual(divider.call_args.args[3], "p2")
         match = self.engine.new_match(("bashing", "finesse", "bashing"), first=1, variant="free_for_all")
         match.winner = 1
-        with mock.patch.object(render, "next_turn_note") as note:
+        with mock.patch.object(render, "horizontal_divider", wraps=render.horizontal_divider) as divider:
             render.compose_board(match, "side_by_side", {}, self.engine.catalog)
-        self.assertFalse(note.called)
+        self.assertIsNone(divider.call_args.args[3])
+
+    def test_the_next_pill_fits_the_divider(self) -> None:
+        """A long name is cut with an ellipsis rather than run off the rule."""
+        width = 1000
+        strip = render.horizontal_divider(width, "A'S TURN 1", upcoming="x" * 32)
+        self.assertEqual(strip.size, (width, render.DIVIDER_HEIGHT))
+        middle = render.DIVIDER_HEIGHT // 2
+        # The rule shows at the right edge, so the pill stops short of it.
+        self.assertEqual(strip.getpixel((width - 2, middle))[:3], render.QUIET)
 
     def test_the_far_panel_is_turned_round(self) -> None:
         """A turned panel's body is the upright one's rotated whole --
