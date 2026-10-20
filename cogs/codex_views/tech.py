@@ -4,10 +4,14 @@ docs/design/codex.md, "The standing prompt"), each **ephemeral to the
 choice's owner** and built from the prompt's options alone:
 
 - `TechChoiceView`, for `TECH_CHOICE`: the owner's codex pictured with
-  the picks marked (`render_codex`), under **Show...** -- the same views
-  the Codex button offers, Everything, one tech level, the spells, in
-  the standard game one spec (the engine's `codex_views`), since the
-  whole codex at once is too much to pick from (the author, 2026-10-09)
+  the picks marked (`render_codex`), opening on the part a choice is
+  likeliest made from -- every Tech I card and every spell before a
+  Tech II building, the Tech II spec's Tech II and III and every spell
+  after it (`TechOptions.opening`; the author, 2026-10-20), with
+  **Whole codex** beside the buttons -- under **Show...**, that view
+  then the ones the Codex button offers, Everything, one tech level,
+  the spells, in the standard game one spec (`TechOptions.views`), since
+  the whole codex at once is too much to pick from (the author, 2026-10-09)
   -- then **one card at a time** (the author, 2026-10-10): a menu of
   the cards the view shows, **each card once** whatever its copies, and
   a pick of it is one copy, so a second copy is the same card picked
@@ -51,7 +55,7 @@ from collections import Counter
 
 import discord
 
-from codex.formatting import card_label
+from codex.formatting import card_label, codex_view_name
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
 from cogs.codex_views.base import edit_clicked, kept_pictures
@@ -80,15 +84,16 @@ def picks_listed(picks) -> str:
 
 class TechChoiceView(PanelView):
     def __init__(self, cog, game_id: str, prompt, match, picks=None,
-                 view: str = "everything") -> None:
+                 view: str | None = None) -> None:
         super().__init__(cog, game_id, prompt, match)
         options = prompt.options
         self.picks = list(options.picks if picks is None else picks)
+        view = options.opening if view is None else view
         self.view = view
         engine = cog.engine
         catalog = engine.catalog
-        # Row 0: which part of the codex is shown.
-        views = codex_view_menu(engine.codex_views(match.player(self.seat)), view, row=0)
+        # Row 0: which part of the codex is shown, the opening view first.
+        views = codex_view_menu(options.views, view, row=0)
         views.callback = self.show
         self.views = views
         self.add_item(views)
@@ -138,6 +143,14 @@ class TechChoiceView(PanelView):
             clear.callback = self.clear
             self.add_item(clear)
         self.add_item(deck_button(self.open_deck, row=last))
+        # The whole codex a click away from the opening view, and the
+        # opening view a click back from any other.
+        if options.opening != "everything":
+            whole = view == options.opening
+            label = "Whole codex" if whole else _cut(codex_view_name(options.opening), 80)
+            toggle = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=last)
+            toggle.callback = self.show_whole if whole else self.show_opening
+            self.add_item(toggle)
 
     def placeholder(self) -> str:
         """The menu's ask: which pick this is, of how many."""
@@ -174,6 +187,20 @@ class TechChoiceView(PanelView):
             return
         await self.redraw(interaction, game, self.picks, self.views.values[0])
 
+    async def show_whole(self, interaction: discord.Interaction) -> None:
+        """**Whole codex**: every card, the spells and every tech level."""
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.redraw(interaction, game, self.picks, "everything")
+
+    async def show_opening(self, interaction: discord.Interaction) -> None:
+        """Back to the view the picker opened on."""
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.redraw(interaction, game, self.picks, self.prompt.options.opening)
+
     async def clear(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)
         if game is None:
@@ -194,7 +221,7 @@ class TechChoiceView(PanelView):
 
 
 async def _put_picker(clicked: PanelView, interaction: discord.Interaction, game, picks,
-                     view: str = "everything") -> None:
+                     view: str | None = None) -> None:
     """The picker in place of the panel clicked: the picks and the view
     given, the picture narrowed to the view with the picks marked."""
     panel = TechChoiceView(clicked.cog, clicked.game_id, clicked.prompt, clicked.match, picks, view)

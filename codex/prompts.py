@@ -208,6 +208,10 @@ class TechOptions:
     maximum: int
     picks: tuple[str, ...] = ()
     saved: bool = False
+    #: The view the picker opens on (`RulesEngine.tech_opening_view`).
+    opening: str = "everything"
+    #: The views its Show menu offers (`RulesEngine.tech_views`).
+    views: tuple[str, ...] = ("everything",)
 
     def to_dict(self) -> dict:
         return {
@@ -217,6 +221,8 @@ class TechOptions:
             "maximum": self.maximum,
             "picks": list(self.picks),
             "saved": self.saved,
+            "opening": self.opening,
+            "views": list(self.views),
         }
 
 
@@ -800,6 +806,7 @@ def _tech_options(engine, game, match, prompt) -> TechOptions:
     return TechOptions(
         prompt.asked_player, engine.codex_counts(player), minimum, maximum,
         tuple(player.tech_choice or ()), player.tech_choice is not None,
+        engine.tech_opening_view(player), engine.tech_views(player),
     )
 
 
