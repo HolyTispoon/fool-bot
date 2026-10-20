@@ -3100,7 +3100,13 @@ DISCARD_CHIP_BADGE = 17
 #: chip's right-hand end, across both halves: only a two-headed card
 #: has copies (four a rank), so an advanced chip never carries one.
 DISCARD_COUNT_RADIUS = 21
-DISCARD_MAX_COLUMNS = 5
+#: **Each pile is a column, the two side by side** (the author,
+#: 2026-10-20: "stack discard piles vertically side by side and make
+#: it closer together"): a pile's chips run down under its heading,
+#: one a row, home's column then the visitors'. The gaps are the
+#: space between two chips in a column and between the two columns.
+DISCARD_CHIP_GAP = 4
+DISCARD_PILE_GAP = 20
 
 #: Each chip drawn once, by card id and count.
 _DISCARD_CHIPS: dict[tuple[str, int], Image.Image] = {}
@@ -3190,26 +3196,27 @@ def render_discard_piles(
     """
     **The 2.0 discard piles, face up**, for the public maneuver prompt
     (the author, 2026-10-16: the discard is visible to both coaches).
-    `piles` is one `(heading, colour, card ids)` per coach. Each card is
-    a chip (`discard_chip`), and copies of a card are one chip with a
-    count on it -- four basic Pass / Deflect cards are one chip marked
-    x4 -- so a pile is at most nine chips, two short rows. An
-    empty pile says so. `players` is unused since the chips, and kept
-    so the cog's call is unchanged.
+    `piles` is one `(heading, colour, card ids)` per coach, each drawn
+    as a column of chips under its heading, the columns side by side
+    in the order given. Each card is a chip (`discard_chip`), and
+    copies of a card are one chip with a count on it -- four basic
+    Pass / Deflect cards are one chip marked x4 -- so a column is at
+    most nine chips. An empty pile says so. `players` is unused since
+    the chips, and kept so the cog's call is unchanged.
     """
     heading_font = load_font(26, bold=True)
     empty_font = load_font(22)
-    heading_band = 26 + 10
+    heading_band = 26 + 8
     chip_height = DISCARD_CHIP_BAND * 2
-    gap = 12
-    cell = DISCARD_CHIP_WIDTH
+    empty_text = "Nothing discarded yet."
+    empty_room = 30
 
     def order(card_id: str) -> tuple:
         if maneuver_deck.is_basic_card(card_id):
             return (0, "", maneuver_deck.basic_card_rank(card_id))
         return (1, catalog.side_of(card_id), catalog.definition(card_id).rank)
 
-    blocks = []
+    columns = []
     for heading, colour, cards in piles:
         counts: dict[str, int] = {}
         for card_id in cards:
@@ -3218,51 +3225,41 @@ def render_discard_piles(
             discard_chip(catalog, card_id, counts[card_id])
             for card_id in sorted(counts, key=order)
         ]
-        rows = [
-            chips[start:start + DISCARD_MAX_COLUMNS]
-            for start in range(0, len(chips), DISCARD_MAX_COLUMNS)
-        ]
-        blocks.append((f"{heading} ({len(cards)})", colour, rows))
+        title = f"{heading} ({len(cards)})"
+        width = max(
+            DISCARD_CHIP_WIDTH,
+            round(heading_font.getlength(title)),
+            0 if chips else round(empty_font.getlength(empty_text)),
+        )
+        height = (
+            len(chips) * chip_height + (len(chips) - 1) * DISCARD_CHIP_GAP
+            if chips else empty_room
+        )
+        columns.append((title, colour, chips, width, height))
 
-    empty_room = 30
-    columns = max(
-        [len(row) for _, _, rows in blocks for row in rows] + [3]
-    )
-    heading_width = max(
-        heading_font.getlength(heading) for heading, _, _ in blocks
-    )
     canvas = Image.new(
         "RGB",
         (
-            HAND_MARGIN * 2 + max(
-                round(heading_width), cell * columns + gap * (columns - 1),
-            ),
-            HAND_MARGIN * 2 - gap + sum(
-                heading_band + (
-                    len(rows) * (chip_height + gap)
-                    if rows else empty_room + gap
-                )
-                for _, _, rows in blocks
-            ),
+            HAND_MARGIN * 2
+            + sum(width for *_, width, _ in columns)
+            + DISCARD_PILE_GAP * (len(columns) - 1),
+            HAND_MARGIN * 2 + heading_band
+            + max(height for *_, height in columns),
         ),
         FACE_COLOR,
     )
     draw = ImageDraw.Draw(canvas)
-    y = HAND_MARGIN
-    for heading, colour, rows in blocks:
-        draw.text((HAND_MARGIN, y), heading, font=heading_font, fill=colour)
+    x = HAND_MARGIN
+    for title, colour, chips, width, _ in columns:
+        y = HAND_MARGIN
+        draw.text((x, y), title, font=heading_font, fill=colour)
         y += heading_band
-        if not rows:
-            draw.text(
-                (HAND_MARGIN, y), "Nothing discarded yet.",
-                font=empty_font, fill=MUTED,
-            )
-            y += empty_room + gap
-        for row in rows:
-            for column, chip in enumerate(row):
-                x = HAND_MARGIN + column * (cell + gap)
-                canvas.paste(chip, (x, y), chip)
-            y += chip_height + gap
+        if not chips:
+            draw.text((x, y), empty_text, font=empty_font, fill=MUTED)
+        for chip in chips:
+            canvas.paste(chip, (x, y), chip)
+            y += chip_height + DISCARD_CHIP_GAP
+        x += width + DISCARD_PILE_GAP
     buffer = BytesIO()
     canvas.save(buffer, format="PNG")
     buffer.seek(0)
