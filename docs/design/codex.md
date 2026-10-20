@@ -2699,9 +2699,16 @@ cards than one menu holds is now split over as many menus as it needs
 (`MENU_ROWS`, three, each labelled with the cards it runs from and to),
 none cut short. **Save tech** is held to the bounds, and where ten
 workers allow none (UMR p. 5) **Tech nothing** saves the empty choice;
-the ask says so by its range. **The ask is the count and nothing
-else** -- "Tech 2 cards.", and "Tech 0-2 cards." where the workers
-allow none (the author, 2026-10-11). The first reading named the
+the ask says so by its range. **The ask is the count and when it is
+owed** -- "To start your turn, you must tech 2 cards." in the player's
+own turn, "Before your next turn, you must tech 2 cards." while the
+choice stands through another's (`standing_prompts`), and "... tech 0-2
+cards." where the workers allow none (the author, 2026-10-11,
+2026-10-20); under the hand's picture, before the picker is open, the
+gate's caption says how to open it, on the ask's own line (its
+`caption_runs_on`) -- "Click *Tech* to open the tech menu.", where it
+was "**Tech** opens it; the turn's actions come after it." on a line
+of its own. The first reading named the
 player, said the cards came from the codex, said when they reach the
 discard pile and, where none was allowed, why; read at the start of the
 player's own turn, "when your next turn begins" was confusing, and the

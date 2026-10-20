@@ -286,7 +286,11 @@ class TechGateView(PanelView):
     under the hand's picture, the panel
     while the turn waits on a tech choice its player never made: Tech
     opens the picker in place -- the prompt's own view, `show_panel`'s
-    edit. Saved picks skip it: My hand opens their confirmation at once."""
+    edit. Saved picks skip it: My hand opens their confirmation at once.
+    Its caption runs on after the ask, on the same line (the author,
+    2026-10-20)."""
+
+    caption_runs_on = True
 
     def __init__(self, cog, game_id: str, prompt, match) -> None:
         super().__init__(cog, game_id, prompt, match)
@@ -300,7 +304,7 @@ class TechGateView(PanelView):
             self.add_item(button)
 
     def caption(self) -> str:
-        return "**Tech** opens it; the turn's actions come after it."
+        return "Click *Tech* to open the tech menu."
 
     async def open_tech(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)
