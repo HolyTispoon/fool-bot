@@ -2466,7 +2466,8 @@ HAND_MARGIN = 22
 # a row (see `hand_card_rows`), and a tier is three cards. It stays as
 # the wrap, so a seventh card added to a rank lands on a row of its own
 # rather than shrinking every card on the image -- six across arrives
-# in Discord at about 85px a card against 131px today.
+# in Discord at about 85px a card against 131px today. A 2.0 hand of
+# five is the one row drawn wider, whole (`render_deck_hand`).
 HAND_MAX_COLUMNS = 4
 # Each side's block is captioned with whose hand it is -- "OFFENSE" over
 # the top rows, "DEFENSE" over the bottom -- in that side's own colour,
@@ -2547,6 +2548,7 @@ def hand_back_image(catalog: ManeuverCatalog) -> Image.Image:
 def lay_out_hand(
     blocks: Sequence[Sequence[Sequence[Image.Image]]],
     headings: Sequence[Optional[tuple[str, str]]] = (),
+    max_columns: int = HAND_MAX_COLUMNS,
 ) -> BytesIO:
     """
     Paste one or more blocks of cards onto a single canvas, each block
@@ -2569,6 +2571,9 @@ def lay_out_hand(
     `headings` is one `(label, colour)` per block, or `None` for a block
     that gets no caption. A captioned block reserves a band above its
     first row for the label; an uncaptioned one does not.
+
+    `max_columns` is the wrap, `HAND_MAX_COLUMNS` unless a caller's
+    row is a hand that must not be split (`render_deck_hand`).
     """
     scale = HAND_CARD_WIDTH / CARD_WIDTH
     height = round(CARD_HEIGHT * scale)
@@ -2590,8 +2595,8 @@ def lay_out_hand(
                 for card in row
             ]
             rows.extend(
-                sized[start:start + HAND_MAX_COLUMNS]
-                for start in range(0, len(sized), HAND_MAX_COLUMNS)
+                sized[start:start + max_columns]
+                for start in range(0, len(sized), max_columns)
             )
         heading = headings[index] if index < len(headings) else None
         groups.append((heading, rows))
@@ -2798,7 +2803,7 @@ def two_headed_effect_size(pen: Pen, catalog: ManeuverCatalog) -> int:
     **One effect size for all six halves**, the largest at which every
     basic maneuver's sentence fits under its own diagram in a half --
     as `basic_effect_layout` sets one size for the six printed cards,
-    so the nine two-headed cards read as one set.
+    so the two-headed cards read as one set.
     """
     basics = [
         maneuver
@@ -3006,7 +3011,7 @@ def render_two_headed_card(
 
 
 #: Each 2.0 card face drawn once, by `(card_id, side)` -- thirty faces
-#: in all, and every hand is four of them.
+#: in all, and every hand is five of them.
 _DECK_CARD_FACES: dict[tuple[str, str], Image.Image] = {}
 
 
@@ -3049,11 +3054,17 @@ def render_deck_hand(
     side: str,
 ) -> BytesIO:
     """
-    **A 2.0 coach's hand**, for their eyes alone: the four cards they
+    **A 2.0 coach's hand**, for their eyes alone: the five cards they
     hold, turned for the side they are playing this maneuver, in one
     row under the side's heading. A card the side cannot play -- an
     advanced card of the other side -- is drawn veiled rather than left
     out, because it is still in the hand.
+
+    **The five are one row**, past `HAND_MAX_COLUMNS`: a wrap at four
+    would leave one card alone on a row of its own, which reads as
+    something apart from the hand rather than a fifth card in it.
+    Five across arrives in Discord at about 105px a card against 131px
+    for four, and the full image is a click away.
     """
     def order(card_id: str) -> tuple:
         maneuver = maneuver_deck.plays_as(catalog, card_id, side)
@@ -3067,13 +3078,14 @@ def render_deck_hand(
     ]
     return lay_out_hand(
         [[cards]], [(HAND_HEADINGS[side], SIDE_COLORS[side])],
+        max_columns=maneuver_deck.HAND_SIZE,
     )
 
 
 #: **A discarded card is a chip, not a card** (the author, 2026-10-18,
 #: asking for a more condensed discard view; the piles drawn as whole
 #: cards came to 1534 x 1298 px). The pile is read for what has gone, not played
-#: from, and a coach knows the fifteen cards, so a chip carries what
+#: from, and a coach knows the eighteen cards, so a chip carries what
 #: tells one from another -- the rank badge and the name in the card's
 #: own colour -- and nothing a card spells out for playing it. A
 #: two-headed card is its two halves, both upright, offense over
@@ -3086,7 +3098,7 @@ DISCARD_CHIP_RADIUS = 12
 DISCARD_CHIP_BADGE = 17
 #: The count of a card's copies in the pile -- "x3" -- rides on the
 #: chip's right-hand end, across both halves: only a two-headed card
-#: has copies (three a rank), so an advanced chip never carries one.
+#: has copies (four a rank), so an advanced chip never carries one.
 DISCARD_COUNT_RADIUS = 21
 DISCARD_MAX_COLUMNS = 5
 
@@ -3180,8 +3192,8 @@ def render_discard_piles(
     (the author, 2026-10-16: the discard is visible to both coaches).
     `piles` is one `(heading, colour, card ids)` per coach. Each card is
     a chip (`discard_chip`), and copies of a card are one chip with a
-    count on it -- three basic Pass / Deflect cards are one chip marked
-    x3 -- so a pile is at most nine chips, two short rows. An
+    count on it -- four basic Pass / Deflect cards are one chip marked
+    x4 -- so a pile is at most nine chips, two short rows. An
     empty pile says so. `players` is unused since the chips, and kept
     so the cog's call is unchanged.
     """

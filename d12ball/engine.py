@@ -601,7 +601,7 @@ class RulesEngine:
     def maneuver_deck_applies(self, game: Optional[D12BallGame]) -> bool:
         """
         Whether this game plays **D12 Ball 2.0's maneuver deck**: each
-        coach a shuffled deck of fifteen cards and a hand of four, in
+        coach a shuffled deck of eighteen cards and a hand of five, in
         place of the three cards every maneuver (the author,
         2026-10-16; docs/rules-2.0.md). The edition is a setting beside
         the mode, so any mode may play it -- and the deck holds the six
@@ -2012,7 +2012,7 @@ class RulesEngine:
         """
         D12 Ball 2.0's public count of each coach's cards, for the
         maneuver prompt -- how many are face down in their deck and in
-        their discard pile, home's first. The hand is four and secret,
+        their discard pile, home's first. The hand is five and secret,
         so it is not counted. `""` in 1.0.
         """
         if not self.maneuver_deck_applies(game):
@@ -2143,7 +2143,7 @@ class RulesEngine:
 
     def deal_maneuver_decks(self, game: D12BallGame, match: MatchState) -> None:
         """
-        Each coach's fifteen cards shuffled and four drawn, at kickoff
+        Each coach's eighteen cards shuffled and five drawn, at kickoff
         -- home's first, so a seeded game deals the same hands. A 1.0
         game is dealt nothing.
         """
@@ -2188,7 +2188,7 @@ class RulesEngine:
         """
         **Halftime in 2.0** (the author, 2026-10-16): each coach's hand,
         deck and discard pile are shuffled together into a new deck of
-        fifteen and a fresh hand of four is drawn -- home's first, as at
+        eighteen and a fresh hand of five is drawn -- home's first, as at
         kickoff. Says whether it did anything, so a 1.0 halftime says
         nothing about decks.
         """

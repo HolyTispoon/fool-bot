@@ -1,15 +1,15 @@
 """
-D12 Ball 2.0's maneuver deck: each coach's fifteen cards, the hand of
-four drawn from them, and the discard pile -- as data and the few moves
+D12 Ball 2.0's maneuver deck: each coach's eighteen cards, the hand of
+five drawn from them, and the discard pile -- as data and the few moves
 made on it. See docs/design/maneuver-deck.md and docs/rules-2.0.md.
 
-**The cards.** Nine are **two-headed basic cards**, three copies of each
+**The cards.** Twelve are **two-headed basic cards**, four copies of each
 rank, whose top half is the basic offensive maneuver of that rank and
 whose bottom half, upside down, is the basic defensive maneuver of the
 same rank: one card plays Pass on offense and Deflect on defense.
 The other six are the **advanced maneuvers**, one card each, and an
 advanced card plays on its own side alone. Three are offense and three
-defense, so a hand of four always holds at least one card either side
+defense, so a hand of five always holds at least one card either side
 can play.
 
 **A card is named by an id**, never by what it plays: a basic card is
@@ -41,10 +41,10 @@ from d12ball.components import (
 )
 
 #: The cards a coach holds at a time.
-HAND_SIZE = 4
+HAND_SIZE = 5
 
 #: Copies of each rank's two-headed basic card in a deck.
-BASIC_COPIES = 3
+BASIC_COPIES = 4
 
 #: A two-headed basic card's id is this and its rank.
 BASIC_CARD_PREFIX = "basic_"
@@ -72,7 +72,7 @@ def basic_card_rank(card_id: str) -> int:
 
 def deck_cards(catalog: ManeuverCatalog) -> list[str]:
     """
-    The fifteen cards of one coach's deck, unshuffled: three of each
+    The eighteen cards of one coach's deck, unshuffled: four of each
     rank's two-headed basic card, then the six advanced maneuvers.
     Read off the catalog, so the ranks and the advanced keys are the
     data's.
@@ -134,7 +134,7 @@ def card_for_maneuver(
 
 
 def new_deck(catalog: ManeuverCatalog, rng: random.Random) -> dict:
-    """A coach's deck shuffled, and their opening hand of four drawn."""
+    """A coach's deck shuffled, and their opening hand of five drawn."""
     draw = deck_cards(catalog)
     rng.shuffle(draw)
     deck = {DRAW: draw, HAND: [], DISCARD: []}
@@ -170,7 +170,7 @@ def draw_cards(deck: dict, rng: random.Random, count: int) -> int:
 def play_card(deck: dict, card_id: str, rng: random.Random) -> int:
     """
     `card_id` played out of the hand onto the discard pile, and the
-    hand drawn back up to four. Returns how many times the discard was
+    hand drawn back up to five. Returns how many times the discard was
     shuffled into a new deck by that draw.
     """
     deck[HAND].remove(card_id)
@@ -181,7 +181,7 @@ def play_card(deck: dict, card_id: str, rng: random.Random) -> int:
 def reshuffled(deck: dict, rng: random.Random) -> dict:
     """
     Every card a coach has -- hand, deck and discard -- shuffled into a
-    new deck, and a fresh hand of four drawn from it: what halftime
+    new deck, and a fresh hand of five drawn from it: what halftime
     does (the author, 2026-10-16).
     """
     cards = deck[DRAW] + deck[HAND] + deck[DISCARD]

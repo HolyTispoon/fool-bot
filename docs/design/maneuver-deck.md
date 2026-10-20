@@ -45,6 +45,10 @@ in, so a seeded game deals and reshuffles the same way every time.
   other with `maneuver_side_team`, the reading every other per-side question already uses.
 - **The reshuffle is at the last card drawn**, not at a draw from an empty pile -- the
   author's wording -- so a deck between turns is never empty while there is a discard.
+- **Eighteen cards and five in hand since 2026-10-20** (`BASIC_COPIES`, `HAND_SIZE`; it was
+  fifteen and four). A 2.0 game saved before that keeps the fifteen cards its save lists --
+  nothing rebuilds a saved deck -- and draws up to five at its next card played, since a draw
+  fills the hand to `HAND_SIZE` whatever it held. No migration, as for every saved field.
 - **The picks are still maneuver keys** on `offense_maneuver` / `defense_maneuver`; nothing in
   the effect pipeline knew there was a deck.
 
@@ -53,7 +57,7 @@ in, so a seeded game deals and reshuffles the same way every time.
 **`RulesEngine.maneuver_hand` is still the only answer to which cards a coach may play.** In
 2.0 it reads the side's team's hand through `plays_as` -- one entry a maneuver however many
 copies are held -- and `maneuver_tiers` is read off it rather than the other way round. The
-prompt's `ManeuverHand` keeps `maneuver_keys` as the answer, and grows `held` (the four card
+prompt's `ManeuverHand` keeps `maneuver_keys` as the answer, and grows `held` (the five card
 ids) with `deck_count` and `discard_count`, which the AI and the pick refusal do not read. The
 AI needed nothing: Dinky already picks among the keys on a rolled rank, and from the whole
 hand where it holds nothing on that rank.
@@ -66,7 +70,7 @@ is recorded as played, and `resolving_maneuver` downgrades it with no change, si
 
 `d12ball.flow.turn.play_maneuver_cards`, at the end of `maneuver_pick_step` once
 `maneuver_selections_complete`: the card behind each pick goes to the discard and the coach
-draws to four. It is the reveal rather than `begin_effect_resolution` because that is when a
+draws to five. It is the reveal rather than `begin_effect_resolution` because that is when a
 card is down for good -- until then the pick may change -- and the step where both picks
 become complete is the one place every maneuver passes (an AI's pick goes through the same
 answer). A reshuffle is said, since it is public.
@@ -78,8 +82,9 @@ holds the same three cards. A 2.0 hand is a secret, so **the public prompt carri
 **My hand** button and no card** (`d12ball:maneuver_hand:<game>`, `HAND_BUTTON_LABEL`), and no
 hand image. One button rather than one a side (the author, 2026-10-17): who presses it says
 whose hand it is. It answers ephemerally with the hand of each side the clicker coaches --
-both, named by side, for somebody coaching themselves -- as the four cards
-(`render_deck_hand`) and `ManeuverHandView`, one button a playable maneuver. Somebody coaching
+both, named by side, for somebody coaching themselves -- as the five cards
+(`render_deck_hand`, one row of five past `HAND_MAX_COLUMNS`, because a wrap at four leaves
+one card alone on a row of its own) and `ManeuverHandView`, one button a playable maneuver. Somebody coaching
 neither side is put through the pick's own gate a side at a time, so a helper is confirmed and
 then shown every hand on the prompt, and anybody else is refused. A pick from there is the 1.0 pick exactly
 (`ManeuverPicking`, the mixin both views share): the same action, the same ephemeral "You
@@ -118,7 +123,7 @@ card is a chip, not the card** (the author, 2026-10-18, asking for a more conden
 view; the whole cards made two piles 1534 x 1298 px): the rank badge and the name in the card's own colour, a two-headed
 card's two halves both upright, offense over defense, an advanced card one block in its gambit
 colour with its "ADVANCED ..." line (`discard_chip`). The pile is read for what has gone, and a
-coach knows the fifteen cards, so nothing a card spells out for playing it is on the chip. Copies
+coach knows the eighteen cards, so nothing a card spells out for playing it is on the chip. Copies
 of a card are one chip with the count on it -- only a two-headed card has copies -- so a pile is
 at most nine chips, two short rows. The model's reading is
 `RulesEngine.maneuver_discards`; a picture is not a button, so it is read off the match, as the
@@ -126,7 +131,7 @@ field strip is.
 
 **Halftime reshuffles** (the author): `begin_halftime` asks
 `RulesEngine.reshuffle_maneuver_decks`, which puts each coach's hand and discard back into the
-deck, shuffles and deals four (`maneuver_deck.reshuffled`), and says so in halftime's opening
+deck, shuffles and deals five (`maneuver_deck.reshuffled`), and says so in halftime's opening
 message. A 1.0 halftime is unchanged, which the windows golden pins.
 
 ## Roles

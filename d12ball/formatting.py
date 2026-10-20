@@ -1017,9 +1017,9 @@ EDITION_NAMES: dict[Edition, str] = {
 
 #: What 2.0 changes, for the setup screens (docs/rules-2.0.md).
 EDITION_TWO_DEFINITION = (
-    "each coach plays from their own shuffled deck of 15 maneuver cards "
-    "-- nine two-headed basic cards and the six advanced maneuvers -- "
-    "holding a secret hand of four and drawing one after each card "
+    "each coach plays from their own shuffled deck of 18 maneuver cards "
+    "-- twelve two-headed basic cards and the six advanced maneuvers -- "
+    "holding a secret hand of five and drawing one after each card "
     "played. No coin: an advanced card is played like any other."
 )
 

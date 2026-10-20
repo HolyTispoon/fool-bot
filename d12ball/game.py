@@ -152,8 +152,8 @@ class Edition(str, Enum):
     Which edition of the game a match plays, beside its mode (the
     author, 2026-10-16). **1.0** is the game the Charter describes: each
     coach chooses from the same three cards every maneuver. **2.0**
-    gives each coach a shuffled deck of fifteen maneuver cards and a
-    hand of four drawn from it -- see "D12 Ball 2.0" in
+    gives each coach a shuffled deck of eighteen maneuver cards and a
+    hand of five drawn from it -- see "D12 Ball 2.0" in
     docs/design/maneuver-deck.md and docs/rules-2.0.md. The mode still
     says which abilities are played, so either edition goes with any
     mode.

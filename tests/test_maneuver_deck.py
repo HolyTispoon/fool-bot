@@ -1,6 +1,6 @@
 """
-D12 Ball 2.0's maneuver deck (`d12ball/maneuver_deck.py`): the fifteen
-cards, the hand of four, the discard and the reshuffle -- and whole 2.0
+D12 Ball 2.0's maneuver deck (`d12ball/maneuver_deck.py`): the eighteen
+cards, the hand of five, the discard and the reshuffle -- and whole 2.0
 games through the driver, with the save reloaded after every click, as
 `test_driver_full_game` plays 1.0. See docs/design/maneuver-deck.md.
 """
@@ -30,14 +30,14 @@ def two_point_oh(mode: GameMode = GameMode.ADVANCED) -> D12BallGame:
 
 class DeckTests(unittest.TestCase):
 
-    def test_fifteen_cards_nine_two_headed_and_six_advanced(self) -> None:
+    def test_eighteen_cards_twelve_two_headed_and_six_advanced(self) -> None:
         cards = maneuver_deck.deck_cards(MANEUVERS)
-        self.assertEqual(len(cards), 15)
+        self.assertEqual(len(cards), 18)
         counts = Counter(cards)
         self.assertEqual(
             {card: count for card, count in counts.items()
              if maneuver_deck.is_basic_card(card)},
-            {"basic_1": 3, "basic_2": 3, "basic_3": 3},
+            {"basic_1": 4, "basic_2": 4, "basic_3": 4},
         )
         advanced = [card for card in cards if not maneuver_deck.is_basic_card(card)]
         self.assertEqual(len(advanced), 6)
@@ -65,7 +65,7 @@ class DeckTests(unittest.TestCase):
                     maneuver_deck.plays_as(MANEUVERS, maneuver.key, other),
                 )
 
-    def test_any_hand_of_four_holds_a_card_either_side_can_play(self) -> None:
+    def test_any_hand_of_five_holds_a_card_either_side_can_play(self) -> None:
         from itertools import combinations
         cards = maneuver_deck.deck_cards(MANEUVERS)
         for hand in combinations(cards, maneuver_deck.HAND_SIZE):
@@ -75,21 +75,21 @@ class DeckTests(unittest.TestCase):
                     for card in hand
                 ), (hand, side))
 
-    def test_a_new_deck_deals_four(self) -> None:
+    def test_a_new_deck_deals_five(self) -> None:
         deck = maneuver_deck.new_deck(MANEUVERS, random.Random(1))
-        self.assertEqual(len(deck["hand"]), 4)
-        self.assertEqual(len(deck["draw"]), 11)
+        self.assertEqual(len(deck["hand"]), 5)
+        self.assertEqual(len(deck["draw"]), 13)
         self.assertEqual(deck["discard"], [])
 
     def test_drawing_the_last_card_shuffles_the_discard_into_a_new_deck(self) -> None:
         rng = random.Random(2)
         deck = {"draw": ["basic_1"],
-                "hand": ["basic_2", "basic_3", "basic_3", "intercept"],
+                "hand": ["basic_2", "basic_2", "basic_3", "basic_3", "intercept"],
                 "discard": ["clear", "basic_1"]}
         reshuffles = maneuver_deck.play_card(deck, "intercept", rng)
         self.assertEqual(reshuffles, 1)
         self.assertEqual(
-            sorted(deck["hand"]), ["basic_1", "basic_2", "basic_3", "basic_3"],
+            sorted(deck["hand"]), ["basic_1", "basic_2", "basic_2", "basic_3", "basic_3"],
         )
         # The card just played was on the discard when the last card was
         # drawn, so it is in the new deck with the rest.
@@ -100,17 +100,17 @@ class DeckTests(unittest.TestCase):
         deck = maneuver_deck.new_deck(MANEUVERS, random.Random(3))
         card = deck["hand"][0]
         self.assertEqual(maneuver_deck.play_card(deck, card, random.Random(3)), 0)
-        self.assertEqual(len(deck["hand"]), 4)
+        self.assertEqual(len(deck["hand"]), 5)
         self.assertEqual(deck["discard"], [card])
-        self.assertEqual(len(deck["draw"]), 10)
+        self.assertEqual(len(deck["draw"]), 12)
 
 
-    def test_halftime_reshuffles_everything_and_deals_four(self) -> None:
+    def test_halftime_reshuffles_everything_and_deals_five(self) -> None:
         deck = maneuver_deck.new_deck(MANEUVERS, random.Random(4))
         for _ in range(6):
             maneuver_deck.play_card(deck, deck["hand"][0], random.Random(4))
         fresh = maneuver_deck.reshuffled(deck, random.Random(5))
-        self.assertEqual(len(fresh["hand"]), 4)
+        self.assertEqual(len(fresh["hand"]), 5)
         self.assertEqual(fresh["discard"], [])
         self.assertEqual(
             Counter(fresh["draw"] + fresh["hand"]),
@@ -164,7 +164,7 @@ class EngineTests(unittest.TestCase):
         match = build_match()
         self.engine.deal_maneuver_decks(game, match)
         for side in (TeamSide.HOME, TeamSide.VISITING):
-            self.assertEqual(len(self.engine.maneuver_deck_hand(match, side)), 4)
+            self.assertEqual(len(self.engine.maneuver_deck_hand(match, side)), 5)
 
     def test_one_point_oh_deals_nothing(self) -> None:
         game = build_game()
@@ -190,8 +190,8 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(self.engine.reshuffle_maneuver_decks(two, match))
         for deck in match.maneuver_decks.values():
             self.assertEqual(deck["discard"], [])
-            self.assertEqual(len(deck["hand"]), 4)
-            self.assertEqual(len(deck["draw"]), 11)
+            self.assertEqual(len(deck["hand"]), 5)
+            self.assertEqual(len(deck["draw"]), 13)
 
     def test_the_hand_is_what_the_cards_play_on_the_side(self) -> None:
         game = two_point_oh()
@@ -300,7 +300,7 @@ class WholeGameTests(unittest.TestCase):
             {"side": hand.side, "maneuver_key": missing},
         ))
         self.assertIsInstance(run, driver.Refusal)
-        self.assertEqual(len(hand.held), 4)
+        self.assertEqual(len(hand.held), 5)
 
 
 if __name__ == "__main__":

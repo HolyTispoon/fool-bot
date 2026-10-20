@@ -817,7 +817,7 @@ def play_maneuver_cards(
     """
     **D12 Ball 2.0: the cards just revealed leave their hands** (the
     author, 2026-10-16). Each card played goes to its coach's discard
-    pile and the coach draws back up to four; drawing the last card of
+    pile and the coach draws back up to five; drawing the last card of
     a deck shuffles the discard into a new one, which is said out loud
     because it is public. Nothing in 1.0.
 
