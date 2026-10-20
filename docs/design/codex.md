@@ -2245,7 +2245,13 @@ Tech I, Tech II & III (one view since the author's 2026-10-12, "fold
 tech 3 into tech 2"), Spells, and one view per spec once a deck is
 more than one (the standard game's, step 10) -- that re-renders the
 picture in place (the engine's `codex_remaining`, by `codex_views`; the
-views are named by `codex.formatting.codex_view_name`). **Which cards a
+views are named by `codex.formatting.codex_view_name`). **A codex of
+one spec -- the basic game's twelve -- is shown whole, always, with no
+menu** (the author, 2026-10-20: "with 1v1 basic game, always show ALL
+the codex"): `codex_views` is Everything alone for it, so the Codex
+button and the tech picker both show every card and offer nothing to
+narrow -- twelve cards are two rows, nothing to filter. A dragon's
+teammate's codex still puts a menu up, the two players' Everything. **Which cards a
 view holds is one reading**, `RulesEngine.codex_view_rows`: a tech level
 is every card printed with it, a building or an upgrade as much as a
 unit (the author, 2026-10-09: "not meant to show units only but all
@@ -2730,7 +2736,8 @@ whole codex at once is too much to pick from -- "need a way to filter
 and look just at several pieces, by tech level, by spec"). Its first
 row is the same menu the Codex button carries -- Everything, Tech I to
 III, Spells, and in the standard game one spec (`codex_view_menu`, over
-the engine's `codex_views`), with the picker's opening view first (below)
+the engine's `codex_views`), with the picker's opening view first (below);
+in the basic game there is one view, the whole codex, and no menu
 -- and choosing one re-renders the picture
 and rebuilds the cards' menu from that view alone
 (`codex_view_rows` over `TechOptions.codex`, so the picker reads the
@@ -2751,9 +2758,12 @@ author, 2026-10-20): before the player's first Tech II building, every
 Tech I card and every spell ("Tech I & Spells"); once one is built, the
 spec chosen for it -- its Tech II and III -- and every spell, every
 spec's ("Anarchy Tech II & III, Spells"). A Tech II destroyed since
-still counts, its spec being kept (`tech2_spec`); the basic game's one
-spec is the Tech II's, though `tech2_spec` never records it there; a
-standard game's Tech II cannot be built without one. The spells are
+still counts, its spec being kept (`tech2_spec`); a standard game's
+Tech II cannot be built without one. The basic game's codex has no
+focused view: it opens whole, with neither a Show menu nor **Whole
+codex** (the author, 2026-10-20 -- before, it was focused as the
+standard game's is, Tech I & Spells and then its one spec's Tech II and
+III and the spells). The spells are
 every spec's, not the Tech II spec's alone (the author, 2026-10-20).
 **Whole codex** beside the buttons shows everything, and on any other
 view the same button, named for the opening view, goes back to it. The
