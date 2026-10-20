@@ -1,6 +1,6 @@
 """
 D12 Ball 2.0 on Discord: the public maneuver prompt carries no cards,
-only one hand button; pressing it shows a coach their own four cards, ephemerally, with the maneuvers they can play under it; and a
+only one hand button; pressing it shows a coach their own five cards, ephemerally, with the maneuvers they can play under it; and a
 pick from there plays the card. The rules are `test_maneuver_deck`'s;
 this is the frontend over them.
 """
@@ -128,7 +128,7 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
                 await view.pick(interaction, side, options_hand.maneuver_keys[0])
         match = cog.engine.load_match_state(game)
         for deck in match.maneuver_decks.values():
-            self.assertEqual(len(deck["hand"]), 4)
+            self.assertEqual(len(deck["hand"]), 5)
             self.assertEqual(len(deck["discard"]), 1)
 
 

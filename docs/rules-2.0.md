@@ -13,9 +13,9 @@ It is played on the Discord bot only for now. Its history is in [rules-log.md](r
 
 ## 1. The deck
 
-**1.1** Each coach has their own deck of **fifteen maneuver cards**:
+**1.1** Each coach has their own deck of **eighteen maneuver cards**:
 
-- **a.** **Nine two-headed basic cards**, three of each rank. The top half of a two-headed
+- **a.** **Twelve two-headed basic cards**, four of each rank. The top half of a two-headed
   card is the basic offensive maneuver of its rank and the bottom half, upside down, is the
   basic defensive maneuver of the same rank: the rank 1 card is Pass one way up and
   Deflect the other, rank 2 is Dribble and Steal, rank 3 is High Ball and Pressure. A
@@ -27,7 +27,7 @@ It is played on the Discord bot only for now. Its history is in [rules-log.md](r
   offense, Clear, Intercept and Double Team on defense. An advanced card has one head and is
   played on its own side alone.
 
-**1.2** Before kickoff each coach shuffles their deck and draws **a hand of four**. The hand is
+**1.2** Before kickoff each coach shuffles their deck and draws **a hand of five**. The hand is
 secret. How many cards are in each coach's deck is public, and **each discard pile is face up**,
 so both coaches see every card the other has played since the last shuffle.
 
@@ -36,7 +36,7 @@ so both coaches see every card the other has played since the last shuffle.
 **2.1** Wherever the Charter has a coach choose a maneuver (Law 6.2), they choose a card from
 their hand instead, and play it on the side they are on: a two-headed card as the basic
 maneuver its half for that side shows, an advanced card only on its own side. A hand always
-holds a card either side can play, because only three of the fifteen are offense alone and
+holds a card either side can play, because only three of the eighteen are offense alone and
 three defense alone.
 
 **2.2** **There is no gambit declaration** (Law 19.3 does not apply): no coach holds a coin
@@ -52,14 +52,14 @@ change the card they chose.
 ## 3. After the reveal
 
 **3.1** Each card played goes to its coach's **discard pile**, face up, and that coach draws
-one card, back up to four. A coach who did not play a card -- the defense against no
+one card, back up to five. A coach who did not play a card -- the defense against no
 challenge, either coach at a shot or a time out -- draws nothing.
 
 **3.2** **When a coach draws the last card of their deck, they shuffle their discard pile to
 make a new deck** at once.
 
 **3.3** **At halftime each coach shuffles their hand and discard pile back into their deck and
-draws a fresh hand of four.** Nothing else in the game draws, discards or shuffles a card.
+draws a fresh hand of five.** Nothing else in the game draws, discards or shuffles a card.
 
 ## 4. Roles belong to the formation
 

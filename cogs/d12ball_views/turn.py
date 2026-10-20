@@ -942,7 +942,7 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
 
     async def show_hand(self, interaction: discord.Interaction) -> None:
         """
-        A 2.0 coach's own hand, to them alone: the four cards as a
+        A 2.0 coach's own hand, to them alone: the five cards as a
         picture, how many are in their deck and discard, and a button
         for each maneuver the hand can play on its side.
 
