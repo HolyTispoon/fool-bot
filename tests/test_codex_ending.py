@@ -149,6 +149,8 @@ class ServiceEndingTests(unittest.TestCase):
             engine, game, service = started()
             service.concede(game.game_id, 1)
             rematch = service.rematch(game.game_id)
+            service.take_seat(rematch.game_id, 101, "basher", ["bashing"])
+            service.take_seat(rematch.game_id, 202, "fencer", ["finesse"])
             service.engine.rng.seed(seed)
             service.start(rematch.game_id)
             firsts.add(service.load(rematch).first)
