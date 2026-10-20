@@ -772,7 +772,7 @@ class TurnEndTests(TurnTestCase):
         edit = lock.last("original.edit")[2]
         caption = edit["content"]
         self.assertNotIn("turn is over", caption)
-        self.assertTrue(caption.startswith("Tech "), caption)
+        self.assertTrue(caption.startswith("To start your turn, you must tech "), caption)
         self.assertIsInstance(edit["view"], TechChoiceView)
         self.assertEqual(edit["view"].seat, self.game.seat_of(ending.id))
 
@@ -1026,7 +1026,7 @@ class TurnEndTests(TurnTestCase):
         author, 2026-10-10, 2026-10-11, 2026-10-12)."""
         await self.end_turn()
         picker = (await self.table.turn_button("tech", self.table.waiting)).view()
-        self.assertEqual(picker.prompt.ask, "Tech 2 cards.")
+        self.assertEqual(picker.prompt.ask, "To start your turn, you must tech 2 cards.")
         self.assertEqual(picker.caption(), "Your pick: no cards.")
         self.assertNotIn("Showing", picker.caption())
         self.assertTrue(all(option.description is None for menu in picker.menus for option in menu.options))
@@ -1076,7 +1076,7 @@ class TurnEndTests(TurnTestCase):
         self.assertLess(text.index(history.UNDONE), text.index("tech card"))
 
     async def test_ten_workers_allow_teching_nothing(self) -> None:
-        """At ten workers the ask allows none ("Tech 0-2 cards.") and
+        """At ten workers the ask allows none ("... tech 0-2 cards.") and
         **Tech nothing** saves an empty choice (UMR p. 5)."""
         match = self.table.match
         waiting = match.active  # the one whose tech the turn's end owes
@@ -1084,7 +1084,7 @@ class TurnEndTests(TurnTestCase):
         self.table.cog.service.persist(self.game, match)
         await self.end_turn()
         picker = (await self.table.turn_button("tech", self.table.waiting)).view()
-        self.assertEqual(picker.prompt.ask, "Tech 0-2 cards.")
+        self.assertEqual(picker.prompt.ask, "To start your turn, you must tech 0-2 cards.")
         self.assertNotIn("--", picker.prompt.ask)
         save = next(item for item in picker.children if getattr(item, "label", None) == "Save tech")
         self.assertTrue(save.disabled)

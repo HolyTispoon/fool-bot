@@ -578,13 +578,14 @@ def _main_ask(match: MatchState) -> str:
 
 
 def _tech_ask(engine: "RulesEngine", match: MatchState, seat: int) -> str:
-    """The tech choice's ask, as short as the count: "Tech 2 cards.",
-    and "Tech 0-2 cards." where the player's workers allow none (UMR
-    p. 5). The panel is the player's alone and the turn message says
-    whose it is, so the ask names nobody (the author, 2026-10-11)."""
+    """The tech choice's ask, the count and that it comes first: "To
+    start your turn, you must tech 2 cards.", and "... tech 0-2 cards."
+    where the player's workers allow none (UMR p. 5). The panel is the
+    player's alone and the turn message says whose it is, so the ask
+    names nobody (the author, 2026-10-11, 2026-10-20)."""
     minimum, maximum = engine.tech_bounds(match.player(seat))
     count = str(maximum) if minimum == maximum else f"{minimum}-{maximum}"
-    return f"Tech {count} card{'' if count == '1' else 's'}."
+    return f"To start your turn, you must tech {count} card{'' if count == '1' else 's'}."
 
 
 def _obliterate_ask(seat: int) -> str:

@@ -300,7 +300,7 @@ class TechGateView(PanelView):
             self.add_item(button)
 
     def caption(self) -> str:
-        return "**Tech** opens it; the turn's actions come after it."
+        return "Click *Tech* to open the tech menu."
 
     async def open_tech(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)
