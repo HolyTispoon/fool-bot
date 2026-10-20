@@ -2742,7 +2742,9 @@ Tech I card and every spell ("Tech I & Spells"); once one is built, the
 spec chosen for it -- its Tech II and III -- and every spell, every
 spec's ("Anarchy Tech II & III, Spells"). A Tech II destroyed since
 still counts, its spec being kept (`tech2_spec`); the basic game's one
-spec is the Tech II's, though `tech2_spec` never records it there.
+spec is the Tech II's, though `tech2_spec` never records it there; a
+standard game's Tech II cannot be built without one. The spells are
+every spec's, not the Tech II spec's alone (the author, 2026-10-20).
 **Whole codex** beside the buttons shows everything, and on any other
 view the same button, named for the opening view, goes back to it. The
 reading is the engine's -- `tech_focus_view`, and `tech_opening_view`,

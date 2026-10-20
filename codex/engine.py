@@ -4208,8 +4208,9 @@ class RulesEngine:
         is built -- destroyed since or not, its spec being kept -- that
         spec's Tech II and III and every spell (`tech2_spec_view`). A
         basic game's one spec is the Tech II's, which `tech2_spec` never
-        records; a standard game's save with no `tech2_spec` has none,
-        and is "everything".
+        records. A standard game's Tech II always has one, its build
+        refused without it (`_check_spec`); a position staged by hand
+        without one is "everything".
         """
         if player.buildings.get("tech2") is None:
             return TECH1_SPELLS_VIEW
