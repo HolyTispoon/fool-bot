@@ -1783,7 +1783,9 @@ else the bot shows is ephemeral.
     of the card they are on (a fading card, Prynn, a card in the
     future), with FUTURE in the waiting card's colour under them (the
     author, 2026-10-11: the label beside its rune, and the rune where
-    every other is). The module's own time-rune chit, 1 to 6, is left
+    every other is), at the damage chits' size, `TIME_RUNE`, larger than
+    a named rune's (the author, 2026-10-21: it read too small beside the
+    damage). The module's own time-rune chit, 1 to 6, is left
     to a hero's summoning runes in the heroes' zone. +1/+1 and -1/-1
     keep the module's chits over the right edge.
   - **ARRIVED and DISABLED are grey tags of the same size as every

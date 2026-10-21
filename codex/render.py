@@ -238,6 +238,10 @@ RUNE_CENTRE = px(150)
 #: A named rune's chit -- Bloodburn's, Might of Leaf and Claw's -- across,
 #: top right under the stats pill, and the size it is drawn at before.
 NAMED_RUNE = px(52)
+#: A time rune's chit across: the damage chits' size (`lay_damage`), so
+#: the count a fading card is waiting on reads as large as its damage
+#: (the author, 2026-10-21: at `NAMED_RUNE` it was too small).
+TIME_RUNE = px(62)
 RUNE_CHIT_DRAWN = 160
 #: The rune chits, one a colour (the author, 2026-10-11): the module's
 #: blue swirl chit, its blue the colour's own and its yellow swirl the
@@ -1332,18 +1336,18 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     # (the author, 2026-10-11): the time runes first -- a purple card's,
     # in its colour -- then the named runes; FUTURE under the time runes.
     own = card_color(lying.slug, cards)
-    named = list(lying.named_runes)
+    named = [(colour, count, NAMED_RUNE) for colour, count in lying.named_runes]
     marks = list(lying.marks)
     if lying.time_runes:
-        named.insert(0, (own if own in RUNE_CHIT_COLORS else "purple", lying.time_runes))
+        named.insert(0, (own if own in RUNE_CHIT_COLORS else "purple", lying.time_runes, TIME_RUNE))
     if lying.future:
         marks.insert(0, ("FUTURE", own))
     top = margin + px(60)
     column: list[Box] = []
-    for colour, count in named:
-        column.append(lay_row(upright, [rune_chit(colour, count)], NAMED_RUNE, (right - px(6), top),
+    for colour, count, size in named:
+        column.append(lay_row(upright, [rune_chit(colour, count)], size, (right - px(6), top),
                               leftward=True))
-        top += NAMED_RUNE + px(4)
+        top += size + px(4)
     foot = margin + ART_FOOT
     planned = plan_marks(right - px(6), top if named else margin, margin + TAG_CEILING, foot, marks)
     column += [box for _, _, box in planned]
