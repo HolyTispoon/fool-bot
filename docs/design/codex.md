@@ -1866,7 +1866,11 @@ else the bot shows is ephemeral.
     `attack_value` does, because the slot's bonus is what it fights
     with and a pill that left it out read one less than the attack did;
     frenzy, which `attack_value` adds on its controller's turn alone, is
-    not on it (the author, 2026-10-15)
+    not on it (the author, 2026-10-15). A button's or a menu's label
+    (`formatting.ref_label`) reads the same numbers, `shown_stats`,
+    which `board_reading` is built on: a Firebat 3/3 patrolling as
+    elite read 4/3 on the pill and 3/3 on the defender's button
+    (the author, 2026-10-21)
     -- which the cog hands the renderer
     (`stats=`) so that nothing in `render.py` works out a stat; HP is
     what is left, its damage taken off, and the damage chits stay
