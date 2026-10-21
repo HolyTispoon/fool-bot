@@ -370,6 +370,20 @@ def _end_of_turn_point(engine: "RulesEngine", game: "CodexGame", match: MatchSta
     return found[-1] if found else None
 
 
+def turn_start(match: MatchState, turn: int) -> Optional[dict]:
+    """The position `turn` started on, off its snapshot -- what its
+    message first went up with, and what the turn's pin pictures once
+    it has ended -- without the ended turn's journal it keeps; `None`
+    where the snapshot is not kept."""
+    index = _snapshot_index(match, turn)
+    if index is None:
+        return None
+    data = copy.deepcopy(match.turn_snapshots[index])
+    for name in _HISTORY_FIELDS:
+        data.pop(name, None)
+    return data
+
+
 def previous_turn_owner(match: MatchState) -> Optional[int]:
     """The seat whose turn the one before this was, off its snapshot --
     who would take its end back -- or `None` where it is not kept."""

@@ -88,7 +88,7 @@ builds each of them; nothing else spells one.
 | `codex/index.json` | `shapes.index` over `index_entry` | The games being played, newest activity first |
 | `codex/archive.json` | `shapes.archive` over `archive_entry` | Two sections, `finished` and `abandoned`, each newest first: the same fields, `status` and `winner` |
 | `codex/games/<id>/live.json` | `shapes.live` | The game as the lists name it, the current turn's `heading` and `lines`, the current `board`'s key, `history_version` and the history's key |
-| `codex/games/<id>/history.json` | `shapes.history` | `version`, and `turns`: one entry per finished turn -- `turn`, `heading`, `lines`, `board` |
+| `codex/games/<id>/history.json` | `shapes.history` | `version`, and `turns`: one entry per finished turn -- `turn`, `heading`, `lines`, `board`, the board the turn started on (since 2026-10-21; its end before) |
 | `codex/games/<id>/board-<sha256>.webp` | `keys.board_key` | A board |
 | `codex/games/<id>/board-<sha256>.json` | `keys.board_map_key`, `shapes.board_map` | The board's map, by the board's own hash: where each card is on it ("The board's map") |
 | `codex/emoji/<name>.png` | `keys.emoji_key` | A glyph's picture, by its file's name under `codex/images/emoji/` |
@@ -325,10 +325,13 @@ two puts then never names an object that is not there.
   history keeps, at the send and in the record as it is now (a change
   waiting to be sent would only put the board back). This is the
   "What it costs" rule with no special case: a board replaced as current
-  goes unless a turn ended on it, a turn's board dropped by an undo to the
+  goes unless the history keeps it, a turn's board dropped by an undo to the
   previous turn goes unless it is current again, and a delete that failed
   is tried again on the next send. An undo back to a deleted board puts it
-  up again, since every change hands over the current board's bytes.
+  up again, since every change hands over the current board's bytes. So
+  does a turn's end: the history keeps the board the turn started on,
+  which its first action replaced as current, so each turn's start goes
+  up twice -- one more put a turn, well inside the free plan's writes.
 - **The JSON goes up only when it changed** from what this process last
   put under that key, by digest. That keeps an unchanged `history.json`
   off every action without a version check, and a restart puts each once.
@@ -473,7 +476,7 @@ not send every turn message through (the worksheet's "What was found").
 | --- | --- | --- |
 | `refresh_match_image` | `current` | The turn's lines now, and the board drawn: every action, an undo within the turn, **Swap view**, `/codex side_by_side` |
 | `post_turn_message` | `current`, with the bytes posted | The turn current: the game's start, a turn's end, an undo to the previous turn, `/codex resume`, **Show board** |
-| `roll_over` | `turn_ended`, with the bytes the standing message carries | The ended turn's history entry: its lines and the closing lines whole, its heading, its board -- never a second drawing |
+| `roll_over` | `turn_ended`, with the bytes the standing message carries | The ended turn's history entry: its lines and the closing lines whole, its heading, and the board it started on, as its pin -- never a second drawing |
 | `_previous_turn_back` | `previous_turn_back` | The restored turn's entry, and any after it, dropped; the history's version counted up |
 | `_own_undo` | `turn_undone` | The lines back to the turn's head (below) |
 | `note_turn_head` | `head_noted` | The turn's head, kept in the record's `head` |
@@ -533,7 +536,8 @@ it does not, and the site shows what Discord shows.
 A turn that ends with no `roll_over` -- `/codex resume` running the end
 the bot owed at the restart -- is noticed by the next `current`, whose
 turn is past the record's: the record's turn, as it stood, becomes its
-history entry, with the last board the site had for it.
+history entry, with the last board the site had for it: its end, not
+its start, since the publisher has no snapshot to draw the start from.
 
 ### Startup
 

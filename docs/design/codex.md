@@ -2845,7 +2845,20 @@ more*", since the board carries the position.
   ends and it stands (`stand_turn_message`), **before** the next turn's
   message is posted, so the notice lands above the new board; the pins
   read as the game's history turn by turn. The last turn of a finished
-  game is pinned the same way, before the winner's line. An undo to the
+  game is pinned the same way, before the winner's line.
+- **A finished turn stands on the board it started on** (the author,
+  2026-10-21: "pin start of turn images rather than end of turn
+  images"). Its last edit carries the turn's start -- its snapshot
+  (`history.turn_start`, `GameService.turn_start`): the hand-over where
+  the turn opened on its player's tech, the main phase's opening where
+  it owed none, the picture its message first went up with -- under the
+  lines of everything done from it, so each pin reads as a position and
+  what was done from there. The turn's end is the next turn's message,
+  and the game's end the winner's line, whose final board is not pinned.
+  The snapshot is seated as the turn was -- its active seat and `solo`
+  -- so the picture lights the player whose turn it was and the heading
+  is theirs across Double Time. Where no snapshot is kept, the turn
+  stands on the position it handed over on, as before. An undo to the
   previous turn deletes that turn's standing message, and its pin with
   it. Discord caps a channel's pins; a pin it refuses is logged and the
   turn stands unpinned.
@@ -2879,7 +2892,8 @@ more*", since the board carries the position.
   `driver.advance` takes `draw_after` -- the Discord batching names
   `BEGIN_TECH` -- and closes a group there carrying the position as it
   stood (`history.position`, no snapshots). The old message's last edit
-  is that group's lines and that board, **without its buttons**, and it
+  is that group's lines, **without its buttons**, on the turn's start
+  (above; that group's board only where no snapshot is kept), and it
   stands as the turn's summary; what the next turn's start said goes on
   the next message. The standing picture lights the player whose turn
   it was.
@@ -2890,8 +2904,8 @@ more*", since the board carries the position.
   message's last edit is written by the cog directly, under the same
   lock, and then the gate is forgotten, so its next write is the new
   message's. The game's end is the same last edit, then one public
-  line -- the model's "wins" sentence -- with the final board,
-  rendered once and uploaded twice.
+  line -- the model's "wins" sentence -- with the final board, which
+  the site is handed too.
 - **What the cog remembers**, in memory only: the turn's lines, and
   each recent turn's *first lines* -- what its message said when it
   first went up, before the turn's snapshot: the ready phase's lines

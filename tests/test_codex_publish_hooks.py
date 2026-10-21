@@ -27,6 +27,7 @@ from codex import history
 from codex.game import GameStatus
 from codex_cog_fakes import Table, user
 from codex_positions import put
+from cogs.codex.presentation import board_key
 from cogs.codex_helpers import TOKEN_EMOJI
 from cogs.codex_publish import cards, keys
 from cogs.codex_publish import record as record_module
@@ -395,7 +396,8 @@ class StartedTests(HooksTestCase):
 class WholeGameTests(HooksTestCase):
     """A seeded whole game through the panels, under the turn tests'
     policy: one history entry per finished turn, each with the board its
-    pinned message carries, and the game in the archive at the end."""
+    pinned message carries -- the turn's start -- and the game in the
+    archive at the end."""
 
     policy = turn_tests.WholeGameTests.policy
     attack = turn_tests.TurnTestCase.attack
@@ -403,6 +405,18 @@ class WholeGameTests(HooksTestCase):
 
     async def test_one_entry_per_finished_turn_with_the_pins_board(self) -> None:
         table = self.table
+        # What each board the fakes stand in for draws: the position
+        # without its history, as the cog's own cache keys it.
+        drawn = {}
+        board_png = table.cog.render_match_png
+
+        async def keyed(game, match=None):
+            png = await board_png(game, match)
+            shown = match if match is not None else table.cog.service.load(game)
+            drawn[png] = board_key(shown, game.board_layout, {})
+            return png
+
+        table.cog.render_match_png = keyed
         self.game = await table.started()
         with mock.patch("cogs.codex_views.turn_message.render_hand", return_value=b"hand"), \
                 mock.patch("cogs.codex.core.render_codex", return_value=b"codex"), \
@@ -424,19 +438,27 @@ class WholeGameTests(HooksTestCase):
         await self.settled()
         self.assertIsNotNone(table.match.winner)
 
-        # Every pinned turn's last edit carried its board; the last pin
-        # is the final turn's, which is current on the site, not history.
-        boards = {}
+        # Every pinned turn's last edit carried the board its message
+        # first went up with, the turn's start; the last pin is the final
+        # turn's, which is current on the site, not history, and the
+        # site's board is the final one, the winner's line's.
+        boards, posted, last_post = {}, {}, None
         for kind, message_id, kwargs in table.game_channel.requests:
             if kind == "edit" and kwargs.get("view", "unset") is None and kwargs.get("attachments"):
                 boards[message_id] = kwargs["attachments"][0].fp.getvalue()
+            if kind == "send" and kwargs.get("file") is not None:
+                last_post = kwargs["file"].fp.getvalue()
+                posted.setdefault(message_id, last_post)
         pins = [message_id for kind, message_id, _ in table.game_channel.requests if kind == "pin"]
+        for message_id in pins:
+            self.assertEqual(drawn[boards[message_id]], drawn[posted[message_id]])
         expected = [keys.board_key(self.game.game_id, boards[message_id]) for message_id in pins]
         entries = self.published.history
         final = table.match.turn
         self.assertEqual([entry["turn"] for entry in entries], list(range(1, final)))
         self.assertEqual([entry["board"] for entry in entries], expected[:-1])
-        self.assertEqual(self.published.board, expected[-1])
+        self.assertEqual(self.published.board, keys.board_key(self.game.game_id, last_post))
+        self.assertNotEqual(self.published.board, expected[-1])
         for entry in entries:
             self.assertTrue(entry["heading"].startswith(f"**Turn {entry['turn']}**"), entry["heading"])
             self.assertIn(entry["board"], self.store.objects)

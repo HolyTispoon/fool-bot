@@ -369,6 +369,19 @@ class EndOfTurnUndoTests(unittest.TestCase):
         self.assertEqual(json.dumps(snapshots[1][history.ENDED_JOURNAL], sort_keys=True), self.journal)
         self.assertNotIn(history.ENDED_JOURNAL, snapshots[2])
 
+    def test_the_ended_turns_start_is_its_snapshot_without_its_journal(self) -> None:
+        """What the ended turn's pin pictures: the position it started
+        on, seated as it was, with neither the snapshots nor the journal
+        it kept."""
+        start = history.turn_start(self.match, 3)
+        self.assertEqual((start["turn"], start["active"]), (3, 1))
+        self.assertNotIn(history.ENDED_JOURNAL, start)
+        self.assertNotIn("turn_snapshots", start)
+        expected = dict(self.match.turn_snapshots[1])
+        del expected[history.ENDED_JOURNAL]
+        self.assertEqual(start, expected)
+        self.assertIsNone(history.turn_start(self.match, 1))
+
     def test_the_player_who_ended_it_takes_it_back_to_the_patrol(self) -> None:
         engine, game, match = self.engine, self.game, self.match
         self.assertEqual(history.end_of_turn_owner(engine, game, match), 1)

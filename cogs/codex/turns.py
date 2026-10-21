@@ -598,27 +598,26 @@ class TurnsMixin:
     async def roll_over(self, game: CodexGame, result: GameResult) -> None:
         """
         The turn ended in this result: its message is edited a last time
-        with the turn's closing lines and its own last board, stands and
-        is pinned; the next turn's message is posted under it with what
-        the next turn has said.
+        with the turn's closing lines and **the board the turn started
+        on**, stands and is pinned; the next turn's message is posted
+        under it with what the next turn has said.
         """
         match = result.match
         closing, board, opening, _ = split_at_turn_end(result)
         channel = self.bot.get_channel(game.channel_id) if game.channel_id else None
         if channel is None:
             return
-        ended = MatchState.from_dict(board) if board is not None else MatchState.from_dict(match.to_dict())
-        # The standing picture lights the player whose turn it was: the
-        # position is the one the turn handed over on, seated as the
-        # ended turn was -- its active seat, and whether it was one
-        # seat's extra turn alone (`solo`, which `turn_seats` reads
-        # first), both off its snapshot rather than the new turn's.
-        # The heading is the turn that ended, too.
-        owner = self.service.previous_turn_owner(game.game_id)
-        if owner is not None:
-            ended.active = owner
-            ended.solo = self.service.previous_turn_solo(game.game_id)
-        ended.turn = match.turn - 1
+        # The standing picture is the board the turn started on, off its
+        # snapshot (the author, 2026-10-21: the pins are each turn's
+        # start, its lines what was done from there), seated as it was
+        # then -- its active seat and `solo` -- so it lights the player
+        # whose turn it was, and the heading is that turn's.
+        ended = self.service.turn_start(game.game_id, match.turn - 1)
+        if ended is None:
+            # No snapshot kept: the position the turn handed over on,
+            # under the ended turn's number.
+            ended = MatchState.from_dict(board) if board is not None else MatchState.from_dict(match.to_dict())
+            ended.turn = match.turn - 1
         if game.turn_message_id is not None:
             png = await self.render_match_png(game, ended)
             text = None
@@ -640,9 +639,10 @@ class TurnsMixin:
     async def finish_game(self, game: CodexGame, result: GameResult) -> None:
         """
         The game is over -- a base fell, or a player conceded: the turn
-        message's last edit, without its buttons, pinned as every
-        finished turn is, and **a public line naming the winner with the
-        final board** -- a heading, so it reads as the game's end -- -- rendered once, uploaded twice -- with **Rematch**
+        message's last edit, without its buttons, on the board the turn
+        started on and pinned, as every finished turn is, and **a public
+        line naming the winner with the final board** -- a heading, so it
+        reads as the game's end -- with **Rematch**
         under it (`RematchView`), whose message the record keeps so a
         restart re-arms it. Then the channel is moved to Codex Archive
         and left as it is (`archive_channel`): nothing is exported from
@@ -656,7 +656,11 @@ class TurnsMixin:
         if self.publisher is not None:
             self.publisher.game_over(game, match, png)
         if game.turn_message_id is not None:
-            await self.stand_turn_message(channel, game, game.turn_message_id, png,
+            # The last turn stands on the board it started on, as every
+            # finished turn does; the final board is the winner's line's.
+            start = self.service.turn_start(game.game_id, match.turn)
+            standing = png if start is None else await self.render_match_png(game, start)
+            await self.stand_turn_message(channel, game, game.turn_message_id, standing,
                                           self.turn_text(game, match))
         line = result.prompt.ask if result.prompt is not None else ""
         try:
