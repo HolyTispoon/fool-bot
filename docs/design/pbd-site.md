@@ -660,8 +660,10 @@ framework") and a page anyone can open should call no other host.
   `localStorage` (wrapped, so a browser that refuses storage shows the log).
   The column is the current turn's heading and lines, then the earlier
   turns newest first, each its heading, its lines and its board as a
-  thumbnail that opens in the viewer under a caption with **Back to the
-  current board**. **The divider between the board and the log is
+  thumbnail that opens in the viewer under a caption -- "Turn n's start",
+  since each is the board pinned at the turn's start (the author,
+  2026-10-21, though entries published before then carry the turn's end)
+  -- with **Back to the current board**. **The divider between the board and the log is
   dragged** to set the log's width (`GamePage.splitter`), by mouse or
   finger -- its grip is wider under a coarse pointer -- or with the arrow
   keys once focused, and double-clicked to put the width back. The width
