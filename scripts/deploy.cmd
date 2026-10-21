@@ -7,8 +7,8 @@ rem docs/design/collaboration.md. Stops at
 rem the first that fails, so the web app is never restarted onto a
 rem half-updated tree.
 rem Runs scripts\deploy.ps1 with -ExecutionPolicy Bypass, so Windows
-rem does not refuse it for being unsigned (the checkout is on the
-rem Google Drive letter, which RemoteSigned treats as remote). It
+rem does not refuse it for being unsigned (a plain window runs no
+rem script at all; RemoteSigned refused the old Google Drive checkout). It
 rem lifts the policy for this one run and changes no setting. The
 rem checkout is the folder above this one; pass the script's other
 rem options after it. See docs/design/collaboration.md.
