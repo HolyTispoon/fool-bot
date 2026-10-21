@@ -20,7 +20,8 @@ from typing import Optional
 
 import discord
 
-from codex.game import CodexGame, GameStatus
+from codex import history
+from codex.game import START_MESSAGES_KEPT, CodexGame, GameStatus
 from codex.prompts import tech_is_owed
 from codex.render import render_board_mapped, render_hand
 from cogs.codex_helpers import (
@@ -265,9 +266,106 @@ class PresentationMixin:
         except discord.HTTPException as error:
             LOGGER.warning("Could not rename the channel of Codex game %s: %s", game.game_id, error)
 
+    # -- The turn's start ---------------------------------------------------
+
+    def turn_start_owed(self, game: CodexGame, match) -> bool:
+        """Whether the current turn's start is owed its pinned message:
+        its main phase has opened (`history.opened`) and no message is
+        pinned for it yet. A finished game owes none."""
+        return (match.winner is None and history.opened(match)
+                and match.turn not in game.start_message_ids)
+
+    async def pin_turn_start(self, game: CodexGame, message) -> None:
+        try:
+            await message.pin(reason="The start of a turn of a Codex game")
+        except discord.HTTPException as error:
+            # Discord caps a channel's pins; past the cap the turn's
+            # start still stands, unpinned.
+            LOGGER.warning("Could not pin the start of a turn of Codex game %s: %s",
+                           game.game_id, error)
+
+    def note_turn_start(self, game: CodexGame, turn: int, message_id: int, png: bytes) -> None:
+        """The record keeps the start's message, for the undos to delete,
+        and the cog its board, for the turn's history entry."""
+        game.start_message_ids[turn] = message_id
+        for old in sorted(game.start_message_ids)[:-START_MESSAGES_KEPT]:
+            del game.start_message_ids[old]
+        self.service.save()
+        self.turn_start_boards[game.game_id] = (turn, png, self.board_map(png))
+
+    async def opening_png(self, game: CodexGame, match) -> bytes:
+        """The board as the current turn's main phase opened
+        (`GameService.turn_opening`) -- `match` itself where nothing has
+        been done since, which the cache then draws once for the turn
+        message too; the turn's opening still, where the start is pinned
+        late, in a game already under way when the starts began to be
+        pinned (2026-10-21)."""
+        opening = self.service.turn_opening(game.game_id, match.turn)
+        return await self.render_match_png(game, opening if opening is not None else match)
+
+    async def post_turn_start(self, channel: discord.TextChannel, game: CodexGame, match) -> None:
+        """
+        **The turn's start**, posted and pinned where its main phase has
+        opened before its message goes up -- a turn that owes no tech, the
+        first two among them: the turn's heading and the board as the main
+        phase opened, no lines and no buttons, pinging nobody (the turn
+        message under it pings). So the pins are each turn's start, before
+        any action of it (the author, 2026-10-21).
+        """
+        png = await self.opening_png(game, match)
+        try:
+            message = await channel.send(
+                self.turn_header(game, match), file=self.match_file_from_png(game, png),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        except discord.HTTPException as error:
+            LOGGER.warning("Could not post the start of a turn of Codex game %s: %s", game.game_id, error)
+            return
+        self.note_turn_start(game, match.turn, message.id, png)
+        await self.pin_turn_start(game, message)
+
+    async def drop_stale_starts(self, channel, game: CodexGame, match) -> None:
+        """
+        After an undo: the start messages of turns the undo took back
+        deleted, and their pins with them -- every turn after the
+        restored one, and the restored turn's own where it is back
+        before its main phase opened (its tech asked again), so the start
+        is pinned afresh when it opens.
+        """
+        stale = [turn for turn in game.start_message_ids
+                 if turn > match.turn or (turn == match.turn and not history.opened(match))]
+        if not stale:
+            return
+        for turn in stale:
+            message_id = game.start_message_ids.pop(turn)
+            if channel is not None:
+                await self.delete_table_message(channel, game, message_id)
+        self.service.save()
+        held = self.turn_start_boards.get(game.game_id)
+        if held is not None and held[0] in stale:
+            del self.turn_start_boards[game.game_id]
+
+    async def turn_start_png(self, game: CodexGame, turn: int) -> Optional[bytes]:
+        """The board pinned at `turn`'s start, for its history entry on
+        the site: the bytes the pin carries where this process pinned it,
+        its map put back where the cog has drawn past it; after a
+        restart, drawn again off the model (`GameService.turn_opening`),
+        the same bytes. `None` where neither is had."""
+        held = self.turn_start_boards.get(game.game_id)
+        if held is not None and held[0] == turn:
+            _, png, drawn_map = held
+            if drawn_map is not None:
+                self.board_maps[hashlib.sha256(png).hexdigest()] = drawn_map
+            return png
+        opening = self.service.turn_opening(game.game_id, turn)
+        if opening is None:
+            return None
+        return await self.render_match_png(game, opening)
+
     async def post_turn_message(self, channel: discord.TextChannel, game: CodexGame,
                                 match=None, *, replace: bool = False,
-                                ping: Optional[bool] = None) -> discord.Message:
+                                ping: Optional[bool] = None,
+                                follows_start: bool = False) -> discord.Message:
         """
         Post the turn's message **at the foot of the channel** -- the
         board as its picture, its text "**Turn 7** -- @perrytom (Bashing)"
@@ -286,11 +384,18 @@ class PresentationMixin:
           instead, through the gate (`refresh_match_image`; the author,
           2026-10-12, going back on 2026-10-09's post-per-action).
 
-        The current turn's message is never pinned: a pin is a system
-        message of its own, which would land under the board, and the
-        pinned message would be deleted at the turn's first action. A
-        turn's message is pinned once the turn ends and it stands
-        (`stand_turn_message`). Posted under the gate's lock, so
+        - **The same turn's under its start** (`follows_start`): the
+          message the turn was handed over under became the turn's start
+          as its main phase opened (`open_turn`), and stands above; it
+          is neither the previous turn's nor deleted, and the post pings
+          nobody, since the one it follows did.
+
+        The turn message is never pinned: a pin is a system message of
+        its own, which would land under the board, and every action edits
+        the message after it. **Where the turn's main phase has opened
+        and its start is not yet pinned, the start goes up first**
+        (`post_turn_start`), so its pin's notice lands above the turn
+        message. Posted under the gate's lock, so
         no edit of the gate's lands on a message on its way out, and
         handed to the gate after (`BoardRefresher.posted`) as the board
         it keeps. The record's new ids are saved through the service.
@@ -298,7 +403,9 @@ class PresentationMixin:
         if match is None:
             match = self.service.load(game)
         if ping is None:
-            ping = not replace
+            ping = not replace and not follows_start
+        if self.turn_start_owed(game, match):
+            await self.post_turn_start(channel, game, match)
         started = time.perf_counter()
         png = await self.render_match_png(game, match)
         drawn = elapsed_ms(started)
@@ -322,7 +429,7 @@ class PresentationMixin:
                         game.game_number, drawn, len(png) // 1024, elapsed_ms(started))
             old = game.turn_message_id
             game.turn_message_id = message.id
-            if not replace:
+            if not replace and not follows_start:
                 game.previous_turn_message_id = old
             self.service.save()
             if replace and old is not None:

@@ -74,6 +74,16 @@ class LobbyTests(unittest.TestCase):
         self.assertEqual(data["player_decks"], {"1": "neutral", "2": "neutral"})
         self.assertEqual(data["mode"], "basic")
 
+    def test_the_turns_start_messages_round_trip_by_turn(self) -> None:
+        """Saved with string keys, read back by turn; a record from before
+        2026-10-21 has none."""
+        self.game.start_message_ids = {3: 30, 4: 40}
+        data = self.game.to_dict()
+        self.assertEqual(data["start_message_ids"], {"3": 30, "4": 40})
+        self.assertEqual(CodexGame.from_dict(data).start_message_ids, {3: 30, 4: 40})
+        del data["start_message_ids"]
+        self.assertEqual(CodexGame.from_dict(data).start_message_ids, {})
+
     def test_a_record_older_than_the_standard_game_reads_as_a_basic_one(self) -> None:
         """Step 10's keys, each with its fallback: no mode is the basic
         game, a spec saved as a string is a team of one, and no decks is

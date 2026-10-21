@@ -82,9 +82,14 @@ class ImportTests(hooks.HooksTestCase):
         await self.end_turn()
 
     def pinned_boards(self) -> list[str]:
+        """The boards of the finished turns' pins: each turn's start,
+        pinned as it opened -- the current turn's, where it has opened,
+        left out, since the import writes only the turns before it."""
         channel = self.table.game_channel
+        finished = {self.game.start_message_ids[turn] for turn in self.game.start_message_ids
+                    if turn < self.table.match.turn}
         return [keys.board_key(self.game.game_id, channel.pinned_message(message_id, None).attachments[0].body)
-                for message_id in channel.pin_order if message_id in channel.pinned]
+                for message_id in channel.pin_order if message_id in channel.pinned and message_id in finished]
 
     def pin_listings(self) -> int:
         return sum(1 for kind, _, _ in self.table.game_channel.requests if kind == "pins")

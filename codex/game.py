@@ -126,6 +126,12 @@ class CodexGame:
     #: an undo to the start of the previous turn edits back and pins
     #: again. `None` in a save older than step 4, and after that undo.
     previous_turn_message_id: Optional[int] = field(default=None, kw_only=True)
+    #: Turn number to the message pinned at that turn's start -- its
+    #: heading and the board its main phase opened on (the author,
+    #: 2026-10-21) -- the last `START_MESSAGES_KEPT` turns, which an undo
+    #: to a turn's start or the previous turn deletes again. Saved with
+    #: string keys; empty in a save from before 2026-10-21.
+    start_message_ids: dict[int, int] = field(default_factory=dict, kw_only=True)
     #: One of `VENUES`: what `channel_id` is. "channel" in a save older
     #: than the thread and the in-place lobby, which knew no other.
     venue: str = field(default="channel", kw_only=True)
@@ -680,6 +686,7 @@ class CodexGame:
             data[f"player_{number}_name"] = held["name"]
         data["player_specs"] = {str(seat): list(specs) for seat, specs in self.player_specs.items()}
         data["player_decks"] = {str(seat): deck for seat, deck in self.player_decks.items()}
+        data["start_message_ids"] = {str(turn): message for turn, message in self.start_message_ids.items()}
         if self.is_duel:
             # Written only for a multiplayer game, so a duel's record is the
             # record it always was -- and still reads on a checkout older
@@ -721,6 +728,9 @@ class CodexGame:
             data["venue"] = "channel"
         if data.get("board_layout") not in BOARD_LAYOUTS:
             data["board_layout"] = "stacked"
+        data["start_message_ids"] = {
+            int(turn): message for turn, message in (data.get("start_message_ids") or {}).items()
+        }
         return cls(**data)
 
 
@@ -732,6 +742,11 @@ def _read_teams(data: Optional[dict]) -> dict[int, list[str]]:
         for seat, specs in (data or {}).items()
     }
 
+
+#: How many turns' start messages a record keeps (`start_message_ids`):
+#: the current turn's and the two before it, as many as the snapshots an
+#: undo may go back to (`history.KEPT_SNAPSHOTS`).
+START_MESSAGES_KEPT = 3
 
 #: How many seats a duel has, and a game whose variant is unknown.
 SEAT_COUNT = 2

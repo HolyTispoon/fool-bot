@@ -15,6 +15,7 @@ import json
 import unittest
 
 from codex import history
+from codex.components import MatchState
 from codex.engine import RulesEngine
 from codex.flow import driver
 from codex.game import RuleRefusal
@@ -76,6 +77,27 @@ class HistoryTests(unittest.TestCase):
             self.targets += 1
         apply(engine, game, match, PromptKind.TECH_CHOICE,
               arguments={"player": 2, "picks": ["maestro", "cloud_sprite"]})
+
+    def test_a_turns_opening_is_its_main_phase_before_any_action(self) -> None:
+        """What a frontend pins as a turn's start (the author,
+        2026-10-21): turns 1 and 2's snapshots, which were taken there;
+        turn 3's hand-over replayed through its tech's confirmation and
+        the ready phase -- the position it opened on, which no action has
+        touched -- while it is current and once it has ended."""
+        engine, game, match = self.engine, self.game, self.match
+        for turn, saved in ((1, self.turn_1), (2, self.turn_2)):
+            self.assertEqual(history.turn_opening(engine, game, match, turn), history.position(
+                MatchState.from_dict(saved)))
+        opened = history.position(MatchState.from_dict(self.turn_3))
+        self.assertEqual(opened["phase"], "main")
+        self.play_turn_3()
+        self.assertEqual(history.turn_opening(engine, game, match, 3), opened)
+        end_turn(engine, game, match)
+        self.assertEqual(match.turn, 4)
+        self.assertEqual(history.turn_opening(engine, game, match, 3), opened)
+        # Turn 4 waits on its tech: it has not opened.
+        self.assertFalse(history.opened(match))
+        self.assertIsNone(history.turn_opening(engine, game, match, 4))
 
     def test_a_turn_that_owes_tech_starts_at_its_hand_over(self) -> None:
         """Turns 1 and 2 owed no tech: each snapshot is the main phase's
@@ -368,19 +390,6 @@ class EndOfTurnUndoTests(unittest.TestCase):
         self.assertEqual([s["turn"] for s in snapshots], [2, 3, 4])
         self.assertEqual(json.dumps(snapshots[1][history.ENDED_JOURNAL], sort_keys=True), self.journal)
         self.assertNotIn(history.ENDED_JOURNAL, snapshots[2])
-
-    def test_the_ended_turns_start_is_its_snapshot_without_its_journal(self) -> None:
-        """What the ended turn's pin pictures: the position it started
-        on, seated as it was, with neither the snapshots nor the journal
-        it kept."""
-        start = history.turn_start(self.match, 3)
-        self.assertEqual((start["turn"], start["active"]), (3, 1))
-        self.assertNotIn(history.ENDED_JOURNAL, start)
-        self.assertNotIn("turn_snapshots", start)
-        expected = dict(self.match.turn_snapshots[1])
-        del expected[history.ENDED_JOURNAL]
-        self.assertEqual(start, expected)
-        self.assertIsNone(history.turn_start(self.match, 1))
 
     def test_the_player_who_ended_it_takes_it_back_to_the_patrol(self) -> None:
         engine, game, match = self.engine, self.game, self.match
