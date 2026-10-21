@@ -123,15 +123,15 @@ def spec_view(spec: str) -> str:
 
 #: The tech picker's two opening views (`RulesEngine.tech_opening_view`):
 #: before a Tech II building, every Tech I card and every spell; after it,
-#: the Tech II spec's Tech II and III and every spell, as
-#: `tech2spec:<key>` (`tech2_spec_view`).
+#: every Tech I card, the Tech II spec's Tech II and III and every spell,
+#: as `tech2spec:<key>` (`tech2_spec_view`; the author, 2026-10-21).
 TECH1_SPELLS_VIEW = "tech1spells"
 TECH2_SPEC_VIEW_PREFIX = "tech2spec:"
 
 
 def tech2_spec_view(spec: str) -> str:
-    """The picker's view of one spec's Tech II and III and every spell:
-    "tech2spec:anarchy"."""
+    """The picker's view of every Tech I card, one spec's Tech II and III
+    and every spell: "tech2spec:anarchy"."""
     return TECH2_SPEC_VIEW_PREFIX + spec.strip().lower()
 
 
@@ -4211,8 +4211,9 @@ class RulesEngine:
         The part of the codex a tech choice is likeliest made from (the
         author, 2026-10-20): before the player's first Tech II building,
         every Tech I card and every spell (`TECH1_SPELLS_VIEW`); once one
-        is built -- destroyed since or not, its spec being kept -- that
-        spec's Tech II and III and every spell (`tech2_spec_view`). A
+        is built -- destroyed since or not, its spec being kept -- every
+        Tech I card, that spec's Tech II and III and every spell
+        (`tech2_spec_view`; the author, 2026-10-21). A
         standard game's Tech II always has one, its build
         refused without it (`_check_spec`); a position staged by hand
         without one is "everything". A codex of one spec -- the basic
@@ -4250,7 +4251,8 @@ class RulesEngine:
         upgrade as much as a unit, and Tech II's view holds Tech III's
         too (the author, 2026-10-12); the spells are the rest of a codex,
         so the three together are the whole; a spec's view is its own
-        twelve. A view nothing offers raises.
+        twelve; the picker's `tech2spec:` view is every Tech I card, the
+        spec's Tech II and III and every spell. A view nothing offers raises.
         """
         if view == "everything":
             return tuple(rows)
@@ -4264,8 +4266,9 @@ class RulesEngine:
 
             def held(slug: str) -> bool:
                 card = self.catalog.cards[slug]
-                return card.is_spell or ((card.tech_level or 0) >= 2
-                                         and (card.spec or "").strip().lower() == key)
+                level = card.tech_level or 0
+                return card.is_spell or level == 1 or (
+                    level >= 2 and (card.spec or "").strip().lower() == key)
 
             return tuple(row for row in rows if held(row[0]))
         if view.startswith(SPEC_VIEW_PREFIX):
@@ -4299,8 +4302,8 @@ class RulesEngine:
         block two cards wide -- the Tech II and III three high, Tech III
         last, the spells two high, the ultimate last -- the specs'
         blocks side by side, so a spec's cards sit in the same two
-        columns. Tech II and III of one spec alone (a `tech2spec:` view)
-        are a line. Every other view, and a codex of one spec, runs on.
+        columns. Tech II and III of one spec alone (a `tech2spec:` view,
+        under its run of Tech I) are a line. Every other view, and a codex of one spec, runs on.
         A run of cards of one kind starts a new row; nothing assumes
         how many a spec has.
         """

@@ -677,8 +677,8 @@ class CodexViewTests(unittest.TestCase):
 
     def test_the_tech_pickers_opening_view(self) -> None:
         """In the standard game the picker opens on Tech I and the spells
-        until a Tech II is built; then on its spec's Tech II and III and
-        the spells. The basic game's codex opens whole, always, and its
+        until a Tech II is built; then on every Tech I card, its spec's
+        Tech II and III and the spells. The basic game's codex opens whole, always, and its
         Show menu is Everything alone (the author, 2026-10-20)."""
         from codex.components import BuildingState
         from codex.engine import TECH1_SPELLS_VIEW, tech2_spec_view
@@ -700,7 +700,7 @@ class CodexViewTests(unittest.TestCase):
         player.buildings["tech2"] = BuildingState(hp=5)
         player.tech2_spec = "anarchy"
         self.assertEqual(engine.tech_opening_view(player), tech2_spec_view("anarchy"))
-        self.assertEqual(codex_view_name(tech2_spec_view("anarchy")), "Anarchy Tech II & III, Spells")
+        self.assertEqual(codex_view_name(tech2_spec_view("anarchy")), "Tech I, Anarchy Tech II & III, Spells")
         catalog = engine.catalog
         rows = tuple((slug, 2) for spec in ("bashing", "anarchy")
                      for slug in dict.fromkeys(catalog.codex_for(spec)))
@@ -709,8 +709,9 @@ class CodexViewTests(unittest.TestCase):
                          sorted(engine.codex_view_rows(rows, "tech1") + engine.codex_view_rows(rows, "spells")))
         late = engine.codex_view_rows(rows, tech2_spec_view("Anarchy"))
         self.assertEqual(sorted(late), sorted(
-            tuple(row for row in engine.codex_view_rows(rows, "tech2")
-                  if catalog.cards[row[0]].spec == "Anarchy")
+            engine.codex_view_rows(rows, "tech1")
+            + tuple(row for row in engine.codex_view_rows(rows, "tech2")
+                    if catalog.cards[row[0]].spec == "Anarchy")
             + engine.codex_view_rows(rows, "spells")))
         self.assertEqual(len(engine.codex_places(late, tech2_spec_view("Anarchy"))), len(late))
         # Nothing left to pick there: the picker opens on the whole codex,

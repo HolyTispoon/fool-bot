@@ -2757,9 +2757,11 @@ the picker is an ephemeral message made afresh each time.
 
 **The picker opens on the part a choice is likeliest made from** (the
 author, 2026-10-20): before the player's first Tech II building, every
-Tech I card and every spell ("Tech I & Spells"); once one is built, the
-spec chosen for it -- its Tech II and III -- and every spell, every
-spec's ("Anarchy Tech II & III, Spells"). A Tech II destroyed since
+Tech I card and every spell ("Tech I & Spells"); once one is built,
+every Tech I card still, the spec chosen for it -- its Tech II and III
+-- and every spell, every spec's ("Tech I, Anarchy Tech II & III,
+Spells"; the author, 2026-10-21 -- until then the Tech I cards were
+left out of it). A Tech II destroyed since
 still counts, its spec being kept (`tech2_spec`); a standard game's
 Tech II cannot be built without one. The basic game's codex has no
 focused view: it opens whole, with neither a Show menu nor **Whole
@@ -3671,8 +3673,8 @@ on top and two below, the specs' blocks side by side, so a spec's tech
 and spells sit in the same two columns (the author, 2026-10-20: tech 2
 and 3 "as a block of 2x3 instead of row"; until then each spec's six
 were a row of their own -- the same rows either way, 1 + 3 + 2). One
-spec's Tech II and III alone, as a `tech2spec:` view holds them, stay
-a line (the author, 2026-10-20: "single spec view should not use this
+spec's Tech II and III alone, as a `tech2spec:` view holds them under
+its run of Tech I, stay a line (the author, 2026-10-20: "single spec view should not use this
 block") -- a block of two would leave four columns empty. Tech I, a spec's
 own view, and a codex of one spec run on.
 The

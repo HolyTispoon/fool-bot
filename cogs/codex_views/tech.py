@@ -6,8 +6,9 @@ choice's owner** and built from the prompt's options alone:
 - `TechChoiceView`, for `TECH_CHOICE`: the owner's codex pictured with
   the picks marked (`render_codex`), opening on the part a choice is
   likeliest made from -- every Tech I card and every spell before a
-  Tech II building, the Tech II spec's Tech II and III and every spell
-  after it (`TechOptions.opening`; the author, 2026-10-20), with
+  Tech II building, every Tech I card, the Tech II spec's Tech II and
+  III and every spell after it (`TechOptions.opening`; the author,
+  2026-10-20 and 2026-10-21), with
   **Whole codex** beside the buttons -- under **Show...**, that view
   then the ones the Codex button offers, Everything, one tech level,
   the spells, in the standard game one spec (`TechOptions.views`), since
