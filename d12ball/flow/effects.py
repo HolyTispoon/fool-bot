@@ -917,8 +917,8 @@ def shove_pressured_handler(
     # Team brings that teammate onto it as well, free of
     # exhaustion -- so they are *placed* rather than run, which is
     # what "no exhaustion cost" means in a game where every other
-    # way to reach a space charges a token a space. What 2.0 charges
-    # the handler and the challenger for this is `pressure_step`'s.
+    # way to reach a space charges a token a space -- in 1.0. What 2.0
+    # charges all three for this is `pressure_step`'s.
     handler_zone, handler_space = match.board.meeple_position(
         match.active_player_id
     )
@@ -1075,30 +1075,37 @@ def pressure_step(
         partner_id = engine.double_team_partner(match)
         engine.record_double_team_partner(match, partner_id)
 
-    challenger_origin = match.board.meeple_position(match.challenger_id)
+    movers = [match.challenger_id]
+    if partner_id is not None:
+        movers.append(partner_id)
+    origins = {
+        player_id: match.board.meeple_position(player_id)
+        for player_id in movers
+    }
     actual_distance = shove_pressured_handler(match, push, partner_id)
     content = pressure_result_text(
         engine, match, key, name, actual_distance, partner_id,
     )
     # **2.0: the shove costs the handler its spaces, and the
-    # challenger the spaces they followed** (rules-2.0 5.4). Free in
-    # 1.0. A Double Team's partner joins free in both editions, as the
-    # card says (Law 19.10.2, rules-2.0 5.4b).
-    followed = (
-        abs(
-            match.board.flat_index(
-                *match.board.meeple_position(match.challenger_id)
-            )
-            - match.board.flat_index(*challenger_origin)
-        )
-        if challenger_origin is not None
-        else 0
+    # challenger and a Double Team's partner the spaces they came**
+    # (rules-2.0 5.4; the author on PR #665, for the partner). Free in
+    # 1.0, where the partner joins free however far they came
+    # (Law 19.10.2).
+    destination = match.board.flat_index(
+        *match.board.meeple_position(match.active_player_id)
     )
     paid = [
         engine.pay_for_move(
             game, match, match.active_player_id, actual_distance,
         ),
-        engine.pay_for_move(game, match, match.challenger_id, followed),
+        *(
+            engine.pay_for_move(
+                game, match, player_id,
+                abs(destination - match.board.flat_index(*origin)),
+            )
+            for player_id, origin in origins.items()
+            if origin is not None
+        ),
     ]
     content += "".join(f"\n{line}" for line in paid if line)
 

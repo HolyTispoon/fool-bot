@@ -204,6 +204,38 @@ class TieCoinTests(unittest.TestCase):
                 self.assertEqual(self.tokens(self.handler), paid)
                 self.assertEqual(self.tokens(self.challenger), paid)
 
+    def test_a_double_teams_partner_pays_for_the_spaces_they_join_from(self) -> None:
+        for edition in (Edition.TWO, Edition.ONE):
+            with self.subTest(edition=edition):
+                self.setUp()
+                self.game.edition = edition
+                self.stage_on_the_ball()
+                partner = next(
+                    player_id
+                    for player_id in self.match.visiting.field_players
+                    if player_id != self.challenger
+                )
+                start = self.match.board.flat_index(
+                    *self.match.board.meeple_position(partner)
+                )
+                with mock.patch.object(
+                    ENGINE, "double_team_partner", return_value=partner,
+                ):
+                    effects.pressure_step(
+                        ENGINE, self.match, "double_team", self.game,
+                    )
+                came = abs(
+                    self.match.board.flat_index(
+                        *self.match.board.meeple_position(partner)
+                    )
+                    - start
+                )
+                self.assertGreater(came, 0)
+                self.assertEqual(
+                    self.tokens(partner),
+                    came if edition == Edition.TWO else 0,
+                )
+
     def test_a_beaten_double_team_costs_its_step_forward(self) -> None:
         for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
             with self.subTest(edition=edition):

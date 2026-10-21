@@ -183,13 +183,13 @@ charge, "" in 1.0 or for a move that went nowhere.
   1.0 makes free during play: a won Dribble's handler (`dribble_advance_step`, at
   `dribble_burst_cost`, so Emberdash's free Burst covers their Dribble), the passer's step
   (`answer_passer_advance`, whose ask names the token -- `passer_advance_prompt`), Pressure's
-  shove and the challenger who follows it (`pressure_step`, the challenger measured from where
-  they stood), a Steal's or an Intercept's carry (`steal_step`), and a beaten Double Team's two
+  shove, the challenger who follows it and a Double Team's partner who joins them (`pressure_step`,
+  each measured from where they stood -- the partner too, though Law 19.10.2 makes their join free
+  in 1.0; the author on PR #665), a Steal's or an Intercept's carry (`steal_step`), and a beaten Double Team's two
   (`pay_double_team_cost`). Each reads the distance `move_player_relative` hands back, never the
   one asked for, because a clamped move pays for where it got to.
 - **What stays free** (5.4a, 5.4b): the reset after a new play and every Coaching Choice move,
-  which rearrange a formation rather than play; a Double Team's partner joining, which the card
-  itself makes free (Law 19.10.2); and the moves an ability prices -- Strider's run back,
+  which rearrange a formation rather than play; and the moves an ability prices -- Strider's run back,
   Quantor's run, Glompex's step -- which keep their price.
 - **Entering a skill test stays free** (5.4c, the author's answer): `skill_test_tokens` answers 0
   in 2.0 but for the 2 Scorchit pays to force a test, which is the ability's price.
