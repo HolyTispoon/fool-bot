@@ -54,9 +54,8 @@ checkout. So:
   itself -- and the "At log on" task pointed at the new `deploy.cmd`. The
   old folder stays on Drive until it is deleted, its `.env` renamed to
   `.env.moved-to-C` so nothing there can start a second bot on the same
-  token. What follows is why the Drive letter mattered, kept because the
-  code it explains is still there and a developer's checkout may still
-  be on a synced folder:
+  token. What follows is why the Drive letter mattered, kept for what it
+  still explains and for the day a checkout is on a synced folder again:
   - **The swallowed-save handling in [gotchas.md](gotchas.md) was written for
     that checkout** -- when the mount goes away mid-game every
     `save_games` raises.
@@ -67,17 +66,17 @@ checkout. So:
     connectivity check dying on `fatal: bad object refs/desktop.ini` --
     while `git fsck --full` found every object sound and seven refs named
     `desktop.ini` with an `invalid sha1 pointer` of zeros. Nothing had
-    been stopped: the fetch comes first. The three scripts that fetch
-    (`update_main_bot.ps1`, `pull_checkout.ps1`, and the inline copy of
-    the steps in `update-main-bot.sh`) delete every `desktop.ini` under
-    `.git` before the fetch, every time rather than once, because Drive
-    writes them again; they are its folder-icon metadata, nothing git
-    wrote. The working tree's are left where they are -- harmless to a
-    pull, since the dirty check ignores untracked files -- and
-    `.gitignore` names `desktop.ini`, so the host's editor does not list
-    one per folder as an untracked change. By hand, when a fetch fails
-    that way from a shell: `Get-ChildItem -LiteralPath .git -Recurse -Force
-    -Filter desktop.ini | Remove-Item -Force`.
+    been stopped: the fetch comes first. From then until the move, the
+    three scripts that fetch (`update_main_bot.ps1`, `pull_checkout.ps1`,
+    and the inline copy of the steps in `update-main-bot.sh`) deleted
+    every `desktop.ini` under `.git` before the fetch, every time rather
+    than once, because Drive wrote them again, and `.gitignore` named
+    `desktop.ini`. Both went once nothing synced the checkout (the
+    author, 2026-10-21), with the 109 the copy had carried into the new
+    working tree deleted by hand. Should a checkout land on a synced
+    folder again and a fetch fail that way:
+    `Get-ChildItem -LiteralPath .git -Recurse -Force -Filter desktop.ini |
+    Remove-Item -Force`.
 
 **One bot per token, and `scripts/update_main_bot.ps1` is what enforces it**
 (run on the host as `scripts\update_main_bot.cmd`; see "Keeping it
