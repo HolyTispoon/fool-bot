@@ -238,8 +238,7 @@ def resolve_maneuver(
         engine.defending_player_number(game, match),
     )
 
-    paid = pay_for_cards(engine, game, match)
-    paid_line = f"\n{paid}" if paid else ""
+    owe_coin_toss(engine, game, match)
 
     if match.maneuver_uncontested:
         # Nothing to reveal against and nothing to rank: the offense's
@@ -261,7 +260,7 @@ def resolve_maneuver(
         return StepResult(
             narration=[
                 f"{offense_display} chose **{offense_name}**, "
-                f"unchallenged.{plays_as}{paid_line}\n\n## {succeeds}"
+                f"unchallenged.{plays_as}\n\n## {succeeds}"
                 + (f"\n{clock}" if clock else "")
             ],
             headlines=(Headline(succeeds, match.ball.possession),),
@@ -274,7 +273,6 @@ def resolve_maneuver(
     reveal = (
         f"{offense_display} chose **{offense_name}**.\n"
         f"{defense_display} chose **{defense_name}**."
-        f"{paid_line}"
     )
 
     # Who wins is settled_maneuver_winner's alone to say; what is
@@ -864,39 +862,31 @@ def play_maneuver_cards(
     return lines
 
 
-def pay_for_cards(
+def owe_coin_toss(
     engine: RulesEngine,
     game: D12BallGame,
     match: MatchState,
-) -> str:
+) -> None:
     """
-    **D12 Ball 2.0: the cards just revealed are paid for** (rules-2.0
-    5.3, 5.4; the author, 2026-10-20). Each player who played a card
-    exhausts its rank -- the handler, and the challenger where there is
-    one -- win or lose, and an advanced card on either side owes the
-    coin a toss once this maneuver is over (`settle_tie_coin`).
-    Nothing in 1.0, where the skill test charges its token instead.
+    **D12 Ball 2.0: an advanced card just revealed owes the coin a
+    toss** once this maneuver is over (rules-2.0 5.3,
+    `settle_tie_coin`) -- on either side, challenged or not. Nothing
+    in 1.0, which has no tie coin.
 
-    At the reveal, in `resolve_maneuver`, which runs once a maneuver:
-    the tokens are said under the cards that cost them, and they count
-    toward the injury checks of the test the reveal may lead to (5.5).
-    Returns the lines, joined; "" where nothing was charged.
+    At the reveal, in `resolve_maneuver`, which runs once a maneuver.
+    A card costs nothing to play: 2.0 charges the moves it leads to
+    instead (rules-2.0 5.4, `RulesEngine.pay_for_move`).
     """
     if not engine.tie_coin_applies(game):
-        return ""
-    plays = [(match.active_player_id, match.offense_maneuver)]
+        return
+    keys = [match.offense_maneuver]
     if not match.maneuver_uncontested:
-        plays.append((match.challenger_id, match.defense_maneuver))
-    lines = []
-    for player_id, key in plays:
-        if player_id is None or key is None:
-            continue
-        if engine.maneuver_catalog.definition(key).is_gambit:
-            match.tie_coin_owed = True
-        lines.append(engine.apply_exhaustion(
-            game, match, player_id, engine.maneuver_rank_cost(game, key),
-        ))
-    return "\n".join(filter(None, lines))
+        keys.append(match.defense_maneuver)
+    if any(
+        key is not None and engine.maneuver_catalog.definition(key).is_gambit
+        for key in keys
+    ):
+        match.tie_coin_owed = True
 
 
 def settle_tie_coin(

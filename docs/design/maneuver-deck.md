@@ -157,7 +157,7 @@ answer under its own name) and `tie_coin_winner` the one reading of whom the fac
   only a maneuver leads to a tied roll, so the next turn's start is the first point after which
   the new face can matter -- and one place reaches every ending, a goal and a period's end
   included, where the maneuver's own finish has several. The reveal marks the toss owed
-  (`pay_for_cards`), which is why the flag is saved: a restart between the two must not lose
+  (`owe_coin_toss`), which is why the flag is saved: a restart between the two must not lose
   it. An unflipped coin is flipped the same way, which is both the game's first flip and a 2.0
   game saved before the coin; a tie met with no coin at all (such a save, mid-maneuver) flips it
   there and says so.
@@ -168,11 +168,34 @@ answer under its own name) and `tie_coin_winner` the one reading of whom the fac
   `tie_coin_caption` -- and the cog hands the renderer the picture's name and the caption
   (`D12Ball.tie_coin_brief`), so the renderer reads no rule. With no coin the jumbotron is
   drawn exactly as before, byte for byte; the web page has no 2.0 and passes none.
-- **A card costs its rank** (rules-2.0 5.4): `pay_for_cards` charges the handler, and the
-  challenger where there is one, `maneuver_rank_cost` at the reveal in `resolve_maneuver` --
-  which runs once a maneuver, so nothing is charged twice -- worded under the cards. So the
-  tokens count toward the skill test's injury checks, and `skill_test_tokens` answers 0 in 2.0
-  but for the 2 Scorchit pays to force a test, which is the ability's price.
+
+## Moving costs
+
+**In 2.0 a move on the board costs a token a space, and a card costs nothing** (rules-2.0 5.4;
+the author, 2026-10-21, replacing the rank cost of 2026-10-20, which had each player pay their
+card's rank at the reveal). `RulesEngine.moving_costs` is the gate -- the deck's answer under its
+own name, like `tie_coin_applies` -- and `pay_for_move(game, match, player_id, tokens)` the one
+charge, "" in 1.0 or for a move that went nowhere.
+
+- **Charged where the move is made, off what it came to.** The Charter already charges a send and
+  a run back a space in both editions (`choose_challenger`, `walk_in_contestants`,
+  `run_back_space_step`, the pickup), so those never reach `pay_for_move`. What does is every move
+  1.0 makes free during play: a won Dribble's handler (`dribble_advance_step`, at
+  `dribble_burst_cost`, so Emberdash's free Burst covers their Dribble), the passer's step
+  (`answer_passer_advance`, whose ask names the token -- `passer_advance_prompt`), Pressure's
+  shove and the challenger who follows it (`pressure_step`, the challenger measured from where
+  they stood), a Steal's or an Intercept's carry (`steal_step`), and a beaten Double Team's two
+  (`pay_double_team_cost`). Each reads the distance `move_player_relative` hands back, never the
+  one asked for, because a clamped move pays for where it got to.
+- **What stays free** (5.4a, 5.4b): the reset after a new play and every Coaching Choice move,
+  which rearrange a formation rather than play; a Double Team's partner joining, which the card
+  itself makes free (Law 19.10.2); and the moves an ability prices -- Strider's run back,
+  Quantor's run, Glompex's step -- which keep their price.
+- **Entering a skill test stays free** (5.4c, the author's answer): `skill_test_tokens` answers 0
+  in 2.0 but for the 2 Scorchit pays to force a test, which is the ability's price.
+- **The Dribble menu does not price its buttons yet**; a Playmaker choosing 1 or 2 spaces reads
+  the cost in the narration. Pricing them is an option field on `DRIBBLE_ADVANCE_CHOICE`, both
+  sides reading it, as the Burst's `dribble_burst_note` does.
 
 ## Roles
 

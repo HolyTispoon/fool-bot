@@ -146,6 +146,7 @@ def pay_double_team_cost(
     match: MatchState,
     winner_key: str,
     partner_id: Optional[str],
+    game: Optional[D12BallGame] = None,
 ) -> str:
     """
     Double Team's cost, charged inside the pass that beat it: the
@@ -158,30 +159,34 @@ def pay_double_team_cost(
     partner would be measured from the wrong space. Its caller reads
     it before the ball moves, the same way a won Double Team does.
 
-    No exhaustion -- nobody chose to go, and every per-space charge
-    in the game is for a move somebody was sent on. Empty string
-    when Double Team was not the card beaten, which is nearly
-    always.
+    No exhaustion in 1.0 -- nobody chose to go, and every per-space
+    charge there is for a move somebody was sent on (Law 19.10.6).
+    In 2.0 every move costs its space, this one included (rules-2.0
+    5.4). Empty string when Double Team was not the card beaten,
+    which is nearly always.
     """
     if engine.gambit_cost(match, winner_key) != "double_team":
         return ""
     defense_side = match.defending_side()
     moved = []
+    paid = []
     for player_id in (match.challenger_id, partner_id):
         if player_id is None:
             continue
-        match.move_player_relative(player_id, defense_side, 1)
+        spaces = match.move_player_relative(player_id, defense_side, 1)
         moved.append(
             engine.format_player_label(
                 match, engine.get_player_definition(player_id),
             )
         )
+        paid.append(engine.pay_for_move(game, match, player_id, spaces))
     if not moved:
         return ""
     return (
         "\n\n**Double Team** was beaten -- "
         + " and ".join(moved)
         + " are each shoved a space forward, away from their own goal."
+        + "".join(f"\n{line}" for line in paid if line)
     )
 
 
@@ -319,7 +324,9 @@ def low_pass_step(
     # **Double Team's cost**: beaten by a pass, the defender who
     # played it and the teammate who would have joined them are
     # each shoved a space forward, away from their own goal.
-    content += pay_double_team_cost(engine, match, key, double_team_partner)
+    content += pay_double_team_cost(
+        engine, match, key, double_team_partner, game,
+    )
     # Pass's own cost is a flat 1 time regardless of
     # distance (2026-08-16), the same as every maneuver but High
     # Pass. A pass granted by Pinpoint's cost is not this
@@ -450,7 +457,8 @@ def answer_passer_advance(
     The passer moves 1 space forward or stays, and the pass goes on
     to what it was owed: the tail of a completed pass, or the landing
     of one that reached nobody. Staying says nothing -- a move that is
-    not made is not news.
+    not made is not news. The step is free in 1.0 (Law 6.5.3) and
+    costs its space in 2.0 (rules-2.0 5.4).
     """
     pending = match.pending_passer_advance or {}
     match.pending_passer_advance = None
@@ -458,11 +466,13 @@ def answer_passer_advance(
     lines: list[str] = []
     if advance:
         offense_side = match.ball.possession
-        if match.move_player_relative(passer_id, offense_side, 1):
+        spaces = match.move_player_relative(passer_id, offense_side, 1)
+        if spaces:
             passer = engine.get_player_definition(passer_id)
+            paid = engine.pay_for_move(game, match, passer_id, spaces)
             lines.append(
                 f"{engine.format_player_label(match, passer)} moves a "
-                "space forward."
+                "space forward." + (f"\n{paid}" if paid else "")
             )
     if pending.get("then") == "loose":
         return StepResult(
@@ -532,7 +542,9 @@ def dribble_advance_step(
 
     It takes the `game` for the exhaustion a beaten Clear is charged
     -- the Exhausted threshold is the game record's (see
-    `RulesEngine.exhaustion_threshold`) -- and for nothing else.
+    `RulesEngine.exhaustion_threshold`) -- and for 2.0's, where the
+    handler pays for the spaces they carried it (rules-2.0 5.4), at a
+    Burst's price, which is nothing for Emberdash (5.4b).
     """
     offense_side = match.ball.possession
     actual_distance = match.move_player_relative(
@@ -569,6 +581,12 @@ def dribble_advance_step(
         # rather than as a message after it.
         + pay_clear_cost(engine, game, match, "dribble_advance")
     )
+    paid = engine.pay_for_move(
+        game, match, match.active_player_id,
+        engine.dribble_burst_cost(match, actual_distance, game),
+    )
+    if paid:
+        content += f"\n{paid}"
 
     return StepResult(
         narration=[content],
@@ -784,7 +802,8 @@ def steal_step(
     It reads nothing off the game record to decide anything -- the
     exhaustion a run back charges is `begin_run_back`'s, and the cost
     this card can collect is an engine question -- and takes `game`
-    only to name the side that took the ball by its coach.
+    to name the side that took the ball by its coach and for 2.0's
+    charge on the thief's carry (rules-2.0 5.4).
     """
     new_possession_side = match.defending_side()
     challenger_id = match.challenger_id
@@ -799,6 +818,11 @@ def steal_step(
     content, headline = steal_result_text(
         engine, match, key, name, challenger_id, actual_distance, game,
     )
+    # The carry is free in 1.0 and costs its spaces in 2.0 (rules-2.0
+    # 5.4).
+    paid = engine.pay_for_move(game, match, challenger_id, actual_distance)
+    if paid:
+        content += f"\n{paid}"
 
     # Both endings below have moved a meeple and the ball with it, so
     # `board_changed` is True either way -- which is exactly where
@@ -893,7 +917,8 @@ def shove_pressured_handler(
     # Team brings that teammate onto it as well, free of
     # exhaustion -- so they are *placed* rather than run, which is
     # what "no exhaustion cost" means in a game where every other
-    # way to reach a space charges a token a space.
+    # way to reach a space charges a token a space. What 2.0 charges
+    # the handler and the challenger for this is `pressure_step`'s.
     handler_zone, handler_space = match.board.meeple_position(
         match.active_player_id
     )
@@ -1021,9 +1046,10 @@ def pressure_step(
     where a defender was sent, so `match.challenger_id` is always the
     player who plays it.
 
-    It reads the game record for one thing only: whether the
-    challenger is Acidel, whose pressure into the goal zone is a shot
-    rather than an own-goal roll (Law 21).
+    It reads the game record for two things: whether the challenger
+    is Acidel, whose pressure into the goal zone is a shot rather than
+    an own-goal roll (Law 21), and whether the shove costs its spaces,
+    which it does in 2.0 (rules-2.0 5.4).
     """
     offense_side = match.ball.possession
     defense_side = match.defending_side()
@@ -1049,10 +1075,32 @@ def pressure_step(
         partner_id = engine.double_team_partner(match)
         engine.record_double_team_partner(match, partner_id)
 
+    challenger_origin = match.board.meeple_position(match.challenger_id)
     actual_distance = shove_pressured_handler(match, push, partner_id)
     content = pressure_result_text(
         engine, match, key, name, actual_distance, partner_id,
     )
+    # **2.0: the shove costs the handler its spaces, and the
+    # challenger the spaces they followed** (rules-2.0 5.4). Free in
+    # 1.0. A Double Team's partner joins free in both editions, as the
+    # card says (Law 19.10.2, rules-2.0 5.4b).
+    followed = (
+        abs(
+            match.board.flat_index(
+                *match.board.meeple_position(match.challenger_id)
+            )
+            - match.board.flat_index(*challenger_origin)
+        )
+        if challenger_origin is not None
+        else 0
+    )
+    paid = [
+        engine.pay_for_move(
+            game, match, match.active_player_id, actual_distance,
+        ),
+        engine.pay_for_move(game, match, match.challenger_id, followed),
+    ]
+    content += "".join(f"\n{line}" for line in paid if line)
 
     # Every branch below has moved a meeple: even a shove with
     # nowhere to go walks the challenger onto the handler's space.

@@ -631,11 +631,9 @@ class RulesEngine:
         """
         Whether **the coin settles a tied roll** rather than its being
         rolled again (docs/rules-2.0.md, section 5; the author,
-        2026-10-20), and whether a maneuver costs its card's rank
-        rather than the skill test costing its token. Both are 2.0's,
-        so this is the deck's own answer -- asked under its own name
-        so a reader of a tie or an exhaustion charge sees which rule it
-        is.
+        2026-10-20). It is 2.0's, so this is the deck's own answer --
+        asked under its own name so a reader of a tie sees which rule
+        it is.
         """
         return self.maneuver_deck_applies(game)
 
@@ -675,17 +673,39 @@ class RulesEngine:
             else "Defense wins ties"
         )
 
-    def maneuver_rank_cost(
-        self, game: Optional[D12BallGame], maneuver_key: Optional[str],
-    ) -> int:
+    def moving_costs(self, game: Optional[D12BallGame]) -> bool:
         """
-        The tokens playing this card costs its player: its rank in 2.0
-        -- an advanced card the rank it shares with its basic maneuver
-        -- and nothing in 1.0 (rules-2.0 5.4).
+        Whether **a move on the board costs a token a space** wherever
+        it happens during play, rather than only where the Charter
+        charges one -- a send and a run back (rules-2.0 5.4; the
+        author, 2026-10-21) -- and so whether entering a skill test is
+        free. 2.0's, so the deck's own answer under its own name.
         """
-        if maneuver_key is None or not self.tie_coin_applies(game):
-            return 0
-        return self.maneuver_catalog.definition(maneuver_key).rank
+        return self.maneuver_deck_applies(game)
+
+    def pay_for_move(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        player_id: Optional[str],
+        tokens: int,
+    ) -> str:
+        """
+        **D12 Ball 2.0: a move the Charter makes free costs its
+        spaces** (rules-2.0 5.4) -- a won Dribble's handler, the
+        passer's step, Pressure's shove and the challenger who follows
+        it, a Steal's or an Intercept's thief, a beaten Double Team's
+        two. `tokens` is the spaces the move actually came to, or what
+        an ability prices it at (`dribble_burst_cost`, 5.4b). Nothing
+        in 1.0, where these moves are free; returns the exhaustion's
+        description, "" where nothing was charged.
+
+        The sends and the run backs charge their spaces in both
+        editions already, so they never come here.
+        """
+        if player_id is None or tokens <= 0 or not self.moving_costs(game):
+            return ""
+        return self.apply_exhaustion(game, match, player_id, tokens)
 
     def maneuver_reference_tier(
         self, game: Optional[D12BallGame],
@@ -2883,15 +2903,15 @@ class RulesEngine:
         """
         What entering a maneuver skill test costs `player_id`: 1, or
         under a test Scorchit forced (`forced_by`) 2 to Scorchit and
-        nothing to their opponent. In 2.0 a card costs its rank at the
-        reveal instead and the test is free, but for Scorchit's 2,
-        which is the ability's price (rules-2.0 5.4).
+        nothing to their opponent. In 2.0 moving costs instead and the
+        test is free, but for Scorchit's 2, which is the ability's
+        price (rules-2.0 5.4c).
         """
         if forced_by is not None:
             return (
                 SCORCHIT_FORCED_TEST_TOKENS if player_id == forced_by else 0
             )
-        return 0 if self.tie_coin_applies(game) else 1
+        return 0 if self.moving_costs(game) else 1
 
     def contest_auto_winner(
         self,

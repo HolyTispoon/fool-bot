@@ -58,6 +58,7 @@ from d12ball.game import (
     COLOR_TEAMS,
     SPECIES_TEAMS,
     TEAM_PAIRS,
+    Edition,
     Formation,
     Team,
     paired_team,
@@ -3893,7 +3894,10 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace(followup=SimpleNamespace(
             send=mock.AsyncMock(),
         ))
-        game = SimpleNamespace(match_state=None)
+        # The passer's step is asked of the edition (rules-2.0 5.4).
+        game = SimpleNamespace(
+            match_state=None, edition=Edition.ONE, tutorial=False,
+        )
         with suppressed_cog_saves():
             await resolve_low_pass(cog, interaction, game, match)
 
