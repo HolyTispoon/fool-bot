@@ -3,7 +3,7 @@
 **D12 Ball 2.0 is the Charter ([living-rules.md](living-rules.md)) with the rules below: a
 maneuver deck in place of how a coach chooses a maneuver (sections 1 to 3), roles that
 belong to the formation rather than to the players, with no role abilities (section 4), and a
-coin that settles tied rolls, with a maneuver costing exhaustion by its rank (section 5).**
+coin that settles tied rolls, with moving on the board costing exhaustion a space (section 5).**
 Everything the Charter does not change here plays exactly as it says. D12 Ball 1.0 is the
 Charter unchanged. The edition is chosen at setup, beside the mode, and either edition goes
 with any of the three modes: the mode still decides which abilities are played (Law 18). Where
@@ -184,7 +184,7 @@ role ability to play it beside.
 *Note.* For now a role carries no ability in 2.0: it decides which zone a player is in, where
 the three unique roles stand, who may be moved in a Coaching Choice, and who takes the kickoff.
 
-## 5. Ties and the coin
+## 5. Ties, the coin and moving
 
 **5.1** **The coin settles every tied roll** -- a maneuver's skill test (Law 6.4) and a contest
 for the ball, a High Ball contest included (Law 10.2, 10.4). Nothing is rolled again, and so
@@ -206,18 +206,31 @@ coin is tossed again once that maneuver is fully resolved**, every contest it le
 included, and its new face holds until the next maneuver an advanced card is played in. So a
 tied roll in that maneuver is settled by the face the coin showed when the cards were revealed.
 
-**5.4** **A maneuver costs exhaustion by its rank.** Every player who plays a card exhausts its
-rank -- 1, 2 or 3, an advanced card the rank it shares with its basic maneuver (Law 19.1.2) --
-when the cards are revealed, win or lose, and the handler of an unchallenged maneuver too.
-**Entering a skill test costs nothing** (Law 6.4.1 does not apply), except that a test
-Scorchit forces in advanced mode still costs Scorchit 2, the price of the ability (Law 21.3.8),
-and their opponent nothing. Merging into a roll still costs 1 (Law 20.5). So the first row of Law
-15.1.1 reads:
+**5.4** **Moving costs exhaustion: a player who moves on the board during play exhausts 1 for
+every space they travel**, whoever moved them and whichever card did -- the handler of a won
+Dribble (Law 6.6.2), the passer stepping forward after a Pass (6.5.3), the handler a Pressure or
+a Double Team shoves back and the challenger who moves onto their space (6.10.2, 19.10.2), a
+Double Team's partner who joins them, however far they came (19.10.2), the thief a Steal or an
+Intercept carries off with the ball (6.9.2, 19.9.2), and the challenger and partner a beaten
+Double Team moves forward (19.10.6), as well as every move the Charter already charges a space
+-- a player sent to the ball (9.4) and a player running back after a steal (12.4.3).
+
+- **a.** **Two kinds of move are free**: the reset after a new play (Law 12.5), and every move a
+  Coaching Choice makes -- space positioning, a zone assignment, a formation change, a
+  substitution and stepping off a unique role's space (Law 14; section 4).
+- **b.** **An ability or a card that prices its own move keeps that price**: Emberdash's Burst
+  costs nothing and so, in 2.0, does their Dribble (Law 21.3.4); a Strider runs back for at most
+  1 (21.4.4); Quantor's run and Glompex's step onto the ball cost what their abilities say
+  (21.4.5, 21.6.1). A Double Team's partner is not one of these: Law 19.10.2's "free of
+  exhaustion" does not apply in 2.0.
+- **c.** **Playing a card costs nothing, and so does entering a skill test** (Law 6.4.1 does not
+  apply), except that a test Scorchit forces in advanced mode still costs Scorchit 2, the price
+  of the ability (Law 21.3.8), and their opponent nothing. Merging into a roll still costs 1
+  (Law 20.5).
+
+So the first three rows of Law 15.1.1 -- entering a skill test, being sent to the ball and
+running back -- are one:
 
 | What costs tokens | How many |
 | --- | --- |
-| Playing a maneuver card | its rank, to the player who plays it |
-
-**5.5** The tokens a card costs count toward the injury checks of the skill test it leads to
-(Law 15.3.2). A maneuver settled on the cards owes no injury check, however many tokens it cost
-(Law 15.3.3). An injured player still never exhausts (Law 15.1.3).
+| Moving on the board during play, but for a reset or a Coaching Choice | 1 per space traveled |

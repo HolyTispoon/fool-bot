@@ -2,8 +2,9 @@
 D12 Ball 2.0's coin (docs/rules-2.0.md, section 5): a tied roll goes to
 the side the coin favours rather than being rolled again, the coin is
 flipped at the first turn and tossed again after a maneuver an advanced
-card was played in, and a card costs its player its rank. 1.0 is
-untouched. See docs/design/maneuver-deck.md, "The coin".
+card was played in -- and moving on the board costs a token a space
+(rules-2.0 5.4), where a card costs nothing. 1.0 is untouched. See
+docs/design/maneuver-deck.md, "The coin" and "Moving costs".
 """
 
 import pathlib
@@ -14,8 +15,8 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from d12ball.components import MatchState, PlayerRole, TeamSide
-from d12ball.flow import rolls
-from d12ball.flow.turn import pay_for_cards, settle_tie_coin
+from d12ball.flow import effects, rolls
+from d12ball.flow.turn import owe_coin_toss, settle_tie_coin
 from d12ball.game import CoinFace, Edition, GameMode
 from d12ball.prompts import PromptKind, PendingPrompt
 
@@ -125,25 +126,37 @@ class TieCoinTests(unittest.TestCase):
                 self.assertIn("It's a tie (7-7)", result.narration[0])
                 self.assertEqual(dict(self.match.exhaustion), before)
 
-    # -- A card costs its rank -------------------------------------------
+    # -- A card costs nothing; moving costs a token a space ------------
 
-    def test_each_player_pays_their_cards_rank_at_the_reveal(self) -> None:
+    def stage_on_the_ball(self) -> None:
+        """The handler holding the ball, and the challenger walked in
+        onto their space -- walked in for nothing, so every token after
+        is the effect's."""
+        self.stage_skill_test()
+        position = self.match.board.meeple_position(self.handler)
+        self.match.set_ball_space(*position)
+        self.match.set_ball_carrier(self.handler)
+        self.match.move_meeple(self.challenger, *position)
+
+    def tokens(self, player_id: str) -> int:
+        return self.match.exhaustion.get(player_id, 0)
+
+    def test_revealing_the_cards_costs_nothing(self) -> None:
         self.stage_skill_test()
         self.match.offense_maneuver = "high_pass"
         self.match.defense_maneuver = "steal"
-        paid = pay_for_cards(ENGINE, self.game, self.match)
-        self.assertEqual(self.match.exhaustion.get(self.handler), 3)
-        self.assertEqual(self.match.exhaustion.get(self.challenger), 2)
-        self.assertTrue(paid)
+        owe_coin_toss(ENGINE, self.game, self.match)
+        self.assertEqual(self.tokens(self.handler), 0)
+        self.assertEqual(self.tokens(self.challenger), 0)
         # Basic cards owe the coin nothing.
         self.assertFalse(self.match.tie_coin_owed)
 
-    def test_an_unchallenged_handler_pays_too_and_an_advanced_card_owes_a_toss(self) -> None:
+    def test_an_unchallenged_advanced_card_owes_a_toss(self) -> None:
         self.match.select_ball_handler(self.handler)
         self.match.maneuver_uncontested = True
         self.match.offense_maneuver = "skilled_pass"
-        pay_for_cards(ENGINE, self.game, self.match)
-        self.assertEqual(self.match.exhaustion.get(self.handler), 1)
+        owe_coin_toss(ENGINE, self.game, self.match)
+        self.assertEqual(self.tokens(self.handler), 0)
         self.assertTrue(self.match.tie_coin_owed)
 
     def test_entering_the_skill_test_is_free_in_two_point_oh(self) -> None:
@@ -155,8 +168,105 @@ class TieCoinTests(unittest.TestCase):
         self.assertEqual(
             ENGINE.skill_test_tokens(self.game, self.match, self.handler), 1,
         )
-        self.assertEqual(pay_for_cards(ENGINE, self.game, self.match), "")
-        self.assertEqual(self.match.exhaustion.get(self.handler, 0), 0)
+
+    def test_a_dribble_costs_the_handler_its_space(self) -> None:
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+            with self.subTest(edition=edition):
+                self.setUp()
+                self.game.edition = edition
+                self.stage_on_the_ball()
+                result = effects.dribble_advance_step(
+                    ENGINE, self.game, self.match, 1,
+                )
+                self.assertEqual(self.tokens(self.handler), paid)
+                self.assertEqual(
+                    "exhausts 1" in result.narration[0], bool(paid),
+                )
+
+    def test_a_steal_costs_the_thief_its_carry(self) -> None:
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+            with self.subTest(edition=edition):
+                self.setUp()
+                self.game.edition = edition
+                self.stage_on_the_ball()
+                effects.steal_step(ENGINE, self.match, "steal", self.game)
+                self.assertEqual(self.tokens(self.challenger), paid)
+
+    def test_a_pressure_costs_the_handler_and_the_challenger_who_follows(self) -> None:
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+            with self.subTest(edition=edition):
+                self.setUp()
+                self.game.edition = edition
+                self.stage_on_the_ball()
+                effects.pressure_step(
+                    ENGINE, self.match, "pressure", self.game,
+                )
+                self.assertEqual(self.tokens(self.handler), paid)
+                self.assertEqual(self.tokens(self.challenger), paid)
+
+    def test_a_double_teams_partner_pays_for_the_spaces_they_join_from(self) -> None:
+        for edition in (Edition.TWO, Edition.ONE):
+            with self.subTest(edition=edition):
+                self.setUp()
+                self.game.edition = edition
+                self.stage_on_the_ball()
+                partner = next(
+                    player_id
+                    for player_id in self.match.visiting.field_players
+                    if player_id != self.challenger
+                )
+                start = self.match.board.flat_index(
+                    *self.match.board.meeple_position(partner)
+                )
+                with mock.patch.object(
+                    ENGINE, "double_team_partner", return_value=partner,
+                ):
+                    effects.pressure_step(
+                        ENGINE, self.match, "double_team", self.game,
+                    )
+                came = abs(
+                    self.match.board.flat_index(
+                        *self.match.board.meeple_position(partner)
+                    )
+                    - start
+                )
+                self.assertGreater(came, 0)
+                self.assertEqual(
+                    self.tokens(partner),
+                    came if edition == Edition.TWO else 0,
+                )
+
+    def test_a_beaten_double_team_costs_its_step_forward(self) -> None:
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+            with self.subTest(edition=edition):
+                self.setUp()
+                self.game.edition = edition
+                self.stage_on_the_ball()
+                self.match.offense_maneuver = "low_pass"
+                self.match.defense_maneuver = "double_team"
+                said = effects.pay_double_team_cost(
+                    ENGINE, self.match, "low_pass", None, self.game,
+                )
+                self.assertIn("shoved a space forward", said)
+                self.assertEqual(self.tokens(self.challenger), paid)
+
+    def test_the_passers_step_costs_its_space_and_the_ask_says_so(self) -> None:
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+            with self.subTest(edition=edition):
+                self.setUp()
+                self.game.edition = edition
+                self.stage_on_the_ball()
+                self.match.pending_passer_advance = {
+                    "passer_id": self.handler, "then": "loose",
+                }
+                ask = effects.passer_advance_prompt(
+                    ENGINE, self.game, self.match,
+                ).ask
+                self.assertEqual("for 1 exhaustion" in ask, bool(paid))
+                effects.answer_passer_advance(
+                    ENGINE, self.game, self.match, True,
+                )
+                self.assertEqual(self.tokens(self.handler), paid)
 
     # -- Flipped and tossed ----------------------------------------------
 
