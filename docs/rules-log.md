@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-20.
+**As of:** 2026-10-21.
 
 ## Where the rules come from
 
@@ -154,6 +154,29 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-21 -- author, 2.0: moving costs a token a space, and a card costs nothing
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 5.4), replacing the rank cost of
+2026-10-20 (the second entry below). The author: *"the recent changes where maneuver cost
+exhaustion according to rank in d12ball 2.0 - remove that. instead moving on the board costs
+exhaustion so any time players moves except for running back after a new play, they should add
+exhaustion 1 per space traveled"*. "Running back after a new play" is the reset (Law 12.5), which
+was already free. Asked the same day, the author answered:
+
+- **Entering a skill test stays free** in 2.0, as the rank cost had made it -- chosen over the
+  Charter's token returning (5.4c). Scorchit's forced test keeps its 2.
+- **A Coaching Choice's moves are free**, like the reset -- chosen over a token a space for
+  positioning, a zone assignment or a formation change (5.4a).
+- **A move a player is forced into costs them too**: the handler a Pressure shoves back, the
+  challenger who follows, the thief a Steal or an Intercept carries, a beaten Double Team's two
+  -- chosen over charging only the moves a coach chooses (5.4).
+- **An ability that prices a move keeps its price**: Emberdash's free Burst (and so, in 2.0,
+  their Dribble), Strider's run back, Quantor's run and Glompex's step (5.4b).
+
+One reading the answers left, written into 5.4b: a Double Team's partner still joins free,
+because the card itself says so, "however far they came" (Law 19.10.2), as the abilities' own
+prices stand.
 
 ### 2026-10-20 -- author, 2.0: twelve basic cards and a hand of five
 
