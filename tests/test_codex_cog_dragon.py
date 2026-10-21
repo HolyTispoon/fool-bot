@@ -271,7 +271,8 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         name = self.game.seat_name(self.second)
         values = [option.value for option in browser.select.options]
         self.assertIn(f"{self.second}:everything", values)
-        call = await self.table.choose(browser, "Show", f"{self.second}:tech1", who=self.who(self.first))
+        self.assertEqual(values, ["everything", f"{self.second}:everything"])
+        call = await self.table.choose(browser, "Show", f"{self.second}:everything", who=self.who(self.first))
         self.assertTrue(call.last()[2]["content"].startswith(f"{name}'s codex: "))
         self.assertEqual(browser.owner, self.second)
 

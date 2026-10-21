@@ -216,13 +216,14 @@ class TurnsMixin:
     # -- The panel -------------------------------------------------------------
 
     def panel_caption(self, game: CodexGame, prompt: PendingPrompt, extra: str = "",
-                      hand: Optional[bool] = None) -> str:
-        """The panel's text: the model's ask, rendered, what it tells
+                      hand: Optional[bool] = None, run_on: str = "") -> str:
+        """The panel's text: the model's ask, rendered -- with `run_on`
+        after it on the same line (the Tech gate's caption) -- what it tells
         the asked player alone (`PendingPrompt.told` -- the cards an
         effect discarded from their hand), what the view adds beneath
         it -- under the turn's lines so far (`with_turn_log`) where the panel pictures the hand:
         `hand`, or where not given, the prompt's kind (`TURN_LOG_KINDS`)."""
-        lines = [self.render_text(prompt.ask, game)]
+        lines = [" ".join(filter(None, [self.render_text(prompt.ask, game), run_on]))]
         lines.extend(self.render_text(line, game) for line in prompt.told)
         if extra:
             lines.append(extra)
@@ -242,8 +243,12 @@ class TurnsMixin:
         view = self.view_for_prompt(game, prompt, match, gate=gate)
         caption = getattr(view, "caption", None)
         extra = [note] if note else []
+        run_on = ""
         if callable(caption):
-            extra.append(caption())
+            if getattr(view, "caption_runs_on", False):
+                run_on = caption()
+            else:
+                extra.append(caption())
         private = private_choices(prompt)
         # Whether the picture is the hand: the turn's lines go over it.
         hand = not private and (prompt.kind in TURN_LOG_KINDS
@@ -277,7 +282,7 @@ class TurnsMixin:
             # the hand from the 'confirm tech' view").
             picture = await self.render_prompt(game, prompt)
             files = [] if picture is None else [picture]
-        return self.panel_caption(game, prompt, "\n".join(extra), hand=hand), files, view
+        return self.panel_caption(game, prompt, "\n".join(extra), hand=hand, run_on=run_on), files, view
 
     async def choices_file(self, slugs: list[str]) -> discord.File:
         """The cards a private target offers, pictured as a hand is, off

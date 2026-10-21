@@ -2245,7 +2245,13 @@ Tech I, Tech II & III (one view since the author's 2026-10-12, "fold
 tech 3 into tech 2"), Spells, and one view per spec once a deck is
 more than one (the standard game's, step 10) -- that re-renders the
 picture in place (the engine's `codex_remaining`, by `codex_views`; the
-views are named by `codex.formatting.codex_view_name`). **Which cards a
+views are named by `codex.formatting.codex_view_name`). **A codex of
+one spec -- the basic game's twelve -- is shown whole, always, with no
+menu** (the author, 2026-10-20: "with 1v1 basic game, always show ALL
+the codex"): `codex_views` is Everything alone for it, so the Codex
+button and the tech picker both show every card and offer nothing to
+narrow -- twelve cards are two rows, nothing to filter. A dragon's
+teammate's codex still puts a menu up, the two players' Everything. **Which cards a
 view holds is one reading**, `RulesEngine.codex_view_rows`: a tech level
 is every card printed with it, a building or an upgrade as much as a
 unit (the author, 2026-10-09: "not meant to show units only but all
@@ -2699,9 +2705,16 @@ cards than one menu holds is now split over as many menus as it needs
 (`MENU_ROWS`, three, each labelled with the cards it runs from and to),
 none cut short. **Save tech** is held to the bounds, and where ten
 workers allow none (UMR p. 5) **Tech nothing** saves the empty choice;
-the ask says so by its range. **The ask is the count and nothing
-else** -- "Tech 2 cards.", and "Tech 0-2 cards." where the workers
-allow none (the author, 2026-10-11). The first reading named the
+the ask says so by its range. **The ask is the count and when it is
+owed** -- "To start your turn, you must tech 2 cards." in the player's
+own turn, "Before your next turn, you must tech 2 cards." while the
+choice stands through another's (`standing_prompts`), and "... tech 0-2
+cards." where the workers allow none (the author, 2026-10-11,
+2026-10-20); under the hand's picture, before the picker is open, the
+gate's caption says how to open it, on the ask's own line (its
+`caption_runs_on`) -- "Click *Tech* to open the tech menu.", where it
+was "**Tech** opens it; the turn's actions come after it." on a line
+of its own. The first reading named the
 player, said the cards came from the codex, said when they reach the
 discard pile and, where none was allowed, why; read at the start of the
 player's own turn, "when your next turn begins" was confusing, and the
@@ -2723,7 +2736,8 @@ whole codex at once is too much to pick from -- "need a way to filter
 and look just at several pieces, by tech level, by spec"). Its first
 row is the same menu the Codex button carries -- Everything, Tech I to
 III, Spells, and in the standard game one spec (`codex_view_menu`, over
-the engine's `codex_views`), with the picker's opening view first (below)
+the engine's `codex_views`), with the picker's opening view first (below);
+in the basic game there is one view, the whole codex, and no menu
 -- and choosing one re-renders the picture
 and rebuilds the cards' menu from that view alone
 (`codex_view_rows` over `TechOptions.codex`, so the picker reads the
@@ -2744,9 +2758,12 @@ author, 2026-10-20): before the player's first Tech II building, every
 Tech I card and every spell ("Tech I & Spells"); once one is built, the
 spec chosen for it -- its Tech II and III -- and every spell, every
 spec's ("Anarchy Tech II & III, Spells"). A Tech II destroyed since
-still counts, its spec being kept (`tech2_spec`); the basic game's one
-spec is the Tech II's, though `tech2_spec` never records it there; a
-standard game's Tech II cannot be built without one. The spells are
+still counts, its spec being kept (`tech2_spec`); a standard game's
+Tech II cannot be built without one. The basic game's codex has no
+focused view: it opens whole, with neither a Show menu nor **Whole
+codex** (the author, 2026-10-20 -- before, it was focused as the
+standard game's is, Tech I & Spells and then its one spec's Tech II and
+III and the spells). The spells are
 every spec's, not the Tech II spec's alone (the author, 2026-10-20).
 **Whole codex** beside the buttons shows everything, and on any other
 view the same button, named for the opening view, goes back to it. The
@@ -3612,11 +3629,16 @@ engine's too, `codex_places` -- each card's row and column -- and
 `render_codex` draws the cards there, the grid as big as the places it
 uses. Where a codex is more than one spec, the Everything, Tech II & III
 and Spells views are laid out by spec: Tech I runs on, a row of six; each
-spec's Tech II and III are a line of their own, six cards; and each
-spec's four spells are a block two cards wide, two on top and two
-below, the specs' blocks side by side, so a spec's spells sit in the
-same two columns. Tech I, a spec's own view, and a codex of one spec
-run on.
+spec's Tech II and III are a block two cards wide and three high, Tech
+III last, in the bottom right (the author, 2026-10-20); and each spec's four spells are a block two cards wide, two
+on top and two below, the specs' blocks side by side, so a spec's tech
+and spells sit in the same two columns (the author, 2026-10-20: tech 2
+and 3 "as a block of 2x3 instead of row"; until then each spec's six
+were a row of their own -- the same rows either way, 1 + 3 + 2). One
+spec's Tech II and III alone, as a `tech2spec:` view holds them, stay
+a line (the author, 2026-10-20: "single spec view should not use this
+block") -- a block of two would leave four columns empty. Tech I, a spec's
+own view, and a codex of one spec run on.
 The
 Everything view of seventy-two (36 cards, two copies each) at
 `CODEX_COLUMNS` -- six; twelve, a row a spec, was tried and put back --
@@ -4227,7 +4249,18 @@ free-for-all stacked alone.
   player and the next to play under the divider -- three players one
   panel above two, four two above two, five three rows with one at the
   top, a lone panel centred -- and the turn's pill over the acting
-  player's own panel rather than the board's middle. Three or four open
+  player's own panel rather than the board's middle. Beside the
+  turn's pill on the same divider, a second, quieter one names whose
+  turn is next, "NEXT: KIME" (`render.DIVIDER_NEXT`, `seats.next_seat`
+  -- an extra turn and the playoff included), in both views and every
+  table size. Side by side it is centred over the panel right of the
+  active player's, the next to play's, as the turn's is over the active
+  player's (the author, 2026-10-20); stacked, where no panel is to the
+  right, the two pills are centred together. A long name is cut with an
+  ellipsis where the pill would pass the turn's or the rule's end. A finished game
+  names nobody. The author asked for it on the divider rather than in
+  the room beside a lone top panel, which four players and the stacked
+  view do not have (2026-10-20). Three or four open
   side by side and five stacked (`CodexGame.start`); **Swap view**
   toggles the two (`swapped_layout(layout, table=True)`), and `/codex
   side_by_side` is the same toggle. The record's `board_layout` keeps

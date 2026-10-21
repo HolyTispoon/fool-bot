@@ -111,6 +111,9 @@ SPEC_VIEW_PREFIX = "spec:"
 CODEX_COLUMNS = 6
 #: How wide a spec's block of spells is, in cards (`codex_places`).
 CODEX_SPELL_BLOCK = 2
+#: How wide a spec's block of Tech II and III is, in cards
+#: (`codex_places`): two, so it sits over the spec's spells.
+CODEX_TECH_BLOCK = 2
 
 
 def spec_view(spec: str) -> str:
@@ -4193,11 +4196,14 @@ class RulesEngine:
         deck is more than one spec (the standard game's three, step 10),
         one view per spec, since a seventy-two card codex is three
         binders. The Codex button's menu and the tech picker's are both
-        this list, so the two narrow the same way.
+        this list, so the two narrow the same way. **A codex of one spec
+        -- the basic game's twelve -- is shown whole, always** (the
+        author, 2026-10-20: "with 1v1 basic game, always show ALL the
+        codex"): its one view is Everything, so neither offers a menu.
         """
         specs = player.specs
         if len(specs) < 2:
-            return CODEX_VIEWS
+            return ("everything",)
         return CODEX_VIEWS + tuple(spec_view(spec) for spec in specs)
 
     def tech_focus_view(self, player: PlayerState) -> str:
@@ -4207,14 +4213,16 @@ class RulesEngine:
         every Tech I card and every spell (`TECH1_SPELLS_VIEW`); once one
         is built -- destroyed since or not, its spec being kept -- that
         spec's Tech II and III and every spell (`tech2_spec_view`). A
-        basic game's one spec is the Tech II's, which `tech2_spec` never
-        records. A standard game's Tech II always has one, its build
+        standard game's Tech II always has one, its build
         refused without it (`_check_spec`); a position staged by hand
-        without one is "everything".
+        without one is "everything". A codex of one spec -- the basic
+        game's -- is always "everything" (`codex_views`).
         """
+        if len(player.specs) < 2:
+            return "everything"
         if player.buildings.get("tech2") is None:
             return TECH1_SPELLS_VIEW
-        spec = player.tech2_spec or (player.specs[0] if len(player.specs) == 1 else None)
+        spec = player.tech2_spec
         return "everything" if spec is None else tech2_spec_view(spec)
 
     def tech_opening_view(self, player: PlayerState) -> str:
@@ -4287,45 +4295,48 @@ class RulesEngine:
         a grid `CODEX_COLUMNS` wide. Where the cards are more than one
         spec's, in the Everything, Tech II & III and Spells views (the author,
         2026-10-10 and 2026-10-12), every Tech I card runs on together,
-        each spec's Tech II and III are a line of their own, and each
-        spec's spells are a block two cards wide -- two on top, two
-        below, its ultimate last -- the specs' blocks side by side, so a
-        spec's spells sit in the same two columns. Every other view, and
-        a codex of one spec, runs on. A run of cards of one kind starts
-        a new row; nothing assumes how many a spec has.
+        and each spec's Tech II and III, and each spec's spells, are a
+        block two cards wide -- the Tech II and III three high, Tech III
+        last, the spells two high, the ultimate last -- the specs'
+        blocks side by side, so a spec's cards sit in the same two
+        columns. Tech II and III of one spec alone (a `tech2spec:` view)
+        are a line. Every other view, and a codex of one spec, runs on.
+        A run of cards of one kind starts a new row; nothing assumes
+        how many a spec has.
         """
         cards = [self.catalog.cards[slug] for slug, _ in rows]
         grouped = (len({card.spec for card in cards}) > 1
                    and (view in ("everything", "tech2", "spells", TECH1_SPELLS_VIEW)
                         or view.startswith(TECH2_SPEC_VIEW_PREFIX)))
+        teched = {card.spec for card in cards if not card.is_spell and (card.tech_level or 0) >= 2}
 
         def band(card) -> tuple:
             if not grouped:
                 return ("run",)
             if card.is_spell:
-                return ("spells",)
+                return ("blocks", CODEX_SPELL_BLOCK)
             if (card.tech_level or 0) >= 2:
-                return ("line", card.spec)
+                return ("blocks", CODEX_TECH_BLOCK) if len(teched) > 1 else ("line", card.spec)
             return ("run",)
 
         places: list[tuple[int, int]] = []
         top = 0
         for key, members in itertools.groupby(cards, key=band):
             members = list(members)
-            if key[0] != "spells":
+            if key[0] != "blocks":
                 for at in range(len(members)):
                     places.append((top + at // CODEX_COLUMNS, at % CODEX_COLUMNS))
                 top += -(-len(members) // CODEX_COLUMNS)
                 continue
+            wide = key[1]
             blocks = [list(block) for _, block in itertools.groupby(members, key=lambda card: card.spec)]
-            across = max(1, CODEX_COLUMNS // CODEX_SPELL_BLOCK)
+            across = max(1, CODEX_COLUMNS // wide)
             for start in range(0, len(blocks), across):
                 tallest = 0
                 for slot, block in enumerate(blocks[start:start + across]):
                     for at in range(len(block)):
-                        places.append((top + at // CODEX_SPELL_BLOCK,
-                                       slot * CODEX_SPELL_BLOCK + at % CODEX_SPELL_BLOCK))
-                    tallest = max(tallest, -(-len(block) // CODEX_SPELL_BLOCK))
+                        places.append((top + at // wide, slot * wide + at % wide))
+                    tallest = max(tallest, -(-len(block) // wide))
                 top += tallest
         return tuple(places)
 

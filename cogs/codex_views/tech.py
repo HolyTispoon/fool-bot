@@ -12,7 +12,9 @@ choice's owner** and built from the prompt's options alone:
   then the ones the Codex button offers, Everything, one tech level,
   the spells, in the standard game one spec (`TechOptions.views`), since
   the whole codex at once is too much to pick from (the author, 2026-10-09)
-  -- then **one card at a time** (the author, 2026-10-10): a menu of
+  -- a codex of one spec, the basic game's, is shown whole with no
+  Show menu (the author, 2026-10-20: "with 1v1 basic game, always show
+  ALL the codex") -- then **one card at a time** (the author, 2026-10-10): a menu of
   the cards the view shows, **each card once** whatever its copies, and
   a pick of it is one copy, so a second copy is the same card picked
   again while the codex has one left. A view of more cards than a menu
@@ -92,11 +94,13 @@ class TechChoiceView(PanelView):
         self.view = view
         engine = cog.engine
         catalog = engine.catalog
-        # Row 0: which part of the codex is shown, the opening view first.
+        # Row 0: which part of the codex is shown, the opening view first
+        # -- none where the codex has one view, the basic game's whole.
         views = codex_view_menu(options.views, view, row=0)
         views.callback = self.show
         self.views = views
-        self.add_item(views)
+        if len(options.views) > 1:
+            self.add_item(views)
         # Rows 1 to 3: the shown cards, each once, while a copy is left
         # beside the picks -- one pick a click.
         picked = Counter(self.picks)
@@ -289,7 +293,11 @@ class TechGateView(PanelView):
     under the hand's picture, the panel
     while the turn waits on a tech choice its player never made: Tech
     opens the picker in place -- the prompt's own view, `show_panel`'s
-    edit. Saved picks skip it: My hand opens their confirmation at once."""
+    edit. Saved picks skip it: My hand opens their confirmation at once.
+    Its caption runs on after the ask, on the same line (the author,
+    2026-10-20)."""
+
+    caption_runs_on = True
 
     def __init__(self, cog, game_id: str, prompt, match) -> None:
         super().__init__(cog, game_id, prompt, match)
@@ -303,7 +311,7 @@ class TechGateView(PanelView):
             self.add_item(button)
 
     def caption(self) -> str:
-        return "**Tech** opens it; the turn's actions come after it."
+        return "Click *Tech* to open the tech menu."
 
     async def open_tech(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)

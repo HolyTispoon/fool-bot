@@ -564,6 +564,9 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(kwargs["view"], CodexBrowser)
         self.assertEqual(kwargs["view"].seat, 1)
         self.assertTrue(kwargs["file"].filename.startswith("codex-everything-"))
+        # The basic game's codex is shown whole, always: no menu to narrow
+        # it (the author, 2026-10-20).
+        self.assertEqual(kwargs["view"].children, [])
 
 
 class TestGameCogTests(unittest.IsolatedAsyncioTestCase):

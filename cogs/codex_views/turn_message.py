@@ -467,7 +467,9 @@ class CodexBrowser(SafeView):
     """
     The clicker's own codex, ephemeral, under a menu of views --
     Everything, Tech I to III, Spells -- the picture re-rendered in place
-    on each choice (the author, 2026-10-08: "a lot of cards"). Not
+    on each choice (the author, 2026-10-08: "a lot of cards"). A codex
+    shown through one view alone -- the basic game's, always whole --
+    has no menu (the author, 2026-10-20). Not
     persistent: an ephemeral message dies with the client's session, and
     **Codex** on the turn message makes a fresh one.
     """
@@ -499,7 +501,8 @@ class CodexBrowser(SafeView):
                                   value=f"{mate}:{view}")
         select.callback = self.choose
         self.select = select
-        self.add_item(select)
+        if len(select.options) > 1:
+            self.add_item(select)
 
     def caption(self, view: str) -> str:
         if self.owner != self.seat:
