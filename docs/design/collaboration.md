@@ -28,11 +28,13 @@ different operating systems.
 
 **Two of those machines are the same person's, and only one of them is the
 real bot.** The Windows PC serves the live bot out of
-`K:\My Drive\Prophetic Fools Games\Discord Bots\fool-bot`; the Mac is that
-person's development checkout. So:
+`C:\PropheticFools\fool-bot`; the Mac is that person's development
+checkout. So:
 
-- **A traceback from a `K:\` path is the live bot, and a fix on the Mac has not
-  reached it.** A change is not deployed until that checkout has pulled and the
+- **A traceback from a `C:\PropheticFools` path is the live bot** -- or,
+  before 2026-10-21, from a `K:\My Drive\...\fool-bot` one (see "The
+  checkout left the Google Drive letter" below) -- **and a fix on the Mac
+  has not reached it.** A change is not deployed until that checkout has pulled and the
   bot has been restarted there -- see "Fonts" in [board-image.md](board-image.md) and `render.py`'s import-time
   loading for why a restart is not optional.
 - **They are two checkouts, so everything that is per checkout is separate**:
@@ -42,9 +44,22 @@ person's development checkout. So:
   its own file") and `data/bot_state.json`. The Mac's saved games
   are not the live bot's, so `scripts/render_sample.py --game` cannot reproduce
   a board from a game played on the server.
-- **The `K:\` drive is a mounted Google Drive letter**, which is the checkout
-  the swallowed-save handling in [gotchas.md](gotchas.md) was written for -- when the mount
-  goes away mid-game every `save_games` raises.
+- **The checkout left the Google Drive letter on 2026-10-21.** Until then
+  it ran from `K:\My Drive\Prophetic Fools Games\Discord Bots\fool-bot`,
+  `K:\` being a mounted Google Drive letter; it is now on the PC's own
+  disk, with nothing syncing it. The move was a stop, a `robocopy` with
+  the `.venv` left behind (a Windows venv's launchers carry its absolute
+  path, so it is rebuilt where it lands rather than copied), `deploy.cmd
+  -SkipPull` from the new folder -- which rebuilds a missing `.venv`
+  itself -- and the "At log on" task pointed at the new `deploy.cmd`. The
+  old folder stays on Drive until it is deleted, its `.env` renamed to
+  `.env.moved-to-C` so nothing there can start a second bot on the same
+  token. What follows is why the Drive letter mattered, kept because the
+  code it explains is still there and a developer's checkout may still
+  be on a synced folder:
+  - **The swallowed-save handling in [gotchas.md](gotchas.md) was written for
+    that checkout** -- when the mount goes away mid-game every
+    `save_games` raises.
   - **Drive also writes a hidden `desktop.ini` into the folders it syncs,
     `.git\refs\` and every folder under it included, and git reads every
     file under `refs\` as a ref.** The deploy of 2026-10-09 failed on the
@@ -117,13 +132,13 @@ writer per game (see "Discord's rate limits" in [rate-limits.md](rate-limits.md)
 
 ## Running the web app
 
-The web app is the second process on the `K:\` checkout (decision 2 of
+The web app is the second process on the live checkout (decision 2 of
 [../web-app-next.md](../web-app-next.md)): `python3 -m webapp`, no
 token, no bot, over its own files. What it is and why it is its own
 process is [web-app.md](web-app.md), "Running it" and "Its own process,
 its own file"; this is how it is run on the live host.
 
-**Nothing in this section has been run on the `K:\` host or through a
+**Nothing in this section has been run on the live host or through a
 tunnel.** It was written from the code and `update_main_bot.ps1` in a
 Linux sandbox with no PowerShell; `scripts/run_web_app.ps1` has not
 been executed anywhere, and the Cloudflare steps are Cloudflare's
@@ -290,13 +305,13 @@ writes no pid file and the tunnel writes its own only once connected.
 than using `Get-Content -Wait`, and reads a log that a restart deleted
 from the top again; Ctrl+C there stops the viewer and nothing else.
 
-- **Run them through the `.cmd` launchers, never as `.\x.ps1`.** The
-  checkout is on the Google Drive letter, and on that host the shell's
-  policy is `RemoteSigned` (set per window; every other scope is
-  `Undefined`, so a plain window is `Restricted` and runs no script at
-  all). `RemoteSigned` treats `K:\` as remote and refuses both scripts
-  as unsigned (`... is not digitally signed. You cannot run this script
-  on the current system`). A launcher runs its script with
+- **Run them through the `.cmd` launchers, never as `.\x.ps1`.** On
+  that host every execution-policy scope is `Undefined`, so a plain
+  window is `Restricted` and runs no script at all. Where a window sets
+  `RemoteSigned`, it refused both scripts as unsigned (`... is not
+  digitally signed. You cannot run this script on the current system`)
+  while the checkout was on the Google Drive letter, which it treats as
+  remote. A launcher runs its script with
   `powershell -ExecutionPolicy Bypass -File`, which lifts the policy for
   that one run and changes no setting on the machine -- the way
   `scripts/update-main-bot.sh` has always launched the updater over
@@ -344,11 +359,16 @@ from the top again; Ctrl+C there stops the viewer and nothing else.
 - **Nothing restarts it on a crash or a reboot**, the same as the bot
   and the tunnel. After a reboot all three are down until a deploy:
   `deploy.cmd -SkipPull` brings them back on the tree already there.
-  To have that happen by itself, a Task Scheduler task "At log on"
-  running `<checkout>\scripts\deploy.cmd -SkipPull` is the obvious
-  shape -- at log on rather than at startup, because the `K:\`
-  Google Drive letter is mounted per user and is not there before
-  somebody logs in.
+  On the live host that is the Task Scheduler task "D12 Ball - start
+  at log on", running `C:\PropheticFools\fool-bot\scripts\deploy.cmd
+  -SkipPull` -- at log on rather than at startup, because while the
+  checkout was on the `K:\` Google Drive letter, which is mounted per
+  user, it was not there before somebody logged in; and
+  `FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR` still points into that letter.
+  Changing the task's action takes an elevated shell
+  (`Set-ScheduledTask ... -Action (New-ScheduledTaskAction -Execute
+  <checkout>\scripts\deploy.cmd -Argument -SkipPull)`); a plain one is
+  refused with "Access is denied".
 
 ### Exposing the port: Cloudflare Tunnel on `d12ball.com`
 
@@ -388,7 +408,8 @@ the shape, not a promise.
    `play.d12ball.com` answered Cloudflare's 1033, while every deploy in
    between restarted the bot and the web app and never touched it. A
    service can start before anybody logs in, but the web app cannot
-   (`K:\` is not mounted yet), so that buys nothing; and it takes an
+   (it could not while the checkout was on `K:\`, which is not mounted
+   yet), so that bought nothing; and it takes an
    administrator to install and to start, which a deploy over SSH is
    not. `run_tunnel.ps1` runs the connector the way `run_web_app.ps1`
    runs the web app instead: hidden, out of this checkout, stopped
@@ -458,7 +479,7 @@ expires.
 
 ## The Codex bot
 
-The third process on the `K:\` checkout is a second Discord bot:
+The third process on the live checkout is a second Discord bot:
 `codexbot.py`, Sirlin Games' *Codex*, with its own token
 (`CODEX_DISCORD_TOKEN`) and its own application in the Developer Portal.
 What it is and why it is its own process is
@@ -484,7 +505,7 @@ Codex bot, as one with no tunnel token starts no tunnel, so a deploy on
 the Mac or before the token is in `.env` goes on to the web app.
 `deploy.ps1` runs it straight after `update_main_bot.ps1`.
 
-**Its web page's bucket, the `K:\` checkout alone.** The Codex games'
+**Its web page's bucket, the live checkout alone.** The Codex games'
 web page ([pbd-site.md](pbd-site.md)) is written by the Codex bot into a
 private Cloudflare R2 bucket, with four variables in the `.env` beside
 `CODEX_DISCORD_TOKEN`: `CODEX_PUBLISH_ACCOUNT_ID`,
@@ -492,7 +513,7 @@ private Cloudflare R2 bucket, with four variables in the `.env` beside
 token scoped to that one bucket -- and `CODEX_PUBLISH_BUCKET`, which
 defaults to `pbd`. They are a credential: the `.env` and nowhere else,
 never committed, never pasted into a PR or a chat. They are set on the
-`K:\` checkout and on no other, so a developer's test games never reach
+live checkout and on no other, so a developer's test games never reach
 the live site; a checkout without them, or without boto3, publishes
 nothing and says so once at INFO. One publisher per bucket, as one bot
 per token. boto3 is in `requirements.txt`, so the host gets it on the
@@ -509,13 +530,14 @@ invites them; nothing in this repository can.
 **What its console says about the host.** A few seconds after it
 starts, the Codex bot logs how long the host's disk took to hand over
 every picture it draws from ("Codex pictures read into memory: 447
-files, 44 MB, in 0.1 s" on the Mac; the checkout is on the Google Drive
-letter, so the host's number is the one to know), and every picture a
+files, 44 MB, in 0.1 s" on the Mac; "487 files, 48 MB, in 0.2 s" on the
+live host the day its checkout left the Google Drive letter for the
+local disk, 2026-10-21), and every picture a
 click puts up logs what it cost to draw and to send -- the board, the
 panel, a hand, a codex view, a card. Both are INFO, console-only
 (`show_logs.cmd`): read them before guessing why something was slow
 ([codex.md](codex.md), "The board on Discord").
 
-**Nothing in this section has been run on the `K:\` host.** It was
+**Nothing in this section has been run on the live host.** It was
 written in a Linux sandbox with no PowerShell; `run_codex_bot.ps1` has
 not been executed anywhere. Correct this section from the first deploy.
