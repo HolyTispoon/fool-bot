@@ -209,11 +209,11 @@ tied roll in that maneuver is settled by the face the coin showed when the cards
 **5.4** **Moving costs exhaustion: a player who moves on the board during play exhausts 1 for
 every space they travel**, whoever moved them and whichever card did -- the handler of a won
 Dribble (Law 6.6.2), the passer stepping forward after a Pass (6.5.3), the handler a Pressure or
-a Double Team shoves back and the challenger who moves onto their space (6.10.2, 19.10.2), the
-thief a Steal or an Intercept carries off with the ball (6.9.2, 19.9.2), and the challenger and
-partner a beaten Double Team moves forward (19.10.6), as well as every move the Charter already
-charges a space -- a player sent to the ball (9.4) and a player running back after a steal
-(12.4.3).
+a Double Team shoves back and the challenger who moves onto their space (6.10.2, 19.10.2), a
+Double Team's partner who joins them, however far they came (19.10.2), the thief a Steal or an
+Intercept carries off with the ball (6.9.2, 19.9.2), and the challenger and partner a beaten
+Double Team moves forward (19.10.6), as well as every move the Charter already charges a space
+-- a player sent to the ball (9.4) and a player running back after a steal (12.4.3).
 
 - **a.** **Two kinds of move are free**: the reset after a new play (Law 12.5), and every move a
   Coaching Choice makes -- space positioning, a zone assignment, a formation change, a
@@ -221,8 +221,8 @@ charges a space -- a player sent to the ball (9.4) and a player running back aft
 - **b.** **An ability or a card that prices its own move keeps that price**: Emberdash's Burst
   costs nothing and so, in 2.0, does their Dribble (Law 21.3.4); a Strider runs back for at most
   1 (21.4.4); Quantor's run and Glompex's step onto the ball cost what their abilities say
-  (21.4.5, 21.6.1); and a Double Team's partner joins the challenger free of exhaustion, however
-  far they came (19.10.2).
+  (21.4.5, 21.6.1). A Double Team's partner is not one of these: Law 19.10.2's "free of
+  exhaustion" does not apply in 2.0.
 - **c.** **Playing a card costs nothing, and so does entering a skill test** (Law 6.4.1 does not
   apply), except that a test Scorchit forces in advanced mode still costs Scorchit 2, the price
   of the ability (Law 21.3.8), and their opponent nothing. Merging into a roll still costs 1

@@ -174,9 +174,9 @@ was already free. Asked the same day, the author answered:
 - **An ability that prices a move keeps its price**: Emberdash's free Burst (and so, in 2.0,
   their Dribble), Strider's run back, Quantor's run and Glompex's step (5.4b).
 
-One reading the answers left, written into 5.4b: a Double Team's partner still joins free,
-because the card itself says so, "however far they came" (Law 19.10.2), as the abilities' own
-prices stand.
+One reading the answers left was put to the author on PR #665: whether a won Double Team's
+partner still joins free, as Law 19.10.2 says, "however far they came". *"the partner pays 1 per
+space too"* (5.4, 5.4b).
 
 ### 2026-10-20 -- author, 2.0: twelve basic cards and a hand of five
 
