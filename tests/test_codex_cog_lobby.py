@@ -27,7 +27,7 @@ from save_patches import suppressed_cog_saves
 
 GUILD, LOBBY_CHANNEL, GAME_CHANNEL = 1, 10, 20  # typed in; the game's own
 THREAD = 30  # the game's thread, where no channel can be made
-LOBBY_MESSAGE, TURN_MESSAGE = 100, 555
+LOBBY_MESSAGE, TURN_MESSAGE, START_MESSAGE = 100, 555, 444
 
 
 def forbidden() -> discord.Forbidden:
@@ -69,10 +69,14 @@ class Table:
         self.lobby_message = mock.MagicMock(id=LOBBY_MESSAGE)
         self.turn_message = mock.MagicMock(id=TURN_MESSAGE)
         self.turn_message.pin = mock.AsyncMock()
+        # The first turn's start, posted and pinned before its message.
+        self.start_message = mock.MagicMock(id=START_MESSAGE)
+        self.start_message.pin = mock.AsyncMock()
+        posts = [self.lobby_message, self.start_message, self.turn_message]
         self.guild = mock.MagicMock(id=GUILD)
         self.game_channel = mock.MagicMock(id=GAME_CHANNEL, mention=f"<#{GAME_CHANNEL}>")
         self.game_channel.guild = self.guild
-        self.game_channel.send = mock.AsyncMock(side_effect=[self.lobby_message, self.turn_message])
+        self.game_channel.send = mock.AsyncMock(side_effect=list(posts))
         self.game_channel.edit = mock.AsyncMock()
         self.game_channel.get_partial_message.return_value.edit = mock.AsyncMock()
         # The channel the command is typed in, which a thread is opened
@@ -80,10 +84,10 @@ class Table:
         # neither can.
         self.typed_channel = mock.MagicMock(spec=discord.TextChannel, id=LOBBY_CHANNEL,
                                             mention=f"<#{LOBBY_CHANNEL}>")
-        self.typed_channel.send = mock.AsyncMock(side_effect=[self.lobby_message, self.turn_message])
+        self.typed_channel.send = mock.AsyncMock(side_effect=list(posts))
         self.typed_channel.edit = mock.AsyncMock()
         self.thread = mock.MagicMock(spec=discord.Thread, id=THREAD, mention=f"<#{THREAD}>")
-        self.thread.send = mock.AsyncMock(side_effect=[self.lobby_message, self.turn_message])
+        self.thread.send = mock.AsyncMock(side_effect=list(posts))
         self.thread.edit = mock.AsyncMock()
         self.thread.delete = mock.AsyncMock()
         self.typed_channel.create_thread = mock.AsyncMock(return_value=self.thread)
@@ -470,10 +474,17 @@ class StartTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("overwrites", edited)
         self.assertEqual(game.channel_id, GAME_CHANNEL)
 
-        # The first turn's message, in the same channel: the board, the
-        # turn's lines, the buttons; nothing pinned, since a pin's own
-        # notice would land under the board.
-        self.assertEqual(table.game_channel.send.await_count, 2)
+        # The first turn's start, its heading and board pinned with no
+        # buttons, then its message under it, in the same channel: the
+        # board, the turn's lines, the buttons, never pinned, since every
+        # action edits it after.
+        self.assertEqual(table.game_channel.send.await_count, 3)
+        (heading,), started = table.game_channel.send.call_args_list[1]
+        self.assertIn("Turn 1", heading)
+        self.assertNotIn("\n", heading)
+        self.assertNotIn("view", started)
+        table.start_message.pin.assert_awaited_once()
+        self.assertEqual(game.start_message_ids, {1: START_MESSAGE})
         (text,), sent = table.game_channel.send.call_args
         first = game.player_1_name if table.cog.service.load(game).first == 1 else game.player_2_name
         self.assertIn("Turn 1", text)

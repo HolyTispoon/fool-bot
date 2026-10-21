@@ -567,6 +567,15 @@ class GameService:
         two-headed dragon."""
         return history.previous_turn_solo(self.load(self.game(game_id)))
 
+    def turn_opening(self, game_id: str, turn: int) -> Optional[MatchState]:
+        """The position `turn`'s main phase opened on
+        (`history.turn_opening`), or `None` where it cannot be had: what
+        a frontend pins as the turn's start, read back after a restart
+        lost the picture it pinned."""
+        game = self.game(game_id)
+        data = history.turn_opening(self.engine, game, self.load(game), turn)
+        return None if data is None else MatchState.from_dict(data)
+
     def previous_turn_owners(self, game_id: str) -> tuple[int, ...]:
         """Everyone whose turn the one before this was
         (`history.previous_turn_owners`): who is asked to agree to an

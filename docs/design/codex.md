@@ -2837,18 +2837,43 @@ more*", since the board carries the position.
   `/codex resume` posts it again at the foot ("The resume path").
   `/codex board` shows the board too, but to the asker alone and with
   no buttons.
-- **Each finished turn is pinned, the current one never** (the author,
-  2026-10-09). The message pinned at a turn's start would be deleted at
-  its first action, and pinning each post again would put the pin's own
-  notice -- a system message -- under the board every action, which is
-  what the post is for. So a turn's message is pinned once the turn
-  ends and it stands (`stand_turn_message`), **before** the next turn's
-  message is posted, so the notice lands above the new board; the pins
-  read as the game's history turn by turn. The last turn of a finished
-  game is pinned the same way, before the winner's line. An undo to the
-  previous turn deletes that turn's standing message, and its pin with
-  it. Discord caps a channel's pins; a pin it refuses is logged and the
-  turn stands unpinned.
+- **The pins are each turn's start** (the author, 2026-10-21: "I want
+  the players turn pinned after tech choices has been made and after the
+  ready phase but before any action in the main phase. That image should
+  not be pinned with all the lines of what happened afterwards"). From
+  2026-10-09 each finished turn's standing message was pinned, its board
+  where the turn ended under every line of it; the turn message itself
+  cannot be pinned at the start, since every action edits it after. So a
+  turn's start is **a message of its own**: the turn's heading and the
+  board as its main phase opened -- the tech confirmed, the ready phase
+  and the upkeep run, no action taken -- no lines, no buttons, pinging
+  nobody, pinned and never edited. Two ways it goes up:
+  - **A turn that owes no tech** -- a player's first -- has opened by
+    the time its message goes up, so `post_turn_message` posts the
+    start first (`post_turn_start`) and the turn message under it: at
+    Start, at a turn's end, on `/codex resume` or **Show board** where
+    a restart lost it.
+  - **A turn that opened on its tech** opens on a click -- Confirm,
+    Save tech in a test game, an upkeep's order -- under the message
+    its turn was handed over with. `present` sees the turn owe its start
+    (`turn_start_owed`: `history.opened`, and no start on the record)
+    and `open_turn` makes that message the start -- its last edit, the
+    heading and the opening board, without its buttons, then its pin --
+    and posts the turn message again under it with the lines, as a
+    third kind of post (`follows_start`): neither the previous turn's
+    message nor deleted, and pinging nobody, since the one it follows
+    pinged.
+
+  Either way the pin comes before the turn message's post, so its notice
+  lands above the board. The record keeps the last three turns' starts
+  (`CodexGame.start_message_ids`, empty in an older save), and **the
+  undos delete the ones they take back** (`drop_stale_starts`): every
+  turn after the restored one, and the restored turn's own where it is
+  back on its tech -- pinned afresh when it opens again. A finished turn's
+  message stands unpinned with its own last board, as the turn's summary;
+  the game's end is the same last edit and the winner's line with the
+  final board, neither pinned. Discord caps a channel's pins; a pin it
+  refuses is logged and the start stands unpinned.
 - **A write that fails is the gate's to log**: the action is saved,
   the panel still goes up, and the message stands a board behind until
   the gate's next write or `/codex resume`.
@@ -2891,7 +2916,9 @@ more*", since the board carries the position.
   lock, and then the gate is forgotten, so its next write is the new
   message's. The game's end is the same last edit, then one public
   line -- the model's "wins" sentence -- with the final board,
-  rendered once and uploaded twice.
+  rendered once and uploaded twice. The start message a turn's main
+  phase opens under (above) is made the same way: its last edit under
+  the lock, the gate forgotten, the turn message's post after.
 - **What the cog remembers**, in memory only: the turn's lines, and
   each recent turn's *first lines* -- what its message said when it
   first went up, before the turn's snapshot: the ready phase's lines
@@ -2899,7 +2926,12 @@ more*", since the board carries the position.
   since the tech answer's lines are the journal's then -- which is what
   an undo puts back above what it says. After a restart
   neither is known: the gate leaves the message's text alone until the
-  turn ends or `/codex resume` re-posts the table.
+  turn ends or `/codex resume` re-posts the table. And the board pinned
+  at the current turn's start (`turn_start_boards`), which the turn's
+  history entry on the site carries when it ends; after a restart it is
+  drawn again off the model -- `GameService.turn_opening`, the turn's
+  snapshot replayed to where its main phase opened
+  (`history.turn_opening`) -- the same picture.
 
 ### The requests per click
 
@@ -2914,15 +2946,17 @@ Measured with the fakes, and held on every click of the whole-game test:
 | A choice that moves nothing public and draws nothing (a patrol slot, Hire worker, Undo... opening its choices) | **0** | 1: the panel's edit |
 | A choice that moves nothing public and draws a picture (End main phase, a tech pick before saving, the tech picker's Show menu and Clear, Change on saved picks, Attack... picturing what may attack, a view chosen in the codex's menu) | **0** | 2: the defer, the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 2: the defer, the picker edited to the saved picks |
-| Lock in patrol zone (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker |
-| The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 2 |
+| Lock in patrol zone (the turn's end) | **2**: the old message's last edit, the new one's post -- **4** where the new turn owes no tech, its start posted and pinned between | 2: the defer, the panel edited into the tech picker |
+| Confirm, or a test game's Save tech, opening a turn's main phase | **3**: the turn message's last edit into the turn's start, its pin, the turn message's post under it | 2 |
+| The attack that destroys a base | **2**: the last edit, and the winner's line with the board | 2 |
 | Concede, the first click | **0** | 1: the confirmation |
-| Concede the game (step 8) | **3**: the last edit, its pin, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
+| Concede the game (step 8) | **2**: the last edit, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
 | Rematch (step 8) | **1**: the new lobby -- after the channel's move back to Codex Games, on its own route | 1: the button taken off |
 | Undo to the start of the turn | **1** | 2 |
 | Undo to a point of the turn (the menu) | **1** | 2 |
-| Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
-| Take back the end of my turn | **3**: the restored turn's post, the current one's delete, the restored turn's standing one's delete | 3: the Undo menu sent, the click answered in place, the fresh panel |
+| Undo to the previous turn | **1** to ask (the public question), then **4** on Agree: the taken-back turn's start deleted, the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
+| Take back the end of my turn | **4**: the taken-back turn's start deleted, the restored turn's post, the current one's delete, the restored turn's standing one's delete | 3: the Undo menu sent, the click answered in place, the fresh panel |
+| Undo to the start of a turn that opened on its tech | **2**: its start deleted, the turn message edited | 2 |
 | A lobby click -- a seat taken, the mode or the variant changed, a third seat's pick (multiplayer step 4) | **0** | 1: the lobby edited in place |
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
 | My hand, **Tech** of any seat of a table (step 4) | **0** | 2, as the duel's |
@@ -3091,7 +3125,7 @@ what it costs from the panel (the table above).
   older snapshot; the restored turn's message is posted at the foot of
   the channel with its first lines and the undone line, the restored
   board and its buttons; the current turn's message is deleted, and so
-  is the previous turn's standing one, pinned until then
+  is the previous turn's standing one
   (`CodexGame.previous_turn_message_id`, a record field step 4 added,
   `None` in an older save), since that turn is current again; and the
   opponent, now the active player, gets a fresh panel under it. Where
@@ -3194,21 +3228,21 @@ way and nothing is written from it.
   click spends nothing public; the second is the game's end below.
 - **The end on Discord** is what step 4 built for a destroyed base, with
   two things after it: the turn message's last edit without its buttons,
-  pinned as every finished turn is, the public line naming the winner with the final board -- now carrying
+  standing as every finished turn's does, the public line naming the winner with the final board -- now carrying
   **Rematch** (`RematchView`, persistent, its message kept on the record
   as `final_message_id`) -- and then **the channel moved to Codex
   Archive** (`archive_channel`), its name and permissions left as they
   are -- a game's thread archived instead, and a channel it was only
   opened in left where it is ("The lobby and the channel"). The move is
   a request on the channel's own route, not the messages' edit bucket,
-  so the end spends three from the bucket: the edit, the pin and the
-  line.
+  so the end spends two from the bucket: the edit and the line -- three
+  until 2026-10-21, when the pins became each turn's start.
 - **`/codex abandon` is either player's own, or a helper's** (the
   author, 2026-10-09: "any player should be able to abandon their own
   game"): the game played in the channel, or the lobby open in it, ends
   with no winner through `GameService.abandon`; the turn message (or the
-  lobby) stands without its buttons -- the turn message pinned, as every
-  message that stands as a turn's summary is -- one public line says it was
+  lobby) stands without its buttons, as a finished turn's message does
+  -- one public line says it was
   abandoned and by whom, and the channel is archived. An abandoned game
   offers no rematch. A seated player may abandon only the game they sit
   in -- the channel's own -- and a game helper (Manage Channels) any; a

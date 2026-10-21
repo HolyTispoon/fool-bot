@@ -253,6 +253,7 @@ def replay(
     actions: Iterable[dict],
     history: Optional[list[dict]] = None,
     each: Optional[Callable[[int, MatchState, "DriverRun"], None]] = None,
+    until: Optional[Callable[[MatchState], bool]] = None,
 ) -> MatchState:
     """
     The position `snapshot_data` and the journal entries `actions` lead
@@ -262,7 +263,9 @@ def replay(
     `to_dict` is the original's byte for byte. `each(index, match, run)`,
     where given, is called after every entry with the live match -- to
     read, never to change -- and what applying it did: how `undo_points`
-    reads the turn as it replays.
+    reads the turn as it replays. `until(match)`, where given, stops the
+    replay before the next entry once it holds: how `turn_opening` finds
+    the position a turn's main phase opened on.
     """
     from codex.flow import driver
     from codex.prompts import Action
@@ -271,6 +274,8 @@ def replay(
     match.turn_snapshots = copy.deepcopy(history) if history is not None else [copy.deepcopy(snapshot_data)]
     match.journal = []
     for index, entry in enumerate(actions):
+        if until is not None and until(match):
+            break
         applied = driver.apply(
             engine, game, match, Action.from_dict(entry["action"]),
             outcomes=entry.get("outcomes", ()),
@@ -368,6 +373,49 @@ def _end_of_turn_point(engine: "RulesEngine", game: "CodexGame", match: MatchSta
     except ValueError:
         return None
     return found[-1] if found else None
+
+
+#: The phases a turn passes through before its main phase opens: the
+#: ready phase and the upkeep, which a turn that opened on its player's
+#: tech choice runs only once the choice is confirmed.
+UNOPENED_PHASES = frozenset({"ready", "upkeep"})
+
+
+def opened(match: MatchState) -> bool:
+    """Whether the current turn's main phase has opened: its tech
+    confirmed, its ready phase and its upkeep run."""
+    return match.phase not in UNOPENED_PHASES
+
+
+def turn_opening(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                 turn: int) -> Optional[dict]:
+    """
+    The position `turn`'s main phase opened on, before any action of it
+    -- what a frontend pins as the turn's start (the author, 2026-10-21)
+    -- as saved, without the snapshots and the journal; `None` where the
+    turn's snapshot is not kept, it has not opened, or its journal no
+    longer replays. The turn's snapshot where it is the opening (a turn
+    that owed no tech); otherwise the snapshot, the hand-over, with the
+    journal's entries replayed up to the opening: the confirmation, the
+    ready phase it runs, an upkeep's order.
+    """
+    index = _snapshot_index(match, turn)
+    if index is None:
+        return None
+    snapshot_data = match.turn_snapshots[index]
+    start = {key: value for key, value in snapshot_data.items() if key != ENDED_JOURNAL}
+    if start.get("phase") not in UNOPENED_PHASES:
+        return position(MatchState.from_dict(copy.deepcopy(start)))
+    journal = match.journal if turn == match.turn else snapshot_data.get(ENDED_JOURNAL)
+    if journal is None:
+        return None
+    try:
+        replayed = replay(engine, game, start, journal, until=opened)
+    except ValueError:
+        return None
+    if replayed.turn != turn or not opened(replayed):
+        return None
+    return position(replayed)
 
 
 def previous_turn_owner(match: MatchState) -> Optional[int]:

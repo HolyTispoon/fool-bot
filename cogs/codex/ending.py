@@ -317,6 +317,7 @@ class EndingMixin:
             self.turn_lines.pop(game.game_id, None)
             self.turn_heads.pop(game.game_id, None)
             self.boards_drawn.pop(game.game_id, None)
+            self.turn_start_boards.pop(game.game_id, None)
             try:
                 await channel.send(
                     f"**Codex game {game.game_number} was abandoned** by "
@@ -468,6 +469,7 @@ class EndingMixin:
             self.turn_lines.pop(game_id, None)
             self.turn_heads.pop(game_id, None)
             self.boards_drawn.pop(game_id, None)
+            self.turn_start_boards.pop(game_id, None)
         self.service.drop_games(dropped)
         if self.publisher is not None:
             self.publisher.dropped(dropped)

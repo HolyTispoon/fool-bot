@@ -228,8 +228,10 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         mark = len(self.table.game_channel.requests)
         ended = await self.table.press(view, "Lock in patrol zone", who=self.who(self.second))
         self.assertEqual(self.table.match.turn, turn + 1)
+        # The ended turn stands; the other team's first turn owes no tech,
+        # so its start is posted and pinned before its message.
         self.assertEqual([kind for kind, _, _ in self.table.game_channel.since(mark)],
-                         ["edit", "pin", "send"])
+                         ["edit", "send", "pin", "send"])
         # The tech picker for the seat that locked last; both owe theirs.
         self.assertIsInstance(ended.view(), TechChoiceView)
         standing = {one.asked_player for one in self.table.cog.service.standing(
@@ -355,14 +357,13 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((self.table.match.active, self.table.match.phase), (seat, "main"))
 
     def stood_and_posted(self, mark: int) -> tuple[str, str]:
-        """The headings of the turn message that stood -- the edit before
-        its pin -- and of the one posted after it, since `mark`."""
+        """The headings of the turn message that stood -- its last edit,
+        without its buttons -- and of the turn message posted after it,
+        since `mark`."""
         rows = self.table.game_channel.since(mark)
-        pinned = next(index for index, row in enumerate(rows) if row[0] == "pin")
-        self.assertEqual(rows[pinned - 1][0], "edit")
-        self.assertEqual(rows[pinned + 1][0], "send")
-        return (rows[pinned - 1][2]["content"].split("\n")[0],
-                rows[pinned + 1][2]["content"].split("\n")[0])
+        stood = next(row for row in rows if row[0] == "edit" and row[2].get("view", "unset") is None)
+        posted = [row for row in rows if row[0] == "send" and isinstance(row[2].get("view"), TurnMessageView)][-1]
+        return stood[2]["content"].split("\n")[0], posted[2]["content"].split("\n")[0]
 
     async def test_a_standing_turn_is_headed_by_who_took_it_across_an_extra_turn(self) -> None:
         """Double Time in a dragon: the team's turn stands headed by both

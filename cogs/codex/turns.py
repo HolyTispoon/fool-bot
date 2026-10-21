@@ -560,20 +560,28 @@ class TurnsMixin:
         if match is not None and match.winner is not None:
             await self.finish_game(game, result)
             return
+        channel = self.bot.get_channel(game.channel_id) if game.channel_id else None
+        if match is not None and channel is not None and game.turn_message_id is not None \
+                and self.turn_start_owed(game, match):
+            await self.open_turn(channel, game, match)
+            return
         if result.lines or result.board_changed:
             await self.refresh_match_image(game)
 
     async def stand_turn_message(self, channel, game: CodexGame, message_id: int,
-                                 png: bytes, text: Optional[str]) -> None:
+                                 png: bytes, text: Optional[str], *, pin: bool = False) -> None:
         """
-        A turn message's last edit: its lines and its board, **without
-        its buttons**, so it stands as that turn's summary -- and **it is
-        pinned** (the author, 2026-10-09), so the pins are the game's
-        history turn by turn. Written under the gate's lock, so no write
-        of the gate's lands on it after, and the gate is forgotten: the
-        next write is the next message's. Called before the next turn's
-        message is posted, so the pin's own notice lands above that
-        message rather than under the board.
+        A turn message's last edit: its text and its board, **without
+        its buttons**, so it stands -- a finished turn as its summary,
+        or, with `pin`, the message a turn's main phase opened under,
+        made that turn's start and **pinned** (`open_turn`). A finished
+        turn is no longer pinned: the pins are each turn's start (the
+        author, 2026-10-21, going back on 2026-10-09's pin of each
+        finished turn). Written under the gate's lock, so no write of the
+        gate's lands on it after, and the gate is forgotten: the next
+        write is the next message's. Called before the next message is
+        posted, so a pin's own notice lands above it rather than under
+        the board.
         """
         state = self.boards.state(game.game_id)
         async with state.lock:
@@ -586,21 +594,36 @@ class TurnsMixin:
             except discord.HTTPException as error:
                 LOGGER.warning("Could not close the turn message of Codex game %s: %s",
                                game.game_id, error)
-            try:
-                await message.pin(reason="A finished turn of a Codex game")
-            except discord.HTTPException as error:
-                # Discord caps a channel's pins; past the cap the turn
-                # still stands, unpinned.
-                LOGGER.warning("Could not pin the turn summary of Codex game %s: %s",
-                               game.game_id, error)
+            if pin:
+                await self.pin_turn_start(game, message)
         self.boards.forget(game)
+
+    async def open_turn(self, channel, game: CodexGame, match) -> None:
+        """
+        The turn's main phase opened in this click -- its tech confirmed,
+        its ready phase and its upkeep run -- under the message posted
+        when the turn was handed over: that message becomes **the turn's
+        start**, its heading and the board as the main phase opened, no
+        lines and no buttons, and is pinned (the author, 2026-10-21); the
+        turn's message, with its lines and buttons, is posted again
+        under it, and is the one every action edits. A turn that owes no
+        tech opens before its message goes up, and `post_turn_message`
+        posts its start first instead.
+        """
+        png = await self.opening_png(game, match)
+        start = game.turn_message_id
+        await self.stand_turn_message(channel, game, start, png, self.turn_header(game, match), pin=True)
+        self.note_turn_start(game, match.turn, start, png)
+        await self.post_turn_message(channel, game, match, follows_start=True)
 
     async def roll_over(self, game: CodexGame, result: GameResult) -> None:
         """
         The turn ended in this result: its message is edited a last time
-        with the turn's closing lines and its own last board, stands and
-        is pinned; the next turn's message is posted under it with what
-        the next turn has said.
+        with the turn's closing lines and its own last board, and stands;
+        the next turn's message is posted under it with what the next
+        turn has said -- after its start, pinned, where the next turn
+        owes no tech and its main phase has already opened
+        (`post_turn_message`).
         """
         match = result.match
         closing, board, opening, _ = split_at_turn_end(result)
@@ -628,8 +651,10 @@ class TurnsMixin:
                 )
             await self.stand_turn_message(channel, game, game.turn_message_id, png, text)
             if self.publisher is not None:
-                # The ended turn's entry: the pin's lines whole, and its board.
-                self.publisher.turn_ended(game, ended, closing, png)
+                # The ended turn's entry: its lines whole, under the board
+                # pinned at its start.
+                start = await self.turn_start_png(game, ended.turn)
+                self.publisher.turn_ended(game, ended, closing, start or png)
         self.turn_lines[game.game_id] = opening
         # The turn's first lines: what it said before its snapshot, which
         # the journal does not hold -- the ready phase's where no tech
@@ -640,9 +665,10 @@ class TurnsMixin:
     async def finish_game(self, game: CodexGame, result: GameResult) -> None:
         """
         The game is over -- a base fell, or a player conceded: the turn
-        message's last edit, without its buttons, pinned as every
-        finished turn is, and **a public line naming the winner with the
-        final board** -- a heading, so it reads as the game's end -- -- rendered once, uploaded twice -- with **Rematch**
+        message's last edit, without its buttons, standing as every
+        finished turn's does, and **a public line naming the winner with
+        the final board** -- a heading, so it reads as the game's end --
+        rendered once, uploaded twice -- with **Rematch**
         under it (`RematchView`), whose message the record keeps so a
         restart re-arms it. Then the channel is moved to Codex Archive
         and left as it is (`archive_channel`): nothing is exported from
@@ -674,6 +700,7 @@ class TurnsMixin:
         self.turn_lines.pop(game.game_id, None)
         self.turn_heads.pop(game.game_id, None)
         self.boards_drawn.pop(game.game_id, None)
+        self.turn_start_boards.pop(game.game_id, None)
         await self.archive_channel(channel, game)
 
     # -- The undos ---------------------------------------------------------------
@@ -735,6 +762,9 @@ class TurnsMixin:
         self.turn_lines[game.game_id] = [*head, *result.lines]
         if self.publisher is not None:
             self.publisher.turn_undone(game, restored.turn)
+        # Back to the turn's tech, its start is pinned afresh as it opens.
+        channel = interaction.channel or (self.bot.get_channel(game.channel_id) if game.channel_id else None)
+        await self.drop_stale_starts(channel, game, restored)
         # The acknowledgement goes out beside the board, not before it
         # (`TurnPanelView.act`).
         await asyncio.gather(acknowledge(interaction), self.refresh_match_image(game))
@@ -854,6 +884,7 @@ class TurnsMixin:
         game.previous_turn_message_id = None
         if self.publisher is not None:
             self.publisher.previous_turn_back(game, restored)
+        await self.drop_stale_starts(channel, game, restored)
         await self.post_turn_message(channel, game, restored, replace=True)
         if previous is not None and previous != game.turn_message_id:
             await self.delete_table_message(channel, game, previous)

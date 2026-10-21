@@ -842,14 +842,24 @@ class TurnEndTests(TurnTestCase):
         self.assertEqual(edit["view"].seat, self.game.seat_of(ending.id))
 
         # The channel: the old message's last edit, without its buttons,
-        # standing as the turn's summary and pinned; then the new one
-        # posted under it, so the pin's notice lands above the board.
-        # Three requests.
+        # standing as the turn's summary, unpinned; then, since turn 2
+        # owes no tech and its main phase has opened, its start --
+        # heading and board, pinned, so the pin's notice lands above the
+        # turn message -- and the turn message posted under it. Four
+        # requests.
         new = self.game.turn_message_id
         self.assertNotEqual(new, old)
+        start = self.game.start_message_ids[2]
         self.assertEqual(
-            channel_requests(self.table, mark), [("edit", old), ("pin", old), ("send", new)],
+            channel_requests(self.table, mark),
+            [("edit", old), ("send", start), ("pin", start), ("send", new)],
         )
+        posted = self.table.game_channel.since(mark)[1][2]
+        self.assertEqual(posted["content"].split("\n"), [posted["content"]])
+        self.assertTrue(posted["content"].startswith("**Turn 2**"))
+        self.assertTrue(posted["file"].filename.startswith("codex-"))
+        self.assertNotIn("view", posted)
+        self.assertFalse(posted["allowed_mentions"].users)
         last_edit = self.table.game_channel.since(mark)[0][2]
         self.assertIsNone(last_edit["view"])
         self.assertIn("draws", last_edit["content"])
@@ -862,11 +872,13 @@ class TurnEndTests(TurnTestCase):
         heading = f"**Turn 2**: <@{player_id}> ({match.active_player.specs[0].title()})"
         self.assertTrue(self.table.game_channel.texts[new].startswith(heading + "\n"))
         self.assertEqual(self.table.game_channel.texts[new].count("**Turn 2**"), 1)
-        mentioned = self.table.game_channel.since(mark)[2][2]["allowed_mentions"].users
+        mentioned = self.table.game_channel.since(mark)[3][2]["allowed_mentions"].users
         self.assertEqual([user.id for user in mentioned], [player_id])
         self.assertEqual(self.game.previous_turn_message_id, old)
-        # The finished turn is pinned; the current one never is.
-        self.assertEqual(self.table.game_channel.pinned, {old})
+        # The pins are each turn's start -- the first turn's, posted at
+        # Start, and this one's -- never a finished turn nor the current
+        # turn message.
+        self.assertEqual(self.table.game_channel.pinned, {self.game.start_message_ids[1], start})
 
     async def reach_turn_three(self):
         """Two turns ended, the first player's tech picked and saved
@@ -915,6 +927,62 @@ class TurnEndTests(TurnTestCase):
         text = self.table.game_channel.texts[self.game.turn_message_id]
         self.assertNotIn("waits on", text)
         self.assertIn("2 tech cards", text)
+
+    async def test_confirming_the_tech_pins_the_turns_start(self) -> None:
+        """A turn that waited on its tech opens on Confirm: the message it
+        was handed over under becomes its start -- the heading and the
+        board as the main phase opened, no lines, no buttons -- and is
+        pinned, and the turn message is posted again under it with the
+        lines, pinging nobody (the author, 2026-10-21). Three of the
+        channel's requests."""
+        first, _ = await self.reach_turn_three()
+        handed_over = self.game.turn_message_id
+        previous = self.game.previous_turn_message_id
+        self.assertNotIn(3, self.game.start_message_ids)
+        view = (await self.table.turn_button("tech", first)).view()
+        mark = len(self.table.game_channel.requests)
+        confirmed = await self.table.press(view, "Confirm")
+        self.assertNothingWentWrong(confirmed)
+        new = self.game.turn_message_id
+        self.assertEqual(self.game.start_message_ids[3], handed_over)
+        self.assertEqual(
+            channel_requests(self.table, mark), [("edit", handed_over), ("pin", handed_over), ("send", new)],
+        )
+        made_start = self.table.game_channel.since(mark)[0][2]
+        self.assertIsNone(made_start["view"])
+        self.assertTrue(made_start["content"].startswith("**Turn 3**"))
+        self.assertNotIn("\n", made_start["content"])
+        self.assertIn(handed_over, self.table.game_channel.pinned)
+        self.assertNotIn(new, self.table.game_channel.pinned)
+        posted = self.table.game_channel.since(mark)[2][2]
+        self.assertFalse(posted["allowed_mentions"].users)
+        self.assertIn("2 tech cards", self.table.game_channel.texts[new])
+        self.assertIsInstance(self.table.game_channel.views[new], TurnMessageView)
+        # The turn before stays the one an undo to it puts back.
+        self.assertEqual(self.game.previous_turn_message_id, previous)
+        # The panel became the turn's actions, and an action edits the
+        # new turn message, not the start.
+        played = await self.table.press(confirmed.view(), ("play", playable(confirmed.view())[0]))
+        self.assertNothingWentWrong(played)
+        edits = [message_id for kind, message_id in channel_requests(self.table, mark) if kind == "edit"]
+        self.assertEqual(edits[-1], new)
+
+    async def test_undoing_to_a_turns_tech_takes_its_start_back(self) -> None:
+        """An undo to the start of a turn that opened on its tech asks the
+        tech again: the start pinned when it was confirmed is deleted, and
+        pinned afresh when it is confirmed again."""
+        first, _ = await self.reach_turn_three()
+        confirmed = await self.table.press((await self.table.turn_button("tech", first)).view(), "Confirm")
+        self.assertNothingWentWrong(confirmed)
+        start = self.game.start_message_ids[3]
+        await self.table.cog.undo_to_turn_start(self.table.interaction(first), self.game, self.table.match.active)
+        self.assertEqual(self.table.match.phase, "ready")
+        self.assertNotIn(3, self.game.start_message_ids)
+        self.assertIn(start, self.table.game_channel.deleted)
+        again = await self.table.press((await self.table.turn_button("tech", first)).view(), "Confirm")
+        self.assertNothingWentWrong(again)
+        self.assertIn(self.game.start_message_ids[3], self.table.game_channel.pinned)
+        self.assertNotEqual(self.game.start_message_ids[3], start)
 
     async def test_tech_on_the_turn_message_opens_the_turns_tech(self) -> None:
         """**Tech** pressed by the player whose turn waits on their tech
@@ -1129,10 +1197,13 @@ class WholeGameTests(TurnTestCase):
         legal defender, lock an empty patrol, tech the first two -- to a
         destroyed base. **Every click is held to the budget**: two
         channel requests at most (the turn message posted again, the old
-        one deleted), none for a tech choice, three at the turn's end
-        (the old message's last edit and its pin, the new one's post),
-        three at the game's end (the last edit, its pin and the winner's
-        line) -- and **whatever a
+        one deleted), three where the click opened the turn's main phase
+        (the turn message's edit into the turn's start, its pin, the turn
+        message's post under it), none for a tech choice, four at the
+        turn's end (the old message's last edit, and for a turn that owes
+        no tech its start's post and pin before the new one's post), two
+        at the game's end (the last edit and the winner's line) -- and
+        **whatever a
         click puts in the channel, its panel comes after**, sent afresh
         under it and the one clicked deleted. The panel's pictures are
         stood in for -- and the stand-ins are checked to have been used,
@@ -1141,7 +1212,7 @@ class WholeGameTests(TurnTestCase):
         subject here.
         """
         table = self.table
-        budget = {"click": 2, "turn": 3, "end": 3}
+        budget = {"click": 2, "opening": 3, "turn": 4, "end": 2}
         with mock.patch("cogs.codex_views.turn_message.render_hand", return_value=b"hand"), \
                 mock.patch("cogs.codex.core.render_codex", return_value=b"codex") as codex_pictures, \
                 mock.patch("cogs.codex.core.render_hand", return_value=b"hand") as hand_pictures:
@@ -1154,9 +1225,12 @@ class WholeGameTests(TurnTestCase):
                     mark = len(table.game_channel.requests)
                     call = await self.policy(view)
                     self.assertNothingWentWrong(call)
-                    spent = len(channel_requests(table, mark))
+                    requests = channel_requests(table, mark)
+                    spent = len(requests)
                     match = table.match
-                    allowed = budget["end"] if match.winner else budget["turn"] if match.turn != turn else budget["click"]
+                    opening = any(kind == "pin" for kind, _ in requests)
+                    allowed = (budget["end"] if match.winner else budget["turn"] if match.turn != turn
+                               else budget["opening"] if opening else budget["click"])
                     self.assertLessEqual(spent, allowed)
                     kinds = [answer[0] for answer in call.answers]
                     # Public or not, the click is acknowledged before its
@@ -1631,14 +1705,20 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("2 tech cards", text)
         self.assertNotIn("waits on", text)
         self.assertEqual([answer[0] for answer in saved.answers], PANEL_EDITED)
-        self.assertEqual(channel_requests(table, mark), edited(table, old))
+        # The turn opened on the save: the message it was handed over
+        # under became its start, pinned, and the turn message was
+        # posted again under it.
+        self.assertEqual(game.start_message_ids[3], old)
+        self.assertEqual(channel_requests(table, mark),
+                         [("edit", old), ("pin", old), ("send", game.turn_message_id)])
 
 
 class GameOverTests(TurnTestCase):
     async def test_a_destroyed_base_ends_the_game_in_public(self) -> None:
-        """The turn message's last edit, without its buttons, pinned as
-        every finished turn is, and one public line naming the winner
-        with the final board."""
+        """The turn message's last edit, without its buttons, standing as
+        every finished turn's does -- unpinned, since the pins are each
+        turn's start -- and one public line naming the winner with the
+        final board."""
         match = self.table.match
         seat = match.active
         match.player(self.table.cog.engine.opponents(match, seat)[0]).base_hp = 1
@@ -1651,19 +1731,18 @@ class GameOverTests(TurnTestCase):
         self.assertNothingWentWrong(call)
         self.assertEqual(self.table.match.winner, seat)
         requests = self.table.game_channel.since(mark)
-        # The message requests the end spends -- the last edit, its pin,
-        # the winner's line -- then the channel's own move to Codex
-        # Archive, a request of the channel's route, not of the
-        # messages' edit bucket.
-        self.assertEqual([kind for kind, _, _ in requests], ["edit", "pin", "send", "channel.edit"])
+        # The message requests the end spends -- the last edit, the
+        # winner's line -- then the channel's own move to Codex Archive,
+        # a request of the channel's route, not of the messages' edit
+        # bucket.
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "send", "channel.edit"])
         self.assertIsNone(requests[0][2]["view"])
-        self.assertEqual(requests[1][1], requests[0][1])
-        self.assertIn("wins", requests[2][2]["content"])
-        self.assertTrue(requests[2][2]["file"].filename.startswith("codex-"))
-        self.assertIsInstance(requests[2][2]["view"], RematchView)
-        self.assertIn("category", requests[3][2])
+        self.assertIn("wins", requests[1][2]["content"])
+        self.assertTrue(requests[1][2]["file"].filename.startswith("codex-"))
+        self.assertIsInstance(requests[1][2]["view"], RematchView)
+        self.assertIn("category", requests[2][2])
         self.assertIs(self.game.status, GameStatus.FINISHED)
-        self.assertEqual(self.game.final_message_id, requests[2][1])
+        self.assertEqual(self.game.final_message_id, requests[1][1])
         # The panel closes under the winner's line.
         self.assertEqual([answer[0] for answer in call.answers], PANEL_EDITED)
         self.assertEqual(call.text(), "The game is over.")
@@ -1723,22 +1802,26 @@ class UndoTests(TurnTestCase):
         self.assertTrue(own.last()[2]["ephemeral"])
         self.assertEqual(self.table.match.turn, 2)
 
+        taken_start = self.game.start_message_ids[2]
         mark = len(self.table.game_channel.requests)
         agreed = await self.table.press(confirmation, "Agree", who=first)
         self.assertNothingWentWrong(agreed)
         match = self.table.match
         self.assertEqual((match.turn, match.active), (1, self.game.seat_of(first.id)))
-        # The question answered in place; the restored turn's message
-        # posted at the foot of the channel with its buttons; this
-        # turn's and the previous turn's standing one deleted; a fresh
-        # panel under it for the player whose turn it is again.
+        # The question answered in place; the start pinned for the turn
+        # taken back deleted; the restored turn's message posted at the
+        # foot of the channel with its buttons -- its own start, from
+        # Start, still standing; this turn's and the previous turn's
+        # standing one deleted; a fresh panel under it for the player
+        # whose turn it is again.
         self.assertEqual(agreed.answers[0][0], "response.edit")
         self.assertIsNone(agreed.answers[0][2]["view"])
         restored = self.game.turn_message_id
         self.assertEqual(
             channel_requests(self.table, mark),
-            [("send", restored), ("delete", current), ("delete", old)],
+            [("delete", taken_start), ("send", restored), ("delete", current), ("delete", old)],
         )
+        self.assertEqual(list(self.game.start_message_ids), [1])
         self.assertIsNone(self.game.previous_turn_message_id)
         self.assertIsInstance(self.table.game_channel.views[restored], TurnMessageView)
         self.assertTrue(self.table.game_channel.texts[restored].endswith(history.UNDONE))
@@ -1875,15 +1958,17 @@ class UndoTests(TurnTestCase):
         undo = call.view()
         self.assertIsInstance(undo, UndoView)
         self.assertEqual([item.label for item in undo.children], [END_OF_TURN])
+        taken_start = self.game.start_message_ids[2]
         mark = len(self.table.game_channel.requests)
         taken = await self.table.press(undo, END_OF_TURN, who=first)
         self.assertNothingWentWrong(taken)
         match = self.table.match
         self.assertEqual((match.turn, match.active, match.phase), (1, self.game.seat_of(first.id), "patrol"))
         restored = self.game.turn_message_id
+        # The start pinned for the turn taken back is deleted with it.
         self.assertEqual(
             channel_requests(self.table, mark),
-            [("send", restored), ("delete", current), ("delete", old)],
+            [("delete", taken_start), ("send", restored), ("delete", current), ("delete", old)],
         )
         self.assertTrue(self.table.game_channel.texts[restored].endswith(history.UNDONE_END))
         self.assertEqual(taken.answers[0][0], "response.edit")

@@ -143,6 +143,11 @@ class CoreMixin:
         #: Where the cards are on each board drawn lately, by its bytes'
         #: SHA-256 (`board_map`), oldest first, for the site's hover.
         self.board_maps: dict[str, dict] = {}
+        #: The board pinned at the current turn's start, by game id: its
+        #: turn, its bytes and its map, which the turn's history entry on
+        #: the site carries when the turn ends (`turn_start_png`). In
+        #: memory: after a restart it is drawn again off the model.
+        self.turn_start_boards: dict[str, tuple[int, bytes, Optional[dict]]] = {}
         # The turn message's write gate (docs/design/rate-limits.md),
         # with the Codex bot's message, view, text and name.
         self.boards = BoardRefresher(

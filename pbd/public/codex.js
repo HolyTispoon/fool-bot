@@ -463,10 +463,10 @@ class GamePage {
       if (turn.board) {
         const open = element("button", "thumb");
         open.type = "button";
-        open.title = `Turn ${turn.turn}'s last board`;
+        open.title = `Turn ${turn.turn}'s start`;
         const picture = element("img");
         picture.loading = "lazy";
-        picture.alt = `Turn ${turn.turn}'s last board`;
+        picture.alt = `Turn ${turn.turn}'s start`;
         picture.src = DATA + turn.board;
         open.append(picture);
         open.addEventListener("click", () => this.lookAt(turn));
@@ -486,7 +486,7 @@ class GamePage {
     const caption = document.getElementById("viewer-caption");
     caption.hidden = turn === null;
     if (turn !== null) {
-      document.getElementById("viewer-caption-text").textContent = `Turn ${turn.turn}'s last board`;
+      document.getElementById("viewer-caption-text").textContent = `Turn ${turn.turn}'s start`;
       this.showBoard(turn.board, turn.board_map);
     } else if (this.live && this.live.board) {
       this.showBoard(this.live.board, this.live.board_map);
