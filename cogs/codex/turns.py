@@ -37,7 +37,7 @@ from codex.prompts import (
 )
 from cogs.codex_views import (
     RematchView, TeamConcedeView, UndoConfirmView, WaitingView, hand_files, kept_pictures, opponent_started,
-    picture_file, revealed_caption, revealed_files, acknowledge, edit_clicked, send_answer, send_ephemeral,
+    picture_file, revealed_caption, revealed_files, acknowledge, drawn_acknowledged, edit_clicked, send_answer, send_ephemeral,
 )
 from cogs.codex.core import TECH_GATE_KINDS
 from cogs.codex_helpers import elapsed_ms, mention_ids, pictures_size, seat_label, seat_labels
@@ -346,7 +346,12 @@ class TurnsMixin:
             return
         gate = not edit and not standing and not open_tech and prompt.kind is PromptKind.TECH_CHOICE
         started = time.perf_counter()
-        content, files, view = await self.panel_parts(game, match, prompt, note, gate=gate)
+        # Acknowledged before the picture is drawn: a new panel privately,
+        # one edited in place with a plain defer (`drawn_acknowledged`).
+        content, files, view = await drawn_acknowledged(
+            interaction, lambda: self.panel_parts(game, match, prompt, note, gate=gate),
+            private=not edit,
+        )
         if not standing and view is not None and game.test_game:
             self.add_switch(view, game, match, seat, interaction.user.id)
         drawn = elapsed_ms(started)
@@ -416,8 +421,11 @@ class TurnsMixin:
         elif not note:
             what = "attack" if match.attacking is not None or match.combat is not None else "action"
             lines.append(f"Waiting on {mate}'s {what}.")
-        files = [*await hand_files(self.engine, match, seat),
-                 *await revealed_files(self.engine, match, seat)]
+        async def draw() -> list[discord.File]:
+            return [*await hand_files(self.engine, match, seat),
+                    *await revealed_files(self.engine, match, seat)]
+
+        files = await drawn_acknowledged(interaction, draw, private=False)
         revealed = revealed_caption(self.engine, match, seat, game)
         text = self.with_turn_log(game, "\n".join([*lines, *([revealed] if revealed else [])]))
         await self.put_panel(interaction, text, files, WaitingView(self, game.game_id, seat), edit=True)

@@ -18,6 +18,7 @@ Discord").
 
 from __future__ import annotations
 
+import datetime
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -49,6 +50,7 @@ from cogs.codex_views import (
     TurnPanelView,
     UndoConfirmView,
     UndoView,
+    acknowledge_privately,
     hand_numbers,
     picks_listed,
 )
@@ -56,10 +58,19 @@ from cogs.codex_views import (
 CHANNEL_REQUESTS = ("send", "edit", "pin", "unpin", "delete")
 
 
-#: A click that put something in public, on the click's own webhook:
-#: deferred while the turn message is brought up to date, then the
-#: panel clicked edited in place (`TurnsMixin.put_panel`).
+#: A click whose panel is drawn again, on the click's own webhook:
+#: deferred -- before the picture is drawn, and while the turn message is
+#: brought up to date where the click put something in public -- then
+#: the panel clicked edited in place (`TurnsMixin.put_panel`).
 PANEL_EDITED = ["response.defer", "original.edit"]
+
+#: **My deck** and **Codex**: the click deferred as a private message
+#: before the picture is drawn, the picture its follow-up
+#: (`acknowledge_privately`).
+PRIVATELY_DEFERRED = ["response.defer", "followup.send"]
+#: That defer's arguments: the "thinking" message the clicker alone sees.
+#: Made public, it would be a placeholder posted in the game's channel.
+PRIVATE_DEFER = {"ephemeral": True, "thinking": True}
 
 
 def channel_requests(table: Table, mark: int) -> list[tuple[str, int]]:
@@ -90,7 +101,7 @@ def cards_pictured(call) -> int:
 
     from codex.render import CODEX_CARD
 
-    (picture,) = call.last("response.edit")[2]["attachments"]
+    (picture,) = call.last("original.edit")[2]["attachments"]
     picture.fp.seek(0)
     with Image.open(picture.fp) as image:
         width, height = image.size
@@ -123,6 +134,12 @@ class TurnTestCase(unittest.IsolatedAsyncioTestCase):
             text = kwargs.get("content") or (args[0] if args else "") or ""
             self.assertNotIn("Something went wrong", text)
 
+    def assertPrivatelyDeferred(self, call) -> None:
+        """Acknowledged privately before its picture, which is the
+        follow-up (`acknowledge_privately`)."""
+        self.assertEqual([answer[0] for answer in call.answers], PRIVATELY_DEFERRED)
+        self.assertEqual(call.answers[0][2], PRIVATE_DEFER)
+
     async def attack(self, view, ref: str):
         """**Attack...** turns the panel into what may attack; then the
         attacker's own button."""
@@ -145,14 +162,17 @@ class TurnTestCase(unittest.IsolatedAsyncioTestCase):
 class PanelTests(TurnTestCase):
     async def test_my_hand_opens_the_panel_for_the_active_player(self) -> None:
         call, view = await self.table.panel()
+        self.assertEqual([answer[0] for answer in call.answers], PRIVATELY_DEFERRED)
+        self.assertEqual(call.answers[0][2], PRIVATE_DEFER)
         kind, _, kwargs = call.last()
-        self.assertEqual(kind, "response.send")
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(view, TurnPanelView)
         self.assertTrue(kwargs["files"][0].filename.startswith("codex-hand-"))
         # The other player's My hand is their hand, with My deck and
         # Codex to press.
         theirs = await self.table.turn_button("hand", self.table.waiting)
+        self.assertEqual([answer[0] for answer in theirs.answers], PRIVATELY_DEFERRED)
+        self.assertEqual(theirs.answers[0][2], PRIVATE_DEFER)
         self.assertEqual([item.label for item in theirs.view().children],
                          ["My deck", "Codex", "Show board", "Concede"])
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
@@ -256,7 +276,10 @@ class PanelTests(TurnTestCase):
         mark = len(self.table.game_channel.requests)
         call = await self.table.press(view, "My deck")
         self.assertNothingWentWrong(call)
-        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        # Deferred privately before the picture is drawn, so the draw
+        # and the upload never outlast Discord's three seconds.
+        self.assertEqual([answer[0] for answer in call.answers], PRIVATELY_DEFERRED)
+        self.assertEqual(call.answers[0][2], PRIVATE_DEFER)
         kwargs = call.last()[2]
         self.assertTrue(kwargs["ephemeral"])
         self.assertNotIn("view", kwargs)
@@ -269,19 +292,22 @@ class PanelTests(TurnTestCase):
         for who in (self.table.active, self.table.waiting):
             public = await self.table.turn_button("deck", who)
             self.assertNothingWentWrong(public)
+            self.assertPrivatelyDeferred(public)
             self.assertTrue(public.last()[2]["ephemeral"])
             self.assertTrue(public.last()[2]["file"].filename.startswith("codex-deck-"))
         self.assertEqual(channel_requests(self.table, mark), [])
 
         theirs = (await self.table.turn_button("hand", self.table.waiting)).view()
-        self.assertTrue((await self.table.press(theirs, "My deck")).last()[2]["file"]
-                        .filename.startswith("codex-deck-"))
+        under = await self.table.press(theirs, "My deck")
+        self.assertPrivatelyDeferred(under)
+        self.assertTrue(under.last()[2]["file"].filename.startswith("codex-deck-"))
 
         await self.end_turn()
         picker = (await self.table.turn_button("tech", self.table.waiting)).view()
         self.assertIsInstance(picker, TechChoiceView)
         call = await self.table.press(picker, "My deck")
         self.assertNothingWentWrong(call)
+        self.assertPrivatelyDeferred(call)
         self.assertTrue(call.last()[2]["file"].filename.startswith("codex-deck-"))
 
     async def test_codex_answers_beside_the_hand_and_the_panel(self) -> None:
@@ -293,7 +319,8 @@ class PanelTests(TurnTestCase):
         mark = len(self.table.game_channel.requests)
         call = await self.table.press(view, "Codex")
         self.assertNothingWentWrong(call)
-        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        self.assertEqual([answer[0] for answer in call.answers], PRIVATELY_DEFERRED)
+        self.assertEqual(call.answers[0][2], PRIVATE_DEFER)
         kwargs = call.last()[2]
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(kwargs["view"], CodexBrowser)
@@ -303,6 +330,7 @@ class PanelTests(TurnTestCase):
         theirs = (await self.table.turn_button("hand", self.table.waiting)).view()
         call = await self.table.press(theirs, "Codex")
         self.assertNothingWentWrong(call)
+        self.assertPrivatelyDeferred(call)
         self.assertIsInstance(call.last()[2]["view"], CodexBrowser)
         self.assertNotEqual(call.last()[2]["view"].seat, self.table.match.active)
         self.assertEqual(channel_requests(self.table, mark), [])
@@ -402,7 +430,8 @@ class PanelTests(TurnTestCase):
         self.assertEqual(view.children[-1].row, max(item.row for item in view.children))
         mark = len(self.table.game_channel.requests)
         opened = await self.table.press(view, "Attack...")
-        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+        # The side of the board drawn for it, so acknowledged first.
+        self.assertEqual([answer[0] for answer in opened.answers], PANEL_EDITED)
         self.assertEqual(channel_requests(self.table, mark), [])
         attacking = opened.view()
         self.assertEqual([item.choice for item in attacking.children if item.choice],
@@ -436,7 +465,8 @@ class PanelTests(TurnTestCase):
         uploaded = call.last()[2]["files"][0].filename
         hiring = (await self.table.press(view, "Hire worker")).view()
         back = await self.table.press(hiring, "Back")
-        (kept,) = back.last("response.edit")[2]["attachments"]
+        self.assertEqual([answer[0] for answer in back.answers], PANEL_EDITED)
+        (kept,) = back.last("original.edit")[2]["attachments"]
         self.assertNotIsInstance(kept, discord.File)
         self.assertEqual(kept.filename, uploaded)
         # A message carrying some other picture gets this one uploaded.
@@ -444,7 +474,7 @@ class PanelTests(TurnTestCase):
         stale.message.attachments = [SimpleNamespace(filename="codex-hand-000000000000.webp")]
         await self.table.cog.show_panel(stale, self.game, self.table.match, self.table.match.active,
                                         edit=True)
-        (fresh,) = stale.last("response.edit")[2]["attachments"]
+        (fresh,) = stale.last("original.edit")[2]["attachments"]
         self.assertIsInstance(fresh, discord.File)
         self.assertEqual(fresh.filename, uploaded)
 
@@ -704,6 +734,18 @@ class BusyGameTests(TurnTestCase):
     on **Level up** of 2026-10-11).
     """
 
+    async def test_the_clicks_age_is_logged_before_it_is_acknowledged(self) -> None:
+        """How late the acknowledgement is goes to the console before the
+        defer is sent, so a defer that fails with a 10062 still leaves
+        the line that says the click was past Discord's three seconds."""
+        call = self.table.interaction(self.table.active)
+        call.created_at = discord.utils.utcnow() - datetime.timedelta(seconds=4)
+        with self.assertLogs("cogs.codex_views.base", "INFO") as logged:
+            await acknowledge_privately(call)
+        (line,) = logged.output
+        self.assertRegex(line, r"acknowledged (39|4\d)\d\d ms after Discord took it")
+        self.assertEqual([answer[0] for answer in call.answers], ["response.defer"])
+
     async def test_an_edit_in_place_goes_through_the_webhook(self) -> None:
         _, view = await self.table.panel()
         before, call = await self.table.press_while_busy(view, "Undo...")
@@ -722,11 +764,33 @@ class BusyGameTests(TurnTestCase):
         self.assertTrue(channel_requests(self.table, mark))
 
     async def test_my_deck_is_a_follow_up(self) -> None:
+        """Deferred by the lock while it waited -- a plain defer -- and
+        left as it is: the picture its follow-up, no second defer."""
         _, view = await self.table.panel()
-        _, call = await self.table.press_while_busy(view, "My deck")
+        before, call = await self.table.press_while_busy(view, "My deck")
         self.assertNothingWentWrong(call)
+        self.assertEqual(before, ["response.defer"])
         self.assertEqual([answer[0] for answer in call.answers], ["response.defer", "followup.send"])
+        self.assertEqual(call.answers[0][2], {})
         self.assertTrue(call.last()[2]["ephemeral"])
+
+    async def test_the_turn_message_and_the_hand_defer_while_the_game_is_busy(self) -> None:
+        """**My deck** and **Codex** on the turn message and under the
+        other player's hand, pressed while another click holds the game:
+        acknowledged before they wait (`acknowledges_while_waiting`), so
+        the wait never runs into Discord's three seconds, and answered as
+        a follow-up."""
+        turn_message = TurnMessageView(self.table.cog, self.game.game_id)
+        theirs = (await self.table.turn_button("hand", self.table.waiting)).view()
+        for view in (turn_message, theirs):
+            for which in ("My deck", "Codex"):
+                before, call = await self.table.press_while_busy(view, which, who=self.table.waiting)
+                self.assertNothingWentWrong(call)
+                self.assertEqual(before, ["response.defer"], (type(view).__name__, which))
+                self.assertEqual([answer[0] for answer in call.answers],
+                                 ["response.defer", "followup.send"])
+                self.assertEqual(call.answers[0][2], {})
+                self.assertTrue(call.last()[2]["ephemeral"])
 
     async def test_concede_is_a_follow_up(self) -> None:
         _, view = await self.table.panel()
@@ -837,7 +901,7 @@ class TurnEndTests(TurnTestCase):
 
         call, view = await self.table.panel(first)
         self.assertNothingWentWrong(call)
-        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        self.assertEqual([answer[0] for answer in call.answers], PRIVATELY_DEFERRED)
         names = [file.filename for file in call.last()[2]["files"]]
         self.assertEqual(len(names), 1)
         self.assertTrue(names[0].startswith("codex-tech-"))
@@ -859,7 +923,8 @@ class TurnEndTests(TurnTestCase):
         first, _ = await self.reach_turn_three()
         call = await self.table.turn_button("tech", first)
         self.assertNothingWentWrong(call)
-        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        self.assertEqual([answer[0] for answer in call.answers], PRIVATELY_DEFERRED)
+        self.assertEqual(call.answers[0][2], PRIVATE_DEFER)
         view = call.view()
         self.assertIsInstance(view, TechConfirmView)
         confirmed = await self.table.press(view, "Confirm")
@@ -1094,7 +1159,9 @@ class WholeGameTests(TurnTestCase):
                     allowed = budget["end"] if match.winner else budget["turn"] if match.turn != turn else budget["click"]
                     self.assertLessEqual(spent, allowed)
                     kinds = [answer[0] for answer in call.answers]
-                    self.assertEqual(kinds == PANEL_EDITED, spent > 0, kinds)
+                    # Public or not, the click is acknowledged before its
+                    # panel is drawn, and the panel edited after.
+                    self.assertEqual(kinds, PANEL_EDITED)
                     if match.turn != turn:
                         # The tech picker the Lock sent: its owner's
                         # clicks, each held to the click's budget.
@@ -2165,7 +2232,7 @@ class StandardTechPickerTests(TurnTestCase):
         # renderer was asked for.
         shown = await self.table.choose(picker, "Show", "tech1", who=self.table.waiting)
         self.assertNothingWentWrong(shown)
-        self.assertEqual([answer[0] for answer in shown.answers], ["response.edit"])
+        self.assertEqual([answer[0] for answer in shown.answers], PANEL_EDITED)
         narrowed = shown.view()
         tech1 = engine.codex_view_rows(codex, "tech1")
         self.assertEqual([option.value for option in narrowed.menus[0].options],

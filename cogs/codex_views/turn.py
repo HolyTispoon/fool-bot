@@ -45,7 +45,9 @@ from codex.formatting import deck_name, ref_label, team_name
 from codex.game import by_variant
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name, seat_label
-from cogs.codex_views.base import SafeView, acknowledge, edit_clicked, kept_pictures, send_ephemeral
+from cogs.codex_views.base import (
+    SafeView, acknowledge, drawn_acknowledged, edit_clicked, kept_pictures, send_ephemeral,
+)
 
 #: How long a panel answers clicks: a turn, generously. An expired panel
 #: is reopened from **My hand**, which makes a fresh one.
@@ -662,7 +664,10 @@ class TurnPanelView(PanelView):
         view = TurnPanelView(self.cog, self.game_id, self.prompt, self.match, mode=mode)
         caption = view.caption()
         if mode == "attack":
-            side = await self.cog.side_file(game, match, self.seat, self.seat)
+            side = await drawn_acknowledged(
+                interaction, lambda: self.cog.side_file(game, match, self.seat, self.seat),
+                private=False,
+            )
             await edit_clicked(
                 interaction,
                 content=self.cog.panel_caption(game, self.prompt, caption, hand=False),

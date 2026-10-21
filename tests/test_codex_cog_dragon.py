@@ -255,7 +255,10 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
             PromptKind.TECH_CHOICE, "", {"player": self.second, "picks": slugs}))
         self.assertFalse(saved.refused, saved.refusal)
         call = await self.table.turn_button("tech", self.who(self.first))
-        self.assertIsInstance(call.answers[0][2]["view"], TechChoiceView)
+        # The clicker's own picker -- after its private defer -- then the
+        # teammate's picks.
+        self.assertEqual(call.answers[0][0], "response.defer")
+        self.assertIsInstance(call.answers[1][2]["view"], TechChoiceView)
         kind, args, kwargs = call.last()
         self.assertEqual(kind, "followup.send")
         self.assertTrue(args[0].startswith(f"{self.game.seat_name(self.second)}'s tech: "))
@@ -480,7 +483,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         switch = next(label for label in labels(view) if label.startswith("Switch to "))
         other = await self.table.press(view, switch, who=self.table.basher)
         # Edited in place, with a Switch back (the author, 2026-10-15).
-        self.assertEqual(other.last()[0], "response.edit")
+        self.assertEqual(other.last()[0], "original.edit")
         self.assertEqual(other.view().seat, second)
         self.assertTrue(any(label.startswith("Switch to ") for label in labels(other.view())))
         # The first locks: the panel goes on as the second's.

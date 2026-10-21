@@ -19,10 +19,11 @@ opened it, so nobody else can see it to press it. The lobby asks no
 confirmation (`confirms_helper_clicks = False`).
 """
 
+import asyncio
 import hashlib
 import io
 import logging
-from typing import Optional, Sequence, Union
+from typing import Awaitable, Callable, Optional, Sequence, TypeVar, Union
 
 import discord
 
@@ -77,11 +78,55 @@ def kept_pictures(files: Sequence[discord.File],
     return [carried.get(file.filename, file) for file in files]
 
 
+T = TypeVar("T")
+
+
+def _log_click_age(interaction: discord.Interaction) -> None:
+    """How long after Discord took the click it is acknowledged, logged
+    before the acknowledgement goes out: where the acknowledgement fails
+    with a 10062, this is the line that says the click was already past
+    Discord's three seconds, and nothing after it is logged. Silent for
+    an interaction with no time on it (the tests' fakes)."""
+    created = getattr(interaction, "created_at", None)
+    if created is None:
+        return
+    age = (discord.utils.utcnow() - created).total_seconds() * 1000
+    LOGGER.info("A Codex click acknowledged %d ms after Discord took it", age)
+
+
 async def acknowledge(interaction: discord.Interaction) -> None:
     """Defer the click, unless it was answered already -- by the lock,
     where it found its game busy (`acknowledges_while_waiting`)."""
     if not interaction.response.is_done():
+        _log_click_age(interaction)
         await interaction.response.defer()
+
+
+async def acknowledge_privately(interaction: discord.Interaction) -> None:
+    """Defer the click as a private message to come -- "thinking", seen
+    by the clicker alone -- unless it was answered already. `send_answer`
+    then sends the answer as the follow-up that fills it."""
+    if not interaction.response.is_done():
+        _log_click_age(interaction)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+
+async def drawn_acknowledged(interaction: discord.Interaction, draw: Callable[[], Awaitable[T]],
+                             *, private: bool) -> T:
+    """
+    `draw()` -- a picture, or a panel with its pictures -- with the click
+    acknowledged first and beside it: privately, for an answer that is a
+    message of its own (`acknowledge_privately`), or as a plain defer for
+    one that edits the message clicked (`acknowledge`). A picture drawn
+    and then uploaded as the click's first response can outlast the three
+    seconds Discord waits for one, and the click fails with a 10062
+    (**Codex** on the live host, 2026-10-20). The acknowledgement goes
+    out before anything is drawn, and the draw does not wait on its
+    round trip. A click deferred already by the lock is left as it is.
+    """
+    acknowledgement = acknowledge_privately(interaction) if private else acknowledge(interaction)
+    _, drawn = await asyncio.gather(acknowledgement, draw())
+    return drawn
 
 
 async def edit_clicked(interaction: discord.Interaction, **fields) -> None:
