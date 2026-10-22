@@ -68,6 +68,13 @@ HAND_ROWS = 2
 NOT_YOUR_PANEL = "This panel is the active player's: only they can act from it."
 
 
+#: Discord's longest button label.
+BUTTON_LABEL_MAX = 80
+#: The fewest characters of an owner's name a label keeps, however long
+#: the rest: past that the end of the label gives way instead.
+MIN_OWNER_CHARS = 8
+
+
 def _cut(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
@@ -548,7 +555,7 @@ class TurnPanelView(PanelView):
     def make_button(self, label: str, style, callback, *, disabled: bool = False,
                     choice: tuple | None = None) -> PanelButton:
         """A button not yet placed: `place` gives it its row."""
-        button = PanelButton(choice, label=_cut(label, 80), style=style, disabled=disabled)
+        button = PanelButton(choice, label=_cut(label, BUTTON_LABEL_MAX), style=style, disabled=disabled)
         if callback is not None:
             button.callback = callback
         return button
@@ -946,7 +953,7 @@ class TurnPanelView(PanelView):
         several = len(set(seats)) > 1
         candidates = self.choices_on(
             detect.candidates, seats,
-            lambda ref, seat: f"{self.whose(seat)} {self.label(ref, seat)}" if several
+            lambda ref, seat: self.owned(seat, self.label(ref, seat)) if several
             else self.label(ref, seat),
             self.detect,
             "detect", "Nothing of theirs is hidden",
@@ -990,7 +997,7 @@ class TurnPanelView(PanelView):
         named = len(engine.opponents(self.match, self.seat)) > 1
         defenders = [
             self.make_button(
-                f"{self.whose(side)} {self.label(ref, side, why)}" if named
+                self.owned(side, self.label(ref, side, why)) if named
                 else self.label(ref, side, why),
                 discord.ButtonStyle.success if engine.is_building_ref(self.match, side, ref)
                 else discord.ButtonStyle.primary,
@@ -1062,12 +1069,12 @@ class TurnPanelView(PanelView):
         (the flagbearer)."""
         if row.ref.startswith(("hand:", "codex:", "discard:", "deck:")):
             return self.label(row.ref, row.seat)
-        label = f"{self.whose(row.seat)} {self.label(row.ref, row.seat)}"
+        label = self.label(row.ref, row.seat)
         if row.resist:
             label += f", resist: pay {row.resist} gold"
         if row.flagbearer:
             label += ", flagbearer"
-        return label
+        return self.owned(row.seat, label)
 
     def whose(self, seat: int) -> str:
         """Whose a thing on `seat` is, before its name on a button:
@@ -1079,6 +1086,21 @@ class TurnPanelView(PanelView):
         if game is not None and game.test_game:
             return f"{team_name(self.match.player(seat).specs)}'s"
         return f"{seat_label(game, seat)}'s"
+
+    def owned(self, seat: int, label: str) -> str:
+        """`label` after whose it is -- "ann's Base (20 HP)" -- the
+        owner's name shortened, never the thing, where the two would
+        pass a button's 80 characters: a display name may be 32 and a
+        card's name 34, and what is cut off the end is the damage or
+        why it is legal."""
+        whose = self.whose(seat)
+        room = BUTTON_LABEL_MAX - len(label) - 1
+        if len(whose) > room and whose.endswith("'s"):
+            name = whose[:-2]
+            keep = max(room - 3, MIN_OWNER_CHARS)
+            if keep < len(name):
+                whose = name[:keep].rstrip() + "…'s"
+        return f"{whose} {label}"
 
     def build_target(self, options) -> None:
         """What the part being resolved may choose, a button each as the

@@ -4427,7 +4427,12 @@ free-for-all stacked alone.
   detection labels each thing by the opponent whose it is
   (`RulesEngine.holder_of`), the same way, where the candidates are
   more than one opponent's. `TurnPanelView.whose` is the one spelling,
-  shared with an effect's targets.
+  shared with an effect's targets, and `owned` puts it before a label:
+  where the two would pass a button's 80 characters -- a 32-character
+  display name before "Jefferson DeGrey, Ghostly Diplomat" with its
+  damage and its reason -- the owner's name is shortened ("Wwwww…'s"),
+  never the thing, since what a cut at the end loses is the damage or
+  why the defender is legal.
   The standing board of the turn that ended is lit for
   `history.previous_turn_owner`, read off the snapshots, since on a
   table the seat before the active one is not the previous turn's

@@ -241,6 +241,28 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
             *(f"{self.game.seat_name(one)}'s Base (20 HP)" for one in others), "Cancel the attack",
         ])
 
+    async def test_a_long_name_gives_way_before_the_defender(self) -> None:
+        """A 32-character display name before the longest card's label
+        would pass a button's 80 characters: the name is shortened, and
+        the damage and why the defender is legal stay whole."""
+        from codex.prompts import DefenderOptions, PendingPrompt, PromptKind
+
+        match = self.table.match
+        seat = match.active
+        other = next(one for one in (1, 2, 3) if one != seat)
+        self.game.seats[other - 1]["name"] = "W" * 32
+        view = TurnPanelView(self.table.cog, self.game.game_id,
+                             PendingPrompt(PromptKind.CHOOSE_DEFENDER, "", seat,
+                                           DefenderOptions(attacker="unit:1", defenders=())), match)
+        thing = "Jefferson DeGrey, Ghostly Diplomat 10/10, 10 damage (squad leader)"
+        label = view.owned(other, thing)
+        self.assertLessEqual(len(label), 80)
+        self.assertTrue(label.endswith(thing))
+        self.assertTrue(label.startswith("WWWWWWWW"))
+        self.assertIn("…'s ", label)
+        # A short label leaves the name alone.
+        self.assertEqual(view.owned(other, "Base (20 HP)"), f"{'W' * 32}'s Base (20 HP)")
+
     async def test_the_end_pings_every_player(self) -> None:
         """The game's end pings the whole table, not only whose turn it
         was (the author, 2026-10-22)."""
