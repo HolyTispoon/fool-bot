@@ -412,6 +412,27 @@ class CombatTests(unittest.TestCase):
         self.assertEqual(match.winner, 1)
         self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.GAME_OVER)
 
+    def test_captain_zane_keeps_his_kill_bonus_when_he_dies_in_the_fight(self) -> None:
+        """"Whenever Zane kills a technician, draw a card" (and a scavenger,
+        {gold:1}) -- a kill he trades himself for still counts, though his
+        death puts him back to level 1 before the kill is read."""
+        for slot in ("technician", "scavenger"):
+            with self.subTest(slot=slot):
+                engine, game, match = new_game(teams=(("anarchy",), ("growth",)))
+                begin(engine, game, match)
+                hero_in_play(match, 1, slug="captain_zane", level=4, damage=1)
+                cub = put(match, 2, "tiger_cub", patrol=slot)
+                player = match.player(1)
+                player.gold = 0
+                hand_size = len(player.hand)
+                combat.declare_attack(engine, game, match, "hero:captain_zane", cub.ref)
+                self.assertIsNone(match.player(2).instance(cub.id))
+                self.assertFalse(player.hero_of("captain_zane").in_play)
+                if slot == "technician":
+                    self.assertEqual(len(player.hand), hand_size + 1)
+                else:
+                    self.assertEqual(player.gold, 1)
+
 
 class PatrolSlotTests(unittest.TestCase):
     def test_the_squad_leaders_armor(self) -> None:
