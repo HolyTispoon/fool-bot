@@ -668,7 +668,8 @@ class TurnsMixin:
         message's last edit, without its buttons, standing as every
         finished turn's does, and **a public line naming the winner with
         the final board** -- a heading, so it reads as the game's end --
-        rendered once, uploaded twice -- with **Rematch**
+        rendered once, uploaded twice -- every seated player pinged on
+        a line under it, with **Rematch**
         under it (`RematchView`), whose message the record keeps so a
         restart re-arms it. Then the channel is moved to Codex Archive
         and left as it is (`archive_channel`): nothing is exported from
@@ -685,12 +686,23 @@ class TurnsMixin:
             await self.stand_turn_message(channel, game, game.turn_message_id, png,
                                           self.turn_text(game, match))
         line = result.prompt.ask if result.prompt is not None else ""
+        # Every seated player pinged, winners and losers alike, in any
+        # mode: the end is news to whoever was not looking (the author,
+        # 2026-10-22). The heading names the winners; the ping is a line
+        # of its own under it.
+        pinged = game.seat_ids()
+        text = self.render_text(f"# {line}", game) if line else ""
+        if pinged:
+            text = "\n".join(filter(None, [text, " ".join(f"<@{one}>" for one in pinged)]))
         try:
             message = await channel.send(
-                self.render_text(f"# {line}", game) if line else None,
+                text or None,
                 file=self.match_file_from_png(game, png),
                 view=RematchView(self, game.game_id),
-                allowed_mentions=discord.AllowedMentions.none(),
+                allowed_mentions=discord.AllowedMentions(
+                    everyone=False, roles=False,
+                    users=[discord.Object(id=one) for one in pinged] if pinged else False,
+                ),
             )
         except discord.HTTPException as error:
             LOGGER.warning("Could not post the final board of Codex game %s: %s", game.game_id, error)

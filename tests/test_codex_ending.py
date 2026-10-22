@@ -224,7 +224,13 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([kind for kind, _, _ in requests], ["edit", "send", "channel.edit"])
         self.assertIsNone(requests[0][2]["view"], "the turn message stands without its buttons")
         self.assertTrue(requests[1][2]["content"].startswith("# "), "the winner as a heading")
-        self.assertTrue(requests[1][2]["content"].endswith(" wins!"))
+        heading, ping = requests[1][2]["content"].splitlines()
+        self.assertTrue(heading.endswith(" wins!"))
+        # Both players pinged under it, the winner and the loser alike
+        # (the author, 2026-10-22).
+        self.assertEqual(ping, " ".join(f"<@{one}>" for one in self.game.seat_ids()))
+        self.assertEqual([one.id for one in requests[1][2]["allowed_mentions"].users],
+                         list(self.game.seat_ids()))
         self.assertIsInstance(requests[1][2]["view"], RematchView)
         self.table.guild.create_category.assert_awaited_with(
             name=CODEX_ARCHIVE_CATEGORY_NAME, reason=mock.ANY,

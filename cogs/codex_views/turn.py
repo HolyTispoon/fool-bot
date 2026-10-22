@@ -935,15 +935,20 @@ class TurnPanelView(PanelView):
 
     def build_detect(self, options) -> None:
         """What the tower may detect, a button each as the engine offers
-        it (UMR p. 9), and **Back**."""
+        it (UMR p. 9) -- whose it is where it may be several opponents',
+        as the defenders' buttons say -- and **Back**."""
         detect = options.detect
         engine, others = self.cog.engine, self.cog.engine.opponents(self.match, self.seat)
         # Each candidate on its own side (`DetectOption.seats`): a mirror
         # game's two copies of one hero share a ref.
         seats = detect.seats or tuple(engine.holder_of(self.match, ref, others)
                                       for ref in detect.candidates)
+        several = len(set(seats)) > 1
         candidates = self.choices_on(
-            detect.candidates, seats, lambda ref, seat: self.label(ref, seat), self.detect,
+            detect.candidates, seats,
+            lambda ref, seat: f"{self.whose(seat)} {self.label(ref, seat)}" if several
+            else self.label(ref, seat),
+            self.detect,
             "detect", "Nothing of theirs is hidden",
         )
         row = self.place(candidates, 0, until=ROWS - 1)
@@ -969,7 +974,10 @@ class TurnPanelView(PanelView):
         """The legal defenders, a button each labelled with why it is
         legal (`DefenderOptions.why`, the engine's) -- a building green,
         so the buildings read apart from the units and heroes (the
-        author, 2026-10-15) -- and **Cancel**."""
+        author, 2026-10-15) -- and **Cancel**. Against several opponents
+        -- a free-for-all, a dragon team's two -- every button says whose
+        it is, "ann's Base (20 HP)", since several bases read alike (the
+        author, 2026-10-22); a duel's one opponent goes unnamed."""
         engine = self.cog.engine
         whys = options.why or ("",) * len(options.defenders)
         seats = options.seats
@@ -979,9 +987,11 @@ class TurnPanelView(PanelView):
             # nothing to attack has no seats either, and several opponents,
             # which `sole_opponent` refuses (the review of 2026-10-15).
             seats = (engine.sole_opponent(self.match, self.seat),) * len(options.defenders)
+        named = len(engine.opponents(self.match, self.seat)) > 1
         defenders = [
             self.make_button(
-                self.label(ref, side, why),
+                f"{self.whose(side)} {self.label(ref, side, why)}" if named
+                else self.label(ref, side, why),
                 discord.ButtonStyle.success if engine.is_building_ref(self.match, side, ref)
                 else discord.ButtonStyle.primary,
                 # On a table the same ref can stand on two sides: the click
@@ -1052,19 +1062,23 @@ class TurnPanelView(PanelView):
         (the flagbearer)."""
         if row.ref.startswith(("hand:", "codex:", "discard:", "deck:")):
             return self.label(row.ref, row.seat)
-        game = self.cog.games.get(self.game_id)
-        if row.seat == self.seat:
-            whose = "Your"
-        elif game is not None and game.test_game:
-            whose = f"{team_name(self.match.player(row.seat).specs)}'s"
-        else:
-            whose = f"{seat_label(game, row.seat)}'s"
-        label = f"{whose} {self.label(row.ref, row.seat)}"
+        label = f"{self.whose(row.seat)} {self.label(row.ref, row.seat)}"
         if row.resist:
             label += f", resist: pay {row.resist} gold"
         if row.flagbearer:
             label += ", flagbearer"
         return label
+
+    def whose(self, seat: int) -> str:
+        """Whose a thing on `seat` is, before its name on a button:
+        "Your", or the seat's player's -- "ann's" -- or, in a test game,
+        whose seats are all one person's, the side's team's."""
+        if seat == self.seat:
+            return "Your"
+        game = self.cog.games.get(self.game_id)
+        if game is not None and game.test_game:
+            return f"{team_name(self.match.player(seat).specs)}'s"
+        return f"{seat_label(game, seat)}'s"
 
     def build_target(self, options) -> None:
         """What the part being resolved may choose, a button each as the

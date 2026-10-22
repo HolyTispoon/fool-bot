@@ -225,6 +225,42 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(labels(view), ["Nothing can be attacked", "Cancel the attack"])
         self.assertTrue(find_button(view, "Nothing can be attacked").disabled)
 
+    async def test_a_defender_is_named_by_its_seat(self) -> None:
+        """Three bases read alike: at a table every defender button says
+        whose it is (the author, 2026-10-22)."""
+        from codex.prompts import DefenderOptions, PendingPrompt, PromptKind
+
+        match = self.table.match
+        seat = match.active
+        others = [one for one in (1, 2, 3) if one != seat]
+        prompt = PendingPrompt(PromptKind.CHOOSE_DEFENDER, "Choose a defender.", seat,
+                               DefenderOptions(attacker="unit:1", defenders=("base", "base"),
+                                               why=("", ""), seats=tuple(others)))
+        view = TurnPanelView(self.table.cog, self.game.game_id, prompt, match)
+        self.assertEqual(labels(view), [
+            *(f"{self.game.seat_name(one)}'s Base (20 HP)" for one in others), "Cancel the attack",
+        ])
+
+    async def test_the_end_pings_every_player(self) -> None:
+        """The game's end pings the whole table, not only whose turn it
+        was (the author, 2026-10-22)."""
+        from codex.prompts import PendingPrompt, PromptKind
+        from gamesaves.codex.service import GameResult
+
+        match = self.table.match
+        match.winner = match.active
+        ask = f"{{player:{match.active}}} wins!"
+        mark = len(self.table.game_channel.requests)
+        await self.table.cog.finish_game(self.game, GameResult(
+            prompt=PendingPrompt(PromptKind.GAME_OVER, ask, match.active, None), match=match,
+        ))
+        sends = [one for one in self.table.game_channel.since(mark) if one[0] == "send"]
+        content = sends[-1][2]["content"]
+        ids = self.game.seat_ids()
+        self.assertEqual(len(ids), 3)
+        self.assertEqual(content.splitlines()[-1], " ".join(f"<@{one}>" for one in ids))
+        self.assertEqual([one.id for one in sends[-1][2]["allowed_mentions"].users], list(ids))
+
     async def test_a_watchers_concede_is_refused_in_the_models_words(self) -> None:
         concede = self.table.cog.concede_command.callback
         call = self.table.interaction(user(999, "watcher"))
