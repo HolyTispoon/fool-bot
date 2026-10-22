@@ -1024,6 +1024,14 @@ class RulesEngine:
         and patrolling for now (`barred_by`)."""
         is_unit = isinstance(body, CardInstance) and self.catalog.cards[body.slug].is_unit
         barred = self.barred_by(match, body) if is_unit else None
+        atk, hp = self.shown_stats(match, body)
+        return (atk, hp, self.auras_on(match, body), barred)
+
+    def shown_stats(self, match: MatchState, body) -> tuple[int, int]:
+        """A unit's or a hero's ATK and HP as the board's pill and a
+        button's label show them: `body_stats`, with the elite's +1 ATK
+        added while it patrols there (UMR p. 10), as `attack_value` adds
+        it, so neither reads one less than the attack deals."""
         atk, hp = self.body_stats(match, body)
         if body.patrol_slot == "elite":
             raw = self._unit_raw(body, match) if isinstance(body, CardInstance) \
@@ -1037,7 +1045,7 @@ class RulesEngine:
                 atk = min(atk, ceiling)
             # Floored once everything is added (Intimidate's ruling).
             atk = max(atk, 0)
-        return (atk, hp, self.auras_on(match, body), barred)
+        return atk, hp
 
     def attack_value(self, match: MatchState, seat: int, ref: str,
                      against: Optional[str] = None) -> int:

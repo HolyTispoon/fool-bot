@@ -69,7 +69,8 @@ def ref_label(engine, match, seat: int, ref: str, note: str = "") -> str:
     What `ref` names on `seat`'s side, in plain words for a button or a
     menu: "Iron Man 3/4", "Troq Bashar 2/3", "Tech II (5 HP)", "Tower
     (4 HP)", "Base (17 HP)". A unit's or hero's numbers are the
-    engine's, with its damage after them where it has any; a building's
+    engine's `shown_stats` -- the board's pill's, the elite's +1 ATK
+    in them -- with its damage after them where it has any; a building's
     is the HP it has left (`building_hp_left`, the author, 2026-10-15).
     A `note` -- why a defender is legal -- goes in brackets after it,
     in the one bracket a building's HP is already in: "Base (20 HP,
@@ -114,7 +115,7 @@ def _ref_label(engine, match, seat: int, ref: str, note: str) -> str:
     # `<owner seat>:hero:<slug>` there (`MatchState.hero_on`).
     hero = match.hero_on(seat, ref) if is_hero_ref(ref) else None
     if hero is not None:
-        atk, hp = engine.hero_stats(hero)
+        atk, hp = engine.shown_stats(match, hero)
         label = f"{catalog().name(hero.slug)} {atk}/{hp}"
         damage = hero.damage
     else:
@@ -124,7 +125,7 @@ def _ref_label(engine, match, seat: int, ref: str, note: str) -> str:
             name = (catalog().name(player.add_on.slug) if ref == "add_on" and player.add_on is not None
                     else "Base" if ref == "base" else building_name(ref))
             return _with_hp_left(engine, match, seat, ref, name, note)
-        atk, hp = engine.unit_stats(card, match)
+        atk, hp = engine.shown_stats(match, card)
         name = catalog().name(card.slug)
         number = copy_number(player, card)
         if number:

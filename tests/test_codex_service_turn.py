@@ -149,6 +149,24 @@ class TurnHeadingTests(unittest.TestCase):
         self.assertEqual(ref_label(engine, match, 2, guard.ref, "squad leader"),
                          "Older Brother 2/2 (squad leader)")
 
+    def test_an_elites_label_carries_the_slots_atk(self) -> None:
+        """A unit or a hero in the elite slot is labelled with the +1 ATK
+        the slot gives it, as the board's pill shows it -- a Firebat 3/3
+        patrolling as elite reads 4/3 on the defender's button."""
+        from codex.formatting import ref_label
+        from codex_positions import hero, hero_in_play, new_game
+
+        engine, _, match = new_game()
+        elite = put(match, 2, "iron_man", patrol="elite")
+        other = put(match, 2, "older_brother", patrol="squad_leader")
+        self.assertEqual(ref_label(engine, match, 2, elite.ref, "patroller"), "Iron Man 4/4 (patroller)")
+        self.assertEqual(ref_label(engine, match, 2, other.ref), "Older Brother 2/2")
+        self.assertEqual(engine.board_reading(match, elite)[:2], (4, 4))
+        hero_in_play(match, 1, patrol="elite")
+        ref = hero(match, 1)
+        atk, hp = engine.hero_stats(match.hero_on(1, ref), match)
+        self.assertTrue(ref_label(engine, match, 1, ref).endswith(f" {atk + 1}/{hp}"))
+
     def test_no_line_of_the_models_opens_a_turn(self) -> None:
         """The heading is not narration, so it is never said twice."""
         svc, _, game = started()
