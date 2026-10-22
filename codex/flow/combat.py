@@ -688,9 +688,12 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             # Yesterday's Golgort: combat damage to a building.
             board.golgort(engine, match, hit.source.seat, result)
     killed = any(fighter.body is taking.body for fighter in dead)
+    # The attacking hero's level as he dealt the damage: dying in the same
+    # fight puts him back to level 1 before his kill is read.
+    level = hitting.hero.level if hitting.hero is not None else None
     _destroy(engine, match, dead, result, combat=True)
     _blue_triggers(engine, match, hitting, hits, standing, result)
-    _fight_triggers(engine, match, hitting, taking, slot_attacked, mine_hits, killed, result)
+    _fight_triggers(engine, match, hitting, taking, slot_attacked, mine_hits, killed, result, level)
     # What the deaths change -- a Grounded Guide gone, a Finesse hero gone
     # with Harmony channeled on it, a dance partner lost.
     board.settle(engine, match, result)
@@ -773,7 +776,7 @@ def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, 
 
 def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
                     taking: _Fighter, slot: Optional[str], hits: list, killed: bool,
-                    result: StepResult) -> None:
+                    result: StepResult, level: Optional[int] = None) -> None:
     """
     What an attack's own combat damage sets off (step 11): Might of Leaf
     and Claw's growth rune where the attacker dealt any -- armor's share
@@ -781,7 +784,8 @@ def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
     (its rulings); Predator Tiger's worker trashed at a base it damaged;
     Molting Firebird's 1 to everything of a player whose building it
     damaged; Gunpoint Taxman's gold for a patroller it killed; and
-    Captain Zane's for a scavenger or technician he killed.
+    Captain Zane's for a scavenger or technician he killed, at `level`,
+    the level he dealt the damage at, though he died in the fight.
     """
     seat = hitting.seat
     other = taking.seat
@@ -820,7 +824,7 @@ def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
                     f"{tokens.card(slug)} killed a patroller: {stolen(match, seat, other, taken)}."
                 )
         if hitting.hero is not None:
-            board.kill_bonus(engine, match, seat, hitting.hero.slug, slot, result)
+            board.kill_bonus(engine, match, seat, hitting.hero.slug, slot, result, level=level)
 
 
 def _damage_line(engine: "RulesEngine", match: MatchState, hitting: _Fighter, taking: _Fighter,

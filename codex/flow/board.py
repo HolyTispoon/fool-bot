@@ -1709,20 +1709,23 @@ def grant_armor(body, amount: int) -> None:
 
 
 def kill_bonus(engine: "RulesEngine", match: MatchState, seat: int, killer: Optional[str],
-               slot: Optional[str], result: StepResult) -> None:
+               slot: Optional[str], result: StepResult, *, level: Optional[int] = None) -> None:
     """
     Captain Zane at 4: "Whenever Zane kills a scavenger, get {gold:1}.
     Whenever Zane kills a technician, draw a card." -- by his own combat
     damage or his max level ability alone (his ruling). `killer` is the
-    hero's slug, `slot` where what died patrolled.
+    hero's slug, `slot` where what died patrolled, `level` the level he
+    killed it at where he may have died in the same fight: a hero who
+    dies goes back to level 1, and a kill he traded for still counts.
     """
     if killer is None or slot is None:
         return
     hero = match.player(seat).hero_of(killer)
     if hero is None or match.player(seat).silenced:
         return
-    for (slug, level), bonuses in effects.KILL_BONUSES.items():
-        if slug != killer or hero.level < level:
+    reached = hero.level if level is None else level
+    for (slug, needed), bonuses in effects.KILL_BONUSES.items():
+        if slug != killer or reached < needed:
             continue
         bonus = bonuses.get(slot)
         if bonus == "gold":
