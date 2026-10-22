@@ -2438,8 +2438,8 @@ class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_tech_picker_opens_on_the_tech_ii_spec(self) -> None:
         """Once a Tech II building is built with a spec, the picker opens
-        on that spec's Tech II and III and every spell; it is still
-        built, destroyed or not."""
+        on every Tech I card, that spec's Tech II and III and every spell;
+        it is still built, destroyed or not."""
         from codex.components import BuildingState
         from codex.engine import tech2_spec_view
         from codex.formatting import codex_view_name
@@ -2457,10 +2457,12 @@ class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(prompt.options.opening, tech2_spec_view(spec))
         picker = TechChoiceView(self.table.cog, self.game.game_id, prompt, match)
         offered = [catalog.cards[option.value] for menu in picker.menus for option in menu.options]
-        units = [card for card in offered if not card.is_spell]
-        self.assertTrue(units)
-        self.assertTrue(all((card.tech_level or 0) >= 2 and card.spec.lower() == spec.lower()
-                            for card in units))
+        later = [card for card in offered if not card.is_spell and (card.tech_level or 0) >= 2]
+        self.assertTrue(later)
+        self.assertTrue(all(card.spec.lower() == spec.lower() for card in later))
+        self.assertEqual({card.slug for card in offered if card.tech_level == 1},
+                         {slug for slug, left in prompt.options.codex
+                          if left and catalog.cards[slug].tech_level == 1})
         self.assertEqual({card.spec for card in offered if card.is_spell},
                          {catalog.cards[slug].spec for slug, _ in prompt.options.codex
                           if catalog.cards[slug].is_spell})
