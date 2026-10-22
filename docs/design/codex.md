@@ -2921,7 +2921,10 @@ more*", since the board carries the position.
   message's last edit is written by the cog directly, under the same
   lock, and then the gate is forgotten, so its next write is the new
   message's. The game's end is the same last edit, then one public
-  line -- the model's "wins" sentence -- with the final board,
+  line -- the model's "wins" sentence, every seated player's mention
+  on a line under it (the author, 2026-10-22: the end pings everybody,
+  in a duel, a free-for-all and two-headed dragon alike, since the turn
+  message pings only whose turn it is) -- with the final board,
   rendered once and uploaded twice. The start message a turn's main
   phase opens under (above) is made the same way: its last edit under
   the lock, the gate forgotten, the turn message's post after.
@@ -4415,9 +4418,21 @@ free-for-all stacked alone.
   replacing step 6's first cut, which sent a new message each time and
   piled the panels up).
 - **The panels of a table.** A defender button names the side it was
-  offered on where the same ref stands on two (`against`); the tower's
+  offered on where the same ref stands on two (`against`), and, where
+  the attacker has more than one opponent -- a free-for-all, a dragon
+  team's two -- says whose it is in its label: "ann's Base (20 HP)",
+  "bo's Tech I (5 HP)", since several bases and tech buildings
+  otherwise read alike (the author, 2026-10-22). A duel's, whose one
+  opponent goes without saying, carries no name. The tower's
   detection labels each thing by the opponent whose it is
-  (`RulesEngine.holder_of`).
+  (`RulesEngine.holder_of`), the same way, where the candidates are
+  more than one opponent's. `TurnPanelView.whose` is the one spelling,
+  shared with an effect's targets, and `owned` puts it before a label:
+  where the two would pass a button's 80 characters -- a 32-character
+  display name before "Jefferson DeGrey, Ghostly Diplomat" with its
+  damage and its reason -- the owner's name is shortened ("Wwwww…'s"),
+  never the thing, since what a cut at the end loses is the damage or
+  why the defender is legal.
   The standing board of the turn that ended is lit for
   `history.previous_turn_owner`, read off the snapshots, since on a
   table the seat before the active one is not the previous turn's
