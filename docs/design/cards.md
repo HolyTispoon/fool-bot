@@ -1125,7 +1125,8 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
 
 - **It draws nothing itself.** It runs `render_maneuver_cards.py`,
   `render_maneuver_tiles.py`, `render_player_cards.py`, `render_reference_cards.py`,
-  `render_token_sheet.py`, `render_boards.py` and `build_rulebooks.py`
+  `render_token_sheet.py`, `render_role_tokens.py`,
+  `render_standees.py`, `render_boards.py` and `build_rulebooks.py`
   in turn -- the same scripts a developer already reaches for one at a
   time -- and is only their sum into one
   folder. So a rules change, an import or an art fix reaches the kit
@@ -1173,8 +1174,12 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   `CARD_FACES` is still three cards, and `render_species_cards.py` and
   `render_role_cards.py` still render one of each. They were one sheet
   of eight faces, each front beside its back, cut out and glued. `render_token_sheet.py` is the condition tokens as a front sheet and a
-  back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
-  kit prints everything a table needs but the meeples and the dice. The three card scripts take
+  back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"), and
+  `render_role_tokens.py` is 2.0's role tokens the same way ("Role tokens"). `render_standees.py`
+  is the players as standees, a team a page, printed one-sided
+  ([standees.md](standees.md)) -- they replaced the meeples the kit used to
+  send a table out for (the author, 2026-10-24). So the
+  kit prints everything a table needs but the standees' bases and the dice. The three card scripts take
   `--sheets-only` for this, and the kit passes it and a `--team` per
   colour team. A developer checking one card still runs the script on
   its own and gets every card. The kit came to 128 MB before this and
@@ -1200,6 +1205,8 @@ one subfolder per script, named as the kit names its own folders:
 | `d12ball/print/reference-cards/` | `render_reference_cards.py` |
 | `d12ball/print/tokens/` | `render_token_sheet.py` (paper) |
 | `d12ball/print/tokens-3d/` | `render_token_models.py` (3MF and STL) |
+| `d12ball/print/role-tokens/` | `render_role_tokens.py` |
+| `d12ball/print/standees/` | `render_standees.py` |
 | `d12ball/print/boards/` | `render_boards.py` |
 | `d12ball/print/rulebooks/` | `build_rulebooks.py` |
 | `d12ball/print/box/` | `render_box_art.py` |

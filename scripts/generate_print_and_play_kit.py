@@ -23,7 +23,8 @@ is in the kit built here and never in the landing page's, which passes
 `--no-hexagon-tiles` (2026-10-04). **It
 draws nothing on its own** -- it runs `render_maneuver_cards.py`,
 `render_maneuver_tiles.py`, `render_player_cards.py`, `render_reference_cards.py`,
-`render_token_sheet.py`, `render_box_art.py` (the playtest card),
+`render_token_sheet.py`, `render_role_tokens.py`, `render_standees.py`,
+`render_box_art.py` (the playtest card),
 `render_boards.py` and `build_rulebooks.py`, the same scripts a
 developer already reaches for to check one component at a time, and
 is only their sum into a folder meant to leave the repo. So a rules
@@ -35,9 +36,10 @@ The kit is print-ready output and is gitignored, like everything
 else under `d12ball/print/`; run this again whenever the game underneath it changes rather
 than keeping a stale copy around.
 
-**What is not in the box.** The kit prints every card, every board and
-the tokens; it does not print meeples or dice. `write_readme` below
-lists what a table still needs to bring.
+**What is not in the box.** The kit prints every card, every board,
+the tokens and the players as standees; it does not print the standees'
+plastic bases or dice. `write_readme` below lists what a table still
+needs to bring.
 """
 import argparse
 import shutil
@@ -141,6 +143,23 @@ short edge**. The cards need no cutting.
   the back, and each marker is a condition on one side and what it
   turns into on a failed check on the other. Need more? Print the
   pair of pages again.
+- **role-tokens/** -- D12 Ball 2.0's role tokens, nine a colour team, on
+  one piece of letter paper. In 2.0 a role belongs to the formation, not
+  the player, so lay a token on each fielded player's card to say which
+  role they hold. A token is a zone's: its front is the zone's unique
+  role, filled with the team's colour (Fullback, Playmaker, Striker),
+  and its back the zone's standard role, white in a ring of that colour
+  (Defender, Midfielder, Winger) -- turn it over to trade the two roles
+  of one zone. `front-sheet.png` and `back-sheet.png` print duplex (flip
+  on the long edge); cut along the grey line on the front.
+- **standees/** -- every player as a standee, their portrait on both
+  faces over their name, a colour team a letter page
+  (`<team>-standees.png`), printed one-sided. Cut each strip out on its
+  grey line, fold it on the dashed line, glue the halves back to back
+  (a layer of thin card between them stiffens it and fills a base's
+  slot) and push the foot into a 1in (25 mm) slotted standee base. A
+  standee is 1.25in wide, so two sides' standees share a space by
+  standing along it.
 - **playtest-cards/** -- the playtest card, six to a page on the same
   Avery stock: the box cover on its front, and on its back the board,
   the feedback survey (a QR code and its address) and where to play
@@ -166,7 +185,7 @@ Cards are poker size (2.5 x 3.5in) at 300dpi, and every board is
 **Only the field board wants a big sheet.** It is {paper}
 ({paper_size}), landscape -- see `PAPERS` / `DEFAULT_PAPER` in
 `d12ball/boards.py` -- because its spaces have to be wide enough to
-stand two sides' meeples on, and shrinking it to letter would take
+stand two sides' standees on, and shrinking it to letter would take
 that away. If you have no printer that size, print
 `field-board-<n>-left.png` and `field-board-<n>-right.png` on two
 letter sheets, portrait, **at 100% (actual size)** -- never "fit to
@@ -199,13 +218,13 @@ if a print shop wants the extra 1/8in margin to trim into.
 
 ## What to bring besides this kit
 
-Printed here: every card, every board, the maneuver tiles and the tokens. Not printed:
+Printed here: every card, every board, the maneuver tiles, the tokens and the standees. Not printed:
 
 - **A d12 a side** (a twelve-sided die) -- it is also the ball, and the
   face it shows is the ball's speed.
-- **Nine meeples or pawns a team**, in each team's own colour --
-  `d12ball/render.py`'s `TEAM_COLORS` names the hex if you want to
-  match a set to the board's own palette.
+- **Six 1in (25 mm) slotted standee bases a team**, the plastic kind
+  sold for board-game standees: one for each player on the field. A
+  substitute's standee goes into the base of the player they replace.
 
 ## Rules
 
@@ -294,8 +313,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Build the whole print-and-play kit -- the maneuver, player "
-            "and reference card sheets, the maneuver tiles, the tokens and "
-            "every board -- in one folder."
+            "and reference card sheets, the maneuver tiles, the tokens, the "
+            "standees and every board -- in one folder."
         ),
     )
     parser.add_argument(
@@ -375,6 +394,8 @@ def main() -> None:
     )
 
     run("render_token_sheet.py", ["--out", str(args.out / "tokens")])
+    run("render_role_tokens.py", ["--out", str(args.out / "role-tokens")])
+    run("render_standees.py", ["--out", str(args.out / "standees")])
 
     # The card a playtest table is handed: the box cover on its front,
     # the board and the survey on its back (the author, 2026-09-29).
