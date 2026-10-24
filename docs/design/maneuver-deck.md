@@ -273,7 +273,8 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   the spaces, each holder dealt first in their zone.
 
 **At the table** a role is a loose piece: the print-and-play kit's role tokens, a zone's unique
-role on one side and its standard role on the other, laid on the card holding it, and the players
+role on one side and its standard role on the other, laid on the card holding it -- a 2.0 card,
+which prints none -- and the players
 on the field are standees, since a meeple can no longer be told apart by role (the author,
 2026-10-24) -- [printed-tokens.md](printed-tokens.md), "Role tokens", and
 [standees.md](standees.md).
@@ -281,6 +282,10 @@ on the field are standees, since a meeple can no longer be told apart by role (t
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.
 
+**The printed player cards have a 2.0 face** that names no role (the author, 2026-10-24), and
+`/d12ball team_reference` posts it in a 2.0 game -- [cards.md](cards.md), "The 2.0 player cards".
+
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
 print-and-play kit; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the
-author, 2026-10-18): roles in the labels and pictures, a bench player named by their skills.
+author, 2026-10-18): roles in the bot's labels and board pictures, a bench player named by their
+skills.

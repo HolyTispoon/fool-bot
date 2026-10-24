@@ -172,10 +172,16 @@ KIT_DOWNLOADS: tuple[tuple[str, str, str, tuple[Team, ...]], ...] = (
             folder,
             teams,
         )
-        for part, folder in (("players", "player-cards"), ("tiles", "maneuver-tiles"))
+        for part, folder in (
+            ("players", "player-cards"),
+            ("players-v2", "player-cards-2.0"),
+            ("tiles", "maneuver-tiles"),
+        )
         for number, teams in enumerate(KIT_TEAM_PAIRS, start=1)
     ),
 )
+# D12 Ball 2.0's player cards (2026-10-24) are as big as 1.0's, so they
+# are two parts of their own on the same pairs, `/kit-players-v2-<n>`.
 # Kit folders whose pages go by team in another folder's part: the
 # standees (2026-10-24) are a team's players again, a letter page a
 # team, and in the first part they took it over the limit.
@@ -190,7 +196,7 @@ PAGES_FILE_LIMIT = 25 * 1024 * 1024
 
 # The addresses a site owns and forwards, Cloudflare Pages' `_redirects`
 # format. `/learn` and `/rules` open the books' PDFs and `/kit`,
-# `/kit-players-<n>` and `/kit-tiles-<n>` the kit's zips, which the build
+# `/kit-players-<n>`, `/kit-players-v2-<n>` and `/kit-tiles-<n>` the kit's zips, which the build
 # makes. The survey is a redirect so the form can move without a card
 # being reprinted: the card prints `SURVEY_URL`, and this forwards it to
 # the form.
@@ -700,6 +706,7 @@ def team_names(teams: tuple[Team, ...]) -> str:
 
 KIT_PART_NAMES = {
     "player-cards": "Player cards and standees",
+    "player-cards-2.0": "D12 Ball 2.0 player cards",
     "maneuver-tiles": "Maneuver tiles",
 }
 

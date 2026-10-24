@@ -705,6 +705,36 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   with `--no-avery-players` and leaves them out, as the same cards a
   second way ([landing-pages.md](landing-pages.md)).
 
+## The 2.0 player cards
+
+**D12 Ball 2.0 has player cards of its own** (the author, 2026-10-24):
+the same functions with `edition=Edition.TWO`, written by
+`scripts/render_player_cards.py --edition 2.0`, and the kit's
+`player-cards-2.0/`. In 2.0 a player has no role -- the formation's zones
+hold the roles, and a role token laid on the card says who holds which
+([printed-tokens.md](printed-tokens.md), "Role tokens") -- and no role
+ability applies (rules-2.0 4.7). A 1.0 card would print a role and a role
+ability that are both wrong in 2.0, so a 2.0 card names no role
+anywhere:
+
+- **No line under the name**, which takes the middle of the header band
+  (`header_subtitle` answers `""`).
+- **No initials in the corner index**: the species' badge takes the
+  column alone, larger (`INDEX_BADGE_ALONE`) and centred.
+- **No role row in the ability band.** The front's band is the species'
+  row alone, and the portrait takes the height the role's sentence had.
+  The back's is the player's special ability over the species' row, set
+  the band's full width (`ability_text_width(badged=False)`), since the
+  role's badge was what stood in front of it; a player with no special
+  ability has the species' row alone there too, where a 1.0 card falls
+  back on the role's sentence (`advanced_card_ability`).
+
+Everything else -- the skills, the advanced ribbon and its marks, the
+portrait, the edge -- is the 1.0 card's, and the 1.0 cards are
+byte-identical with the parameter in (all 144 faces, SHA-256 checked).
+`/d12ball team_reference` posts the 2.0 cards in a game playing 2.0
+(`maneuver_deck_applies`); the web app plays 1.0 alone and draws 1.0's.
+
 ## The species cards
 
 `d12ball/species_cards.py` draws the four species abilities -- Volatile
@@ -1127,7 +1157,8 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   `render_maneuver_tiles.py`, `render_player_cards.py`, `render_reference_cards.py`,
   `render_token_sheet.py`, `render_role_tokens.py`,
   `render_standees.py`, `render_boards.py` and `build_rulebooks.py`
-  in turn -- the same scripts a developer already reaches for one at a
+  in turn (`render_player_cards.py` twice, the second time with
+  `--edition 2.0` into `player-cards-2.0/`) -- the same scripts a developer already reaches for one at a
   time -- and is only their sum into one
   folder. So a rules change, an import or an art fix reaches the kit
   exactly the way it reaches each script on its own, by re-running it;
@@ -1200,6 +1231,7 @@ one subfolder per script, named as the kit names its own folders:
 | `d12ball/print/maneuver-cards/` | `render_maneuver_cards.py` |
 | `d12ball/print/maneuver-tiles/` | `render_maneuver_tiles.py` (the hexagon in `hexagon/`) |
 | `d12ball/print/player-cards/` | `render_player_cards.py` |
+| `d12ball/print/player-cards-2.0/` | `render_player_cards.py --edition 2.0` (its default `--out` is 1.0's folder, so name this one) |
 | `d12ball/print/species-cards/` | `render_species_cards.py` |
 | `d12ball/print/role-cards/` | `render_role_cards.py` |
 | `d12ball/print/reference-cards/` | `render_reference_cards.py` |

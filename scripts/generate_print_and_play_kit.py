@@ -124,6 +124,13 @@ short edge**. The cards need no cutting.
   skills.
   `<team>-sheet.png` is the standard sides and
   `<team>-advanced-sheet.png` the advanced sides, printed as a pair.{player_avery}
+- **player-cards-2.0/** -- the same players' cards for **D12 Ball 2.0**,
+  laid out and printed the same way. In 2.0 a player has no role and
+  there are no role abilities, so these cards name no role: the
+  standard side carries the skills and the species ability, and the
+  advanced side the player's special ability where they have one. Lay
+  a role token on each fielded player's card to say which role they
+  hold.
 - **reference-cards/** -- the reference cards: the three double-sided
   species-ability cards (every pairing of the four species appears on
   one face), a fourth that is the first turned over, and two copies of
@@ -147,13 +154,12 @@ short edge**. The cards need no cutting.
   one piece of letter paper. In 2.0 a role belongs to the formation, not
   the player, so lay a token on each fielded player's card to say which
   role they hold. A token is a zone's: its front is the zone's unique
-  role, filled with the team's colour (Fullback, Playmaker, Striker),
-  and its back the zone's standard role, white in a ring of that colour
-  (Defender, Midfielder, Winger) -- turn it over to trade the two roles
-  of one zone. `front-sheet.png` and `back-sheet.png` print duplex (flip
+  role (Fullback, Playmaker, Striker) and its back the zone's standard
+  role (Defender, Midfielder, Winger) -- turn it over to trade the two
+  roles of one zone. `front-sheet.png` and `back-sheet.png` print duplex (flip
   on the long edge); cut along the grey line on the front.
 - **standees/** -- every player as a standee, their portrait on both
-  faces over their name, a colour team a letter page
+  faces over their name and species, a colour team a letter page
   (`<team>-standees.png`), printed one-sided. Cut each strip out on its
   grey line, fold it on the dashed line, glue the halves back to back
   (a layer of thin card between them stiffens it and fills a base's
@@ -222,9 +228,10 @@ Printed here: every card, every board, the maneuver tiles, the tokens and the st
 
 - **A d12 a side** (a twelve-sided die) -- it is also the ball, and the
   face it shows is the ball's speed.
-- **Six 1in (25 mm) slotted standee bases a team**, the plastic kind
-  sold for board-game standees: one for each player on the field. A
-  substitute's standee goes into the base of the player they replace.
+- **Six 1in (25 mm) slotted standee bases a team**, one for each player
+  on the field; a substitute's standee goes into the base of the player
+  they replace. They are meant to be 3D printed, and the kit has no
+  model for them yet.
 
 ## Rules
 
@@ -387,6 +394,8 @@ def main() -> None:
     if args.no_avery_players:
         player_args.append("--no-avery")
     run("render_player_cards.py", player_args)
+    edition_args = ["--out", str(args.out / "player-cards-2.0"), "--edition", "2.0"]
+    run("render_player_cards.py", edition_args + player_args[2:])
 
     run(
         "render_reference_cards.py",

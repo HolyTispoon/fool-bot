@@ -7,6 +7,7 @@ the player's ability printed under the portrait:
     python3 scripts/render_player_cards.py --out d12ball/print/player-cards
     python3 scripts/render_player_cards.py --sheet --bleed
     python3 scripts/render_player_cards.py --team orange
+    python3 scripts/render_player_cards.py --edition 2.0 --out d12ball/print/player-cards-2.0
 
 The layout lives in `d12ball/player_cards.py` and everything on a card
 comes from `players.json` and `species.json`, so a re-import reaches
@@ -18,6 +19,10 @@ species ability beside their role ability. `--sheet` writes the backs
 as a sheet of their own, with every row reversed so a duplex print
 lands each back behind its own front; see `cards.duplex_order`. Pass
 `--fronts-only` for the one-sided run these used to be.
+
+`--edition 2.0` draws D12 Ball 2.0's cards, which name no role (see the
+module docstring of `d12ball/player_cards.py`); the files are named as
+1.0's, so give them a folder of their own.
 
 What the back is still waiting on is an advanced *role* ability: the
 sheet's `Advanced` column is empty for all thirty-six, so the band
@@ -32,6 +37,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.cards import avery_95328_pages, print_sheet  # noqa: E402
 from d12ball.components import Team, load_player_catalog  # noqa: E402
+from d12ball.game import Edition  # noqa: E402
 from d12ball.player_cards import (  # noqa: E402
     TEAM_SHEET_COLUMNS,
     duplex_order,
@@ -57,6 +63,12 @@ def main() -> None:
         help=(
             "Render only this team; repeatable. Every team by default."
         ),
+    )
+    parser.add_argument(
+        "--edition",
+        choices=[edition.value for edition in Edition],
+        default=Edition.ONE.value,
+        help="The edition the cards are for (default: 1.0). A 2.0 card names no role.",
     )
     parser.add_argument(
         "--bleed",
@@ -91,6 +103,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     args.sheet = args.sheet or args.sheets_only
+    edition = Edition(args.edition)
 
     catalog = load_player_catalog()
     teams = (
@@ -116,7 +129,7 @@ def main() -> None:
             # off the sheet in the order it is dealt.
             stem = f"{team.value}-{index}-{slug}"
 
-            card = render_player_card(catalog, player, team, args.bleed)
+            card = render_player_card(catalog, player, team, args.bleed, edition)
             fronts.append(card)
             if not args.sheets_only:
                 path = args.out / f"{stem}.png"
@@ -126,7 +139,7 @@ def main() -> None:
             if args.fronts_only:
                 continue
             back = render_player_card_back(
-                catalog, player, team, args.bleed
+                catalog, player, team, args.bleed, edition
             )
             backs.append(back)
             if not args.sheets_only:

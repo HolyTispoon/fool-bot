@@ -43,6 +43,19 @@ on the front. A player whose sheet sentence only names their higher
 skill ("High defensive skill.") prints that sentence, as the sheet words
 it; the numbers above it say how high. A player with no special
 ability prints their role's sentence on both faces.
+
+**D12 Ball 2.0 has cards of its own** (the author, 2026-10-24), drawn
+by the same functions with `edition=Edition.TWO`. In 2.0 a player has
+no role -- the formation's zones hold the roles, and a role token laid
+on the card says who holds which (docs/rules-2.0.md section 4,
+`d12ball/role_tokens.py`) -- and there are no role abilities (4.7). So
+a 2.0 card names no role anywhere: no line under the name, which is
+centred in the band; no initials in the corner index, whose species
+badge takes the column alone; and no role row in the ability band. The
+front's band is the species' row alone and the portrait takes the
+height; the back's is the player's special ability over it, set the
+band's full width with no badge, or the species' row alone for a
+player who has none.
 """
 from dataclasses import dataclass
 
@@ -74,7 +87,7 @@ from d12ball.components import (
     RoleProfile,
     load_species_abilities,
 )
-from d12ball.game import COLOR_TEAMS, Team, paired_team
+from d12ball.game import COLOR_TEAMS, Edition, Team, paired_team
 from d12ball.render import (
     CARD_DEFENSE_COLOR,
     CARD_OFFENSE_COLOR,
@@ -232,13 +245,20 @@ def draw_header(
     ink = high_contrast_ink(color)
     name_left = FRAME + NAME_INSET
     name_right = CARD_WIDTH - FRAME - NAME_INSET
+    # A 2.0 card has no line under the name (`header_subtitle`), so the
+    # name takes the middle of the band.
     pen.text(
-        ((name_left + name_right) / 2, FRAME + 50),
+        (
+            (name_left + name_right) / 2,
+            FRAME + 50 if subtitle else FRAME + HEADER_HEIGHT / 2,
+        ),
         player.name,
         fitted_name(pen, player.name, name_right - name_left),
         ink,
         anchor="mm",
     )
+    if not subtitle:
+        return
     pen.text(
         ((name_left + name_right) / 2, FRAME + 102),
         subtitle,
@@ -283,12 +303,16 @@ INDEX_SKILL_ROWS = (0.29, 0.71)
 INDEX_ROLE_ROW = 0.28
 INDEX_BADGE_ROW = 0.70
 INDEX_BADGE = 40
+# A 2.0 card's column holds the species' badge alone, larger and
+# centred, since there is no role to print over it.
+INDEX_BADGE_ALONE = 56
 
 
 def draw_corner_index(
     pen: Pen,
     player: PlayerDefinition,
     skills: "RoleProfile | CardSkills",
+    edition: Edition = Edition.ONE,
 ) -> None:
     """
     **The card's corner index**, like a playing card's: the two skills
@@ -342,6 +366,11 @@ def draw_corner_index(
         width=2,
     )
     role_x = INDEX_LEFT + width * INDEX_ROLE_X
+    if edition == Edition.TWO:
+        draw_species_badge(
+            pen, player.species, (role_x, (top + bottom) / 2), INDEX_BADGE_ALONE
+        )
+        return
     pen.text(
         (role_x, top + (bottom - top) * INDEX_ROLE_ROW),
         ROLE_INITIALS[player.role.value],
@@ -357,15 +386,16 @@ def draw_corner_index(
     )
 
 
-def header_subtitle(player: PlayerDefinition) -> str:
+def header_subtitle(player: PlayerDefinition, edition: Edition = Edition.ONE) -> str:
     """
-    The line under the name: the player's role, the same on both faces.
+    The line under the name: the player's role, the same on both faces
+    -- and nothing on a 2.0 card, where a player has no role.
 
     It used to end "· ADVANCED" on the back; the ribbon says that now
     (`draw_ribbon`), across the card, so the role line says the role
     alone and is set at full size again (the author, 2026-10-13).
     """
-    return player.role.value.upper()
+    return player.role.value.upper() if edition == Edition.ONE else ""
 
 
 def draw_ribbon(pen: Pen) -> None:
@@ -423,13 +453,19 @@ def advanced_card_skills(
 
 
 def advanced_card_ability(
-    catalog: PlayerCatalog, player: PlayerDefinition,
+    catalog: PlayerCatalog,
+    player: PlayerDefinition,
+    edition: Edition = Edition.ONE,
 ) -> str:
     """
     The sentence the advanced face prints: the player's special
-    ability as the sheet words it, or the role's where they have none.
-    Never shortened here -- see "Every ability is imported twice".
+    ability as the sheet words it, or the role's where they have none
+    -- and nothing there on a 2.0 card, which has no role ability to
+    fall back on. Never shortened here -- see "Every ability is
+    imported twice".
     """
+    if edition == Edition.TWO:
+        return player.advanced_ability
     return (
         player.advanced_ability
         or catalog.effective_profile(player).ability
@@ -629,9 +665,12 @@ def role_badge(role: PlayerRole, team: Team) -> Image.Image | None:
 _ROLE_BADGES: dict[tuple[PlayerRole, Team], Image.Image | None] = {}
 
 
-def ability_text_width() -> float:
-    """The room a band row leaves its text, right of the badge."""
-    return CARD_WIDTH - MARGIN * 2 - 20 - BAND_BADGE - BAND_BADGE_GAP
+def ability_text_width(badged: bool = True) -> float:
+    """The room a band row leaves its text: right of the badge, or the
+    band's whole width for a 2.0 card's special ability, which has no
+    role badge in front of it."""
+    width = CARD_WIDTH - MARGIN * 2 - 20
+    return width - BAND_BADGE - BAND_BADGE_GAP if badged else width
 
 
 @dataclass(frozen=True)
@@ -651,6 +690,7 @@ def ability_band(
     ability: str,
     species_name: str,
     portrait_top: float = PORTRAIT_TOP,
+    badged: bool = True,
 ) -> AbilityBand:
     """
     The sentence wrapped beside its badge at the largest size, up to
@@ -664,9 +704,15 @@ def ability_band(
     runs to five lines or more -- special abilities on the back, today
     -- come down a point at a time until the portrait keeps its floor,
     and stop at ABILITY_MIN_SIZE whatever that leaves.
+
+    A 2.0 card may have no sentence at all -- the front always, the
+    back where the player has no special ability -- and its band is
+    then the species' row alone.
     """
+    if not ability:
+        return AbilityBand([], ABILITY_SIZE, BAND_TOP_PAD + (BAND_BADGE if species_name else 0))
     for size in range(ABILITY_SIZE, ABILITY_MIN_SIZE - 1, -1):
-        lines = pen.wrapped(ability, font(size), ability_text_width())
+        lines = pen.wrapped(ability, font(size), ability_text_width(badged))
         height = BAND_TOP_PAD + row_height(pen, size, len(lines))
         if species_name:
             height += BAND_ROW_GAP + BAND_BADGE
@@ -724,6 +770,7 @@ def draw_ability(
     band: AbilityBand,
     species_name: str,
     top: float,
+    edition: Edition = Edition.ONE,
 ) -> None:
     """
     The ability band, the same on both faces: the role's badge beside
@@ -740,6 +787,10 @@ def draw_ability(
     The band is laid out from the bottom edge up, so the species row is
     in the same place on every card of either face, whatever the
     sentence above it runs to.
+
+    A 2.0 card carries no role badge: its special ability, where it has
+    one, is set from the band's left edge, and where it has none the
+    band is the species' row alone.
     """
     pen.line(
         [(MARGIN + 10, top), (CARD_WIDTH - MARGIN - 10, top)],
@@ -753,19 +804,24 @@ def draw_ability(
     text_x = MARGIN + 10 + BAND_BADGE + BAND_BADGE_GAP
     y = top + BAND_TOP_PAD
 
-    badge = role_badge(player.role, team)
-    if badge is not None:
-        pen.paste(
-            badge, (badge_x, y + BAND_BADGE / 2), (BAND_BADGE, BAND_BADGE)
-        )
-    text_y = y + first_line_offset(pen, band.size)
-    for line in band.lines:
-        pen.text((text_x, text_y), line, body, INK, anchor="la")
-        text_y += step
+    if band.lines:
+        line_x = text_x
+        if edition == Edition.ONE:
+            badge = role_badge(player.role, team)
+            if badge is not None:
+                pen.paste(
+                    badge, (badge_x, y + BAND_BADGE / 2), (BAND_BADGE, BAND_BADGE)
+                )
+        else:
+            line_x = MARGIN + 10
+        text_y = y + first_line_offset(pen, band.size)
+        for line in band.lines:
+            pen.text((line_x, text_y), line, body, INK, anchor="la")
+            text_y += step
+        y += row_height(pen, band.size, len(band.lines)) + BAND_ROW_GAP
 
     if not species_name:
         return
-    y += row_height(pen, band.size, len(band.lines)) + BAND_ROW_GAP
     center_y = y + BAND_BADGE / 2
     draw_species_badge(pen, player.species, (badge_x, center_y))
     pen.text(
@@ -875,6 +931,7 @@ def draw_face(
     skills: "RoleProfile | CardSkills",
     ability: str,
     standard: "RoleProfile | None" = None,
+    edition: Edition = Edition.ONE,
 ) -> None:
     """
     Everything on a face but its edge, top to bottom: the header, the
@@ -886,8 +943,8 @@ def draw_face(
     changes.
     """
     color = TEAM_COLORS[Team(team)]
-    draw_header(pen, player, team, color, header_subtitle(player))
-    draw_corner_index(pen, player, skills)
+    draw_header(pen, player, team, color, header_subtitle(player, edition))
+    draw_corner_index(pen, player, skills, edition)
     draw_stats(pen, skills, FRAME + HEADER_HEIGHT + STATS_TOP_GAP, standard)
 
     portrait_top = PORTRAIT_TOP
@@ -896,12 +953,14 @@ def draw_face(
         portrait_top += RIBBON_GAP + RIBBON_HEIGHT
 
     species_name = species_ability(player.species).get("name", "")
-    band = ability_band(pen, ability, species_name, portrait_top)
+    band = ability_band(
+        pen, ability, species_name, portrait_top, badged=edition == Edition.ONE
+    )
     ability_top = CARD_HEIGHT - FRAME - ABILITY_BOTTOM_PAD - band.height
     draw_portrait(
         pen, player, portrait_top + PORTRAIT_GAP, ability_top - PORTRAIT_GAP
     )
-    draw_ability(pen, player, team, band, species_name, ability_top)
+    draw_ability(pen, player, team, band, species_name, ability_top, edition)
 
 
 def render_player_card(
@@ -909,9 +968,11 @@ def render_player_card(
     player: PlayerDefinition,
     team: Team,
     bleed: bool,
+    edition: Edition = Edition.ONE,
 ) -> Image.Image:
     """
-    One player's card, printed as a member of `team`. A dual-membership
+    One player's card, printed as a member of `team`, for `edition`
+    (see the module docstring for what a 2.0 card leaves off). A dual-membership
     player -- every player, since the 2026-08-17 eight-team split -- has
     no team of their own to read this off (`PlayerDefinition` carries
     none), so which of their two rosters the card is drawn for is the
@@ -921,7 +982,8 @@ def render_player_card(
     """
     profile = catalog.effective_profile(player)
     pen = start_card(TEAM_COLORS[Team(team)])
-    draw_face(pen, player, team, profile, profile.ability)
+    ability = profile.ability if edition == Edition.ONE else ""
+    draw_face(pen, player, team, profile, ability, edition=edition)
     return pen.finish(bleed, CARD_FACE)
 
 
@@ -930,6 +992,7 @@ def render_player_card_back(
     player: PlayerDefinition,
     team: Team,
     bleed: bool,
+    edition: Edition = Edition.ONE,
 ) -> Image.Image:
     """
     The same player's advanced card -- the other side of the card
@@ -949,8 +1012,9 @@ def render_player_card_back(
         player,
         team,
         advanced_card_skills(catalog, player),
-        advanced_card_ability(catalog, player),
+        advanced_card_ability(catalog, player, edition),
         standard=catalog.effective_profile(player),
+        edition=edition,
     )
     return pen.finish(bleed, CARD_FACE)
 
