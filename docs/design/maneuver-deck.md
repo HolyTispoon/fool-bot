@@ -265,18 +265,29 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   Dinky moves them before it is done. A zone never holds more players than spaces, so with two on
   one there is always an empty one.
 - **There are no formations: a side is arranged by its roles** (rules-2.0 4.2, 4.3; the author,
-  2026-10-24, replacing the formation change of 2026-10-18). `MatchState.arrange_side` takes the
-  three unique roles' holders, each stood on their space, and three placements anywhere on the
-  field, each taking its zone's standard role, and checks the whole of it before anybody moves;
-  `RulesEngine.apply_arrangement` words it. The shape is whatever that makes, so a 2.0 side is
-  named by its counts (`RulesEngine.shape_name`, "3-1-2" as readily as "2-2-2") rather than by
-  `current_formation`, which knows only the five 1.0 shapes; the hub's title and the window's
-  summary both ask it. `arrangement_space_open` is **the one reading of where a placement may
-  go** -- an empty space, or a shared one where either is an Ooze, in a zone with room left --
-  which `arrange_side` refuses against and the prompt's `ArrangementOptions.open_spaces` offers
-  from. **The zone cap is the bot's reading, put to the author**: an Ooze may share a space but a
-  zone never holds more players than spaces, since otherwise a zone assignment could leave a
-  unique role's sharer with no empty space to step off to and the window could not close.
+  2026-10-24, replacing the formation change of 2026-10-18). An arrangement is the three unique
+  roles' holders, each stood on their space, and three placements anywhere on the field, each
+  taking its zone's standard role. `MatchState.arrange_side` puts a side in one, checking it
+  whole before anybody moves, and `RulesEngine.apply_arrangement` words it. The shape is whatever
+  that makes, so a 2.0 side is named by its counts (`RulesEngine.shape_name`, "3-1-2" as readily
+  as "2-2-2") rather than by `current_formation`, which knows only the five 1.0 shapes; the hub's
+  title and the window's summary both ask it.
+- **One reading of whether an arrangement may stand**: `arrangement_refusal`, a pure function
+  over every fact it needs, with `arrangement_space_open` under it -- an empty space, or a shared
+  one where either is an Ooze, in a zone with room. **No zone holds more players than spaces,
+  Oozes included** (the author, 2026-10-24): besides being the rule, it is what keeps an empty
+  space for a unique role's sharer to step off to. `arrange_side` refuses on it, and the
+  prompt's `ArrangementOptions.refusal` and `edits` read the same function, so nothing is offered
+  that the match would refuse.
+- **A rearrangement starts from the side as it stands** (the author, 2026-10-24: *"it should
+  already be set up the way it is currently set up, and then they can make changes on the basis
+  of the current setup"*). The deal still sets every side up (`deal_formation_roles`);
+  `MatchState.current_arrangement` reads it back, the options carry it (`holders`, `placed`), and
+  `ArrangementOptions.edits(player)` is every change that starts with one of the six -- a move to
+  a space with room, a trade of places and roles with one of the other five, and before kickoff a
+  bench player in their place -- each the whole arrangement it leaves, kept only if
+  `arrangement_refusal` lets it stand. The hub's `arrange` answer takes that whole arrangement,
+  so the driver's door is one and the same however the frontend builds it.
 - **Before kickoff the pool is the squad** (rules-2.0 4.3c): `MatchState.arrangement_pool` is the
   six on the field, and the bench too where the window's substitutions have no limit -- setup's
   -- so whoever on the field is left out goes off through `substitute` and is recorded as the
@@ -285,11 +296,12 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   bench Ooze is not among `spread_exempt_ids`' fielded six.
 - **The hub offers Arrange team in place of Formation** for a 2.0 side (`CoachingHubOptions.
   arrangement`, with `formations` empty, and the driver's `arrange` answer refusing a 1.0 side
-  as `formation` refuses a 2.0 one). On Discord it is one view, `CoachingArrangeView`, rebuilt
-  each click with the picks so far -- Fullback, Playmaker, Striker, then who and where three
-  times -- and the third placement sends the whole arrangement as one answer, so nothing
-  part-made reaches the match. Dinky never arranges; the deal's recommended arrangement is its.
-  The web app plays no 2.0, so it shows neither.
+  as `formation` refuses a 2.0 one). On Discord `CoachingArrangeView` lists the six as they stand,
+  role and space on each button, and `CoachingArrangePlayerView` one player's edits; a click
+  applies the change at once and the side comes back up with the half-field redrawn, one
+  `edit_message` a click as every hub step is. Zone Assignment and Space Positioning stay beside
+  it. Dinky never arranges; the deal's recommended arrangement is its. The web app plays no 2.0,
+  so it shows neither.
 
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.

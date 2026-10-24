@@ -14,6 +14,7 @@ from d12ball.flow import driver, windows
 from d12ball.ai import DinkyAI
 from d12ball.components import (
     CoachingOccasion,
+    MatchState,
     PlayerRole,
     RuleRefusal,
     TeamSide,
@@ -459,27 +460,116 @@ class ArrangementTests(unittest.TestCase):
             engine.role_of(match, holders["fullback"]), PlayerRole.FULLBACK,
         )
 
-    def test_the_options_offer_what_the_match_accepts(self) -> None:
+    def test_the_options_start_from_the_side_as_it_stands(self) -> None:
         engine, game, match = kickoff(Edition.TWO, 9)
         options = hub_options(engine, game, match).arrangement
-        holders = self.unique_cards(match)
-        other = next(
-            card for card in match.home.field_players
-            if card not in holders.values()
-        )
-        offered = {
-            (space.zone, space.space_index)
-            for space in options.open_spaces(other, holders)
-        }
-        self.assertEqual(len(offered), 6)
-        for space in options.unique:
-            self.assertNotIn((space.zone, space.space_index), offered)
-        with mock.patch.object(
-            type(engine), "spreadable_among", return_value={other},
+        self.assertEqual(dict(options.holders), self.unique_cards(match))
+        for role in (
+            PlayerRole.DEFENDER, PlayerRole.MIDFIELDER, PlayerRole.WINGER,
         ):
-            spreadable = hub_options(engine, game, match).arrangement
-        self.assertEqual(spreadable.spreadable, (other,))
-        self.assertEqual(len(spreadable.open_spaces(other, holders)), 9)
+            card = fielded(match, role)
+            self.assertIn((card, *space_of(match, card)), options.placed)
+            self.assertEqual(options.standing_of(card).takes, role)
+        self.assertIsNone(options.refusal(options.holders, options.placed))
+
+    def test_every_change_offered_is_one_the_match_accepts(self) -> None:
+        for board_size in (7, 9, 10):
+            engine, game, match = kickoff(Edition.TWO, board_size)
+            open_setup(engine, match)
+            options = hub_options(engine, game, match).arrangement
+            for player in options.fielded:
+                for edit in options.edits(player):
+                    trial = MatchState.from_dict(
+                        match.to_dict(), engine.basic_ruleset,
+                    )
+                    with self.subTest(
+                        board=board_size, player=player, kind=edit.kind,
+                        other=edit.other, space=edit.space,
+                    ):
+                        engine.apply_arrangement(
+                            game, trial, HOME, dict(edit.holders),
+                            list(edit.placed),
+                        )
+                        after = dict(trial.current_arrangement(HOME)[0])
+                        self.assertEqual(after, dict(edit.holders))
+
+    def test_a_move_leaves_everybody_else_where_they_stand(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        options = hub_options(engine, game, match).arrangement
+        defender = fielded(match, PlayerRole.DEFENDER)
+        before = {
+            card: space_of(match, card)
+            for card in options.fielded if card != defender
+        }
+        move = next(
+            edit for edit in options.edits(defender)
+            if edit.kind == "move" and edit.space.zone == Zone.MIDFIELD
+        )
+        engine.apply_arrangement(
+            game, match, HOME, dict(move.holders), list(move.placed),
+        )
+        self.assertEqual(
+            {card: space_of(match, card) for card in before}, before,
+        )
+        self.assertEqual(engine.role_of(match, defender), PlayerRole.MIDFIELDER)
+        self.assertEqual(engine.shape_name(match, HOME), "1-3-2")
+
+    def test_a_trade_swaps_places_and_roles(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        options = hub_options(engine, game, match).arrangement
+        fullback = fielded(match, PlayerRole.FULLBACK)
+        winger = fielded(match, PlayerRole.WINGER)
+        spots = (space_of(match, fullback), space_of(match, winger))
+        trade = next(
+            edit for edit in options.edits(fullback)
+            if edit.kind == "trade" and edit.other == winger
+        )
+        engine.apply_arrangement(
+            game, match, HOME, dict(trade.holders), list(trade.placed),
+        )
+        self.assertEqual(engine.role_of(match, winger), PlayerRole.FULLBACK)
+        self.assertEqual(engine.role_of(match, fullback), PlayerRole.WINGER)
+        self.assertEqual(
+            (space_of(match, winger), space_of(match, fullback)), spots,
+        )
+
+    def test_the_bench_is_offered_only_before_kickoff(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        striker = fielded(match, PlayerRole.STRIKER)
+        open_setup(engine, match)
+        setup = hub_options(engine, game, match).arrangement
+        self.assertEqual(
+            sum(edit.kind == "replace" for edit in setup.edits(striker)), 3,
+        )
+        match.close_coaching_window()
+        match.open_coaching_window(HOME, CoachingOccasion.HALFTIME)
+        halftime = hub_options(engine, game, match).arrangement
+        self.assertFalse(
+            any(edit.kind == "replace" for edit in halftime.edits(striker)),
+        )
+
+    def test_an_ooze_shares_but_never_overfills_a_zone(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 7)
+        defender = fielded(match, PlayerRole.DEFENDER)
+        with mock.patch.object(
+            type(engine), "spreadable_among", return_value={defender},
+        ):
+            options = hub_options(engine, game, match).arrangement
+        moves = {
+            (edit.space.zone, edit.space.space_index)
+            for edit in options.edits(defender) if edit.kind == "move"
+        }
+        # Board 7's Home Zone is two spaces, the Fullback and the
+        # Defender: the Ooze may share the Fullback's, and anywhere with
+        # room elsewhere, but no third player goes into a full zone.
+        self.assertIn(space_of(match, fielded(match, PlayerRole.FULLBACK)), moves)
+        midfielder = fielded(match, PlayerRole.MIDFIELDER)
+        winger = fielded(match, PlayerRole.WINGER)
+        self.assertIn(space_of(match, midfielder), moves)
+        self.assertNotIn(space_of(match, winger), {
+            (edit.space.zone, edit.space.space_index)
+            for edit in options.edits(midfielder) if edit.kind == "move"
+        })
 
     def test_the_driver_answers_an_arrangement_and_refuses_a_formation(
         self,

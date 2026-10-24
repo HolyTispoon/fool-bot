@@ -20,6 +20,7 @@ from cogs.d12ball_helpers import space_label
 from roster import fielded
 from space_codes import code, codes
 from cogs.d12ball_views import (
+    CoachingArrangePlayerView,
     CoachingArrangeView,
     CoachingFormationView,
     CoachingHubView,
@@ -989,55 +990,41 @@ class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Zone Assignment", labels)
         self.assertIn("Space Positioning", labels)
 
-    async def test_six_clicks_and_three_spaces_arrange_the_side(self) -> None:
+    def test_the_view_opens_on_the_side_as_it_stands(self) -> None:
         cog, game, match = self.build()
-        fullback = fielded(match, PlayerRole.FULLBACK)
-        playmaker = fielded(match, PlayerRole.PLAYMAKER)
-        striker = fielded(match, PlayerRole.STRIKER)
-        bench = list(match.home.team_board.bench)
+        labels = self.labels(CoachingArrangeView(cog, game.game_id))
+        self.assertEqual(len(labels), 7)
+        fullback = cog.engine.format_roster_player(
+            fielded(match, PlayerRole.FULLBACK),
+        )
+        self.assertIn(f"{fullback} - Fullback, space −4", labels)
 
-        view = CoachingArrangeView(cog, game.game_id)
-        # The whole squad before kickoff: nine players and Back.
-        self.assertEqual(len(view.children), 10)
-        holders = ()
-        for role, card in (
-            ("fullback", fullback),
-            ("playmaker", playmaker),
-            ("striker", striker),
-        ):
-            holders += ((role, card),)
-            view = CoachingArrangeView(cog, game.game_id, holders)
-        placed = ()
-        for card, zone, index in (
-            (bench[0], Zone.HOME_ZONE, 1),
-            (bench[1], Zone.HOME_ZONE, 2),
-            (bench[2], Zone.VISITORS_ZONE, 0),
-        ):
-            picking = CoachingArrangeView(
-                cog, game.game_id, holders, placed, card,
-            )
-            spaces = [
-                item.label for item in picking.children
-                if item.label != "Back"
-            ]
-            # Never the Fullback's, the Playmaker's or the Striker's
-            # space, nor one already taken.
-            self.assertEqual(len(spaces), 6 - len(placed))
-            if len(placed) < 2:
-                placed += ((card, zone, index),)
-                continue
-            with suppressed_cog_saves():
-                await picking.place(build_interaction(), zone, index)
+    async def test_one_click_changes_the_side_and_shows_it_again(self) -> None:
+        cog, game, match = self.build()
+        defender = fielded(match, PlayerRole.DEFENDER)
+        bench = match.home.team_board.bench[0]
+        view = CoachingArrangePlayerView(cog, game.game_id, defender)
+        labels = self.labels(view)
+        self.assertIn("Move to space 1 - Midfielder", labels)
+        self.assertIn(
+            f"Bring on {cog.engine.format_roster_player(bench)}", labels,
+        )
+        click = build_interaction()
+        move = next(
+            item for item in view.children
+            if item.label == "Move to space 1 - Midfielder"
+        )
+        with suppressed_cog_saves():
+            await move.callback(click)
 
         match = cog.engine.load_match_state(game)
-        self.assertEqual(cog.engine.shape_name(match, TeamSide.HOME), "3-1-2")
+        self.assertEqual(cog.engine.shape_name(match, TeamSide.HOME), "1-3-2")
         self.assertEqual(
-            sorted(match.home.field_players),
-            sorted([fullback, playmaker, striker, *bench]),
+            cog.engine.role_of(match, defender), PlayerRole.MIDFIELDER,
         )
-        self.assertEqual(
-            cog.engine.role_of(match, bench[2]), PlayerRole.WINGER,
-        )
+        shown = click.response.edit_message.await_args.kwargs
+        self.assertIsInstance(shown["view"], CoachingArrangeView)
+        self.assertIn("attachments", shown)
 
 
 class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):

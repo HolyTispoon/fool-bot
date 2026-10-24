@@ -88,6 +88,7 @@ from cogs.d12ball_views.effects import (
     TutorialContinueView,
 )
 from cogs.d12ball_views.coaching import (
+    CoachingArrangePlayerView,
     CoachingArrangeView,
     CoachingFormationView,
     CoachingHubView,
@@ -169,6 +170,7 @@ __all__ = [
     "ShooterChoiceView",
     "SpeedDeltaChoiceView",
     "TutorialContinueView",
+    "CoachingArrangePlayerView",
     "CoachingArrangeView",
     "CoachingFormationView",
     "CoachingHubView",
