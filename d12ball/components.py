@@ -1,7 +1,7 @@
 import json
 import re
 from collections import defaultdict, deque
-from collections.abc import Collection
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from math import ceil
@@ -873,11 +873,20 @@ FORMATION_ZONE_ROLES = {
 }
 # The three unique roles, as saved: a card holding one stands on its
 # zone's fixed space and is not moved by space positioning
-# (docs/rules-2.0.md 4.3b, 4.6d).
+# (docs/rules-2.0.md 4.3a, 4.6d).
 UNIQUE_ROLE_VALUES = frozenset(
     unique.value for unique, _ in FORMATION_ZONE_ROLES.values()
 )
+# The setup area each unique role belongs to, keyed as saved, in the
+# order a 2.0 arrangement names them: Fullback, Playmaker, Striker
+# (docs/rules-2.0.md 4.3a).
+UNIQUE_ROLE_AREAS = {
+    unique.value: area for area, (unique, _) in FORMATION_ZONE_ROLES.items()
+}
 FIELD_PLAYER_COUNT = 6
+# How many a 2.0 arrangement places after the three unique roles
+# (docs/rules-2.0.md 4.3b).
+ARRANGED_PLAYER_COUNT = FIELD_PLAYER_COUNT - len(UNIQUE_ROLE_AREAS)
 
 # The shortest High Ball a coach may choose. A Fullback's ability
 # raises the maximum to 4, never this -- and this is the one that
@@ -5282,7 +5291,7 @@ class MatchState:
     def unique_role_space(self, side: TeamSide, area: str) -> int:
         """
         The space a zone's **unique role** stands on in 2.0
-        (docs/rules-2.0.md 4.3b), for one side: the Fullback on the last
+        (docs/rules-2.0.md 4.3a), for one side: the Fullback on the last
         space before their own goal, the Playmaker on their own kickoff
         space, the Striker on the last space before the goal they
         attack. `area` is one of `SETUP_AREAS`, read from the coach's
@@ -5334,6 +5343,155 @@ class MatchState:
         Fullback, the Playmaker or the Striker. Never in 1.0."""
         roles = self.formation_roles.get(TeamSide(side).value, {})
         return roles.get(player_id) in UNIQUE_ROLE_VALUES
+
+    def arrangement_pool(self, side: TeamSide) -> list[str]:
+        """
+        Who a 2.0 arrangement is chosen from (docs/rules-2.0.md 4.3):
+        the six on the field and, in a window whose substitutions have
+        no limit -- setup's -- the bench as well, so before kickoff a
+        coach picks their six from the squad and the three left over
+        sit. Anywhere else a substitution is counted, so an arrangement
+        rearranges the six already playing and nobody else.
+        """
+        side = TeamSide(side)
+        pool = list(self.setup_for_side(side).field_players)
+        if (
+            self.pending_coaching_side == side.value
+            and self.substitutions_remaining() is None
+        ):
+            pool += [
+                player_id for player_id in self.substitution_pool(side)
+                if player_id not in pool
+            ]
+        return pool
+
+    def current_arrangement(
+        self, side: TeamSide,
+    ) -> tuple[dict[str, str], list[tuple[str, Zone, int]]]:
+        """
+        A 2.0 side's arrangement as it stands: the three unique roles'
+        holders keyed by the role, and every other fielded player where
+        they stand, in field order -- what a rearrangement starts from
+        (docs/rules-2.0.md 4.6a). Empty for a 1.0 side.
+        """
+        side = TeamSide(side)
+        roles = self.formation_roles.get(side.value)
+        if roles is None:
+            return {}, []
+        setup = self.setup_for_side(side)
+        holders: dict[str, str] = {}
+        placed: list[tuple[str, Zone, int]] = []
+        for zone in Zone:
+            for player_id in setup.zones.get(zone, []):
+                if roles.get(player_id) in UNIQUE_ROLE_VALUES:
+                    holders[roles[player_id]] = player_id
+                    continue
+                position = self.board.meeple_position(player_id)
+                if position is not None:
+                    placed.append((player_id, position[0], position[1]))
+        return holders, placed
+
+    def arrangement_unique_spaces(
+        self, side: TeamSide,
+    ) -> dict[str, tuple[Zone, int]]:
+        """Each unique role's space for one side, keyed by the role
+        (docs/rules-2.0.md 4.3a)."""
+        side = TeamSide(side)
+        return {
+            role: (zone_for_area(side, area), self.unique_role_space(side, area))
+            for role, area in UNIQUE_ROLE_AREAS.items()
+        }
+
+    def arrange_side(
+        self,
+        side: TeamSide,
+        holders: Mapping[str, str],
+        placed: Sequence[tuple[str, Zone, int]],
+        spread_exempt_ids: Collection[str] = (),
+        retire_outgoing: bool = True,
+    ) -> list[tuple[str, str]]:
+        """
+        **Put a 2.0 side in an arrangement** (docs/rules-2.0.md 4.3, the
+        author, 2026-10-24): `holders` names the Fullback, the Playmaker
+        and the Striker (keyed by the role, as saved), each of whom
+        stands on their role's space, and `placed` puts three more
+        anywhere on the field, each taking the standard role of the
+        zone they land in. There is no formation to choose: the shape
+        is whatever the placements make. A coach's rearrangement is one
+        change to the arrangement the side stands in
+        (`current_arrangement`), sent whole.
+
+        `arrangement_refusal` is what it must meet, checked before
+        anybody moves. Everyone comes out of `arrangement_pool`, so
+        before kickoff the six may include somebody off the bench:
+        whoever on the field is left out goes off for them, through
+        `substitute`, and is recorded as a substitution for the
+        window's summary. Answers the substitutions it made, outgoing
+        first.
+        """
+        side = TeamSide(side)
+        if side.value not in self.formation_roles:
+            raise RuleRefusal(
+                "Only a 2.0 side is arranged by its roles; a 1.0 side "
+                "changes formation."
+            )
+        placed = [
+            (player_id, Zone(zone), space_index)
+            for player_id, zone, space_index in placed
+        ]
+        refusal = arrangement_refusal(
+            holders,
+            placed,
+            self.arrangement_pool(side),
+            self.arrangement_unique_spaces(side),
+            {zone: len(self.board.spaces[zone]) for zone in Zone},
+            spread_exempt_ids,
+        )
+        if refusal is not None:
+            raise RuleRefusal(refusal)
+
+        chosen = list(holders.values()) + [
+            player_id for player_id, _, _ in placed
+        ]
+        setup = self.setup_for_side(side)
+        outgoing = [
+            player_id for player_id in setup.field_players
+            if player_id not in chosen
+        ]
+        incoming = [
+            player_id for player_id in chosen
+            if player_id not in setup.field_players
+        ]
+        swaps = list(zip(outgoing, incoming))
+        for outgoing_player_id, incoming_player_id in swaps:
+            self.substitute(
+                side,
+                outgoing_player_id,
+                incoming_player_id,
+                retire_outgoing=retire_outgoing,
+            )
+            self.record_substitution(outgoing_player_id, incoming_player_id)
+
+        placement: list[tuple[str, Zone, int]] = []
+        roles: dict[str, str] = {}
+        for area in SETUP_AREAS:
+            unique, standard = FORMATION_ZONE_ROLES[area]
+            zone = zone_for_area(side, area)
+            holder = holders[unique.value]
+            placement.append(
+                (holder, zone, self.unique_role_space(side, area))
+            )
+            roles[holder] = unique.value
+            for player_id, placed_zone, space_index in placed:
+                if placed_zone == zone:
+                    placement.append((player_id, zone, space_index))
+                    roles[player_id] = standard.value
+        self.deploy_side(side, placement)
+        # Given rather than read back off the spaces: an Ooze may share
+        # a unique role's space, and the space would not say which of
+        # the two holds it.
+        self.formation_roles[side.value] = roles
+        return swaps
 
     def positioning_targets(
         self,
@@ -5468,7 +5626,7 @@ class MatchState:
         exactly one space to go to, and report each move; one with a
         choice stays for the coach. A zone never holds more players
         than spaces, so with two on one space there is always an empty
-        one (docs/rules-2.0.md 4.3c).
+        one (docs/rules-2.0.md 4.3b).
         """
         side = TeamSide(side)
         moved = []
@@ -6533,6 +6691,100 @@ def validate_assignment(
                 f"{area.replace('_', ' ')}, not "
                 f"{len(assignment[area])}."
             )
+
+
+def arrangement_space_open(
+    player_id: str,
+    zone: Zone,
+    space_index: int,
+    zone_size: int,
+    standing: Iterable[tuple[str, Zone, int]],
+    spreadable_ids: Collection[str] = (),
+) -> bool:
+    """
+    Whether a 2.0 arrangement may put `player_id` on this space, with
+    `standing` already placed (docs/rules-2.0.md 4.3b, 4.6e): a space
+    of a zone that still has room -- **no zone holds more players than
+    it has spaces, Oozes included** (the author, 2026-10-24) -- and an
+    empty one, or one where either of the two is an Ooze, which
+    Spreadable counts as nobody. So an Ooze may go onto any space, a
+    unique role's included, and a teammate may share an Ooze's, but
+    the zone is never more than full.
+
+    That cap is also what keeps an empty space in every zone a unique
+    role's sharer may have to step off to (`settle_unique_space_sharers`).
+    """
+    standing = list(standing)
+    if sum(
+        1 for _, other_zone, _ in standing if Zone(other_zone) == Zone(zone)
+    ) >= zone_size:
+        return False
+    if player_id in spreadable_ids:
+        return True
+    return not any(
+        Zone(other_zone) == Zone(zone)
+        and other_space == space_index
+        and other not in spreadable_ids
+        for other, other_zone, other_space in standing
+    )
+
+
+def arrangement_refusal(
+    holders: Mapping[str, str],
+    placed: Sequence[tuple[str, Zone, int]],
+    pool: Collection[str],
+    unique_spaces: Mapping[str, tuple[Zone, int]],
+    zone_sizes: Mapping[Zone, int],
+    spreadable_ids: Collection[str] = (),
+) -> Optional[str]:
+    """
+    **The one reading of whether a 2.0 arrangement may stand**
+    (docs/rules-2.0.md 4.3), or why not: a Fullback, a Playmaker and a
+    Striker, each on their space (`unique_spaces`, keyed by the role),
+    and `ARRANGED_PLAYER_COUNT` more placed, everyone once and out of
+    `pool`, each placement open as `arrangement_space_open` reads it.
+    `MatchState.arrange_side` refuses on it, and the hub's
+    `ArrangementOptions.edits` offers only the changes it lets stand,
+    so the match is never told something its options would not offer.
+    Pure -- every fact it reads is handed in.
+    """
+    if set(holders) != set(UNIQUE_ROLE_AREAS):
+        return "Name a Fullback, a Playmaker and a Striker."
+    if len(placed) != ARRANGED_PLAYER_COUNT:
+        return (
+            f"Place {ARRANGED_PLAYER_COUNT} players after the Fullback, "
+            "the Playmaker and the Striker."
+        )
+    chosen = list(holders.values()) + [player for player, _, _ in placed]
+    if len(set(chosen)) != len(chosen):
+        return "A player cannot be placed twice."
+    if any(player_id not in pool for player_id in chosen):
+        return (
+            "Everybody arranged has to come from the field -- or, before "
+            "kickoff, the bench."
+        )
+    standing = [
+        (holders[role], *unique_spaces[role]) for role in UNIQUE_ROLE_AREAS
+    ]
+    for player_id, zone, space_index in placed:
+        zone = Zone(zone)
+        if not 0 <= space_index < zone_sizes.get(zone, 0):
+            return "That space is not on the board."
+        if not arrangement_space_open(
+            player_id,
+            zone,
+            space_index,
+            zone_sizes[zone],
+            standing,
+            spreadable_ids,
+        ):
+            return (
+                "There is no room there: only an Ooze may share a space "
+                "with a teammate, and no zone holds more players than it "
+                "has spaces."
+            )
+        standing.append((player_id, zone, space_index))
+    return None
 
 
 def zone_for_area(side: TeamSide, area: str) -> Zone:
