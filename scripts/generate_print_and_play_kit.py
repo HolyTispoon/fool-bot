@@ -182,6 +182,14 @@ short edge**. The cards need no cutting.
   two boards, cut in half), as the standard board and in each colour
   team's colour; the coloured sheets pair Teal with Orange and Purple
   with Slime, so one board of each team is two sheets.
+- **boards-2.0/** -- the boards that change for **D12 Ball 2.0**, on
+  the 9- and 10-space fields: the field board, each also cut in two,
+  with each side's Fullback, Playmaker and Striker marked on the space
+  they stand on; and the zone boards, with each zone's roles on its card
+  guides -- the first card in a zone takes the unique role (Fullback,
+  Playmaker, Striker) and the rest the standard one (Defender,
+  Midfielder, Winger). The jumbotron and the team boards are the same
+  as 1.0's, in **boards/**.
 
 ## Paper and cutting
 
@@ -424,6 +432,10 @@ def main() -> None:
     if args.pdf:
         board_args.append("--pdf")
     run("render_boards.py", board_args)
+    run(
+        "render_boards.py",
+        ["--out", str(args.out / "boards-2.0"), "--edition", "2.0", *board_args[2:]],
+    )
 
     # The two rulebooks as the PDFs a table reads, on letter paper
     # whatever sheet the field board is on.

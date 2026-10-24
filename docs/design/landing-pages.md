@@ -253,9 +253,9 @@ two, D12 Ball 2.0's player cards in two, and the maneuver tiles in two.** `write
 `scripts/generate_print_and_play_kit.py` into a temporary folder and zips it
 as `KIT_DOWNLOADS` says:
 
-- `/kit` -- the boards, the maneuver and reference sheets, the condition
-  and role token sheets, the README and both rulebooks as PDFs (about
-  17 MB);
+- `/kit` -- the boards (1.0's and 2.0's), the maneuver and reference
+  sheets, the condition and role token sheets, the README and both rulebooks as PDFs (about
+  19 MB);
 - `/kit-players-1` and `/kit-players-2` -- the player sheets and the
   standee pages of two colour teams each, Orange and Teal, then Purple and
   Slime (about 20 MB each);

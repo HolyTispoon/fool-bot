@@ -74,6 +74,10 @@ INITIALS_WIDTH = 0.70
 NAME_HEIGHT = 0.095
 NAME_CENTRE = 0.76
 NAME_WIDTH = 0.74
+# Without the name -- a badge on a board, too small for it to read --
+# the initials alone, centred and larger.
+BARE_INITIALS_HEIGHT = 0.40
+BARE_INITIALS_WIDTH = 0.76
 
 # The team's name over its block, on the front sheet alone.
 LABEL_INCHES = 0.13
@@ -125,11 +129,15 @@ def centred_text(
     )
 
 
-def role_face(role: PlayerRole, team: Team, width: int) -> Image.Image:
-    """One face `width` across: white inside a ring of the team's
-    colour, the initials and the name in ink."""
+def role_face(role: PlayerRole, ring: str, width: int, named: bool = True) -> Image.Image:
+    """One face `width` across: white inside a ring of `ring` -- a
+    team's colour on a token, ink on the 2.0 boards that show which
+    role goes where (`boards.draw_role_marks`) -- the initials and the
+    name in ink. A board's badge is `named=False`, the initials alone:
+    it is a third of a token's size, and the board writes the name
+    beside it."""
     size = width * SUPERSAMPLE
-    colour = ImageColor.getrgb(TEAM_COLORS[team])
+    colour = ImageColor.getrgb(ring)
 
     face = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     pen = ImageDraw.Draw(face)
@@ -142,6 +150,14 @@ def role_face(role: PlayerRole, team: Team, width: int) -> Image.Image:
         fill=WHITE,
     )
 
+    if not named:
+        bare_font = fitted_font(
+            list(ROLE_INITIALS.values()),
+            size * BARE_INITIALS_HEIGHT,
+            size * BARE_INITIALS_WIDTH,
+        )
+        centred_text(pen, ROLE_INITIALS[role.value], bare_font, (size / 2, size / 2), INK)
+        return face.resize((width, width), Image.Resampling.LANCZOS)
     initials_font = fitted_font(
         list(ROLE_INITIALS.values()), size * INITIALS_HEIGHT, size * INITIALS_WIDTH
     )
@@ -178,7 +194,7 @@ def render_role_token_sheets(
 
     faces = {
         team: {
-            role: with_cut_line(role_face(role, team, width), cut_line=role.value in UNIQUE_ROLE_VALUES)
+            role: with_cut_line(role_face(role, TEAM_COLORS[team], width), cut_line=role.value in UNIQUE_ROLE_VALUES)
             for pair in FORMATION_ZONE_ROLES.values()
             for role in pair
         }

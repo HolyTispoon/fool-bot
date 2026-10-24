@@ -1,7 +1,7 @@
 import json
 import re
 from collections import defaultdict, deque
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from math import ceil
@@ -5288,16 +5288,11 @@ class MatchState:
         attack. `area` is one of `SETUP_AREAS`, read from the coach's
         own end.
         """
-        side = TeamSide(side)
-        if area == "midfield":
-            return self.kickoff_space_for(side)
-        zone = zone_for_area(side, area)
-        last = len(self.board.spaces[zone]) - 1
-        # Home defends the low indices: its own goal is before index 0
-        # of the Home Zone, the goal it attacks after the last index of
-        # the Visitors Zone, and the visitors the mirror of both.
-        nearer_low_end = (area == "own_goal") == (side == TeamSide.HOME)
-        return 0 if nearer_low_end else last
+        return unique_role_space_index(
+            {zone: len(spaces) for zone, spaces in self.board.spaces.items()},
+            side,
+            area,
+        )
 
     def assign_formation_roles(self, side: TeamSide) -> None:
         """
@@ -6558,6 +6553,27 @@ def zone_for_area(side: TeamSide, area: str) -> Zone:
             else Zone.HOME_ZONE
         )
     raise ValueError(f"Unknown setup area: {area}")
+
+
+def unique_role_space_index(
+    zone_spaces: Mapping[Zone, int], side: TeamSide, area: str
+) -> int:
+    """
+    `MatchState.unique_role_space` as a function of the board's shape
+    alone -- how many spaces each zone has -- so a printed board marks
+    the same spaces the game plays (`boards.draw_role_marks`) without a
+    match to ask. The index is within `zone_for_area(side, area)`.
+    """
+    side = TeamSide(side)
+    if area == "midfield":
+        return kickoff_space_index(zone_spaces[Zone.MIDFIELD], side)
+    zone = zone_for_area(side, area)
+    last = zone_spaces[zone] - 1
+    # Home defends the low indices: its own goal is before index 0
+    # of the Home Zone, the goal it attacks after the last index of
+    # the Visitors Zone, and the visitors the mirror of both.
+    nearer_low_end = (area == "own_goal") == (side == TeamSide.HOME)
+    return 0 if nearer_low_end else last
 
 
 def area_for_zone(side: TeamSide, zone: Zone) -> str:

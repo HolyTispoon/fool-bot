@@ -42,6 +42,14 @@ printer and no tabloid one: its left and right halves
 cut, which runs down the middle of the field, are that same board at
 the same size. --no-halves leaves them out.
 
+**`--edition 2.0` writes D12 Ball 2.0's boards** into
+`d12ball/print/boards-2.0/` by default: the field board and its halves,
+with each side's unique roles on the spaces they stand on, and the zone
+boards, with each zone's roles on its card guides -- on boards 9 and 10
+unless --board-size names one (`EDITION_TWO_BOARD_SIZES`). The
+jumbotron and the team boards are the same in both editions and are
+written only by a 1.0 run.
+
 The layout lives in `d12ball/boards.py`. Everything on either board is
 read from the same data the bot plays from, so re-running this is how a
 rules or component import reaches the printed boards.
@@ -58,6 +66,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from d12ball.boards import (  # noqa: E402
     CARD_INCHES,
     DEFAULT_PAPER,
+    EDITION_TWO_BOARD_SIZES,
     JUMBOTRON_PAPER,
     MIN_TOKEN_INCHES,
     PAPERS,
@@ -83,7 +92,7 @@ from d12ball.components import (  # noqa: E402
     load_player_catalog,
 )
 from d12ball.game import (  # noqa: E402
-    COLOR_TEAMS, PLAYTEST_BOARD_SIZES, VALID_BOARD_SIZES,
+    COLOR_TEAMS, PLAYTEST_BOARD_SIZES, VALID_BOARD_SIZES, Edition,
 )
 
 
@@ -112,8 +121,20 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "d12ball" / "print" / "boards",
-        help="Directory to write into (default: ./d12ball/print/boards)",
+        help=(
+            "Directory to write into (default: ./d12ball/print/boards, "
+            "or ./d12ball/print/boards-2.0 with --edition 2.0)"
+        ),
+    )
+    parser.add_argument(
+        "--edition",
+        choices=[edition.value for edition in Edition],
+        default=Edition.ONE.value,
+        help=(
+            "The edition the boards are for (default: 1.0). 2.0 writes "
+            "the field and zone boards with the roles on them, on boards "
+            "9 and 10."
+        ),
     )
     parser.add_argument(
         "--board-size",
@@ -176,6 +197,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    edition = Edition(args.edition)
+    if args.out is None:
+        folder = "boards-2.0" if edition == Edition.TWO else "boards"
+        args.out = PROJECT_ROOT / "d12ball" / "print" / folder
     rules = load_basic_ruleset()
     players = load_player_catalog()
     maneuvers = load_maneuver_catalog()
@@ -184,6 +209,9 @@ def main() -> None:
     sizes = (
         (args.board_size,)
         if args.board_size
+        # 2.0 is printed on boards 9 and 10 (the author, 2026-10-24).
+        else EDITION_TWO_BOARD_SIZES
+        if edition == Edition.TWO
         # A playtest board is rendered only when asked for by name: the
         # kit carries the boards the game keeps.
         else tuple(
@@ -193,7 +221,8 @@ def main() -> None:
     )
     for board_size in sizes:
         board = render_field_board(
-            rules, board_size, paper=args.paper, bleed=args.bleed
+            rules, board_size, paper=args.paper, bleed=args.bleed,
+            edition=edition,
         )
         save(board, args.out / f"field-board-{board_size}.png", args.pdf)
         # The two zone boards for this size, and the page both are cut
@@ -202,14 +231,16 @@ def main() -> None:
             name = "home" if side == TeamSide.HOME else "visitors"
             save(
                 render_zone_board(
-                    board_size, side, paper=args.team_paper, bleed=args.bleed
+                    board_size, side, paper=args.team_paper, bleed=args.bleed,
+                    edition=edition,
                 ),
                 args.out / f"zone-board-{board_size}-{name}.png",
                 args.pdf,
             )
         save(
             render_zone_board_sheet(
-                board_size, paper=args.team_paper, bleed=args.bleed
+                board_size, paper=args.team_paper, bleed=args.bleed,
+                edition=edition,
             ),
             args.out / f"zone-board-{board_size}-2up.png",
             args.pdf,
@@ -220,7 +251,8 @@ def main() -> None:
         # smaller paper, so the two taped together are the sheet above
         # and a space is the size it is on it.
         halves = render_field_board_halves(
-            rules, board_size, paper=args.paper, bleed=args.bleed
+            rules, board_size, paper=args.paper, bleed=args.bleed,
+            edition=edition,
         )
         for name, half in zip(("left", "right"), halves):
             save(
@@ -229,45 +261,48 @@ def main() -> None:
                 args.pdf,
             )
 
-    save(
-        render_jumbotron_board(
-            paper=args.jumbotron_paper, bleed=args.bleed
-        ),
-        args.out / "jumbotron-board.png",
-        args.pdf,
-    )
+    # The jumbotron and the team boards carry no role and are the same
+    # in both editions, so a 2.0 run writes only what differs.
+    if edition == Edition.ONE:
+        save(
+            render_jumbotron_board(
+                paper=args.jumbotron_paper, bleed=args.bleed
+            ),
+            args.out / "jumbotron-board.png",
+            args.pdf,
+        )
 
-    for team in (None, *COLOR_TEAMS):
-        suffix = f"-{team.value}" if team else ""
-        save(
-            render_team_board(
-                rules,
-                players,
-                maneuvers,
-                team=team,
-                paper=args.team_paper,
-                bleed=args.bleed,
-            ),
-            args.out / f"team-board{suffix}.png",
-            args.pdf,
-        )
-    # The pages the boards are cut from: the standard board twice, and
-    # two colour teams a page (`TEAM_BOARD_PAGES`), so one of each
-    # colour team is two sheets of paper.
-    for teams in ((None, None), *TEAM_BOARD_PAGES):
-        suffix = "".join(f"-{team.value}" for team in teams if team)
-        save(
-            render_team_board_sheet(
-                rules,
-                players,
-                maneuvers,
-                teams=teams,
-                paper=args.team_paper,
-                bleed=args.bleed,
-            ),
-            args.out / f"team-board-2up{suffix}.png",
-            args.pdf,
-        )
+        for team in (None, *COLOR_TEAMS):
+            suffix = f"-{team.value}" if team else ""
+            save(
+                render_team_board(
+                    rules,
+                    players,
+                    maneuvers,
+                    team=team,
+                    paper=args.team_paper,
+                    bleed=args.bleed,
+                ),
+                args.out / f"team-board{suffix}.png",
+                args.pdf,
+            )
+        # The pages the boards are cut from: the standard board twice, and
+        # two colour teams a page (`TEAM_BOARD_PAGES`), so one of each
+        # colour team is two sheets of paper.
+        for teams in ((None, None), *TEAM_BOARD_PAGES):
+            suffix = "".join(f"-{team.value}" for team in teams if team)
+            save(
+                render_team_board_sheet(
+                    rules,
+                    players,
+                    maneuvers,
+                    teams=teams,
+                    paper=args.team_paper,
+                    bleed=args.bleed,
+                ),
+                args.out / f"team-board-2up{suffix}.png",
+                args.pdf,
+            )
 
     if args.halves:
         halved = half_paper(args.paper)

@@ -603,3 +603,44 @@ zones went to each coach's own side of the table.
   so turning the sheet landscape left every word the size it printed at on
   the portrait board rather than half again as big; `Sheet`'s unit is a
   thousandth of whatever `unit_width` names, the width by default.
+
+## The 2.0 boards: which role goes where
+
+D12 Ball 2.0 puts the roles on the formation's zones (rules-2.0 section
+4), so its boards show them (the author, 2026-10-24).
+`scripts/render_boards.py --edition 2.0` writes them into
+`d12ball/print/boards-2.0/`, and the kit into `boards-2.0/`.
+
+- **Boards 9 and 10 are 2.0's by default** (`EDITION_TWO_BOARD_SIZES`,
+  the author, 2026-10-24). Board 10 is still a playtest board in 1.0
+  and printed only by name there (`PLAYTEST_BOARD_SIZES`); 2.0 prints
+  it.
+- **Only what differs is written.** The field board (and its halves) and
+  the zone boards carry the roles; the jumbotron and the team boards
+  name no role, are the same in both editions, and come from the 1.0
+  run. Every 1.0 board is byte-identical with the edition in (all
+  seventeen, SHA-256 checked).
+- **The field board marks each side's unique roles on their spaces**
+  (`draw_role_marks`, rules-2.0 4.3b): the Fullback on the last space
+  before its own goal, the Playmaker on its own kickoff space, the
+  Striker on the last space before the goal it attacks. Where they are
+  is `components.unique_role_space_index`, the function of the board's
+  shape that `MatchState.unique_role_space` now calls, so the printed
+  spaces are the ones the game plays. One end space holds home's
+  Fullback and the visitors' Striker; on board 9 both Playmakers share
+  the kickoff space (BOTH), and on board 10 each has its own. A mark is
+  the role token's face in ink, initials alone (`role_face(...,
+  named=False)` -- the name in a badge this size is about 3pt), the
+  role's name under it and whose it is under that, stacked up from the
+  bottom of the space so the kickoff mark keeps the middle. The header
+  says D12 BALL 2.0: the board still names no mode, but the roles'
+  spaces are the edition's.
+- **The zone board puts the roles on the card guides** (`draw_guide_role`):
+  each zone's top guide carries its unique role and the two under it the
+  standard role, because the first player in a zone takes the unique
+  role (rules-2.0 4.2). In the strip each guide shows rather than in a
+  line of their own, because the three cascaded cards already take the
+  cell's whole height -- a line under the zone's name would cut the
+  guides under a real card. A card laid in the zone covers its guide's
+  role, and the role token on the card says it from then on. The title
+  is ZONE BOARD 2.0.

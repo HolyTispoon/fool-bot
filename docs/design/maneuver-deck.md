@@ -277,7 +277,8 @@ role on one side and its standard role on the other, laid on the card holding it
 which prints none -- and the players
 on the field are standees, since a meeple can no longer be told apart by role (the author,
 2026-10-24) -- [printed-tokens.md](printed-tokens.md), "Role tokens", and
-[standees.md](standees.md).
+[standees.md](standees.md). The 2.0 field and zone boards show which role goes where, on boards 9
+and 10 -- [printed-boards.md](printed-boards.md), "The 2.0 boards".
 
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.

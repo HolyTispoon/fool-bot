@@ -256,8 +256,10 @@ def coin_face_name(coin: str, face: CoinFace | str) -> str:
 VALID_BOARD_SIZES = {7, 9, 10}
 
 #: The boards being playtested: offered in setup on both frontends, but
-#: never printed -- no field board, no kit sheet, no rulebook figure --
-#: until the author keeps one (2026-10-06).
+#: never printed for 1.0 -- no field board, no kit sheet, no rulebook
+#: figure -- until the author keeps one (2026-10-06). D12 Ball 2.0 is
+#: printed on boards 9 and 10 (the author, 2026-10-24;
+#: `boards.EDITION_TWO_BOARD_SIZES`).
 PLAYTEST_BOARD_SIZES = frozenset({10})
 
 #: The large boards: a game in a mode they are recommended for that is

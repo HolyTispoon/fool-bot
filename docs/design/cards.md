@@ -1240,6 +1240,7 @@ one subfolder per script, named as the kit names its own folders:
 | `d12ball/print/role-tokens/` | `render_role_tokens.py` |
 | `d12ball/print/standees/` | `render_standees.py` |
 | `d12ball/print/boards/` | `render_boards.py` |
+| `d12ball/print/boards-2.0/` | `render_boards.py --edition 2.0` |
 | `d12ball/print/rulebooks/` | `build_rulebooks.py` |
 | `d12ball/print/box/` | `render_box_art.py` |
 | `d12ball/print/print-and-play/` | `generate_print_and_play_kit.py` (and its `.zip` beside it) |
