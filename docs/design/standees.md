@@ -39,7 +39,10 @@ end to end, the fold at the top of the two portraits; it is cut out,
 folded, glued back to back and its foot (`FOOT_HEIGHT`) pushed into a
 1in (25 mm) slotted base. Two layers of paper are thinner than most
 bases' slots, which is why the page and the kit's README suggest a
-layer of thin card between the halves.
+layer of thin card between the halves. A team wants six bases, one for
+each player on the field, a substitute's standee going into the base of
+the player they replace; they are meant to be 3D printed, and there is
+no model for them yet (the author, 2026-10-24).
 
 - **The back is drawn upside down above the fold**, so the fold stands
   it up the right way. It is the front's picture again, **not its mirror
@@ -77,7 +80,8 @@ name band, with no gap under it, and prints at 330dpi or better.
   stays in front of it.
 - **The band is the team's colour** with the name in `high_contrast_ink`
   (black on Slime green, white on the rest), the same rule the card's
-  header follows, and the species' icon at its left in the same ink,
+  header follows, and the species' icon at its left in the same ink (kept on the
+  author's word, 2026-10-24),
   because a species ability is decided on the field (an Ooze's sharing a
   space, a Telekinetic's Mind Pull) and a coach looks for it there. The
   name is centred where it fits beside the icon and pushed right of it

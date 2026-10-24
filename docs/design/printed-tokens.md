@@ -175,11 +175,13 @@ players on the field are standees for the same reason
   Fullback over Defender, Playmaker over Midfielder, Striker over
   Winger, `FORMATION_ZONE_ROLES`' pairs -- so turning one over is the
   trade between a zone's two roles. The cost, put to the author with
-  the choice: a zone can show two unique roles by mistake. **So the two sides look
-  different, not only read different**: a unique role's face is filled
-  with the team's colour, its letters in `high_contrast_ink`, and a
-  standard role's is white inside a ring of that colour, its letters in
-  ink. Two filled tokens in a zone can be seen across the table.
+  the choice: a zone can show two unique roles by mistake.
+- **Every face is white inside a ring of the team's colour**, the
+  letters in ink, unique and standard alike (the author, 2026-10-24).
+  The first draft filled a unique role's face with the team's colour so
+  the two sides would look different and two unique roles in a zone
+  would show; the author had every token follow the standard roles'
+  DD/MF/WG look instead, so the words alone say which side is up.
 - **Nine a team**: as many of a zone's tokens as any formation puts
   players in that zone (`tokens_per_zone`, read off the ruleset's
   formations -- 3-2-1, 2-3-1 and 1-2-3 each put three in one zone), so a
@@ -188,15 +190,13 @@ players on the field are standees for the same reason
   `ROLE_INITIALS` gives the board, the card and the emoji, set at one
   size for all six, and the role's name under them at one size, because
   a coach new to 2.0 reads PLAYMAKER sooner than PM. The badge's colour
-  rule -- the colour on the edge, the letters in ink -- is the standard
-  face's; the unique face fills it, which the emoji could not afford at
-  22px and a 19 mm token can.
+  rule -- the colour on the edge, the letters in ink -- is every face's.
 - **Printed duplex like the condition tokens**, through the same
   `with_cut_line` (lifted out of `token_face` for this, the condition
   sheets byte-identical before and after): the front sheet the unique
   sides with the grey cut line, the back sheet the standard sides at the
-  mirrored position. One style, since a white or team-coloured face is
-  already paper's. Each colour team is a block, a zone a row from the
+  mirrored position. One style, since a white face is already
+  paper's. Each colour team is a block, a zone a row from the
   coach's own goal forward, with its name over it on the front alone --
   on the back it would print mirrored, and it is cut away anyway. The
   four teams take two thirds of a letter page; a table needs one team's

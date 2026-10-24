@@ -19,12 +19,10 @@ A face is the bot's role badge (`scripts/render_role_emoji.py`) drawn
 at the condition tokens' 19 mm and in their rounded square
 (`token_sheet.SQUARE_CORNER`, `RING`): the initials the board and the
 card use (`ROLE_INITIALS`), and the role's name under them, since a
-coach new to 2.0 reads "PLAYMAKER" sooner than "PM". **The two sides
-differ by more than the words**: a unique role's face is filled with
-the team's colour, its letters in `high_contrast_ink`, and a standard
-role's is white inside a ring of that colour, its letters in ink -- so
-which side is up reads across the table, and a zone showing two filled
-tokens is a mistake that can be seen.
+coach new to 2.0 reads "PLAYMAKER" sooner than "PM". **Every face is
+the badge's own recipe** -- white inside a ring of the team's colour,
+the letters in ink -- unique and standard alike (the author,
+2026-10-24): the words say which side is up.
 
 The sheets print like the condition tokens' (`token_sheet`): the front
 sheet every token's unique side with a grey cut line a millimetre
@@ -43,7 +41,7 @@ from PIL import Image, ImageColor, ImageDraw, ImageFont
 from .boards import PAPERS
 from .components import FORMATION_ZONE_ROLES, UNIQUE_ROLE_VALUES, BasicRuleset, PlayerRole
 from .game import COLOR_TEAMS, Team, team_display_name
-from .render import ROLE_INITIALS, TEAM_COLORS, high_contrast_ink
+from .render import ROLE_INITIALS, TEAM_COLORS
 from .token_sheet import (
     FONT_PATH,
     GAP_INCHES,
@@ -128,24 +126,21 @@ def centred_text(
 
 
 def role_face(role: PlayerRole, team: Team, width: int) -> Image.Image:
-    """One face `width` across: filled with the team's colour for a
-    unique role, white inside its ring for a standard one."""
+    """One face `width` across: white inside a ring of the team's
+    colour, the initials and the name in ink."""
     size = width * SUPERSAMPLE
     colour = ImageColor.getrgb(TEAM_COLORS[team])
-    unique = role.value in UNIQUE_ROLE_VALUES
-    ink = ImageColor.getrgb(high_contrast_ink(TEAM_COLORS[team])) if unique else INK
 
     face = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     pen = ImageDraw.Draw(face)
     corner = size * SQUARE_CORNER
     ring = size * RING
     pen.rounded_rectangle((0, 0, size - 1, size - 1), radius=corner, fill=colour)
-    if not unique:
-        pen.rounded_rectangle(
-            (ring, ring, size - 1 - ring, size - 1 - ring),
-            radius=corner - ring,
-            fill=WHITE,
-        )
+    pen.rounded_rectangle(
+        (ring, ring, size - 1 - ring, size - 1 - ring),
+        radius=corner - ring,
+        fill=WHITE,
+    )
 
     initials_font = fitted_font(
         list(ROLE_INITIALS.values()), size * INITIALS_HEIGHT, size * INITIALS_WIDTH
@@ -153,8 +148,8 @@ def role_face(role: PlayerRole, team: Team, width: int) -> Image.Image:
     name_font = fitted_font(
         [member.value.upper() for member in PlayerRole], size * NAME_HEIGHT, size * NAME_WIDTH
     )
-    centred_text(pen, ROLE_INITIALS[role.value], initials_font, (size / 2, size * INITIALS_CENTRE), ink)
-    centred_text(pen, role.value.upper(), name_font, (size / 2, size * NAME_CENTRE), ink)
+    centred_text(pen, ROLE_INITIALS[role.value], initials_font, (size / 2, size * INITIALS_CENTRE), INK)
+    centred_text(pen, role.value.upper(), name_font, (size / 2, size * NAME_CENTRE), INK)
     return face.resize((width, width), Image.Resampling.LANCZOS)
 
 
