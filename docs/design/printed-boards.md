@@ -588,6 +588,19 @@ zones went to each coach's own side of the table.
   enforces it; a coach may stack more.
 - **The team board's reminder points at it**: "A card's zone is assigned on
   the zone board beside this one."
+- **Each space's number is large and faint, twice** (`draw_space_numbers`;
+  the author, 2026-10-24, could not see the small grey number that sat in
+  each space's corner). The way the bot's own board draws it
+  (`render.draw_space_number`): every number on a board one size, fitted
+  to the widest, in a faint ink a fifth of the way from the zone's tint to
+  ink. Once upright in the lower half for home, who sits along the bottom
+  edge, and once turned 180 degrees in the upper half for the visitors, so
+  each coach reads it from their seat -- placed apart rather than
+  mirrored (`SPACE_NUMBER_CENTRES`) because the zone names' band takes the
+  strip's top: home's between the kickoff mark's caption and home's 2.0
+  role marks, the visitors' between theirs and the kickoff mark. Both
+  editions' boards carry it; the box art draws its own strip and is
+  byte-identical.
 - **The field header stacks rather than sitting side by side.**
   `draw_field_header`'s title on the left and its note on the right used to
   overlap in the middle on the portrait sheet; both are stacked in one

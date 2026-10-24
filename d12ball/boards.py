@@ -55,7 +55,7 @@ order.
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from d12ball.cards import (
     INK,
@@ -927,7 +927,6 @@ def draw_field_strip(
     # space codes -- the same band the bot's board leaves above its
     # spaces, for the same reason.
     band_bottom = geometry.strip_label_bottom
-    code_face = sheet.font(15, bold=True)
     labels = zone_labels(layout.board_size)
 
     index = 0
@@ -948,12 +947,6 @@ def draw_field_strip(
                 outline=INK,
                 width=sheet.u(1.4),
             )
-            sheet.text(
-                (space_left + sheet.u(12), band_bottom + sheet.u(10)),
-                space_code(zone, space_index, layout),
-                code_face,
-                MUTED,
-            )
 
         sheet.rect(
             (zone_left, top, zone_right, band_bottom),
@@ -971,7 +964,66 @@ def draw_field_strip(
         )
         index += spaces
 
+    draw_space_numbers(sheet, geometry, layout)
     draw_kickoff_marks(sheet, geometry, layout)
+
+
+# The space numbers: each space's number drawn large in a faint ink --
+# `SPACE_NUMBER_INK` of the way from the zone's tint to ink -- fitted to
+# this share of a space's width, and centred this far down the strip:
+# home's below the kickoff mark's caption and above home's role marks,
+# the visitors' under their role marks and above the kickoff mark. Not
+# mirror images, because the zone names' band takes the strip's top.
+SPACE_NUMBER_INK = 0.2
+SPACE_NUMBER_SHARE = 0.62
+SPACE_NUMBER_MAX = 130
+SPACE_NUMBER_CENTRES = {"home": 0.71, "visiting": 0.33}
+
+
+def draw_space_numbers(
+    sheet: Sheet,
+    geometry: FieldGeometry,
+    layout: BoardLayout,
+) -> None:
+    """
+    **Each space's number, large and faint, twice** (the author,
+    2026-10-24: the small number in a space's corner went unseen) --
+    the bot's board draws it the same way, large and faint in the
+    space (`render.draw_space_number`). Once upright in the lower half
+    for home, who sits along the bottom edge, and once turned 180
+    degrees in the upper half for the visitors, so each coach reads
+    the number from their own seat; both in the open ground between
+    the kickoff mark in the middle and the 2.0 role marks at the ends.
+    Every number on a board is one size, fitted to the widest
+    (`render.widest_space_name`'s reading, "−4" on board 9).
+    """
+    names = [
+        (zone, index, space_code(zone, index, layout))
+        for zone in Zone
+        for index in range(layout.zone_spaces[zone])
+    ]
+    widest = max((name for _, _, name in names), key=len)
+    face = sheet.fitted_font(
+        widest, geometry.space_width * SPACE_NUMBER_SHARE, SPACE_NUMBER_MAX, bold=True
+    )
+    height = geometry.strip_bottom - geometry.strip_top
+    tile_height = round(height * 0.2)
+    ink = ImageColor.getrgb(INK)
+    for flat, (zone, _, name) in enumerate(names):
+        left, right = geometry.space_bounds(flat)
+        tint = ImageColor.getrgb(ZONE_TINTS[zone])
+        colour = tuple(
+            round(t + (i - t) * SPACE_NUMBER_INK) for t, i in zip(tint, ink)
+        )
+        tile = Image.new("RGBA", (round(right - left), tile_height), (0, 0, 0, 0))
+        ImageDraw.Draw(tile).text(
+            (tile.width / 2, tile_height / 2), name, font=face, fill=colour, anchor="mm"
+        )
+        for side in TeamSide:
+            image = tile if side == TeamSide.HOME else tile.rotate(180)
+            centre = SPACE_NUMBER_CENTRES[side.value]
+            y = geometry.strip_top + height * centre - tile_height / 2
+            sheet.image.paste(image, (round(left), round(y)), image)
 
 
 def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
