@@ -400,6 +400,10 @@ class SpaceOptions:
     space_indices: tuple[int, ...]
     zone: Optional[Zone] = None
     distances: tuple[int, ...] = ()
+    #: A 2.0 restart's run back, which costs nothing
+    #: (`RulesEngine.run_back_is_free`): the distances are then not a
+    #: price, and a button says none.
+    free: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -407,6 +411,7 @@ class SpaceOptions:
             "space_indices": list(self.space_indices),
             "zone": None if self.zone is None else Zone(self.zone).value,
             "distances": list(self.distances),
+            "free": self.free,
         }
 
 
@@ -2099,6 +2104,13 @@ def _pending(
                 PromptKind.COACHING_HUB,
                 "Coaching Choice, on the time out:",
             )
+        # A 2.0 time out runs everybody back before either window
+        # opens (docs/rules-2.0.md 4.9), and `finish_run_back` opens
+        # the first of them.
+        if match.pending_replace is not None:
+            return run_back_prompt(engine, game, match) or FollowOn(
+                FollowOnStep.CONTINUE_RUN_BACK,
+            )
         return FollowOn(FollowOnStep.FINISH_TIME_OUT)
 
     if match.pending_coaching_side is not None:
@@ -2742,6 +2754,7 @@ def _run_back_space_options(
             match.run_back_distance(prompt.player_id, zone, space_index)
             for space_index in spaces
         ),
+        free=engine.run_back_is_free(match, prompt.player_id),
     )
 
 

@@ -181,8 +181,30 @@ game -- neither the six abilities of Law 2.6.2 nor the role lines on the advance
 advanced mode. Where Law 21.1.2 plays it beside the player's role ability, in 2.0 there is no
 role ability to play it beside.
 
+**4.9** **A restart is a run back.** There is no arrangement to reset to: after a new play (Law
+12.5), at a time out (Law 13.1.2) and at halftime, players run back as after a steal, with two
+differences.
+
+- **a.** **Everybody runs back, on both sides**, whether or not they are already in their own
+  zone, and nobody stays for holding the ball -- it is dead. Each player in a unique role goes
+  straight to their role's space (4.3b), and each other player to an open space of their own
+  zone -- one no teammate has already been placed on -- their coach choosing which, home's
+  coach first. Since no zone holds more players than it has spaces, there is always one.
+- **b.** **It costs nothing** (5.4a).
+- **c.** **The Coaching Choice comes after the run back**: a new play's and a time out's open on
+  the side as it then stands, and at halftime the rest of halftime -- the extra token, then each
+  side's Coaching Choice -- follows it. Nobody is put back where a Coaching Choice left them.
+- **d.** **After a steal (Law 12.4)** who runs back is unchanged -- everyone outside their own
+  zone, and one of any stack while their zone has an open space, but never the player holding
+  the ball -- and it still costs a token a space. A player in a unique role who runs back goes
+  to their role's space, and nobody else is sent onto one.
+
+So a new play and a steal are one run back: a steal leaves the ball's holder where they are,
+moves only those out of place and charges them, and a restart moves everybody for nothing.
+
 *Note.* For now a role carries no ability in 2.0: it decides which zone a player is in, where
-the three unique roles stand, who may be moved in a Coaching Choice, and who takes the kickoff.
+the three unique roles stand, who may be moved in a Coaching Choice, who takes the kickoff, and
+where a player runs back to.
 
 ## 5. Ties, the coin and moving
 
@@ -215,7 +237,8 @@ Intercept carries off with the ball (6.9.2, 19.9.2), and the challenger and part
 Double Team moves forward (19.10.6), as well as every move the Charter already charges a space
 -- a player sent to the ball (9.4) and a player running back after a steal (12.4.3).
 
-- **a.** **Two kinds of move are free**: the reset after a new play (Law 12.5), and every move a
+- **a.** **Two kinds of move are free**: the run back after a new play, at a time out and at
+  halftime (4.9), and every move a
   Coaching Choice makes -- space positioning, a zone assignment, a formation change, a
   substitution and stepping off a unique role's space (Law 14; section 4).
 - **b.** **An ability or a card that prices its own move keeps that price**: Emberdash's Burst

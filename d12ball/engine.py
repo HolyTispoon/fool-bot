@@ -4289,6 +4289,10 @@ class RulesEngine:
         begin_run_back). Each of them has to come back, so the only
         question left is which space.
         """
+        # A 2.0 restart places every one of its players again, whether
+        # or not they are out of their zone (docs/rules-2.0.md 4.9).
+        if match.pending_replace is not None:
+            return match.run_back_placing(side)
         stays_player_id = match.pending_run_back_stays_player_id
         return [
             player_id
@@ -4439,11 +4443,27 @@ class RulesEngine:
             for side in (TeamSide.HOME, TeamSide.VISITING):
                 setup = match.setup_for_side(side)
                 exempt_ids = self.spread_exempt_ids(game, match, side)
+                # A 2.0 restart's players are each their coach's to
+                # place wherever their zone has more than one open
+                # space -- who stands where is the whole of the choice
+                # (docs/rules-2.0.md 4.9) -- so only a zone with one
+                # player left and one space for them is settled here.
+                placing = match.pending_replace is not None
                 by_zone: dict[Zone, list[str]] = {}
                 for player_id in self.run_back_displaced(match, side):
-                    by_zone.setdefault(
-                        setup.assigned_zone(player_id), [],
-                    ).append(player_id)
+                    zone = setup.assigned_zone(player_id)
+                    # A 2.0 unique role has one space to go to: their own.
+                    if match.holds_unique_role(side, player_id):
+                        (space_index,) = match.placement_spaces_in_zone(
+                            side, zone, player_id, exempt_ids,
+                        )
+                        self.run_back_forced(
+                            game, match, player_id, zone, space_index,
+                            exempt_ids,
+                        )
+                        applied_forced = True
+                        continue
+                    by_zone.setdefault(zone, []).append(player_id)
 
                 settled: dict[Zone, list[str]] = {}
                 for player_id in self.run_back_crowded(game, match, side):
@@ -4455,30 +4475,86 @@ class RulesEngine:
                     players = list(by_zone.get(zone, []))
                     from_stack = settled.get(zone, [])
                     if len(from_stack) == 1:
+                        # A 2.0 unique role sent out of a stack goes to
+                        # their own space, like any unique role.
+                        (spared,) = from_stack
+                        if match.holds_unique_role(side, spared):
+                            (space_index,) = match.placement_spaces_in_zone(
+                                side, zone, spared, exempt_ids,
+                            )
+                            self.run_back_forced(
+                                game, match, spared, zone, space_index,
+                                exempt_ids,
+                            )
+                            applied_forced = True
+                            continue
                         players += from_stack
                     if not players:
                         continue
 
-                    open_spaces = match.open_spaces_in_zone(
+                    open_spaces = match.run_back_open_spaces(
                         side, zone, exempt_ids,
                     )
                     if len(open_spaces) != len(players):
                         continue
+                    if placing and len(players) > 1:
+                        continue
                     for player_id, space_index in zip(players, open_spaces):
-                        distance = match.run_back_player(
-                            player_id, zone, space_index, exempt_ids,
+                        self.run_back_forced(
+                            game, match, player_id, zone, space_index,
+                            exempt_ids,
                         )
-                        match.add_exhaustion(
-                            player_id,
-                            self.run_back_cost(game, player_id, distance),
-                        )
-                        # A forced run back is applied silently, so
-                        # there is no message here to carry the
-                        # threshold test the way apply_exhaustion's
-                        # does -- but the flag still has to be set
-                        # before the caller's save.
-                        self.retest_exhausted(game, match, player_id)
                     applied_forced = True
+
+    def run_back_forced(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        zone: Zone,
+        space_index: int,
+        exempt_ids: Collection[str],
+    ) -> None:
+        """One placement the run back makes without asking, charged
+        what it costs unless it is free (`run_back_is_free`)."""
+        free = self.run_back_is_free(match, player_id)
+        distance = match.run_back_player(
+            player_id, zone, space_index, exempt_ids,
+        )
+        if not free:
+            match.add_exhaustion(
+                player_id, self.run_back_cost(game, player_id, distance),
+            )
+        # A forced run back is applied silently, so there is no message
+        # here to carry the threshold test the way apply_exhaustion's
+        # does -- but the flag still has to be set before the caller's
+        # save.
+        self.retest_exhausted(game, match, player_id)
+
+    @staticmethod
+    def restarts_by_run_back(match: MatchState) -> bool:
+        """
+        **Whether a restart runs everybody back rather than resetting
+        them** (docs/rules-2.0.md 4.9, the author, 2026-10-24): a 2.0
+        match, whose roles are the formation's, places every player
+        again in their own zone at a new play, a time out and halftime
+        -- the unique roles on their spaces, everyone else where their
+        coach puts them -- and keeps no saved arrangement to snap back
+        to. A 1.0 match resets to its arrangement, as it always has; so
+        does a 2.0 match saved before its roles were the formation's.
+        """
+        return bool(match.formation_roles)
+
+    @staticmethod
+    def run_back_is_free(match: MatchState, player_id: str) -> bool:
+        """
+        Whether running `player_id` back costs nothing: a 2.0 restart's
+        run back -- a new play, a time out, halftime -- is free, as the
+        1.0 reset it replaces is (docs/rules-2.0.md 4.9, 5.4a). A steal's
+        run back is charged a token a space, in both editions. Asked
+        before the move, since the move takes them off the list.
+        """
+        return player_id in match.run_back_placing()
 
     def next_run_back_step(
         self,
@@ -5055,8 +5131,13 @@ class RulesEngine:
         )
         if not spaces:
             return "No space in their zone."
+        # A free run back has no price to quote: a move that costs
+        # nothing says nothing.
+        free = self.run_back_is_free(match, player_id)
         options = [
-            travel_space_phrase(
+            space_label(zone, index, match.board)
+            if free
+            else travel_space_phrase(
                 zone, index, match.run_back_distance(player_id, zone, index),
                 match.board,
             )

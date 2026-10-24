@@ -44,8 +44,14 @@ import logging
 from dataclasses import replace
 from typing import Iterator, Optional
 
-from d12ball.components import MatchState, RuleRefusal, TeamSide, Zone
-from d12ball.engine import RulesEngine
+from d12ball.components import (
+    CoachingOccasion,
+    MatchState,
+    RuleRefusal,
+    TeamSide,
+    Zone,
+)
+from d12ball.engine import HALFTIME_STAGES, RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
     address_coach,
@@ -227,6 +233,18 @@ def begin_run_back(
     #
     # A steal does none of this: the ball is still live, so the coaches
     # get no pause and the ordinary run back stands.
+    # **D12 Ball 2.0: a new play is a run back too** (docs/rules-2.0.md
+    # 4.9, the author, 2026-10-24) -- everybody back to their own zone,
+    # the unique roles to their spaces and the rest where their coach
+    # puts them, for nothing -- and the Coaching Choice comes after it,
+    # on the side as it then stands (`finish_run_back`).
+    if new_play and engine.restarts_by_run_back(match):
+        end_the_play(match)
+        return start_restart_run_back(
+            engine, game, match, "window", match.ball.possession,
+            heading="# New play", lead_in=lead_in,
+        )
+
     if new_play:
         # The reset is its own message -- it is the one the board is
         # pinned to -- so it does not carry the run-back note that
@@ -256,6 +274,74 @@ def begin_run_back(
         next=FollowOn(
             FollowOnStep.ANNOUNCE_RUN_BACK, {"speed_reset": speed_reset},
         ),
+    )
+
+
+def end_the_play(match: MatchState) -> None:
+    """
+    What every new play ends, whether it resets or runs back: nobody is
+    carrying the dead ball -- whoever ends up on it chooses -- and a
+    Double Team is over, which the card says outright ("so long as
+    it's not a new play"). Cleared here rather than in
+    `reset_maneuver`, which runs at the end of every turn, including
+    the turn that set it.
+    """
+    match.clear_ball_carrier()
+    match.pending_double_team = []
+
+
+def start_restart_run_back(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    then: str,
+    side: Optional[TeamSide] = None,
+    heading: str = "",
+    lead_in: str = "",
+) -> StepResult:
+    """
+    **A 2.0 restart's run back** (docs/rules-2.0.md 4.9): the three
+    unique roles of each side go straight to their spaces, and every
+    other fielded player is listed for their coach to place on an open
+    space of their zone -- `MatchState.begin_restart_run_back`. Free,
+    so no charge-up is armed and nobody is exempt. The cascade then
+    asks each coach in turn (`CONTINUE_RUN_BACK`), and `finish_run_back`
+    hands on to `then` -- a new play's window, a time out's windows,
+    or the halftime sequence.
+
+    Sets the run back's own flags where the caller has not: a new play
+    arrives through `begin_run_back`, which already has, and a time out
+    and halftime are not a maneuver's run back at all.
+    """
+    if not match.pending_run_back:
+        match.pending_run_back = True
+        match.pending_run_back_distance = 0
+        match.pending_run_back_turnover = False
+        match.pending_run_back_speed_choice = False
+    match.pending_run_back_stays_player_id = None
+    match.pending_run_back_charge_up = False
+    match.run_back_moved = []
+    match.run_back_pick = None
+    moved = match.begin_restart_run_back(then, side)
+    lines = [
+        f"{engine.format_player_label(match, engine.get_player_definition(player_id))} "
+        f"to {space_label(zone, space_index, match.board)}"
+        for player_id, zone, space_index in moved
+    ]
+    body = (
+        "Every player runs back to their own zone, free of exhaustion: "
+        "the Fullback, the Playmaker and the Striker to their own "
+        "spaces, and everyone else to an open space of their zone, "
+        "where their coach chooses."
+    )
+    if lines:
+        body += "\n" + "\n".join(lines)
+    prefix = f"{lead_in}\n\n" if lead_in else ""
+    head = f"{heading}\n" if heading else ""
+    return StepResult(
+        narration=[f"{prefix}{head}{body}"],
+        board_changed=True,
+        next=FollowOn(FollowOnStep.CONTINUE_RUN_BACK),
     )
 
 
@@ -356,15 +442,9 @@ def announce_new_play_reset(
     is the only pinning site in the game); what this says is that the
     play is starting again.
     """
-    # The ball went dead and is being brought back into play, so nobody
-    # is carrying it -- whoever ends up on it chooses.
-    match.clear_ball_carrier()
-    # **A new play is the one thing that ends a Double Team**, and the
-    # card says so outright: "so long as it's not a new play, on their
-    # next maneuver, both defending players challenge". Cleared here
-    # rather than in `reset_maneuver`, which runs at the end of every
-    # turn -- including the turn that set it.
-    match.pending_double_team = []
+    # The ball went dead and is being brought back into play, and a
+    # new play is the one thing that ends a Double Team.
+    end_the_play(match)
     moved: list[str] = []
     for side in (TeamSide.HOME, TeamSide.VISITING):
         for player_id, zone, space_index in (
@@ -497,7 +577,10 @@ def run_back_passes(
             )
             return
 
-        if match.pending_kickoff_fill:
+        # A 2.0 new play's restart is settled after its Coaching Choice,
+        # as a 1.0 one is after the reset's: the window can change who
+        # the Playmaker is.
+        if match.pending_kickoff_fill and match.pending_replace is None:
             keep_going, note = run_back_kickoff_fill(engine, game, match)
             yield StepResult(narration=[note] if note else [])
             if keep_going:
@@ -756,7 +839,51 @@ def finish_run_back(
     """
     Nobody is displaced on either side: clear the run back and hand the
     turn on to whatever it was still holding up.
+
+    **A 2.0 restart's run back hands on to what it was started for**
+    (`pending_replace["then"]`): a new play's Coaching Choice, with the
+    run back left pending so the restart's own tail -- the kickoff, a
+    pickup -- runs once the window closes, as it does after a 1.0
+    reset; or, for a time out and halftime, which are no maneuver's run
+    back, the windows they owe, with the run back cleared.
     """
+    restart = match.pending_replace
+    if restart is not None:
+        match.pending_replace = None
+        narration = [lead_in] if lead_in else []
+        then = restart.get("then")
+        side = restart.get("side")
+        if then == "window":
+            # The board the new play starts from, which the frontend
+            # pins (`new_play`), now that everybody is on it.
+            return StepResult(
+                narration=narration,
+                board_changed=True,
+                new_play=True,
+                next=FollowOn(
+                    FollowOnStep.BEGIN_SUBSTITUTION_WINDOW, {"side": side},
+                ),
+            )
+        match.pending_run_back = False
+        match.pending_run_back_speed_choice = False
+        match.run_back_moved = []
+        if then == "halftime":
+            from d12ball.flow.periods import advance_halftime_stage
+
+            match.pending_halftime_stage = HALFTIME_STAGES[0]
+            result = advance_halftime_stage(engine, game, match)
+            result.narration[:0] = narration
+            result.board_changed = True
+            return result
+        return StepResult(
+            narration=narration,
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
+                {"side": side, "occasion": CoachingOccasion.TIME_OUT},
+            ),
+        )
+
     match.pending_run_back = False
     match.run_back_pick = None
     match.pending_fly = None
@@ -975,6 +1102,7 @@ def run_back_space_step(
         else TeamSide.VISITING
     )
     zone = match.setup_for_side(side).assigned_zone(player_id)
+    free = engine.run_back_is_free(match, player_id)
     distance = match.run_back_player(
         player_id,
         zone,
@@ -983,18 +1111,23 @@ def run_back_space_step(
     )
     # The pick is spent by the move it narrowed the question to.
     match.run_back_pick = None
-    exhaustion_text = engine.apply_exhaustion(
-        game,
-        match,
-        player_id,
-        engine.run_back_cost(game, player_id, distance),
+    exhaustion_text = (
+        ""
+        if free
+        else engine.apply_exhaustion(
+            game,
+            match,
+            player_id,
+            engine.run_back_cost(game, player_id, distance),
+        )
     )
     player = engine.get_player_definition(player_id)
     return StepResult(
         narration=[
             f"{engine.format_player_label(match, player)} "
-            f"runs back to {space_label(zone, space_index, match.board)}."
-            f"\n{exhaustion_text}",
+            f"{'goes to' if free else 'runs back to'} "
+            f"{space_label(zone, space_index, match.board)}."
+            + (f"\n{exhaustion_text}" if exhaustion_text else ""),
         ],
         board_changed=True,
         next=FollowOn(FollowOnStep.CONTINUE_RUN_BACK),
