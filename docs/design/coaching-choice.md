@@ -182,9 +182,9 @@ with a minute rather than handed out by the play.
     opening shape is recorded at all: a coach who changes shape and changes back
     did nothing.
 - **A 1.0 window opens on the arrangement its coach last settled**; a 2.0 one opens on the side
-  as it stands, since its restart has just run everybody back and there is no arrangement kept
-  (rules-2.0 4.9; "2.0: a restart is a run back" in
-  [possession-and-turnovers.md](possession-and-turnovers.md)). In 1.0 it is restored by
+  as it stands -- run back at a new play, left where it was at a time out and halftime, for the
+  coach to place -- since there is no arrangement kept (rules-2.0 4.9; "2.0: a new play is a run
+  back" in [possession-and-turnovers.md](possession-and-turnovers.md)). In 1.0 it is restored by
   `begin_substitution_window` before anything else -- never on the scramble a
   run back left. A new play resets both sides before offering the window and
   setup runs on a fresh deal, so this only ever moves anybody at halftime, and

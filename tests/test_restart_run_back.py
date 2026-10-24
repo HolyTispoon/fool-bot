@@ -1,12 +1,13 @@
 """
-D12 Ball 2.0's restarts run everybody back (docs/rules-2.0.md 4.9, the
-author, 2026-10-24): a new play, a time out and halftime send every
-fielded player back to their own zone -- the Fullback, the Playmaker
-and the Striker to their own spaces, everyone else to an open space of
-their zone, their coach choosing -- for nothing, and the Coaching
-Choice comes after, on the side as it then stands. A steal's run back
-sends a unique role to their own space too. See "Turnovers: steals and
-new plays" in docs/design/possession-and-turnovers.md.
+D12 Ball 2.0's new play runs everybody back (docs/rules-2.0.md 4.9, the
+author, 2026-10-24): every fielded player goes back to their own zone --
+the Fullback, the Playmaker and the Striker to their own spaces,
+everyone else to an open space of their zone, their coach choosing --
+for nothing, and the Coaching Choice comes after, on the side as it then
+stands. A time out and halftime move nobody: their Coaching Choices open
+on the side as it stands, for the coaches to place. A steal's run back
+is the Charter's, unique roles and all. See "2.0: a restart is a run
+back" in docs/design/possession-and-turnovers.md.
 """
 
 from __future__ import annotations
@@ -20,9 +21,9 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
-from d12ball.flow import driver, periods, turnovers, windows
+from d12ball.flow import driver, turnovers, windows
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.game import Edition, GameMode
+from d12ball.game import AIOpponent, Edition, GameMode
 from d12ball.prompts import PromptKind, pending_prompt
 
 from roster import fielded
@@ -206,74 +207,157 @@ class DiscordButtonTests(unittest.TestCase):
 
 
 class StealTests(unittest.TestCase):
-    """A steal still charges and still leaves alone whoever is home."""
+    """A steal's run back is the Charter's: everybody out of their zone,
+    a unique role included, to an open space of it, a token a space."""
 
-    def test_a_unique_role_runs_back_to_their_own_space(self) -> None:
+    def test_a_unique_role_runs_back_to_any_open_space(self) -> None:
         engine, game, match = kickoff(Edition.TWO, 9)
         # No species abilities, so nobody is offered a Fly first.
         game.mode = GameMode.TRAINING
         striker = fielded(match, PlayerRole.STRIKER)
         match.board.place_meeple(striker, Zone.MIDFIELD, 0)
+        self.assertEqual(
+            match.placement_spaces_in_zone(
+                HOME, Zone.VISITORS_ZONE, striker,
+            ),
+            match.open_spaces_in_zone(HOME, Zone.VISITORS_ZONE),
+        )
         before = match.exhaustion.get(striker, 0)
         result = turnovers.begin_run_back(engine, game, match)
         run(engine, game, match, result)
-        self.assertEqual(
-            space_of(match, striker), (Zone.VISITORS_ZONE, 2),
-        )
+        self.assertEqual(space_of(match, striker)[0], Zone.VISITORS_ZONE)
         self.assertGreater(match.exhaustion.get(striker, 0), before)
+        self.assertIsNone(match.pending_replace)
 
-    def test_a_standard_role_is_never_sent_onto_a_unique_space(self) -> None:
+    def test_a_steal_reserves_no_space(self) -> None:
         engine, game, match = kickoff(Edition.TWO, 9)
         defender = fielded(match, PlayerRole.DEFENDER)
         fullback = fielded(match, PlayerRole.FULLBACK)
         match.board.place_meeple(fullback, Zone.HOME_ZONE, 1)
         match.board.place_meeple(defender, Zone.MIDFIELD, 0)
-        spaces = match.placement_spaces_in_zone(
-            HOME, Zone.HOME_ZONE, defender,
+        self.assertIn(
+            0, match.placement_spaces_in_zone(HOME, Zone.HOME_ZONE, defender),
         )
-        self.assertNotIn(0, spaces)
+
+
+class CoachingChoicePlacementTests(unittest.TestCase):
+    """A 2.0 Coaching Choice is where a coach places a side nothing
+    has run back: a unique role off their space goes back to it, and a
+    player outside their zone to an empty space of it."""
+
+    def test_a_unique_role_goes_back_to_their_own_space(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        fullback = fielded(match, PlayerRole.FULLBACK)
+        defender = fielded(match, PlayerRole.DEFENDER)
+        # A steal's run back left the Fullback on the Defender's space,
+        # and the Defender on the Fullback's.
+        match.board.place_meeple(fullback, Zone.HOME_ZONE, 2)
+        match.board.place_meeple(defender, Zone.HOME_ZONE, 0)
+        self.assertEqual(
+            match.positioning_targets(HOME, fullback), [(0, (defender,))],
+        )
+        self.assertEqual(
+            match.position_meeple(HOME, fullback, 0), defender,
+        )
+        self.assertEqual(space_of(match, fullback), (Zone.HOME_ZONE, 0))
+        self.assertEqual(space_of(match, defender), (Zone.HOME_ZONE, 2))
+        self.assertEqual(match.positioning_targets(HOME, fullback), [])
+
+    def test_one_outside_their_zone_goes_to_an_empty_space(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        defender = fielded(match, PlayerRole.DEFENDER)
+        match.board.place_meeple(defender, Zone.MIDFIELD, 0)
+        targets = match.positioning_targets(HOME, defender)
+        self.assertTrue(targets)
+        self.assertTrue(all(trade == () for _, trade in targets))
 
 
 class TimeOutTests(unittest.TestCase):
-    """A 2.0 time out runs everybody back, then both windows."""
+    """A 2.0 time out moves nobody: both windows open on the side as it
+    stands, and nothing resets after them."""
 
-    def test_the_run_back_comes_before_the_windows(self) -> None:
+    def test_the_windows_open_on_the_side_as_it_stands(self) -> None:
         engine, game, match = kickoff(Edition.TWO, 9)
         driver.advance(
             engine, game, match,
             StepResult(next=FollowOn(FollowOnStep.FINISH_SETUP_COACHING)),
         )
         scramble(match)
-        result = windows.begin_time_out(engine, game, match)
-        self.assertIsNotNone(match.pending_replace)
-        run(engine, game, match, result)
-        placed_in_own_zone(self, engine, match)
+        standing = {
+            card: space_of(match, card)
+            for side in (HOME, VISITING)
+            for card in match.setup_for_side(side).field_players
+        }
+        driver.advance(
+            engine, game, match, windows.begin_time_out(engine, game, match),
+        )
+        self.assertIsNone(match.pending_replace)
         prompt = pending_prompt(engine, game, match)
         self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
+        self.assertEqual(match.coaching_occasion, CoachingOccasion.TIME_OUT)
         self.assertEqual(
-            match.coaching_occasion, CoachingOccasion.TIME_OUT,
+            {card: space_of(match, card) for card in standing}, standing,
         )
+        # Each coach covers their kickoff space -- the one thing a
+        # window holds them to -- as Dinky does, and closing a window
+        # puts nobody back anywhere.
+        dinky = engine.ai_strategies[AIOpponent.DINKY]
+        closed = 0
+        for _ in range(20):
+            prompt = pending_prompt(engine, game, match)
+            if prompt.kind is not PromptKind.COACHING_HUB:
+                break
+            action = dinky.choose(prompt, game, match, prompt.side)
+            before = {card: space_of(match, card) for card in standing}
+            outcome = driver.apply(engine, game, match, action)
+            self.assertNotIsInstance(outcome, driver.Refusal, outcome)
+            while isinstance(outcome.result.next, FollowOn):
+                outcome = driver.advance(
+                    engine, game, match, StepResult(next=outcome.result.next),
+                )
+            if action.choice == "done":
+                closed += 1
+                self.assertEqual(
+                    {card: space_of(match, card) for card in standing},
+                    before,
+                )
+        self.assertEqual(closed, 2)
 
 
 class HalftimeTests(unittest.TestCase):
-    """2.0's halftime runs everybody back, then its own sequence."""
+    """2.0's halftime moves nobody before its Coaching Choices."""
 
-    def test_the_run_back_comes_before_the_halftime_stages(self) -> None:
+    def test_the_halftime_windows_open_on_the_side_as_it_stands(self) -> None:
         engine, game, match = kickoff(Edition.TWO, 9)
         scramble(match)
-        result = periods.begin_halftime(engine, game, match)
-        self.assertIsNone(match.pending_halftime_stage)
-        self.assertIsNotNone(match.pending_replace)
-        run(engine, game, match, result)
-        placed_in_own_zone(self, engine, match)
-        self.assertIsNotNone(match.pending_halftime_stage)
-        self.assertFalse(match.pending_run_back)
+        standing = {
+            card: space_of(match, card) for card in match.home.field_players
+        }
+        windows.open_substitution_window(
+            engine, game, match, HOME, CoachingOccasion.HALFTIME,
+        )
+        self.assertEqual(
+            {card: space_of(match, card) for card in standing}, standing,
+        )
+
+    def test_one_point_oh_still_snaps_back_at_halftime(self) -> None:
+        engine, game, match = kickoff(Edition.ONE, 9)
+        dealt = {
+            card: space_of(match, card) for card in match.home.field_players
+        }
+        scramble(match)
+        windows.open_substitution_window(
+            engine, game, match, HOME, CoachingOccasion.HALFTIME,
+        )
+        self.assertEqual(
+            {card: space_of(match, card) for card in dealt}, dealt,
+        )
 
 
 class WholeGameTests(unittest.TestCase):
     """Whole 2.0 games with their roles dealt, through the driver with a
     reload after every click (`test_driver_full_game.play`): every new
-    play, time out and halftime runs back, in every mode."""
+    play runs back, in every mode."""
 
     def test_whole_games_finish_in_every_mode(self) -> None:
         from test_driver_full_game import play

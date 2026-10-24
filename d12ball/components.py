@@ -2284,16 +2284,14 @@ class MatchState:
     # space step that consumes it and by every reset that ends a run
     # back.
     run_back_pick: Optional[str] = None
-    # **D12 Ball 2.0's restart run back** (docs/rules-2.0.md 4.9, the
-    # author, 2026-10-24): a new play, a time out and halftime send
-    # every fielded player back to their own zone rather than snapping
-    # them onto a saved arrangement -- the three unique roles straight
-    # to their spaces, everyone else to an open space of their zone,
-    # their coach choosing, for nothing. `{"then": ..., "side": ...,
-    # "players": [...]}`: what the restart does once everybody is
-    # placed (`"window"` a new play's Coaching Choice for `side`,
-    # `"time_out"` the time out's windows from `side`, `"halftime"` the
-    # halftime sequence), and who is still to be placed, home's first.
+    # **D12 Ball 2.0's new play run back** (docs/rules-2.0.md 4.9, the
+    # author, 2026-10-24): a new play sends every fielded player back to
+    # their own zone rather than snapping them onto a saved arrangement
+    # -- the three unique roles straight to their spaces, everyone else
+    # to an open space of their zone, their coach choosing, for nothing.
+    # `{"then": ..., "side": ..., "players": [...]}`: what follows once
+    # everybody is placed (`"window"`, the new play's Coaching Choice for
+    # `side`), and who is still to be placed, home's first.
     # None in a 1.0 game and between restarts, and saved explicitly,
     # only while one is under way, so a 1.0 match is written exactly as
     # before (`MATCH_EXPLICIT_FIELDS`). Read by the run back's own
@@ -4661,13 +4659,7 @@ class MatchState:
         team_players = set(setup.field_players) - set(spread_exempt_ids)
         candidates: list[str] = []
         for zone in Zone:
-            if not [
-                index
-                for index in self.open_spaces_in_zone(
-                    side, zone, spread_exempt_ids,
-                )
-                if index not in self.reserved_spaces(side, zone)
-            ]:
+            if not self.open_spaces_in_zone(side, zone, spread_exempt_ids):
                 continue
             for occupants in self.board.spaces[zone]:
                 zone_native = [
@@ -4684,15 +4676,6 @@ class MatchState:
                     if player_id != stays_player_id
                     # Zenith flew, and does not run back (Law 21).
                     and player_id not in self.run_back_flown
-                    # A 2.0 unique role on their own space is where a
-                    # run back would send them.
-                    and not (
-                        self.holds_unique_role(side, player_id)
-                        and self.board.meeple_position(player_id)
-                        == (zone, self.unique_role_space(
-                            side, area_for_zone(side, zone),
-                        ))
-                    )
                 )
         return candidates
 
@@ -4752,12 +4735,16 @@ class MatchState:
         side = TeamSide(side)
         zone = Zone(zone)
         setup = self.setup_for_side(side)
-        # **2.0** (docs/rules-2.0.md 4.9): a Fullback, a Playmaker or a
-        # Striker runs back to their own space and nowhere else, and
-        # nobody else is ever sent onto one; and while a restart's run
-        # back is placing everybody, a teammate still to be placed
-        # covers nothing -- they are about to move.
-        if player_id is not None and self.holds_unique_role(side, player_id):
+        # **A 2.0 new play's run back** (docs/rules-2.0.md 4.9): a
+        # Fullback, a Playmaker or a Striker goes to their own space and
+        # nowhere else, nobody else is sent onto one, and a teammate
+        # still to be placed covers nothing -- they are about to move. A
+        # steal's run back is the Charter's, unique roles and all.
+        if (
+            player_id is not None
+            and player_id in self.run_back_placing()
+            and self.holds_unique_role(side, player_id)
+        ):
             return [self.unique_role_space(side, area_for_zone(side, zone))]
         reserved = self.reserved_spaces(side, zone)
         others = (
@@ -4808,18 +4795,19 @@ class MatchState:
 
     def reserved_spaces(self, side: TeamSide, zone: Zone) -> set[int]:
         """
-        The space of `zone` a 2.0 run back keeps for the zone's unique
-        role -- the Fullback's, the Playmaker's or the Striker's --
-        and sends nobody else to (docs/rules-2.0.md 4.9). None in 1.0.
+        The space of `zone` a 2.0 new play's run back keeps for the
+        zone's unique role -- the Fullback's, the Playmaker's or the
+        Striker's -- and sends nobody else to (docs/rules-2.0.md 4.9).
+        None outside one: a steal's run back reserves nothing.
         """
         side = TeamSide(side)
-        if side.value not in self.formation_roles:
+        if self.pending_replace is None or side.value not in self.formation_roles:
             return set()
         return {self.unique_role_space(side, area_for_zone(side, Zone(zone)))}
 
     def run_back_placing(self, side: Optional[TeamSide] = None) -> list[str]:
         """
-        Who a 2.0 restart's run back has still to place
+        Who a 2.0 new play's run back has still to place
         (`pending_replace`), on one side or both, in the order they are
         asked -- empty outside one.
         """
@@ -4835,7 +4823,7 @@ class MatchState:
         self, then: str, side: Optional[TeamSide] = None,
     ) -> list[tuple[str, Zone, int]]:
         """
-        **Start a 2.0 restart's run back** (docs/rules-2.0.md 4.9, the
+        **Start a 2.0 new play's run back** (docs/rules-2.0.md 4.9, the
         author, 2026-10-24): every fielded player of both sides is to be
         placed again in their own zone, for nothing. The three unique
         roles have nothing to choose and go straight to their spaces,
@@ -5493,7 +5481,8 @@ class MatchState:
         teammate on it (`position_meeple`'s trade rule decides).
 
         **In 2.0 the role decides** (docs/rules-2.0.md 4.6d): a unique
-        role goes nowhere; a standard role may go to an empty space or
+        role goes nowhere but their own space, from wherever a steal's run
+        back left them; a standard role may go to an empty space or
         trade with a teammate in a standard role, never onto a space a
         unique role holds. An Ooze bends that (4.6e), being Spreadable:
         one in a standard role may go anywhere in its zone and shares
@@ -5521,7 +5510,23 @@ class MatchState:
         if side.value not in self.formation_roles:
             return [(index, tuple(teammates(index))) for index in spaces]
         if self.holds_unique_role(side, player_id):
-            return []
+            # A unique role's one space is their own: one a steal's run
+            # back left elsewhere in their zone may go back to it, trading
+            # with whoever stands there, and nowhere else
+            # (docs/rules-2.0.md 4.6d).
+            # Where they stand out of their zone altogether -- a time out
+            # or halftime moves nobody -- a trade would send the teammate
+            # out of theirs, so they share instead, and the teammate is
+            # one who has to step off (`unique_space_sharers`).
+            own = self.unique_role_space(side, area_for_zone(side, zone))
+            if standing == (zone, own):
+                return []
+            if standing is None or standing[0] != zone:
+                return [(own, ())]
+            return [(own, tuple(
+                other for other in teammates(own)
+                if other not in set(spread_exempt_ids)
+            ))]
         exempt = set(spread_exempt_ids)
         if player_id in exempt:
             return [(index, ()) for index in spaces]
@@ -5529,6 +5534,11 @@ class MatchState:
         # empty one: a trade would only put the teammate there instead
         # (see `unique_space_sharers`).
         moving_off = player_id in self.unique_space_sharers(side, exempt)
+        # Somebody standing outside their zone altogether -- a 2.0 time
+        # out or halftime moves nobody -- goes to an empty space of it:
+        # a trade would send the teammate out of theirs. A zone never
+        # holds more players than spaces, so one is always empty.
+        outside = standing is None or standing[0] != zone
         unique_space = self.unique_role_space(side, area_for_zone(side, zone))
         holder = next(
             (
@@ -5551,7 +5561,7 @@ class MatchState:
                 if other not in exempt
                 and not self.holds_unique_role(side, other)
             )
-            if moving_off and trade:
+            if (moving_off or outside) and trade:
                 continue
             targets.append((index, trade))
         return targets
@@ -5594,6 +5604,11 @@ class MatchState:
             if holder is None or holder in exempt:
                 continue
             space = self.unique_role_space(side, area)
+            # Sharing is with the holder: one a steal's run back left
+            # elsewhere has nobody on their space to share it with, and
+            # going back to it trades with whoever stands there.
+            if self.board.meeple_position(holder) != (zone, space):
+                continue
             sharers.extend(
                 card for card in self.board.spaces[zone][space]
                 if card in team and card != holder and card not in exempt
@@ -5709,15 +5724,16 @@ class MatchState:
             raise RuleRefusal("They are already standing there.")
 
         if side.value in self.formation_roles:
-            if self.holds_unique_role(side, player_id):
-                raise RuleRefusal(
-                    "A Fullback, Playmaker or Striker holds their space; "
-                    "a zone assignment puts somebody else in the role."
-                )
             targets = dict(self.positioning_targets(
                 side, player_id, spread_exempt_ids,
             ))
             if space_index not in targets:
+                if self.holds_unique_role(side, player_id):
+                    raise RuleRefusal(
+                        "A Fullback, Playmaker or Striker stands on their "
+                        "own space and no other; a zone assignment puts "
+                        "somebody else in the role."
+                    )
                 raise RuleRefusal(
                     "A player in a standard role may not move onto a "
                     "Fullback's, Playmaker's or Striker's space."

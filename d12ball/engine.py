@@ -4451,19 +4451,9 @@ class RulesEngine:
                 placing = match.pending_replace is not None
                 by_zone: dict[Zone, list[str]] = {}
                 for player_id in self.run_back_displaced(match, side):
-                    zone = setup.assigned_zone(player_id)
-                    # A 2.0 unique role has one space to go to: their own.
-                    if match.holds_unique_role(side, player_id):
-                        (space_index,) = match.placement_spaces_in_zone(
-                            side, zone, player_id, exempt_ids,
-                        )
-                        self.run_back_forced(
-                            game, match, player_id, zone, space_index,
-                            exempt_ids,
-                        )
-                        applied_forced = True
-                        continue
-                    by_zone.setdefault(zone, []).append(player_id)
+                    by_zone.setdefault(
+                        setup.assigned_zone(player_id), [],
+                    ).append(player_id)
 
                 settled: dict[Zone, list[str]] = {}
                 for player_id in self.run_back_crowded(game, match, side):
@@ -4475,19 +4465,6 @@ class RulesEngine:
                     players = list(by_zone.get(zone, []))
                     from_stack = settled.get(zone, [])
                     if len(from_stack) == 1:
-                        # A 2.0 unique role sent out of a stack goes to
-                        # their own space, like any unique role.
-                        (spared,) = from_stack
-                        if match.holds_unique_role(side, spared):
-                            (space_index,) = match.placement_spaces_in_zone(
-                                side, zone, spared, exempt_ids,
-                            )
-                            self.run_back_forced(
-                                game, match, spared, zone, space_index,
-                                exempt_ids,
-                            )
-                            applied_forced = True
-                            continue
                         players += from_stack
                     if not players:
                         continue
@@ -4537,20 +4514,22 @@ class RulesEngine:
         **Whether a restart runs everybody back rather than resetting
         them** (docs/rules-2.0.md 4.9, the author, 2026-10-24): a 2.0
         match, whose roles are the formation's, places every player
-        again in their own zone at a new play, a time out and halftime
-        -- the unique roles on their spaces, everyone else where their
-        coach puts them -- and keeps no saved arrangement to snap back
-        to. A 1.0 match resets to its arrangement, as it always has; so
-        does a 2.0 match saved before its roles were the formation's.
+        again in their own zone at a new play -- the unique roles on
+        their spaces, everyone else where their coach puts them -- and
+        keeps no saved arrangement to snap back to, so a time out's and
+        halftime's Coaching Choices open on the side as it stands, for
+        the coaches to place. A 1.0 match resets to its arrangement, as
+        it always has; so does a 2.0 match saved before its roles were
+        the formation's.
         """
         return bool(match.formation_roles)
 
     @staticmethod
     def run_back_is_free(match: MatchState, player_id: str) -> bool:
         """
-        Whether running `player_id` back costs nothing: a 2.0 restart's
-        run back -- a new play, a time out, halftime -- is free, as the
-        1.0 reset it replaces is (docs/rules-2.0.md 4.9, 5.4a). A steal's
+        Whether running `player_id` back costs nothing: a 2.0 new play's
+        run back is free, as the 1.0 reset it replaces is
+        (docs/rules-2.0.md 4.9, 5.4a). A steal's
         run back is charged a token a space, in both editions. Asked
         before the move, since the move takes them off the list.
         """

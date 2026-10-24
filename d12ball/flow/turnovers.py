@@ -45,13 +45,12 @@ from dataclasses import replace
 from typing import Iterator, Optional
 
 from d12ball.components import (
-    CoachingOccasion,
     MatchState,
     RuleRefusal,
     TeamSide,
     Zone,
 )
-from d12ball.engine import HALFTIME_STAGES, RulesEngine
+from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
     address_coach,
@@ -240,10 +239,7 @@ def begin_run_back(
     # on the side as it then stands (`finish_run_back`).
     if new_play and engine.restarts_by_run_back(match):
         end_the_play(match)
-        return start_restart_run_back(
-            engine, game, match, "window", match.ball.possession,
-            heading="# New play", lead_in=lead_in,
-        )
+        return start_new_play_run_back(engine, game, match, lead_in=lead_in)
 
     if new_play:
         # The reset is its own message -- it is the one the board is
@@ -290,39 +286,26 @@ def end_the_play(match: MatchState) -> None:
     match.pending_double_team = []
 
 
-def start_restart_run_back(
+def start_new_play_run_back(
     engine: RulesEngine,
     game: D12BallGame,
     match: MatchState,
-    then: str,
-    side: Optional[TeamSide] = None,
-    heading: str = "",
     lead_in: str = "",
 ) -> StepResult:
     """
-    **A 2.0 restart's run back** (docs/rules-2.0.md 4.9): the three
+    **A 2.0 new play's run back** (docs/rules-2.0.md 4.9): the three
     unique roles of each side go straight to their spaces, and every
     other fielded player is listed for their coach to place on an open
     space of their zone -- `MatchState.begin_restart_run_back`. Free,
     so no charge-up is armed and nobody is exempt. The cascade then
     asks each coach in turn (`CONTINUE_RUN_BACK`), and `finish_run_back`
-    hands on to `then` -- a new play's window, a time out's windows,
-    or the halftime sequence.
-
-    Sets the run back's own flags where the caller has not: a new play
-    arrives through `begin_run_back`, which already has, and a time out
-    and halftime are not a maneuver's run back at all.
+    opens the new play's Coaching Choice for the side restarting play.
     """
-    if not match.pending_run_back:
-        match.pending_run_back = True
-        match.pending_run_back_distance = 0
-        match.pending_run_back_turnover = False
-        match.pending_run_back_speed_choice = False
     match.pending_run_back_stays_player_id = None
     match.pending_run_back_charge_up = False
     match.run_back_moved = []
     match.run_back_pick = None
-    moved = match.begin_restart_run_back(then, side)
+    moved = match.begin_restart_run_back("window", match.ball.possession)
     lines = [
         f"{engine.format_player_label(match, engine.get_player_definition(player_id))} "
         f"to {space_label(zone, space_index, match.board)}"
@@ -337,9 +320,8 @@ def start_restart_run_back(
     if lines:
         body += "\n" + "\n".join(lines)
     prefix = f"{lead_in}\n\n" if lead_in else ""
-    head = f"{heading}\n" if heading else ""
     return StepResult(
-        narration=[f"{prefix}{head}{body}"],
+        narration=[f"{prefix}# New play\n{body}"],
         board_changed=True,
         next=FollowOn(FollowOnStep.CONTINUE_RUN_BACK),
     )
@@ -840,47 +822,23 @@ def finish_run_back(
     Nobody is displaced on either side: clear the run back and hand the
     turn on to whatever it was still holding up.
 
-    **A 2.0 restart's run back hands on to what it was started for**
-    (`pending_replace["then"]`): a new play's Coaching Choice, with the
-    run back left pending so the restart's own tail -- the kickoff, a
-    pickup -- runs once the window closes, as it does after a 1.0
-    reset; or, for a time out and halftime, which are no maneuver's run
-    back, the windows they owe, with the run back cleared.
+    **A 2.0 new play's run back hands on to its Coaching Choice**
+    (`pending_replace`), with the run back left pending, so the
+    restart's own tail -- the kickoff, a pickup -- runs once the window
+    closes, as it does after a 1.0 reset.
     """
     restart = match.pending_replace
     if restart is not None:
         match.pending_replace = None
-        narration = [lead_in] if lead_in else []
-        then = restart.get("then")
-        side = restart.get("side")
-        if then == "window":
-            # The board the new play starts from, which the frontend
-            # pins (`new_play`), now that everybody is on it.
-            return StepResult(
-                narration=narration,
-                board_changed=True,
-                new_play=True,
-                next=FollowOn(
-                    FollowOnStep.BEGIN_SUBSTITUTION_WINDOW, {"side": side},
-                ),
-            )
-        match.pending_run_back = False
-        match.pending_run_back_speed_choice = False
-        match.run_back_moved = []
-        if then == "halftime":
-            from d12ball.flow.periods import advance_halftime_stage
-
-            match.pending_halftime_stage = HALFTIME_STAGES[0]
-            result = advance_halftime_stage(engine, game, match)
-            result.narration[:0] = narration
-            result.board_changed = True
-            return result
+        # The board the new play starts from, which the frontend pins
+        # (`new_play`), now that everybody is on it.
         return StepResult(
-            narration=narration,
+            narration=[lead_in] if lead_in else [],
             board_changed=True,
+            new_play=True,
             next=FollowOn(
                 FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
-                {"side": side, "occasion": CoachingOccasion.TIME_OUT},
+                {"side": restart.get("side")},
             ),
         )
 

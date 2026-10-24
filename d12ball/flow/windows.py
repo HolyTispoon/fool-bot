@@ -51,11 +51,7 @@ from d12ball.engine import RulesEngine
 from d12ball.flow import gates
 from d12ball.flow.clock import charge_clock
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.turnovers import (
-    announce_new_play_reset,
-    end_the_play,
-    start_restart_run_back,
-)
+from d12ball.flow.turnovers import announce_new_play_reset, end_the_play
 from d12ball import tokens
 from d12ball.formatting import (
     ball_space_label,
@@ -517,9 +513,10 @@ def open_substitution_window(
     side = TeamSide(side)
     occasion = CoachingOccasion(occasion)
 
-    # A 2.0 side keeps no arrangement to go back to: its restart ran
-    # everybody back already (docs/rules-2.0.md 4.9), and its window
-    # opens on the side as it stands.
+    # A 2.0 side keeps no arrangement to go back to (docs/rules-2.0.md
+    # 4.9): a new play has just run everybody back, and a time out and
+    # halftime move nobody, so the window opens on the side as it
+    # stands and the coach places them.
     restored = (
         match.restore_assigned_positions(side)
         if occasion.offers_positioning
@@ -800,14 +797,6 @@ def begin_time_out(
         f"with {label} on "
         f"{ball_space_label(match)}. {clock}"
     )
-    # **2.0: everybody runs back first** (docs/rules-2.0.md 4.9), and
-    # the two windows open on the side as it then stands -- the order a
-    # 2.0 new play takes -- where a 1.0 time out resets after them.
-    if engine.restarts_by_run_back(match):
-        end_the_play(match)
-        return start_restart_run_back(
-            engine, game, match, "time_out", side, lead_in=announcement,
-        )
     return StepResult(
         narration=[announcement],
         board_changed=True,
@@ -859,9 +848,11 @@ def finish_time_out(
     """
     match.pending_time_out = False
     if engine.restarts_by_run_back(match):
-        # 2.0 ran everybody back before the windows, so there is
-        # nothing left to reset; the board the play restarts from is
-        # still the one a frontend pins (`new_play`).
+        # A 2.0 time out moves nobody (docs/rules-2.0.md 4.9): the
+        # coaches have just placed their sides in their windows, and
+        # there is no arrangement to reset to. The board the play
+        # restarts from is still the one a frontend pins (`new_play`).
+        end_the_play(match)
         label = format_team_side_label(
             match.setup_for_side(match.ball.possession), game,
         )

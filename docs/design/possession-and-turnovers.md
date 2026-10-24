@@ -232,46 +232,48 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
     `add_full_image_button`. That edit is the webhook route, not the channel's;
     see "Discord's rate limits" in [rate-limits.md](rate-limits.md).
 
-### 2.0: a restart is a run back
+### 2.0: a new play is a run back
 
 **D12 Ball 2.0 keeps no arrangement to reset to** (rules-2.0 4.9, the author, 2026-10-24): a new
-play, a time out and halftime run everybody back instead, free, and the Coaching Choice comes
-after, on the side as it stands. `RulesEngine.restarts_by_run_back` is the gate -- a match whose
-roles are the formation's -- so a 1.0 match, and a 2.0 match saved before its roles, reset as
-they always have.
+play runs everybody back instead, free, and its Coaching Choice comes after, on the side as it
+stands. A time out and halftime move nobody -- *"when there's a coaching window the player will
+have a chance to place them anyway"* -- so their windows open on the side as it stands, and a
+steal's run back is the Charter's, unique roles and all (*"more like it used to in 1.0"*).
+`RulesEngine.restarts_by_run_back` is the gate -- a match whose roles are the formation's -- so
+a 1.0 match, and a 2.0 match saved before its roles, reset as they always have.
 
-- **It is the run back's own machinery, not a second one.** `start_restart_run_back` (in
-  `d12ball/flow/turnovers.py`) sets the run back pending and `MatchState.begin_restart_run_back`
-  stands each unique role on their space and lists every other fielded player of both sides in
-  **`MatchState.pending_replace`** -- `{"then", "side", "players"}`, saved explicitly and only
-  while a restart is under way, so a 1.0 save is written as before. While the list is there
-  `run_back_displaced` answers with it rather than with who is out of their zone, nobody is
-  asked about a stack, and `run_back_player` takes each off it as they are placed. The questions
-  are the steal's own `RUN_BACK_SPACE`, asked of each coach in turn, home's first, and an AI side
-  answers them as it answers a steal's.
+- **It is the run back's own machinery, not a second one.** `start_new_play_run_back` (in
+  `d12ball/flow/turnovers.py`) runs inside `begin_run_back`, after it has set the run back
+  pending, and `MatchState.begin_restart_run_back` stands each unique role on their space and
+  lists every other fielded player of both sides in **`MatchState.pending_replace`** --
+  `{"then", "side", "players"}`, saved explicitly and only while one is under way, so a 1.0 save
+  is written as before. While the list is there `run_back_displaced` answers with it rather than
+  with who is out of their zone, nobody is asked about a stack, and `run_back_player` takes each
+  off it as they are placed. The questions are the steal's own `RUN_BACK_SPACE`, asked of each
+  coach in turn, home's first, and an AI side answers them as it answers a steal's.
 - **Free**: `RulesEngine.run_back_is_free` (a player still on the list) is asked before the move
   by the coach's step and the forced placements, and `SpaceOptions.free` tells a frontend not to
   price the buttons -- a move that costs nothing says nothing. No charge-up is armed: it is not a
   run back in Lithium Powered's sense, as the 1.0 reset is not.
 - **A teammate still to be placed covers nothing**, in `placement_spaces_in_zone` and
-  `run_back_open_spaces`, so the first of a zone's players to be placed may take any space the
-  zone's unique role and already-placed teammates leave open. Only a zone with one player left
-  and one space for them is settled without asking: who stands where is the whole of the
-  choice.
-- **Then what it was started for** (`pending_replace["then"]`, acted on by `finish_run_back`): a
-  new play's window -- with the run back left pending, so the restart's tail, the kickoff and
-  any pickup, runs after the window as it does after a 1.0 reset, and the board pinned
-  (`new_play`) once everybody is down; a time out's two windows, the run back cleared, which is
-  why the chain's time-out branch answers for a restart under way before it reads the windows as
-  over; or the halftime sequence, the run back cleared and `pending_halftime_stage` set only
-  then. The kickoff fill waits for the window (`run_back_passes`), since the window can change
-  who the Playmaker is.
-- **A unique role always runs back to their own space**, in a steal too: it is the one space
-  `placement_spaces_in_zone` offers them, `apply_forced_run_backs` places them without asking --
-  displaced, or the one of a stack that may move -- and `reserved_spaces` keeps the space from
-  everybody else. One standing on their own space is never offered out of a stack.
-- **No window snaps back** (`open_substitution_window`), and nothing writes or reads the saved
-  arrangement in a 2.0 game but the deal.
+  `run_back_open_spaces`, and a unique role's space is kept for them (`reserved_spaces`) -- both
+  only while a new play's run back is under way; a steal's reserves nothing. Only a zone with one
+  player left and one space for them is settled without asking: who stands where is the whole of
+  the choice.
+- **Then the window** (`finish_run_back`, on `pending_replace`), with the run back left pending,
+  so the restart's tail -- the kickoff and any pickup -- runs after the window as it does after a
+  1.0 reset, and the board pinned (`new_play`) once everybody is down. The kickoff fill waits for
+  the window (`run_back_passes`), since the window can change who the Playmaker is.
+- **A time out and halftime move nobody.** No window snaps back (`open_substitution_window`),
+  and a 2.0 `finish_time_out` resets nothing -- it ends the play (`end_the_play`) and the board is
+  pinned as 1.0's reset is. So a 2.0 window can open on a side a steal left scattered, and
+  **space positioning places them** (rules-2.0 4.6d): a unique role off their space may go back
+  onto it, trading with whoever stands there -- sharing where they stand outside their zone, so
+  the trade never sends a teammate out of theirs -- and anybody outside their zone goes to an
+  empty space of it. `positioning_targets` is that reading, as for every other move. A teammate
+  on a unique role's space is one who has to step off (`unique_space_sharers`) only while the
+  holder stands there too; one standing there while the holder is elsewhere is not sharing, and
+  the holder's going back trades them off it.
 
 ### The arrangement
 
