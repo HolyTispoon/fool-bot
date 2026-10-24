@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-21.
+**As of:** 2026-10-24.
 
 ## Where the rules come from
 
@@ -154,6 +154,30 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-24 -- author, 2.0: a restart is a run back
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.9, 5.4a), replacing the reset
+to the coaches' arrangement (Law 12.5.1, 13.1.2) with a run back. The author: *"Another rule
+change for 2.0 is that run back and new play are now the same, in the sense that each player
+needs to run back to any open space in the zone they are assigned to. So a midfielder would just
+have to go to any open space in the midfield. The difference between turnovers and new plays is
+that in the case of turnover, there is someone that isn't running back because they are holding
+the ball, and run back during a new play doesn't cost exhaustion."* Asked the same day, the
+author answered:
+
+- **The Fullback, the Playmaker and the Striker run back to their own spaces** (4.9a, 4.9d) --
+  chosen over any open space like everyone else, which would leave the Playmaker off the kickoff
+  space they restart from (4.4).
+- **Everybody re-places at a restart** (4.9a), including those already in their own zone --
+  chosen over moving only those out of place, as a steal does.
+- **The run back comes first, then the Coaching Choice** (4.9c), which opens on the side as it
+  stands -- chosen over the Choice first.
+- **Halftime runs back too** (4.9) -- chosen over keeping halftime's snap back to the saved
+  arrangement, so 2.0 keeps no saved arrangement at all.
+
+A time out is a new play (Law 13.1.2), so it runs back the same way, before its two windows,
+where 1.0 resets after them.
 
 ### 2026-10-21 -- author, 2.0: moving costs a token a space, and a card costs nothing
 
