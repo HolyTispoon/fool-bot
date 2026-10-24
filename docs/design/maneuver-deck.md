@@ -272,6 +272,12 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   between them reach every assignment the rules allow. `deploy_side` then reads the roles back off
   the spaces, each holder dealt first in their zone.
 
+**At the table** a role is a loose piece: the print-and-play kit's role tokens, a zone's unique
+role on one side and its standard role on the other, laid on the card holding it, and the players
+on the field are standees, since a meeple can no longer be told apart by role (the author,
+2026-10-24) -- [printed-tokens.md](printed-tokens.md), "Role tokens", and
+[standees.md](standees.md).
+
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.
 

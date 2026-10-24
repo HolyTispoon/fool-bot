@@ -176,6 +176,10 @@ KIT_DOWNLOADS: tuple[tuple[str, str, str, tuple[Team, ...]], ...] = (
         for number, teams in enumerate(KIT_TEAM_PAIRS, start=1)
     ),
 )
+# Kit folders whose pages go by team in another folder's part: the
+# standees (2026-10-24) are a team's players again, a letter page a
+# team, and in the first part they took it over the limit.
+KIT_RIDES_WITH = {"standees": "player-cards"}
 # The kit's own folder for the hexagon tiles, the alternative shape: in
 # the kit built locally only, never on the site (the author, 2026-10-04).
 # The build leaves it out and refuses a file under it.
@@ -456,15 +460,16 @@ def write_downloads(out: Path) -> None:
 
 def kit_part(relative: Path) -> int:
     """Which of `KIT_DOWNLOADS` a file of the kit goes in: a team's
-    player sheet or maneuver tile page goes with its team, and everything
-    else in the first. A hexagon tile is refused: it is never on the
-    site."""
+    player sheet, standee page or maneuver tile page goes with its team,
+    and everything else in the first. A hexagon tile is refused: it is
+    never on the site."""
     if relative.is_relative_to(HEXAGON_TILES):
         raise ValueError(f"{relative} is a hexagon tile, which the site never carries")
     folders = {folder for _, _, folder, _ in KIT_DOWNLOADS if folder}
-    if relative.parts[0] in folders:
+    part_folder = KIT_RIDES_WITH.get(relative.parts[0], relative.parts[0])
+    if part_folder in folders:
         for index, (_, _, folder, teams) in enumerate(KIT_DOWNLOADS):
-            if folder == relative.parts[0] and any(
+            if folder == part_folder and any(
                 relative.name.startswith(f"{team.value}-") for team in teams
             ):
                 return index
@@ -693,7 +698,10 @@ def team_names(teams: tuple[Team, ...]) -> str:
     return " and ".join(team_display_name(team) for team in teams)
 
 
-KIT_PART_NAMES = {"player-cards": "Player cards", "maneuver-tiles": "Maneuver tiles"}
+KIT_PART_NAMES = {
+    "player-cards": "Player cards and standees",
+    "maneuver-tiles": "Maneuver tiles",
+}
 
 
 def kit_link_text(folder: str, teams: tuple[Team, ...]) -> str:
@@ -712,7 +720,7 @@ def kit_card_html() -> str:
     return (
         '<div class="card way-card">\n'
         '  <span class="way-title">At the table</span>\n'
-        '  <span class="way-words">Get the print-and-play kit. Meeples and '
+        '  <span class="way-words">Get the print-and-play kit. Standee bases and '
         'd12s not included. 3D files for printing tokens are available on '
         'request.</span>\n'
         f'  <span class="way-links">\n{links}  </span>\n'

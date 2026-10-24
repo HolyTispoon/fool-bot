@@ -246,7 +246,15 @@ def token_face(name: str, width: int, cut_line: bool) -> Image.Image:
     One face with room around it for the cut line -- drawn when
     `cut_line` is set, `CUT_MARGIN_INCHES` outside the token.
     """
-    art = paper_face(name, width)
+    return with_cut_line(paper_face(name, width), cut_line)
+
+
+def with_cut_line(art: Image.Image, cut_line: bool) -> Image.Image:
+    """
+    `art` with room around it for the cut line, and the line drawn
+    `CUT_MARGIN_INCHES` outside its outline when `cut_line` is set. The
+    role tokens are cut the same way (`d12ball/role_tokens.py`).
+    """
     margin = pixels(CUT_MARGIN_INCHES) + pixels(CUT_LINE_INCHES)
     face = Image.new("RGBA", (art.width + 2 * margin, art.height + 2 * margin), (0, 0, 0, 0))
     face.alpha_composite(art, (margin, margin))

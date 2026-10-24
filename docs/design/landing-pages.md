@@ -253,10 +253,12 @@ two, and the maneuver tiles in two.** `write_kit` runs
 `scripts/generate_print_and_play_kit.py` into a temporary folder and zips it
 as `KIT_DOWNLOADS` says:
 
-- `/kit` -- the boards, the maneuver, reference and token sheets, the README
-  and both rulebooks as PDFs (about 12 MB);
-- `/kit-players-1` and `/kit-players-2` -- the player sheets of two colour
-  teams each, Orange and Teal, then Purple and Slime (about 15 MB each);
+- `/kit` -- the boards, the maneuver and reference sheets, the condition
+  and role token sheets, the README and both rulebooks as PDFs (about
+  17 MB);
+- `/kit-players-1` and `/kit-players-2` -- the player sheets and the
+  standee pages of two colour teams each, Orange and Teal, then Purple and
+  Slime (about 20 MB each);
 - `/kit-tiles-1` and `/kit-tiles-2` -- the maneuver tiles of the same two
   pairs of teams, each team's four pages: its two tiles' fronts and backs
   (about 15 MB each).
@@ -284,7 +286,10 @@ split again by team pair, each team's standard and advanced sheets in the
 same zip because they print duplex together. The maneuver tiles (2026-10-04)
 are sixteen full-colour pages, about 32 MB, so they are two parts of their
 own on the same pairs, rather than a sixth of everything pushed into the
-existing three. **The build refuses a zip over
+existing three. The standees (2026-10-24) are a page a team, about 11 MB
+together; in `/kit` they took it to 27 MB, so they ride in the players'
+parts (`KIT_RIDES_WITH`) -- the same players again, split the same way --
+and the link says "Player cards and standees". **The build refuses a zip over
 the limit** (`PAGES_FILE_LIMIT`) rather than leaving it to fail the deploy.
 The split is fixed rather than worked out from the sizes, because its
 addresses are what a page or a card links: if the art grows past the limit,
