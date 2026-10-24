@@ -81,8 +81,9 @@ arrangement (4.3) makes, read from the coach's own goal forward -- 2-2-2, 3-1-2 
 1-4-1 alike. Every arrangement fields one Fullback, one Playmaker and one Striker, and in each
 zone as many players in its standard role as its spaces leave room for.
 
-**4.3** **A side is arranged in two steps**, before kickoff and whenever its coach rearranges it
-in a Coaching Choice (4.6a):
+**4.3** **A side is arranged in two steps.** The standard deal makes both for each coach at the
+start of the game (4.5); after that a coach changes the arrangement their side stands in, in a
+Coaching Choice (4.6a), and what they leave alone stays as it is:
 
 - **a.** **The coach assigns players to the three unique roles**, the Fullback, the Playmaker and
   the Striker. Each stands on their role's space:
@@ -95,11 +96,16 @@ in a Coaching Choice (4.6a):
     and −3, −4 or −5 for the visitors.
 - **b.** **The coach places three more players**, a player a space, each on any space of the
   field in any zone that the three unique roles do not stand on and nobody else has been placed
-  on. Each takes the **standard role of the zone they are placed in**. Nobody stacks, and no zone
-  holds more players than it has spaces; an Ooze bends the first of these (4.6e), never the
-  second.
+  on. Each takes the **standard role of the zone they are placed in**. Nobody stacks, which an
+  Ooze bends (4.6e).
+
+**No zone ever holds more players than it has spaces, Oozes included.** An Ooze may share a
+space, but the players it shares with still count toward the zone's spaces -- so a zone with an
+Ooze sharing always has a space standing empty. This holds for every arrangement, at the
+standard deal and in every Coaching Choice.
 - **c.** **Before kickoff the six are chosen from the whole squad of nine**, and the three left
-  out start on the bench. In any later Coaching Choice the arrangement is made from the six on
+  out start on the bench: a coach rearranging before kickoff may put a bench player in any
+  fielded player's place. In any later Coaching Choice the arrangement is made from the six on
   the field; only a substitution (4.6b) brings anybody on.
 
 **4.4** **The Playmaker always takes the kickoff.** A restart from a side's kickoff space -- the
@@ -135,9 +141,11 @@ things around!
 
 **4.6** **In a Coaching Choice** (Law 14.2) a player's role decides how they may move:
 
-- **a.** **Rearranging** takes the place of a formation change: the coach arranges the six on
-  the field again, both steps of 4.3, into whatever shape the placements make. Nobody is dealt
-  by defensive skill (Law 14.7.3 does not apply).
+- **a.** **Rearranging** takes the place of a formation change: starting from the side as it
+  stands, the coach may put a different player in a unique role, move a player in a standard
+  role to any space with room for them -- in any zone, taking that zone's standard role -- or
+  have two players trade places and roles, as often as they like, into whatever shape that
+  makes. Nobody is dealt by defensive skill (Law 14.7.3 does not apply).
 - **b.** A **substitution** brings the player on into the outgoing player's role, with their
   zone and their space.
 - **c.** A **zone assignment** trades two fielded players' roles, and their zones, cards and

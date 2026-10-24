@@ -155,6 +155,23 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-24 (later) -- author, 2.0: the zone cap holds with Oozes, and a rearrangement starts from where the side stands
+
+**Two answers on PR #673** ([rules-2.0.md](rules-2.0.md) 4.3, 4.6a), to the entry below.
+
+- **No zone holds more players than it has spaces, Oozes included.** The author: *"Make note
+  that there can be no more players in a zone than spaces even with oozes in the rules"* -- the
+  reading the entry below put to them, now stated on its own under 4.3.
+- **The standard deal still sets every side up, and a rearrangement starts from it.** The
+  author: *"At the start of the game there should still be a default setup dealt. And anytime
+  coaches want to make a change, it should already be set up the way it is currently set up, and
+  then they can make changes on the basis of the current setup rather than having to redo
+  everything from scratch every time."* So 4.6a's rearranging is a change at a time -- a unique
+  role given to somebody else, a player moved to a space with room, two players trading places
+  and roles, or before kickoff a bench player put in somebody's place -- each from the side as it
+  stands, with the two steps of 4.3 the rules every result must meet rather than a form filled in
+  afresh.
+
 ### 2026-10-24 -- author, 2.0: no formations; a side is arranged by its roles
 
 **A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.2, 4.3, 4.5, 4.6a, 4.6e, 5.4a),
@@ -176,8 +193,8 @@ formations as they place players"*. Asked the same day, the author answered:
 - **Nobody stacks** (4.3b): the three go to empty spaces, and only an Ooze shares one -- chosen
   over letting two in standard roles share a space.
 
-One reading the answers left, written into 4.3b and 4.6e and put to the author on the PR: **no
-zone holds more players than it has spaces, an Ooze counted.** Without it an Ooze Fullback on
+One reading the answers left, written into 4.3b and 4.6e and put to the author on the PR -- and
+confirmed (the entry above): **no zone holds more players than it has spaces, an Ooze counted.** Without it an Ooze Fullback on
 board 7 could share its space with a Defender while a second Defender stood on the zone's other
 space; a zone assignment putting somebody who is not an Ooze in the Fullback's role would then
 leave the first Defender to step off (4.6e) with no empty space to go to. The old 4.3c held the
