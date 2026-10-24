@@ -155,6 +155,26 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-24 (later) -- author, 2.0: only a new play runs back, and a steal's run back is the Charter's
+
+**Two answers on PR #675** ([rules-2.0.md](rules-2.0.md) 4.6d, 4.9, 5.4a), narrowing the entry
+below. The author: *"There is no point in placing back players after a time out and before the
+second half. When there's a coaching window the player will have a chance to place them anyway.
+I want to pull back a little. After a steal all player run back to their zone including unique
+roles. So it's actually more like it used to in 1.0"*.
+
+- **A time out and halftime move nobody** (4.9d): their Coaching Choices open on the side as it
+  stands, and the coaches place their players there.
+- **A steal's run back is the Charter's** (4.9e): a Fullback, a Playmaker or a Striker out of
+  their zone runs back to any open space of it, like everybody else, and no space is kept for
+  them.
+
+One reading the answers left, written into 4.6d and put to the author on the PR: since a steal
+can now leave a unique role off their own space, and nothing at a time out or halftime puts them
+back, space positioning lets a unique role go back onto their own space -- and only there --
+swapping with a teammate standing on it; and a player standing outside their zone altogether
+moves to an empty space of it.
+
 ### 2026-10-24 -- author, 2.0: a restart is a run back
 
 **A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.9, 5.4a), replacing the reset
