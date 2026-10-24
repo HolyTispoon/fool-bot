@@ -626,15 +626,21 @@ D12 Ball 2.0 puts the roles on the formation's zones (rules-2.0 section
   Striker on the last space before the goal it attacks. Where they are
   is `components.unique_role_space_index`, the function of the board's
   shape that `MatchState.unique_role_space` now calls, so the printed
-  spaces are the ones the game plays. One end space holds home's
-  Fullback and the visitors' Striker; on board 9 both Playmakers share
-  the kickoff space (BOTH), and on board 10 each has its own. A mark is
-  the role token's face in ink, initials alone (`role_face(...,
-  named=False)` -- the name in a badge this size is about 3pt), the
-  role's name under it and whose it is under that, stacked up from the
-  bottom of the space so the kickoff mark keeps the middle. The header
-  says D12 BALL 2.0: the board still names no mode, but the roles'
-  spaces are the edition's.
+  spaces are the ones the game plays. A mark is the role token's face in
+  ink, initials alone (`role_face(..., named=False)` -- the name in a
+  badge this size is about 3pt), the role's name under it and whose it
+  is under that (`role_mark`). The header says D12 BALL 2.0: the board
+  still names no mode, but the roles' spaces are the edition's.
+- **Each side's marks are on its own coach's side of the board** (the
+  author, 2026-10-24). Home sits along the bottom edge and reads the
+  board upright -- the side the old field board gave home's zone row --
+  so home's marks stand at the bottom of their spaces, and the visitors'
+  at the top, turned 180 degrees to read from the visitors' seat. A
+  space two sides' roles share -- an end space holds one side's Fullback
+  and the other's Striker, and on board 9 both Playmakers share the
+  kickoff space -- holds one at each end, and the kickoff mark keeps the
+  middle. The first draft stacked both at the bottom with a BOTH caption
+  for the shared kickoff space, which read as one side's.
 - **The zone board puts the roles on the card guides** (`draw_guide_role`):
   each zone's top guide carries its unique role and the two under it the
   standard role, because the first player in a zone takes the unique

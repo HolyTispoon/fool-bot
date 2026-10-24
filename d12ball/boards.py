@@ -1051,22 +1051,24 @@ def draw_kickoff_marks(
 EDITION_TWO_BOARD_SIZES = (9, 10)
 
 # A unique role's badge on a 2.0 field board, as shares of a space's
-# width and capped in inches, and where the marks stand: in the
-# bottom of the space, clear of the kickoff mark in its middle.
+# width and capped in inches, and how far in from the strip's edge the
+# marks stand: home's from the bottom, the visitors' from under the zone
+# names at the top, clear of the kickoff mark in the middle.
 ROLE_MARK_SHARE = 0.42
 ROLE_MARK_MAX_INCHES = 0.6
-ROLE_MARK_BOTTOM = 0.08
+ROLE_MARK_INSET = 0.06
 
 
-def role_marks(layout: BoardLayout) -> dict[int, list[tuple[PlayerRole, list[TeamSide]]]]:
+def role_marks(layout: BoardLayout) -> list[tuple[TeamSide, int, PlayerRole]]:
     """
     **Where each side's unique roles stand on a 2.0 field** (rules-2.0
-    4.3b), by the space's place along the whole strip: each a list of
-    (role, the sides whose it is), in the order a coach reads a zone
-    from their own goal. Read off `unique_role_space_index`, the rule the
-    game plays, so the printed spaces are the played ones. One space can
-    hold two -- home's Fullback and the visitors' Striker share the end
-    space, and on boards 7 and 9 both Playmakers share the kickoff space.
+    4.3b): (side, the space's place along the whole strip, role) for
+    each side's Fullback, Playmaker and Striker. Read off
+    `unique_role_space_index`, the rule the game plays, so the printed
+    spaces are the played ones. A side's three are on three spaces; the
+    two sides' share some -- home's Fullback and the visitors' Striker
+    the end space, and on boards 7 and 9 both Playmakers the kickoff
+    space -- which `draw_role_marks` keeps apart by seat.
     """
     zone_spaces = {zone: layout.zone_spaces[zone] for zone in Zone}
     offsets = {}
@@ -1074,21 +1076,51 @@ def role_marks(layout: BoardLayout) -> dict[int, list[tuple[PlayerRole, list[Tea
     for zone in Zone:
         offsets[zone] = total
         total += zone_spaces[zone]
-    marks: dict[int, list[tuple[PlayerRole, list[TeamSide]]]] = {}
-    for side in TeamSide:
-        for area in SETUP_AREAS:
-            role = FORMATION_ZONE_ROLES[area][0]
-            flat = offsets[zone_for_area(side, area)] + unique_role_space_index(
-                zone_spaces, side, area
-            )
-            entries = marks.setdefault(flat, [])
-            for entry_role, sides in entries:
-                if entry_role == role:
-                    sides.append(side)
-                    break
-            else:
-                entries.append((role, [side]))
-    return marks
+    return [
+        (
+            side,
+            offsets[zone_for_area(side, area)]
+            + unique_role_space_index(zone_spaces, side, area),
+            FORMATION_ZONE_ROLES[area][0],
+        )
+        for side in TeamSide
+        for area in SETUP_AREAS
+    ]
+
+
+def role_mark(
+    sheet: Sheet, role: PlayerRole, side: TeamSide, width: float
+) -> Image.Image:
+    """
+    One unique role's mark, upright, on transparency: the role token's
+    face in ink with its initials alone (`role_tokens.role_face`), the
+    role's name under it, and whose it is under that.
+    """
+    # Imported here: `role_tokens` reads the papers from this module.
+    from d12ball.role_tokens import role_face
+
+    size = round(min(width * ROLE_MARK_SHARE, ROLE_MARK_MAX_INCHES * PRINT_DPI))
+    mark = Image.new("RGBA", (round(width), round(size + sheet.u(46))), (0, 0, 0, 0))
+    badge = role_face(role, INK, size, named=False)
+    mark.paste(badge, (round((width - size) / 2), 0), badge)
+    pen = ImageDraw.Draw(mark)
+    name = role.value.upper()
+    pen.text(
+        (width / 2, size + sheet.u(6)),
+        name,
+        font=sheet.fitted_font(name, width * 0.9, 14, bold=True),
+        fill=INK,
+        anchor="ma",
+    )
+    caption = side_display_name(side).upper()
+    pen.text(
+        (width / 2, size + sheet.u(26)),
+        caption,
+        font=sheet.fitted_font(caption, width * 0.9, 13),
+        fill=MUTED,
+        anchor="ma",
+    )
+    return mark
 
 
 def draw_role_marks(
@@ -1098,49 +1130,25 @@ def draw_role_marks(
 ) -> None:
     """
     **A 2.0 field board's unique roles**, each on the space it stands on
-    (the author, 2026-10-24): the role token's face in ink with its
-    initials alone (`role_tokens.role_face`), the role's name under it
-    and whose it is under that -- HOME, VISITORS, or BOTH where the two
-    sides' share the space. Stacked up from the bottom of the space, so
-    the kickoff mark keeps the middle.
+    and **on its own coach's side of the board** (the author,
+    2026-10-24): home sits along the bottom edge and reads the board
+    upright -- the side the old field board gave home's zone row -- so
+    home's marks stand at the bottom of their spaces, and the visitors'
+    at the top, turned to face the visitors' seat. So a space two sides'
+    roles share (an end space, or the kickoff space on boards 7 and 9)
+    holds one at each end, each read by its own coach, and the kickoff
+    mark keeps the middle.
     """
-    # Imported here: `role_tokens` reads the papers from this module.
-    from d12ball.role_tokens import role_face
-
-    for flat, entries in role_marks(layout).items():
+    inset = (geometry.strip_bottom - geometry.strip_top) * ROLE_MARK_INSET
+    for side, flat, role in role_marks(layout):
         left, right = geometry.space_bounds(flat)
-        size = round(
-            min((right - left) * ROLE_MARK_SHARE, ROLE_MARK_MAX_INCHES * PRINT_DPI)
-        )
-        step = size + sheet.u(58)
-        bottom = geometry.strip_bottom - (
-            geometry.strip_bottom - geometry.strip_top
-        ) * ROLE_MARK_BOTTOM
-        for index, (role, sides) in enumerate(entries):
-            top = bottom - (len(entries) - index) * step
-            center_x = (left + right) / 2
-            badge = role_face(role, INK, size, named=False)
-            sheet.image.paste(badge, (round(center_x - size / 2), round(top)), badge)
-            name = role.value.upper()
-            sheet.text(
-                (center_x, top + size + sheet.u(6)),
-                name,
-                sheet.fitted_font(name, (right - left) * 0.9, 14, bold=True),
-                INK,
-                anchor="ma",
-            )
-            caption = (
-                "BOTH"
-                if len(sides) == 2
-                else side_display_name(sides[0]).upper()
-            )
-            sheet.text(
-                (center_x, top + size + sheet.u(26)),
-                caption,
-                sheet.fitted_font(caption, (right - left) * 0.9, 13),
-                MUTED,
-                anchor="ma",
-            )
+        mark = role_mark(sheet, role, side, right - left)
+        if side == TeamSide.HOME:
+            position = (round(left), round(geometry.strip_bottom - inset - mark.height))
+        else:
+            mark = mark.rotate(180)
+            position = (round(left), round(geometry.strip_label_bottom + inset))
+        sheet.image.paste(mark, position, mark)
 
 
 def draw_field_end_zones(sheet: Sheet, geometry: FieldGeometry) -> None:
