@@ -49,6 +49,14 @@ the scramble. That is the Choice's own mechanics, not the new play's reset,
 and it is why the other side stays where open play left it while the caller
 coaches.
 
+**In 2.0 the order turns round**: there is no arrangement for a reset to read, so a time out
+runs everybody back first, free, and the two windows open on the side as it then stands
+(rules-2.0 4.9, the author, 2026-10-24). `begin_time_out` starts the restart's run back with
+`then="time_out"`, `finish_run_back` opens the caller's window, and `finish_time_out` has nothing
+left to reset -- see "2.0: a restart is a run back" in
+[possession-and-turnovers.md](possession-and-turnovers.md). The pickup below is asked the same
+way, of wherever the windows left the side.
+
 So a pickup is owed **if and only if the calling side's arrangement puts
 nobody on the ball's space** once the Choices are done: a handler merely
 moved off the ball is put back on it by the reset, and a coach who arranged

@@ -1958,6 +1958,8 @@ MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
         # 2.0's coin, likewise written only where it has been flipped.
         "tie_coin",
         "tie_coin_owed",
+        # 2.0's restart run back, only while one is under way.
+        "pending_replace",
         "ruleset_id",
         "player_data_version",
         "board",
@@ -2282,6 +2284,21 @@ class MatchState:
     # space step that consumes it and by every reset that ends a run
     # back.
     run_back_pick: Optional[str] = None
+    # **D12 Ball 2.0's restart run back** (docs/rules-2.0.md 4.9, the
+    # author, 2026-10-24): a new play, a time out and halftime send
+    # every fielded player back to their own zone rather than snapping
+    # them onto a saved arrangement -- the three unique roles straight
+    # to their spaces, everyone else to an open space of their zone,
+    # their coach choosing, for nothing. `{"then": ..., "side": ...,
+    # "players": [...]}`: what the restart does once everybody is
+    # placed (`"window"` a new play's Coaching Choice for `side`,
+    # `"time_out"` the time out's windows from `side`, `"halftime"` the
+    # halftime sequence), and who is still to be placed, home's first.
+    # None in a 1.0 game and between restarts, and saved explicitly,
+    # only while one is under way, so a 1.0 match is written exactly as
+    # before (`MATCH_EXPLICIT_FIELDS`). Read by the run back's own
+    # readings (`run_back_placing`); `finish_run_back` acts on `then`.
+    pending_replace: Optional[dict[str, Any]] = None
     # **What a maneuver's effect still owes once its last prompt has
     # been answered**, as `{"kind": ..., ...}` -- or None, which is
     # nearly always.
@@ -4635,12 +4652,22 @@ class MatchState:
         so a zone holding more players than it has spaces settles
         with the surplus doubled up and nobody moving.
         """
+        # A 2.0 restart places everybody anyway, so no stack is asked
+        # about while it is (`run_back_placing`).
+        if self.pending_replace is not None:
+            return []
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
         team_players = set(setup.field_players) - set(spread_exempt_ids)
         candidates: list[str] = []
         for zone in Zone:
-            if not self.open_spaces_in_zone(side, zone, spread_exempt_ids):
+            if not [
+                index
+                for index in self.open_spaces_in_zone(
+                    side, zone, spread_exempt_ids,
+                )
+                if index not in self.reserved_spaces(side, zone)
+            ]:
                 continue
             for occupants in self.board.spaces[zone]:
                 zone_native = [
@@ -4657,6 +4684,15 @@ class MatchState:
                     if player_id != stays_player_id
                     # Zenith flew, and does not run back (Law 21).
                     and player_id not in self.run_back_flown
+                    # A 2.0 unique role on their own space is where a
+                    # run back would send them.
+                    and not (
+                        self.holds_unique_role(side, player_id)
+                        and self.board.meeple_position(player_id)
+                        == (zone, self.unique_role_space(
+                            side, area_for_zone(side, zone),
+                        ))
+                    )
                 )
         return candidates
 
@@ -4713,19 +4749,121 @@ class MatchState:
         same way, permanently rather than only while one of them is the
         one moving -- see `open_spaces_in_zone`.
         """
+        side = TeamSide(side)
         zone = Zone(zone)
         setup = self.setup_for_side(side)
+        # **2.0** (docs/rules-2.0.md 4.9): a Fullback, a Playmaker or a
+        # Striker runs back to their own space and nowhere else, and
+        # nobody else is ever sent onto one; and while a restart's run
+        # back is placing everybody, a teammate still to be placed
+        # covers nothing -- they are about to move.
+        if player_id is not None and self.holds_unique_role(side, player_id):
+            return [self.unique_role_space(side, area_for_zone(side, zone))]
+        reserved = self.reserved_spaces(side, zone)
         others = (
-            set(setup.field_players) - {player_id} - set(spread_exempt_ids)
+            set(setup.field_players)
+            - {player_id}
+            - set(spread_exempt_ids)
+            - set(self.run_back_placing(side))
         )
         uncovered = [
             index
             for index, occupants in enumerate(self.board.spaces[zone])
-            if not others.intersection(occupants)
+            if index not in reserved and not others.intersection(occupants)
         ]
         if uncovered:
             return uncovered
-        return list(range(len(self.board.spaces[zone])))
+        return [
+            index
+            for index in range(len(self.board.spaces[zone]))
+            if index not in reserved
+        ] or list(range(len(self.board.spaces[zone])))
+
+    def run_back_open_spaces(
+        self,
+        side: TeamSide,
+        zone: Zone,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[int]:
+        """
+        The spaces of `zone` a run back may still fill for `side`:
+        `open_spaces_in_zone`, less a 2.0 unique role's space, and with
+        a teammate a 2.0 restart has still to place covering nothing
+        (`placement_spaces_in_zone` reads the same two). In 1.0 it is
+        `open_spaces_in_zone` exactly.
+        """
+        side = TeamSide(side)
+        zone = Zone(zone)
+        reserved = self.reserved_spaces(side, zone)
+        covering = (
+            set(self.setup_for_side(side).field_players)
+            - set(spread_exempt_ids)
+            - set(self.run_back_placing(side))
+        )
+        return [
+            index
+            for index, occupants in enumerate(self.board.spaces[zone])
+            if index not in reserved and not covering.intersection(occupants)
+        ]
+
+    def reserved_spaces(self, side: TeamSide, zone: Zone) -> set[int]:
+        """
+        The space of `zone` a 2.0 run back keeps for the zone's unique
+        role -- the Fullback's, the Playmaker's or the Striker's --
+        and sends nobody else to (docs/rules-2.0.md 4.9). None in 1.0.
+        """
+        side = TeamSide(side)
+        if side.value not in self.formation_roles:
+            return set()
+        return {self.unique_role_space(side, area_for_zone(side, Zone(zone)))}
+
+    def run_back_placing(self, side: Optional[TeamSide] = None) -> list[str]:
+        """
+        Who a 2.0 restart's run back has still to place
+        (`pending_replace`), on one side or both, in the order they are
+        asked -- empty outside one.
+        """
+        if self.pending_replace is None:
+            return []
+        players = list(self.pending_replace.get("players", []))
+        if side is None:
+            return players
+        team = set(self.setup_for_side(TeamSide(side)).field_players)
+        return [player_id for player_id in players if player_id in team]
+
+    def begin_restart_run_back(
+        self, then: str, side: Optional[TeamSide] = None,
+    ) -> list[tuple[str, Zone, int]]:
+        """
+        **Start a 2.0 restart's run back** (docs/rules-2.0.md 4.9, the
+        author, 2026-10-24): every fielded player of both sides is to be
+        placed again in their own zone, for nothing. The three unique
+        roles have nothing to choose and go straight to their spaces,
+        reported as moved; everyone else is listed in `pending_replace`
+        for their coach to place, home's first. `then` and `side` say
+        what follows once the last of them is down.
+        """
+        moved: list[tuple[str, Zone, int]] = []
+        players: list[str] = []
+        for team_side in (TeamSide.HOME, TeamSide.VISITING):
+            setup = self.setup_for_side(team_side)
+            for player_id in setup.field_players:
+                zone = setup.assigned_zone(player_id)
+                if self.holds_unique_role(team_side, player_id):
+                    space = self.unique_role_space(
+                        team_side, area_for_zone(team_side, zone),
+                    )
+                    if self.board.meeple_position(player_id) != (zone, space):
+                        self.board.place_meeple(player_id, zone, space)
+                        moved.append((player_id, zone, space))
+                    continue
+                players.append(player_id)
+        self.pending_replace = {
+            "then": then,
+            "side": None if side is None else TeamSide(side).value,
+            "players": players,
+        }
+        return moved
 
     def run_back_distance(
         self,
@@ -4794,6 +4932,10 @@ class MatchState:
 
         distance = self.run_back_distance(player_id, zone, space_index)
         self.board.place_meeple(player_id, zone, space_index)
+        if self.pending_replace is not None:
+            players = self.pending_replace.get("players", [])
+            if player_id in players:
+                players.remove(player_id)
         # **They moved, so they are running back** -- which is the whole
         # of what Charge-up asks. Recorded here rather than at the three
         # callers (the forced pass, the AI's placement and the coach's
@@ -6152,6 +6294,13 @@ class MatchState:
         if self.tie_coin is not None:
             saved["tie_coin"] = self.tie_coin
             saved["tie_coin_owed"] = self.tie_coin_owed
+        # 2.0's restart run back, only while one is under way.
+        if self.pending_replace is not None:
+            saved["pending_replace"] = {
+                "then": self.pending_replace.get("then"),
+                "side": self.pending_replace.get("side"),
+                "players": list(self.pending_replace.get("players", [])),
+            }
         return saved
 
     @classmethod
@@ -6295,6 +6444,18 @@ class MatchState:
             # coin: unflipped, which the next turn's start flips.
             tie_coin=data.get("tie_coin"),
             tie_coin_owed=bool(data.get("tie_coin_owed", False)),
+            # Absent from every save but one made mid-restart in 2.0.
+            pending_replace=(
+                None
+                if data.get("pending_replace") is None
+                else {
+                    "then": data["pending_replace"].get("then"),
+                    "side": data["pending_replace"].get("side"),
+                    "players": list(
+                        data["pending_replace"].get("players", []),
+                    ),
+                }
+            ),
             **{
                 saved_field.name: saved_field.restored(data)
                 for saved_field in MATCH_SAVED_FIELDS

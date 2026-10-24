@@ -272,6 +272,12 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   between them reach every assignment the rules allow. `deploy_side` then reads the roles back off
   the spaces, each holder dealt first in their zone.
 
+- **A restart is a run back** (rules-2.0 4.9, the author, 2026-10-24): a new play, a time out and
+  halftime place every player again in their own zone, free -- the unique roles on their spaces --
+  and the Coaching Choice comes after; a unique role runs back to their own space after a steal
+  too. The machinery is the run back's: "2.0: a restart is a run back" in
+  [possession-and-turnovers.md](possession-and-turnovers.md).
+
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.
 

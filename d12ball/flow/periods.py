@@ -406,13 +406,25 @@ def begin_halftime(
             "into their deck and draw a fresh hand of five."
         )
 
-    match.pending_halftime_stage = HALFTIME_STAGES[0]
-    result = advance_halftime_stage(engine, game, match)
-    result.narration.insert(
-        0,
+    opening = (
         f"# {HALFTIME_HEADING}\nEvery fielded player clears 1 "
-        f"exhaustion:\n{body}",
+        f"exhaustion:\n{body}"
     )
+    # **2.0: everybody runs back first** (docs/rules-2.0.md 4.9), and
+    # the halftime sequence starts once they are placed
+    # (`finish_run_back`); a 1.0 window snaps each side back to its
+    # arrangement instead.
+    if engine.restarts_by_run_back(match):
+        from d12ball.flow.turnovers import end_the_play, start_restart_run_back
+
+        end_the_play(match)
+        result = start_restart_run_back(
+            engine, game, match, "halftime", lead_in=opening,
+        )
+    else:
+        match.pending_halftime_stage = HALFTIME_STAGES[0]
+        result = advance_halftime_stage(engine, game, match)
+        result.narration.insert(0, opening)
     result.headlines = (Headline(HALFTIME_HEADING), *result.headlines)
     result.board_changed = True
     return result
