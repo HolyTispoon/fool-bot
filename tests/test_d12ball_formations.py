@@ -20,6 +20,7 @@ from cogs.d12ball_helpers import space_label
 from roster import fielded
 from space_codes import code, codes
 from cogs.d12ball_views import (
+    CoachingArrangeView,
     CoachingFormationView,
     CoachingHubView,
     LowPassChoiceView,
@@ -48,7 +49,9 @@ from ai_answers import solo_game
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
+    Edition,
     Formation,
+    GameMode,
     GameStatus,
     Team,
 )
@@ -950,6 +953,91 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         # every zone's worst defender still beats the next zone's best.
         flattened = [value for group in by_zone for value in group]
         self.assertEqual(flattened, sorted(flattened, reverse=True))
+
+
+class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
+    """A 2.0 side's Coaching Choice arranges it by its roles in place of
+    a formation (docs/rules-2.0.md 4.3): three unique roles named, three
+    more placed, and the shape is what that makes."""
+
+    def build(self, board_size: int = 9):
+        cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
+        game = build_game(
+            status=GameStatus.IN_PROGRESS,
+            home_player_number=1,
+            visiting_player_number=2,
+            board_size=board_size,
+            edition=Edition.TWO,
+            # No species abilities, so no Ooze widens the spaces offered.
+            mode=GameMode.TRAINING,
+        )
+        cog.games[game.game_id] = game
+        match = cog.engine.initialize_standard_match(game)
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.SETUP)
+        game.match_state = match.to_dict()
+        return cog, game, match
+
+    def labels(self, view) -> list[str]:
+        return [item.label for item in view.children]
+
+    def test_the_hub_arranges_rather_than_changing_formation(self) -> None:
+        cog, game, _ = self.build()
+        labels = self.labels(CoachingHubView(cog, game.game_id))
+        self.assertIn("Arrange team", labels)
+        self.assertFalse(any(label.startswith("Formation") for label in labels))
+        self.assertIn("Zone Assignment", labels)
+        self.assertIn("Space Positioning", labels)
+
+    async def test_six_clicks_and_three_spaces_arrange_the_side(self) -> None:
+        cog, game, match = self.build()
+        fullback = fielded(match, PlayerRole.FULLBACK)
+        playmaker = fielded(match, PlayerRole.PLAYMAKER)
+        striker = fielded(match, PlayerRole.STRIKER)
+        bench = list(match.home.team_board.bench)
+
+        view = CoachingArrangeView(cog, game.game_id)
+        # The whole squad before kickoff: nine players and Back.
+        self.assertEqual(len(view.children), 10)
+        holders = ()
+        for role, card in (
+            ("fullback", fullback),
+            ("playmaker", playmaker),
+            ("striker", striker),
+        ):
+            holders += ((role, card),)
+            view = CoachingArrangeView(cog, game.game_id, holders)
+        placed = ()
+        for card, zone, index in (
+            (bench[0], Zone.HOME_ZONE, 1),
+            (bench[1], Zone.HOME_ZONE, 2),
+            (bench[2], Zone.VISITORS_ZONE, 0),
+        ):
+            picking = CoachingArrangeView(
+                cog, game.game_id, holders, placed, card,
+            )
+            spaces = [
+                item.label for item in picking.children
+                if item.label != "Back"
+            ]
+            # Never the Fullback's, the Playmaker's or the Striker's
+            # space, nor one already taken.
+            self.assertEqual(len(spaces), 6 - len(placed))
+            if len(placed) < 2:
+                placed += ((card, zone, index),)
+                continue
+            with suppressed_cog_saves():
+                await picking.place(build_interaction(), zone, index)
+
+        match = cog.engine.load_match_state(game)
+        self.assertEqual(cog.engine.shape_name(match, TeamSide.HOME), "3-1-2")
+        self.assertEqual(
+            sorted(match.home.field_players),
+            sorted([fullback, playmaker, striker, *bench]),
+        )
+        self.assertEqual(
+            cog.engine.role_of(match, bench[2]), PlayerRole.WINGER,
+        )
 
 
 class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):

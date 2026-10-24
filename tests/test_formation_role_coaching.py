@@ -10,6 +10,7 @@ import unittest
 from unittest import mock
 
 from d12ball import prompts
+from d12ball.flow import driver, windows
 from d12ball.ai import DinkyAI
 from d12ball.components import (
     CoachingOccasion,
@@ -277,49 +278,238 @@ class HubOptionsTests(unittest.TestCase):
         self.assertEqual(len(options.repositions), 6)
 
 
-class FormationChangeTests(unittest.TestCase):
-    """A 2.0 formation change keeps the Fullback, Playmaker and Striker
-    on their spaces and fills the standard roles by defensive skill
-    (the author, 2026-10-18)."""
+def arrangement(holders: dict, placed: list) -> dict:
+    """An arrangement as the hub sends it: the roles by name, and each
+    placement as `[player, zone, space_index]`."""
+    return {
+        **holders,
+        "placed": [
+            {"player_id": player, "zone": zone.value, "space_index": index}
+            for player, zone, index in placed
+        ],
+    }
 
-    def test_the_unique_roles_keep_their_holders_and_spaces(self) -> None:
-        for board_size, formation in (
-            (7, Formation.TWO_THREE_ONE),
-            (9, Formation.ONE_TWO_THREE),
-            (9, Formation.THREE_TWO_ONE),
-            (10, Formation.ONE_THREE_TWO),
-        ):
-            engine, game, match = kickoff(Edition.TWO, board_size)
-            unique = {
-                role: fielded(match, role)
-                for role in (
-                    PlayerRole.FULLBACK, PlayerRole.PLAYMAKER,
-                    PlayerRole.STRIKER,
-                )
-            }
-            before = {role: space_of(match, card) for role, card in unique.items()}
-            engine.apply_formation(match, HOME, formation, game)
-            for role, card in unique.items():
-                with self.subTest(board=board_size, formation=formation, role=role):
-                    self.assertEqual(engine.role_of(match, card), role)
-                    self.assertEqual(space_of(match, card), before[role])
-            self.assertEqual(engine.current_formation(match, HOME), formation)
 
-    def test_the_best_defender_left_goes_furthest_back(self) -> None:
+def open_setup(engine, match, side: TeamSide = HOME) -> None:
+    """Open setup's Coaching Choice on `side`, as kickoff does."""
+    match.open_coaching_window(
+        side,
+        CoachingOccasion.SETUP,
+        formation=engine.shape_name(match, side),
+    )
+
+
+class ArrangementTests(unittest.TestCase):
+    """A 2.0 side has no formations: its coach names the Fullback, the
+    Playmaker and the Striker, and places three more anywhere they may
+    stand, each taking their zone's standard role (docs/rules-2.0.md
+    4.3, the author, 2026-10-24)."""
+
+    def unique_cards(self, match) -> dict:
+        return {
+            role.value: fielded(match, role)
+            for role in (
+                PlayerRole.FULLBACK, PlayerRole.PLAYMAKER, PlayerRole.STRIKER,
+            )
+        }
+
+    def test_two_point_oh_offers_an_arrangement_and_no_formations(
+        self,
+    ) -> None:
         engine, game, match = kickoff(Edition.TWO, 9)
-        engine.apply_formation(match, HOME, Formation.ONE_TWO_THREE, game)
-        (midfielder,) = by_role(
-            engine, match, Zone.MIDFIELD, PlayerRole.MIDFIELDER,
+        options = hub_options(engine, game, match)
+        self.assertEqual(options.formations, ())
+        self.assertIsNotNone(options.arrangement)
+        self.assertEqual(
+            [space.takes for space in options.arrangement.unique],
+            [PlayerRole.FULLBACK, PlayerRole.PLAYMAKER, PlayerRole.STRIKER],
         )
-        wingers = by_role(
-            engine, match, Zone.VISITORS_ZONE, PlayerRole.WINGER,
+        self.assertEqual(len(options.arrangement.spaces), 9)
+
+    def test_one_point_oh_offers_formations_and_no_arrangement(self) -> None:
+        engine, game, match = kickoff(Edition.ONE, 9)
+        options = hub_options(engine, game, match)
+        self.assertTrue(options.formations)
+        self.assertIsNone(options.arrangement)
+
+    def test_setup_arranges_from_the_squad_and_play_from_the_six(
+        self,
+    ) -> None:
+        engine, _, match = kickoff(Edition.TWO, 9)
+        open_setup(engine, match)
+        self.assertEqual(len(match.arrangement_pool(HOME)), 9)
+        match.close_coaching_window()
+        match.open_coaching_window(HOME, CoachingOccasion.HALFTIME)
+        self.assertEqual(
+            match.arrangement_pool(HOME), match.home.field_players,
         )
-        defense = lambda card: engine.skills(game, card).defense
-        self.assertTrue(all(
-            defense(midfielder) >= defense(winger) for winger in wingers
+
+    def test_an_arrangement_makes_its_own_shape(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        open_setup(engine, match)
+        holders = self.unique_cards(match)
+        others = [
+            card for card in match.home.field_players
+            if card not in holders.values()
+        ]
+        engine.apply_arrangement(game, match, HOME, holders, [
+            (others[0], Zone.HOME_ZONE, 1),
+            (others[1], Zone.HOME_ZONE, 2),
+            (others[2], Zone.VISITORS_ZONE, 0),
+        ])
+        self.assertEqual(engine.shape_name(match, HOME), "3-1-2")
+        self.assertIsNone(engine.current_formation(match, HOME))
+        for role, card in holders.items():
+            self.assertEqual(engine.role_of(match, card), PlayerRole(role))
+        self.assertEqual(space_of(match, holders["fullback"]), (Zone.HOME_ZONE, 0))
+        self.assertEqual(
+            space_of(match, holders["playmaker"]),
+            (Zone.MIDFIELD, match.kickoff_space_for(HOME)),
+        )
+        self.assertEqual(space_of(match, holders["striker"]), (Zone.VISITORS_ZONE, 2))
+        self.assertEqual(engine.role_of(match, others[0]), PlayerRole.DEFENDER)
+        self.assertEqual(engine.role_of(match, others[1]), PlayerRole.DEFENDER)
+        self.assertEqual(engine.role_of(match, others[2]), PlayerRole.WINGER)
+
+    def test_board_ten_reaches_a_shape_no_formation_had(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 10)
+        open_setup(engine, match)
+        holders = self.unique_cards(match)
+        others = [
+            card for card in match.home.field_players
+            if card not in holders.values()
+        ]
+        kickoff_space = match.kickoff_space_for(HOME)
+        free = [
+            index for index in range(4) if index != kickoff_space
+        ]
+        engine.apply_arrangement(game, match, HOME, holders, [
+            (card, Zone.MIDFIELD, index) for card, index in zip(others, free)
+        ])
+        self.assertEqual(engine.shape_name(match, HOME), "1-4-1")
+        self.assertEqual(
+            [engine.role_of(match, card) for card in others],
+            [PlayerRole.MIDFIELDER] * 3,
+        )
+
+    def test_setup_brings_the_bench_on(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        open_setup(engine, match)
+        holders = self.unique_cards(match)
+        bench = list(match.home.team_board.bench)
+        left_out = [
+            card for card in match.home.field_players
+            if card not in holders.values()
+        ]
+        engine.apply_arrangement(game, match, HOME, holders, [
+            (bench[0], Zone.HOME_ZONE, 1),
+            (bench[1], Zone.MIDFIELD, 0),
+            (bench[2], Zone.VISITORS_ZONE, 1),
+        ])
+        self.assertEqual(
+            sorted(match.home.team_board.bench), sorted(left_out),
+        )
+        self.assertEqual(match.home.team_board.back_bench, [])
+        self.assertEqual(len(match.pending_coaching_swaps), 3)
+        self.assertEqual(engine.shape_name(match, HOME), "2-2-2")
+
+    def test_nobody_but_an_ooze_shares_a_space(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        open_setup(engine, match)
+        holders = self.unique_cards(match)
+        others = [
+            card for card in match.home.field_players
+            if card not in holders.values()
+        ]
+        for placed in (
+            # Onto the Fullback's space.
+            [(others[0], Zone.HOME_ZONE, 0), (others[1], Zone.HOME_ZONE, 1),
+             (others[2], Zone.HOME_ZONE, 2)],
+            # Two onto one space.
+            [(others[0], Zone.HOME_ZONE, 1), (others[1], Zone.HOME_ZONE, 1),
+             (others[2], Zone.HOME_ZONE, 2)],
+        ):
+            before = match.to_dict()
+            with self.subTest(placed=placed):
+                with self.assertRaises(RuleRefusal):
+                    match.arrange_side(HOME, holders, placed)
+                self.assertEqual(match.to_dict(), before)
+
+        ooze = {others[0]}
+        # An Ooze shares, but no zone holds more players than spaces:
+        # with the Fullback and the Ooze on one space, a third player
+        # is a fourth in the three-space zone.
+        before = match.to_dict()
+        with self.assertRaises(RuleRefusal):
+            match.arrange_side(HOME, holders, [
+                (others[0], Zone.HOME_ZONE, 0),
+                (others[1], Zone.HOME_ZONE, 1),
+                (others[2], Zone.HOME_ZONE, 2),
+            ], spread_exempt_ids=ooze)
+        self.assertEqual(match.to_dict(), before)
+
+        match.arrange_side(HOME, holders, [
+            (others[0], Zone.HOME_ZONE, 0),
+            (others[1], Zone.HOME_ZONE, 1),
+            (others[2], Zone.MIDFIELD, 0),
+        ], spread_exempt_ids=ooze)
+        self.assertEqual(space_of(match, others[0]), (Zone.HOME_ZONE, 0))
+        self.assertEqual(engine.role_of(match, others[0]), PlayerRole.DEFENDER)
+        self.assertEqual(
+            engine.role_of(match, holders["fullback"]), PlayerRole.FULLBACK,
+        )
+
+    def test_the_options_offer_what_the_match_accepts(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        options = hub_options(engine, game, match).arrangement
+        holders = self.unique_cards(match)
+        other = next(
+            card for card in match.home.field_players
+            if card not in holders.values()
+        )
+        offered = {
+            (space.zone, space.space_index)
+            for space in options.open_spaces(other, holders)
+        }
+        self.assertEqual(len(offered), 6)
+        for space in options.unique:
+            self.assertNotIn((space.zone, space.space_index), offered)
+        with mock.patch.object(
+            type(engine), "spreadable_among", return_value={other},
+        ):
+            spreadable = hub_options(engine, game, match).arrangement
+        self.assertEqual(spreadable.spreadable, (other,))
+        self.assertEqual(len(spreadable.open_spaces(other, holders)), 9)
+
+    def test_the_driver_answers_an_arrangement_and_refuses_a_formation(
+        self,
+    ) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        open_setup(engine, match)
+        holders = self.unique_cards(match)
+        others = [
+            card for card in match.home.field_players
+            if card not in holders.values()
+        ]
+        refused = driver.apply(engine, game, match, driver.Action(
+            prompts.PromptKind.COACHING_HUB, "formation",
+            {"side": "home", "formation": Formation.TWO_THREE_ONE.value},
         ))
-        # Behind the Playmaker, toward their own goal.
-        self.assertEqual(space_of(match, midfielder), (Zone.MIDFIELD, 0))
+        self.assertIsInstance(refused, driver.Refusal)
+        run = driver.apply(engine, game, match, driver.Action(
+            prompts.PromptKind.COACHING_HUB, "arrange",
+            {"side": "home", "arrangement": arrangement(holders, [
+                (others[0], Zone.MIDFIELD, 0),
+                (others[1], Zone.MIDFIELD, 2),
+                (others[2], Zone.VISITORS_ZONE, 0),
+            ])},
+        ))
+        self.assertNotIsInstance(run, driver.Refusal)
+        self.assertEqual(engine.shape_name(match, HOME), "1-3-2")
+        self.assertIn(
+            "Formation: **2-2-2 → 1-3-2**.",
+            windows.coaching_summary(engine, match, HOME),
+        )
 
 
 if __name__ == "__main__":

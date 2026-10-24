@@ -8,6 +8,8 @@ import discord
 from typing import Optional, TYPE_CHECKING
 
 from d12ball.components import (
+    ARRANGED_PLAYER_COUNT,
+    UNIQUE_ROLE_AREAS,
     MatchState,
     TeamSide,
     Zone,
@@ -211,8 +213,8 @@ class CoachingView(SafeView):
         **arguments: object,
     ) -> None:
         """
-        One of the hub's four changes -- formation, substitute, swap,
-        reposition -- through the driver, and back to the hub with the
+        One of the hub's changes -- formation or a 2.0 arrangement,
+        substitute, swap, reposition -- through the driver, and back to the hub with the
         note it came back with.
 
         `side` goes with the action because the hub is asked of one
@@ -384,10 +386,22 @@ class CoachingHubView(CoachingView):
         if options is None:
             return
         # The occasion's `offers_positioning`, as the prompt carries
-        # it: no shapes on offer is the window before the shootout.
-        positioning = bool(options.formations)
+        # it: no shapes and no arrangement on offer is the window
+        # before the shootout.
+        positioning = (
+            bool(options.formations) or options.arrangement is not None
+        )
 
-        if positioning:
+        if options.arrangement is not None:
+            # A 2.0 side has no formations: it names its three unique
+            # roles and places three more, and the shape is what that
+            # makes (docs/rules-2.0.md 4.3).
+            self.add_action(
+                "Arrange team",
+                f"d12ball:coach_arrange:{game_id}",
+                self.open_arrangement,
+            )
+        elif positioning:
             formation = options.current_formation
             # The shape in brackets is the one they are in now, not the
             # one the button switches to, so it says so -- a bare
@@ -467,6 +481,18 @@ class CoachingHubView(CoachingView):
                 "skill, best defenders furthest back -- move anyone you "
                 "want elsewhere afterwards."
             ),
+        )
+
+    async def open_arrangement(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        view = CoachingArrangeView(self.cog, self.game_id)
+        await self.show(
+            interaction, game, match, view, note=view.note(match),
         )
 
     async def open_substitution(
@@ -643,6 +669,201 @@ class CoachingFormationView(CoachingView):
 
         await self.hub_answer(
             interaction, game, match, "formation", formation=formation,
+        )
+
+
+class CoachingArrangeView(CoachingView):
+    """
+    **A 2.0 side set up from its roles** (docs/rules-2.0.md 4.3): the
+    Fullback, then the Playmaker, then the Striker, each a button per
+    player in the arrangement's pool, and then three more placed one at
+    a time -- who, then where, off `ArrangementOptions.open_spaces`.
+    The third placement sends the whole arrangement as one answer, so
+    nothing reaches the match part-made; the picks so far ride on the
+    view, and Back drops them, as every part-made pick on the hub does.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        holders: tuple[tuple[str, str], ...] = (),
+        placed: tuple[tuple[str, Zone, int], ...] = (),
+        player_id: Optional[str] = None,
+    ):
+        super().__init__(cog, game_id)
+        self.holders = holders
+        self.placed = placed
+        self.player_id = player_id
+
+        game, match = self.load_match()
+        options = self.hub_options(game, match)
+        arrangement = None if options is None else options.arrangement
+        if arrangement is None:
+            self.add_back_button(row=4)
+            return
+        step = f"{len(holders)}:{len(placed)}"
+
+        if player_id is not None:
+            for space in arrangement.open_spaces(
+                player_id, dict(holders), placed,
+            ):
+                button = discord.ui.Button(
+                    label=capitalized(
+                        f"{space_label(space.zone, space.space_index, match.board)}"
+                        f" - {space.takes.value.title()}"
+                    )[:80],
+                    style=discord.ButtonStyle.primary,
+                    custom_id=(
+                        f"d12ball:coach_arrange_space:{game_id}:{step}:"
+                        f"{space.zone.value}:{space.space_index}"
+                    ),
+                )
+
+                async def callback(
+                    interaction: discord.Interaction,
+                    zone: Zone = space.zone,
+                    space_index: int = space.space_index,
+                ) -> None:
+                    await self.place(interaction, zone, space_index)
+
+                button.callback = callback
+                self.add_item(button)
+            self.add_back_button(row=4)
+            return
+
+        chosen = self.chosen()
+        fielded = set(match.setup_for_side(self.side(match)).field_players)
+        for candidate in arrangement.pool:
+            if candidate in chosen:
+                continue
+            button = discord.ui.Button(
+                label=(
+                    cog.engine.format_roster_player(candidate)
+                    + ("" if candidate in fielded else " - bench")
+                )[:80],
+                style=discord.ButtonStyle.secondary,
+                custom_id=(
+                    f"d12ball:coach_arrange_pick:{game_id}:{step}:"
+                    f"{candidate}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                picked: str = candidate,
+            ) -> None:
+                await self.pick(interaction, picked)
+
+            button.callback = callback
+            self.add_item(button)
+        self.add_back_button(row=4)
+
+    def chosen(self) -> list[str]:
+        """Everybody named so far, the unique roles first."""
+        return [player for _, player in self.holders] + [
+            player for player, _, _ in self.placed
+        ]
+
+    def next_role(self) -> Optional[str]:
+        """The unique role still to be named, or None once all three
+        are."""
+        roles = list(UNIQUE_ROLE_AREAS)
+        return roles[len(self.holders)] if len(self.holders) < len(roles) else None
+
+    def note(self, match: MatchState) -> str:
+        """What has been named so far and what is asked next."""
+        named = [
+            f"{role.title()}: "
+            f"{self.cog.player_label(match, self.cog.engine.get_player_definition(player))}"
+            for role, player in self.holders
+        ] + [
+            f"{capitalized(space_label(zone, space_index, match.board))}: "
+            f"{self.cog.player_label(match, self.cog.engine.get_player_definition(player))}"
+            for player, zone, space_index in self.placed
+        ]
+        role = self.next_role()
+        if role is not None:
+            options = self.hub_options(self.cog.games.get(self.game_id), match)
+            where = next(
+                (
+                    space_label(space.zone, space.space_index, match.board)
+                    for space in (
+                        options.arrangement.unique
+                        if options is not None and options.arrangement
+                        else ()
+                    )
+                    if space.takes.value == role
+                ),
+                "their role's space",
+            )
+            ask = f"Who is your **{role.title()}**? They stand on {where}."
+        elif self.player_id is None:
+            ask = (
+                f"Who goes on the field next ({len(self.placed) + 1} of "
+                f"{ARRANGED_PLAYER_COUNT})? They take the standard role of "
+                "the zone you put them in."
+            )
+        else:
+            player = self.cog.engine.get_player_definition(self.player_id)
+            ask = f"Where does {self.cog.player_label(match, player)} stand?"
+        return "\n".join(named + [ask])
+
+    async def pick(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        role = self.next_role()
+        view = (
+            CoachingArrangeView(
+                self.cog, self.game_id,
+                self.holders + ((role, player_id),), self.placed,
+            )
+            if role is not None
+            else CoachingArrangeView(
+                self.cog, self.game_id, self.holders, self.placed, player_id,
+            )
+        )
+        await self.show(interaction, game, match, view, note=view.note(match))
+
+    async def place(
+        self,
+        interaction: discord.Interaction,
+        zone: Zone,
+        space_index: int,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        placed = self.placed + ((self.player_id, zone, space_index),)
+        if len(placed) < ARRANGED_PLAYER_COUNT:
+            view = CoachingArrangeView(
+                self.cog, self.game_id, self.holders, placed,
+            )
+            await self.show(
+                interaction, game, match, view, note=view.note(match),
+            )
+            return
+        await self.hub_answer(
+            interaction,
+            game,
+            match,
+            "arrange",
+            arrangement={
+                **dict(self.holders),
+                "placed": [
+                    {
+                        "player_id": player,
+                        "zone": Zone(placed_zone).value,
+                        "space_index": index,
+                    }
+                    for player, placed_zone, index in placed
+                ],
+            },
         )
 
 

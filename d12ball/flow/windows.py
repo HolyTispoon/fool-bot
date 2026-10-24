@@ -169,12 +169,12 @@ def coaching_summary(
     lines: list[str] = []
 
     was = match.pending_coaching_formation
-    now = engine.current_formation(match, side)
-    if now is not None and now.value != was:
+    now = engine.shape_name(match, side)
+    if now is not None and now != was:
         lines.append(
-            f"Formation: **{was} → {now.value}**."
+            f"Formation: **{was} → {now}**."
             if was
-            else f"Formation: **{now.value}**."
+            else f"Formation: **{now}**."
         )
 
     for outgoing_player_id, incoming_player_id in (
@@ -518,12 +518,11 @@ def open_substitution_window(
         if occasion.offers_positioning
         else False
     )
-    shape = engine.current_formation(match, side)
     match.open_coaching_window(
         side,
         occasion,
         is_response=is_response,
-        formation=shape.value if shape else None,
+        formation=engine.shape_name(match, side),
     )
 
     note = coaching_window_note(

@@ -221,15 +221,16 @@ since `has_role_ability` answers no only for a match whose roles are the formati
 
 - **The deal** is `RulesEngine.deal_formation_roles`, beside the decks at kickoff and gated the
   same way (`maneuver_deck_applies`, so never a tutorial): the six 1.0 deals, each in the role
-  their card names (the author, 2026-10-18). Each unique role has a space (rules-2.0 4.3b,
+  their card names (the author, 2026-10-18). Each unique role has a space (rules-2.0 4.3a,
   `MatchState.unique_role_space`), and on boards 7 and 9 the 1.0 deal already stands them there;
   on board 10 it puts the Midfielder on the kickoff space (Law 3.2.2), so the 2.0 deal moves the
   Playmaker onto it and the Midfielder behind, and records that as the first arrangement.
 - **`MatchState.assign_formation_roles`** reads a freshly dealt side: in each zone the card on
   the unique role's space (the nearest, where nobody is) takes it and the rest the standard role
-  (`FORMATION_ZONE_ROLES`). It is asked only where nobody shares a space -- after the deal and
-  after a formation change -- since an Ooze may share a unique role's space and the space would
-  then not say who holds it.
+  (`FORMATION_ZONE_ROLES`). It is asked only where nobody shares a space -- after the deal, and
+  after a re-deal by hand (`apply_formation`, which no 2.0 hub offers) -- since an Ooze may
+  share a unique role's space and the space would then not say who holds it. An arrangement
+  (below) gives its roles rather than reading them back.
 - **A substitute takes the outgoing card's role** (`substitute`), and **a zone assignment trades
   the two roles** (`exchange_field_players`) -- in 2.0 two in the same zone included
   (rules-2.0 4.6c), which is how a coach puts somebody else in a unique role. Two in the same
@@ -263,14 +264,32 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   holds the window until they have moved, and the hub's options name them (`must_move`) so
   Dinky moves them before it is done. A zone never holds more players than spaces, so with two on
   one there is always an empty one.
-- **A formation change keeps the Fullback, the Playmaker and the Striker** (the author,
-  2026-10-18): `RulesEngine.formation_role_placement` stands each on their space and fills the
-  new shape's standard roles from the other three by defensive skill, from the coach's own goal
-  forward -- a Defender or a Winger furthest from their unique role, a Midfielder behind the
-  Playmaker first (`standard_role_spaces`, 4.5's spaces). Rules-2.0 4.6a leaves the change wholly
-  to the coach; this is the arrangement it starts from, and role trades and space positioning
-  between them reach every assignment the rules allow. `deploy_side` then reads the roles back off
-  the spaces, each holder dealt first in their zone.
+- **There are no formations: a side is arranged by its roles** (rules-2.0 4.2, 4.3; the author,
+  2026-10-24, replacing the formation change of 2026-10-18). `MatchState.arrange_side` takes the
+  three unique roles' holders, each stood on their space, and three placements anywhere on the
+  field, each taking its zone's standard role, and checks the whole of it before anybody moves;
+  `RulesEngine.apply_arrangement` words it. The shape is whatever that makes, so a 2.0 side is
+  named by its counts (`RulesEngine.shape_name`, "3-1-2" as readily as "2-2-2") rather than by
+  `current_formation`, which knows only the five 1.0 shapes; the hub's title and the window's
+  summary both ask it. `arrangement_space_open` is **the one reading of where a placement may
+  go** -- an empty space, or a shared one where either is an Ooze, in a zone with room left --
+  which `arrange_side` refuses against and the prompt's `ArrangementOptions.open_spaces` offers
+  from. **The zone cap is the bot's reading, put to the author**: an Ooze may share a space but a
+  zone never holds more players than spaces, since otherwise a zone assignment could leave a
+  unique role's sharer with no empty space to step off to and the window could not close.
+- **Before kickoff the pool is the squad** (rules-2.0 4.3c): `MatchState.arrangement_pool` is the
+  six on the field, and the bench too where the window's substitutions have no limit -- setup's
+  -- so whoever on the field is left out goes off through `substitute` and is recorded as the
+  window's substitution. After kickoff a substitution is counted, so an arrangement rearranges
+  the six playing. Who among the pool is Spreadable is `RulesEngine.spreadable_among`, since a
+  bench Ooze is not among `spread_exempt_ids`' fielded six.
+- **The hub offers Arrange team in place of Formation** for a 2.0 side (`CoachingHubOptions.
+  arrangement`, with `formations` empty, and the driver's `arrange` answer refusing a 1.0 side
+  as `formation` refuses a 2.0 one). On Discord it is one view, `CoachingArrangeView`, rebuilt
+  each click with the picks so far -- Fullback, Playmaker, Striker, then who and where three
+  times -- and the third placement sends the whole arrangement as one answer, so nothing
+  part-made reaches the match. Dinky never arranges; the deal's recommended arrangement is its.
+  The web app plays no 2.0, so it shows neither.
 
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.

@@ -57,12 +57,17 @@ from d12ball.special_abilities import (
     SCORCHIT_FORCED_TEST_TOKENS,
 )
 from d12ball.components import (
+    FORMATION_ZONE_ROLES,
     OVERDRIVE_DRAIN_COST,
+    SETUP_AREAS,
     SPECIES_TELEKINETIC,
     MatchState,
     PlayerRole,
     TeamSide,
     Zone,
+    area_for_zone,
+    arrangement_space_open,
+    zone_for_area,
 )
 
 from d12ball.flow.result import FollowOn, FollowOnStep
@@ -872,6 +877,89 @@ class RepositionOptions:
 
 
 @dataclass(frozen=True)
+class ArrangementSpace:
+    """A space a 2.0 arrangement may put somebody on, and the role
+    whoever stands there takes."""
+
+    zone: Zone
+    space_index: int
+    #: The role whoever stands here takes.
+    takes: PlayerRole
+
+    def to_dict(self) -> dict:
+        return {
+            "zone": Zone(self.zone).value,
+            "space_index": self.space_index,
+            "takes": PlayerRole(self.takes).value,
+        }
+
+
+@dataclass(frozen=True)
+class ArrangementOptions:
+    """
+    **A 2.0 side's arrangement** (docs/rules-2.0.md 4.3): the
+    Fullback, the Playmaker and the Striker named from `pool`, each
+    standing on their space in `unique`, and then three more placed on
+    any of `spaces`, each taking that space's standard role. It is
+    asked in steps -- who, then where -- so the spaces open to the
+    next placement depend on the ones before, and `open_spaces`
+    answers that off `arrangement_space_open`, the reading
+    `MatchState.arrange_side` refuses against.
+    """
+
+    #: Who may be named: the six on the field, and before kickoff the
+    #: bench (`MatchState.arrangement_pool`).
+    pool: tuple[str, ...]
+    #: The three unique roles' spaces, Fullback, Playmaker, Striker.
+    unique: tuple[ArrangementSpace, ...]
+    #: Every space of the field, left to right, each with its zone's
+    #: standard role.
+    spaces: tuple[ArrangementSpace, ...]
+    #: The Spreadable Oozes in `pool`, who may share a space.
+    spreadable: tuple[str, ...] = ()
+
+    def open_spaces(
+        self,
+        player_id: str,
+        holders: Mapping[str, str],
+        placed: Sequence[tuple[str, Zone, int]] = (),
+    ) -> tuple[ArrangementSpace, ...]:
+        """The spaces `player_id` may be placed on, with the unique
+        roles in `holders` (keyed by role) on their spaces and
+        `placed` already down."""
+        standing = [
+            (holders[space.takes.value], space.zone, space.space_index)
+            for space in self.unique
+            if space.takes.value in holders
+        ] + [
+            (other, Zone(zone), space_index)
+            for other, zone, space_index in placed
+        ]
+        zone_sizes: dict[Zone, int] = {}
+        for space in self.spaces:
+            zone_sizes[space.zone] = zone_sizes.get(space.zone, 0) + 1
+        return tuple(
+            space for space in self.spaces
+            if arrangement_space_open(
+                player_id,
+                space.zone,
+                space.space_index,
+                zone_sizes[space.zone],
+                standing,
+                self.spreadable,
+            )
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "pool": list(self.pool),
+            "unique": [space.to_dict() for space in self.unique],
+            "spaces": [space.to_dict() for space in self.spaces],
+            "spreadable": list(self.spreadable),
+        }
+
+
+@dataclass(frozen=True)
 class CoachingHubOptions:
     """
     COACHING_HUB: the window's four sub-menus, for the side whose
@@ -906,6 +994,11 @@ class CoachingHubOptions:
     #: (`MatchState.unique_space_sharers`); each one's `repositions`
     #: are the empty spaces open to them.
     must_move: tuple[str, ...] = ()
+    #: **A 2.0 side's arrangement, in place of the formations**, which
+    #: a 2.0 side does not have (the author, 2026-10-24): `None` for a
+    #: 1.0 side and where the occasion offers no positioning, and
+    #: `formations` empty wherever this is set.
+    arrangement: Optional[ArrangementOptions] = None
 
     def to_dict(self) -> dict:
         return {
@@ -928,6 +1021,10 @@ class CoachingHubOptions:
             "finish_refusal": self.finish_refusal,
             "allowance": self.allowance,
             "must_move": list(self.must_move),
+            "arrangement": (
+                None if self.arrangement is None
+                else self.arrangement.to_dict()
+            ),
         }
 
 
@@ -2428,7 +2525,8 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
     PromptKind.COACHING_OFFER: ("declare", "decline"),
     PromptKind.COACHING_HUB: (
-        "formation", "substitute", "swap", "reposition", "done",
+        "formation", "arrange", "substitute", "swap", "reposition",
+        "done",
     ),
     PromptKind.SCORE_ATTEMPT: (
         "roll", "back", "overdrive", "boost", "merge", "pass",
@@ -3043,9 +3141,42 @@ def _coaching_hub_options(
             )
 
 
+    # A 2.0 side is arranged by its roles and has no formations to
+    # pick (docs/rules-2.0.md 4.3).
+    arrangement = None
+    if positioning and roles is not None:
+        arranged = tuple(match.arrangement_pool(side))
+        spreadable = engine.spreadable_among(game, arranged)
+        arrangement = ArrangementOptions(
+            pool=arranged,
+            unique=tuple(
+                ArrangementSpace(
+                    zone_for_area(side, area),
+                    match.unique_role_space(side, area),
+                    FORMATION_ZONE_ROLES[area][0],
+                )
+                for area in SETUP_AREAS
+            ),
+            spaces=tuple(
+                ArrangementSpace(
+                    zone,
+                    space_index,
+                    FORMATION_ZONE_ROLES[area_for_zone(side, zone)][1],
+                )
+                for zone in Zone
+                for space_index in range(len(match.board.spaces[zone]))
+            ),
+            spreadable=tuple(
+                player_id for player_id in arranged
+                if player_id in spreadable
+            ),
+        )
+
     return CoachingHubOptions(
         formations=(
-            tuple(engine.available_formations(match)) if positioning else ()
+            tuple(engine.available_formations(match))
+            if positioning and arrangement is None
+            else ()
         ),
         current_formation=(
             engine.current_formation(match, side) if positioning else None
@@ -3061,6 +3192,7 @@ def _coaching_hub_options(
             tuple(match.unique_space_sharers(side, exempt))
             if positioning else ()
         ),
+        arrangement=arrangement,
     )
 
 
