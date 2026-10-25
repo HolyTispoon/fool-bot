@@ -283,9 +283,9 @@ and 10 -- [printed-boards.md](printed-boards.md), "The 2.0 boards".
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.
 
-**The printed player cards have a 2.0 face** that names no role (the author, 2026-10-24) and lies
-on its side (2026-10-25), and
-`/d12ball team_reference` posts it in a 2.0 game -- [cards.md](cards.md), "The 2.0 player cards".
+**The printed players have a 2.0 piece**, a tile smaller than a card that names no role (the
+author, 2026-10-24 and 2026-10-25), and
+`/d12ball team_reference` posts it in a 2.0 game -- [cards.md](cards.md), "The 2.0 player tiles".
 
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
 print-and-play kit; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the

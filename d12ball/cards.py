@@ -218,10 +218,13 @@ class Pen:
     in. Every method takes and returns those units.
     """
 
-    def __init__(self, size: tuple[int, int], background: str) -> None:
-        # The trimmed card's own size: a 2.0 player card is a poker
-        # card turned on its side (`player_cards.LANDSCAPE`).
+    def __init__(
+        self, size: tuple[int, int], background: str, corner: float = CORNER
+    ) -> None:
+        # The trimmed piece's own size and corner: a 2.0 player tile is
+        # smaller than a card and rounder for it (`player_cards.TILE`).
         self.size = size
+        self.corner = corner
         self.image = Image.new(
             "RGB",
             (round(px(size[0])), round(px(size[1]))),
@@ -316,7 +319,7 @@ class Pen:
                 px(self.size[0] - FRAME - inset),
                 px(self.size[1] - FRAME - inset),
             ),
-            radius=px(CORNER - inset),
+            radius=px(self.corner - inset),
             fill=255,
         )
         self.image.paste(fill, mask=ImageChops.multiply(shape, card))

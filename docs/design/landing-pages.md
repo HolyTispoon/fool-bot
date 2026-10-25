@@ -260,9 +260,8 @@ as `KIT_DOWNLOADS` says:
   standee pages of two colour teams each, Orange and Teal, then Purple and
   Slime (about 20 MB each);
 - `/kit-players-v2-1` and `/kit-players-v2-2` -- the same teams' D12 Ball
-  2.0 player sheets, which name no role (2026-10-24) and lie on their
-  side (2026-10-25), about 11 MB each, parts of their own on the same
-  pairs;
+  2.0 player tiles, which name no role (2026-10-24) and are smaller
+  than a card (2026-10-25), parts of their own on the same pairs;
 - `/kit-tiles-1` and `/kit-tiles-2` -- the maneuver tiles of the same two
   pairs of teams, each team's four pages: its two tiles' fronts and backs
   (about 15 MB each).
