@@ -1862,7 +1862,11 @@ else the bot shows is ephemeral.
     Guide, a rune or its own text has had its say, and the board was
     the one place a player could not read the difference. The numbers
     are the engine's `board_reading` -- `body_stats`, with the elite's
-    +1 ATK added while the body patrols there, capped and floored as
+    +1 ATK added while the body patrols there on an opponent's turn
+    (`elite_applies`: a patrol bonus is the defender's, so a unit put
+    there at its own turn's end shows none until the next turn begins,
+    as the squad leader's armor waits for that turn's refresh -- the
+    author, 2026-10-25), capped and floored as
     `attack_value` does, because the slot's bonus is what it fights
     with and a pill that left it out read one less than the attack did;
     frenzy, which `attack_value` adds on its controller's turn alone, is
