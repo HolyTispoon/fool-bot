@@ -122,7 +122,12 @@ def coaching_window_note(
     # side scattered is looking at their own shape again and
     # should be told why.
     if restored:
-        lines.append("Your side is back on the arrangement you last set.")
+        lines.append(
+            "Your Fullback, Playmaker and Striker are back on their own "
+            "spaces; everybody else stands where the play left them."
+            if engine.restarts_by_run_back(match)
+            else "Your side is back on the arrangement you last set."
+        )
 
     # An injured player is worth pointing out, but only as a
     # nudge: nothing compels a side to get them off, and a coach
@@ -451,6 +456,15 @@ def finish_coaching_step(
     if refusal is not None:
         raise RuleRefusal(refusal, law="finishing-a-coaching-choice")
 
+    # A 2.0 player still outside their zone takes the role of the one
+    # they stand in (docs/rules-2.0.md 4.9d), before the summary reads
+    # the shape -- which is what says so, as a change of shape.
+    settled = (
+        engine.settle_arrangement(game, match, side)
+        if match.coaching_occasion is not None
+        and match.coaching_occasion.offers_positioning
+        else None
+    )
     setup = match.setup_for_side(side)
     changes = coaching_summary(engine, match, side)
     return StepResult(
@@ -463,6 +477,8 @@ def finish_coaching_step(
                 ]
             )
         ],
+        # The roles drawn on the board changed with them.
+        board_changed=settled is not None,
         next=FollowOn(FollowOnStep.FINISH_SUBSTITUTION_WINDOW),
     )
 
@@ -514,15 +530,15 @@ def open_substitution_window(
     occasion = CoachingOccasion(occasion)
 
     # A 2.0 side keeps no arrangement to go back to (docs/rules-2.0.md
-    # 4.9): a new play has just run everybody back, and a time out and
-    # halftime move nobody, so the window opens on the side as it
-    # stands and the coach places them.
-    restored = (
-        match.restore_assigned_positions(side)
-        if occasion.offers_positioning
-        and not engine.restarts_by_run_back(match)
-        else False
-    )
+    # 4.9): its Fullback, Playmaker and Striker go back onto their own
+    # spaces and everybody else stays where they stand, for the coach
+    # to put right -- which after a new play's run back moves nobody.
+    if not occasion.offers_positioning:
+        restored = False
+    elif engine.restarts_by_run_back(match):
+        restored = bool(match.return_unique_roles(side))
+    else:
+        restored = match.restore_assigned_positions(side)
     match.open_coaching_window(
         side,
         occasion,
@@ -847,8 +863,8 @@ def finish_time_out(
     """
     match.pending_time_out = False
     if engine.restarts_by_run_back(match):
-        # A 2.0 time out moves nobody (docs/rules-2.0.md 4.9): the
-        # coaches have just placed their sides in their windows, and
+        # A 2.0 time out resets nobody (docs/rules-2.0.md 4.9d): the
+        # coaches have just put their sides right in their windows, and
         # there is no arrangement to reset to. The board the play
         # restarts from is still the one a frontend pins (`new_play`).
         end_the_play(match)

@@ -67,6 +67,7 @@ from d12ball.components import (
     TeamSide,
     Zone,
     area_for_zone,
+    arrangement_faults,
     arrangement_refusal,
     zone_for_area,
 )
@@ -960,7 +961,9 @@ class ArrangementOptions:
     (the author, 2026-10-24: a rearrangement starts from the side as
     it stands). An edit is offered only where `arrangement_refusal`,
     the reading `MatchState.arrange_side` refuses on, lets what it
-    leaves stand.
+    leaves stand -- or, while a time out or halftime has left the side
+    out of place, where a move leaves fewer players out of place
+    (`arrangement_faults`, docs/rules-2.0.md 4.9d).
     """
 
     #: Who may be arranged: the six on the field, and before kickoff
@@ -999,24 +1002,45 @@ class ArrangementOptions:
             player for player, _, _ in self.placed
         )
 
+    def _zone_sizes(self) -> dict[Zone, int]:
+        zone_sizes: dict[Zone, int] = {}
+        for space in self.spaces:
+            zone_sizes[space.zone] = zone_sizes.get(space.zone, 0) + 1
+        return zone_sizes
+
+    def _unique_spaces(self) -> dict[str, tuple[Zone, int]]:
+        return {
+            space.takes.value: (space.zone, space.space_index)
+            for space in self.unique
+        }
+
     def refusal(
         self,
         holders: Sequence[tuple[str, str]],
         placed: Sequence[tuple[str, Zone, int]],
     ) -> Optional[str]:
         """Why an arrangement may not stand, or None."""
-        zone_sizes: dict[Zone, int] = {}
-        for space in self.spaces:
-            zone_sizes[space.zone] = zone_sizes.get(space.zone, 0) + 1
         return arrangement_refusal(
             dict(holders),
             placed,
             self.pool,
-            {
-                space.takes.value: (space.zone, space.space_index)
-                for space in self.unique
-            },
-            zone_sizes,
+            self._unique_spaces(),
+            self._zone_sizes(),
+            self.spreadable,
+        )
+
+    def faults(
+        self,
+        holders: Sequence[tuple[str, str]],
+        placed: Sequence[tuple[str, Zone, int]],
+    ) -> int:
+        """How many players an arrangement leaves out of place
+        (`arrangement_faults`): zero for one that may stand."""
+        return arrangement_faults(
+            dict(holders),
+            placed,
+            self._unique_spaces(),
+            self._zone_sizes(),
             self.spreadable,
         )
 
@@ -1057,9 +1081,21 @@ class ArrangementOptions:
                 new_placed.append((who, zone, index))
 
         found: list[ArrangementEdit] = []
+        # A side a time out or halftime left out of place is put right a
+        # player at a time (docs/rules-2.0.md 4.9d): while it is, a move
+        # that leaves fewer out of place is offered too, as
+        # `MatchState.arrange_side` accepts it.
+        out_of_place = (
+            self.faults(holders, placed)
+            if self.refusal(holders, placed) is not None
+            else 0
+        )
 
         def keep(kind, new_holders, new_placed, other=None, space=None):
-            if self.refusal(new_holders, new_placed) is None:
+            if self.refusal(new_holders, new_placed) is None or (
+                kind == "move"
+                and self.faults(new_holders, new_placed) < out_of_place
+            ):
                 found.append(ArrangementEdit(
                     kind, tuple(new_holders), tuple(new_placed),
                     other=other, space=space,

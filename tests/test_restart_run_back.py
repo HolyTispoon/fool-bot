@@ -4,10 +4,12 @@ author, 2026-10-24): every fielded player goes back to their own zone --
 the Fullback, the Playmaker and the Striker to their own spaces,
 everyone else to an open space of their zone, their coach choosing --
 for nothing, and the Coaching Choice comes after, on the side as it then
-stands. A time out and halftime move nobody: their Coaching Choices open
-on the side as it stands, for the coaches to place. A steal's run back
-is the Charter's, unique roles and all. See "2.0: a restart is a run
-back" in docs/design/possession-and-turnovers.md.
+stands. A time out's and halftime's Coaching Choice opens with the
+unique roles back on their spaces and everybody else where they stand,
+for the coach to put right before finishing (4.9d, the author,
+2026-10-25). A steal's run back is the Charter's, unique roles and all.
+See "2.0: a restart is a run back" in
+docs/design/possession-and-turnovers.md.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from d12ball.components import (
     CoachingOccasion,
     MatchState,
     PlayerRole,
+    RuleRefusal,
     TeamSide,
     Zone,
 )
@@ -240,107 +243,152 @@ class StealTests(unittest.TestCase):
         )
 
 
-class CoachingChoicePlacementTests(unittest.TestCase):
-    """A 2.0 Coaching Choice is where a coach places a side nothing
-    has run back: a unique role off their space goes back to it, and a
-    player outside their zone to an empty space of it."""
-
-    def test_a_unique_role_goes_back_to_their_own_space(self) -> None:
-        engine, game, match = kickoff(Edition.TWO, 9)
-        fullback = fielded(match, PlayerRole.FULLBACK)
-        defender = fielded(match, PlayerRole.DEFENDER)
-        # A steal's run back left the Fullback on the Defender's space,
-        # and the Defender on the Fullback's.
-        match.board.place_meeple(fullback, Zone.HOME_ZONE, 2)
-        match.board.place_meeple(defender, Zone.HOME_ZONE, 0)
-        self.assertEqual(
-            match.positioning_targets(HOME, fullback), [(0, (defender,))],
+def unique_spaces_taken(test, match, side) -> None:
+    """Each of `side`'s unique roles on their own space."""
+    for role, area in (
+        (PlayerRole.FULLBACK, "own_goal"),
+        (PlayerRole.PLAYMAKER, "midfield"),
+        (PlayerRole.STRIKER, "opponent_goal"),
+    ):
+        test.assertEqual(
+            space_of(match, fielded(match, role, side))[1],
+            match.unique_role_space(side, area),
+            role,
         )
-        self.assertEqual(
-            match.position_meeple(HOME, fullback, 0), defender,
+
+
+def answer_as_dinky(test, engine, game, match) -> list[str]:
+    """Answer every Coaching Choice the way Dinky does until none is
+    open, a reload after each; the choices made, in order."""
+    dinky = engine.ai_strategies[AIOpponent.DINKY]
+    choices = []
+    for _ in range(40):
+        prompt = pending_prompt(engine, game, match)
+        if prompt is None or prompt.kind is not PromptKind.COACHING_HUB:
+            return choices
+        action = dinky.choose(prompt, game, match, prompt.side)
+        outcome = driver.apply(engine, game, match, action)
+        test.assertNotIsInstance(outcome, driver.Refusal, outcome)
+        while isinstance(outcome.result.next, FollowOn):
+            outcome = driver.advance(
+                engine, game, match, StepResult(next=outcome.result.next),
+            )
+        reloaded = MatchState.from_dict(match.to_dict(), RULESET)
+        test.assertEqual(
+            pending_prompt(engine, game, reloaded),
+            pending_prompt(engine, game, match),
         )
-        self.assertEqual(space_of(match, fullback), (Zone.HOME_ZONE, 0))
-        self.assertEqual(space_of(match, defender), (Zone.HOME_ZONE, 2))
-        self.assertEqual(match.positioning_targets(HOME, fullback), [])
-
-    def test_one_outside_their_zone_goes_to_an_empty_space(self) -> None:
-        engine, game, match = kickoff(Edition.TWO, 9)
-        defender = fielded(match, PlayerRole.DEFENDER)
-        match.board.place_meeple(defender, Zone.MIDFIELD, 0)
-        targets = match.positioning_targets(HOME, defender)
-        self.assertTrue(targets)
-        self.assertTrue(all(trade == () for _, trade in targets))
+        choices.append(action.choice)
+    raise AssertionError("the Coaching Choices did not close")
 
 
-class TimeOutTests(unittest.TestCase):
-    """A 2.0 time out moves nobody: both windows open on the side as it
-    stands, and nothing resets after them."""
+class ScatteredSideTests(unittest.TestCase):
+    """4.9d: a time out's or halftime's Coaching Choice sends the unique
+    roles back as it opens; everybody else stays, and the coach puts
+    them right, a player at a time, before finishing."""
 
-    def test_the_windows_open_on_the_side_as_it_stands(self) -> None:
-        engine, game, match = kickoff(Edition.TWO, 9)
-        driver.advance(
-            engine, game, match,
-            StepResult(next=FollowOn(FollowOnStep.FINISH_SETUP_COACHING)),
+    def open_halftime(self, board_size: int = 9):
+        engine, game, match = kickoff(Edition.TWO, board_size)
+        scramble(match)
+        result = windows.open_substitution_window(
+            engine, game, match, HOME, CoachingOccasion.HALFTIME,
         )
+        return engine, game, match, result
+
+    def test_the_unique_roles_go_back_as_the_window_opens(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
         scramble(match)
         standing = {
-            card: space_of(match, card)
-            for side in (HOME, VISITING)
-            for card in match.setup_for_side(side).field_players
+            fielded(match, role): space_of(match, fielded(match, role))
+            for role in STANDARD
         }
-        driver.advance(
-            engine, game, match, windows.begin_time_out(engine, game, match),
+        result = windows.open_substitution_window(
+            engine, game, match, HOME, CoachingOccasion.HALFTIME,
         )
-        self.assertIsNone(match.pending_replace)
-        prompt = pending_prompt(engine, game, match)
-        self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
-        self.assertEqual(match.coaching_occasion, CoachingOccasion.TIME_OUT)
+        self.assertTrue(result.board_changed)
+        unique_spaces_taken(self, match, HOME)
         self.assertEqual(
             {card: space_of(match, card) for card in standing}, standing,
         )
-        # Each coach covers their kickoff space -- the one thing a
-        # window holds them to -- as Dinky does, and closing a window
-        # puts nobody back anywhere.
-        dinky = engine.ai_strategies[AIOpponent.DINKY]
-        closed = 0
-        for _ in range(20):
-            prompt = pending_prompt(engine, game, match)
-            if prompt.kind is not PromptKind.COACHING_HUB:
-                break
-            action = dinky.choose(prompt, game, match, prompt.side)
-            before = {card: space_of(match, card) for card in standing}
-            outcome = driver.apply(engine, game, match, action)
-            self.assertNotIsInstance(outcome, driver.Refusal, outcome)
-            while isinstance(outcome.result.next, FollowOn):
-                outcome = driver.advance(
-                    engine, game, match, StepResult(next=outcome.result.next),
-                )
-            if action.choice == "done":
-                closed += 1
-                self.assertEqual(
-                    {card: space_of(match, card) for card in standing},
-                    before,
-                )
-        self.assertEqual(closed, 2)
+        self.assertIn("back on their own spaces", result.next.ask)
 
+    def test_the_window_holds_until_everyone_is_in_place(self) -> None:
+        engine, game, match, _ = self.open_halftime()
+        self.assertGreater(match.standing_arrangement_faults(HOME), 0)
+        self.assertIsNotNone(engine.coaching_finish_refusal(match, HOME, game))
+        refused = driver.apply(engine, game, match, driver.Action(
+            PromptKind.COACHING_HUB, "done", {"side": "home"},
+        ))
+        self.assertIsInstance(refused, driver.Refusal)
 
-class HalftimeTests(unittest.TestCase):
-    """2.0's halftime moves nobody before its Coaching Choices."""
+    def test_each_change_leaves_fewer_out_of_place(self) -> None:
+        engine, game, match, _ = self.open_halftime()
+        prompt = pending_prompt(engine, game, match)
+        arrangement = prompt.options.arrangement
+        before = match.standing_arrangement_faults(HOME)
+        defender = fielded(match, PlayerRole.DEFENDER)
+        moves = arrangement.edits(defender)
+        self.assertTrue(moves)
+        self.assertTrue(all(edit.kind == "move" for edit in moves))
+        outcome = driver.apply(engine, game, match, driver.Action(
+            PromptKind.COACHING_HUB, "arrange",
+            {"side": "home", "arrangement": moves[0].answer()},
+        ))
+        self.assertNotIsInstance(outcome, driver.Refusal, outcome)
+        after = match.standing_arrangement_faults(HOME)
+        self.assertLess(after, before)
+        said = "\n".join(outcome.result.narration)
+        self.assertIn("moves to", said)
+        self.assertIn(f"{after} still out of place.", said)
 
-    def test_the_halftime_windows_open_on_the_side_as_it_stands(self) -> None:
+    def test_a_change_that_puts_nobody_right_is_refused(self) -> None:
+        engine, game, match, _ = self.open_halftime()
+        holders, placed = match.current_arrangement(HOME)
+        first, zone, index = placed[0]
+        # Onto another crowded space of the same zone: no fewer out of
+        # place.
+        before = match.to_dict()
+        with self.assertRaises(RuleRefusal):
+            match.arrange_side(HOME, holders, [
+                (player, zone, index) for player, _, _ in placed
+            ])
+        self.assertEqual(match.to_dict(), before)
+
+    def test_finishing_gives_the_roles_of_where_they_stand(self) -> None:
         engine, game, match = kickoff(Edition.TWO, 9)
-        scramble(match)
-        standing = {
-            card: space_of(match, card) for card in match.home.field_players
-        }
+        defender = fielded(match, PlayerRole.DEFENDER)
+        # Home's midfield has room for one more: the Defender is out
+        # of their zone but nobody is out of place.
+        empty = next(
+            index for index in range(3)
+            if not set(match.board.spaces[Zone.MIDFIELD][index])
+            & set(match.home.field_players)
+        )
+        match.board.place_meeple(defender, Zone.MIDFIELD, empty)
         windows.open_substitution_window(
             engine, game, match, HOME, CoachingOccasion.HALFTIME,
         )
-        self.assertEqual(
-            {card: space_of(match, card) for card in standing}, standing,
-        )
+        self.assertIsNone(engine.coaching_finish_refusal(match, HOME, game))
+        outcome = driver.apply(engine, game, match, driver.Action(
+            PromptKind.COACHING_HUB, "done", {"side": "home"},
+        ))
+        self.assertNotIsInstance(outcome, driver.Refusal, outcome)
+        self.assertEqual(engine.role_of(match, defender), PlayerRole.MIDFIELDER)
+        self.assertEqual(match.home.assigned_zone(defender), Zone.MIDFIELD)
+        self.assertEqual(engine.shape_name(match, HOME), "1-3-2")
 
-    def test_one_point_oh_still_snaps_back_at_halftime(self) -> None:
+    def test_dinky_puts_a_scattered_side_right(self) -> None:
+        engine, game, match, _ = self.open_halftime()
+        choices = answer_as_dinky(self, engine, game, match)
+        self.assertIn("arrange", choices)
+        self.assertEqual(choices[-1], "done")
+        self.assertEqual(match.standing_arrangement_faults(HOME), 0)
+        unique_spaces_taken(self, match, HOME)
+        setup = match.home
+        for card in setup.field_players:
+            self.assertEqual(space_of(match, card)[0], setup.assigned_zone(card))
+
+    def test_one_point_oh_still_snaps_back(self) -> None:
         engine, game, match = kickoff(Edition.ONE, 9)
         dealt = {
             card: space_of(match, card) for card in match.home.field_players
@@ -352,6 +400,32 @@ class HalftimeTests(unittest.TestCase):
         self.assertEqual(
             {card: space_of(match, card) for card in dealt}, dealt,
         )
+
+
+class TimeOutTests(unittest.TestCase):
+    """A 2.0 time out sends each side's unique roles back as its window
+    opens, and resets nothing after the windows."""
+
+    def test_both_windows_put_their_side_right(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        driver.advance(
+            engine, game, match,
+            StepResult(next=FollowOn(FollowOnStep.FINISH_SETUP_COACHING)),
+        )
+        scramble(match)
+        driver.advance(
+            engine, game, match, windows.begin_time_out(engine, game, match),
+        )
+        self.assertIsNone(match.pending_replace)
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
+        self.assertEqual(match.coaching_occasion, CoachingOccasion.TIME_OUT)
+        unique_spaces_taken(self, match, prompt.side)
+        choices = answer_as_dinky(self, engine, game, match)
+        self.assertEqual(choices.count("done"), 2)
+        for side in (HOME, VISITING):
+            unique_spaces_taken(self, match, side)
+            self.assertEqual(match.standing_arrangement_faults(side), 0)
 
 
 class WholeGameTests(unittest.TestCase):

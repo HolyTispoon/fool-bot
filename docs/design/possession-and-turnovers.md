@@ -236,8 +236,8 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
 
 **D12 Ball 2.0 keeps no arrangement to reset to** (rules-2.0 4.9, the author, 2026-10-24): a new
 play runs everybody back instead, free, and its Coaching Choice comes after, on the side as it
-stands. A time out and halftime move nobody -- *"when there's a coaching window the player will
-have a chance to place them anyway"* -- so their windows open on the side as it stands, and a
+stands. A time out's and halftime's window opens with the unique roles back on their spaces and
+everybody else where they stand, for the coach to put right (4.9d, the author, 2026-10-25), and a
 steal's run back is the Charter's, unique roles and all (*"more like it used to in 1.0"*).
 `RulesEngine.restarts_by_run_back` is the gate -- a match whose roles are the formation's -- so
 a 1.0 match, and a 2.0 match saved before its roles, reset as they always have.
@@ -264,16 +264,30 @@ a 1.0 match, and a 2.0 match saved before its roles, reset as they always have.
   so the restart's tail -- the kickoff and any pickup -- runs after the window as it does after a
   1.0 reset, and the board pinned (`new_play`) once everybody is down. The kickoff fill waits for
   the window (`run_back_passes`), since the window can change who the Playmaker is.
-- **A time out and halftime move nobody.** No window snaps back (`open_substitution_window`),
-  and a 2.0 `finish_time_out` resets nothing -- it ends the play (`end_the_play`) and the board is
-  pinned as 1.0's reset is. So a 2.0 window can open on a side a steal left scattered, and
-  **space positioning places them** (rules-2.0 4.6d): a unique role off their space may go back
-  onto it, trading with whoever stands there -- sharing where they stand outside their zone, so
-  the trade never sends a teammate out of theirs -- and anybody outside their zone goes to an
-  empty space of it. `positioning_targets` is that reading, as for every other move. A teammate
-  on a unique role's space is one who has to step off (`unique_space_sharers`) only while the
-  holder stands there too; one standing there while the holder is elsewhere is not sharing, and
-  the holder's going back trades them off it.
+- **A time out's and halftime's window sends the unique roles back** (rules-2.0 4.9d, the
+  author, 2026-10-25: *"Opening a window means there will be a new play and so players with
+  unique roles snap back and the coach has to put everyone else back into a position"*). As a
+  2.0 window that positions anybody opens, `MatchState.return_unique_roles` stands the
+  Fullback, Playmaker and Striker on their spaces, for nothing, where 1.0 restores the saved
+  arrangement (`open_substitution_window`); everybody else stays where open play left them.
+  After a new play's run back it moves nobody, so it is one rule for every occasion rather than
+  a time-out step. A 2.0 `finish_time_out` resets nothing after the windows -- it ends the play
+  (`end_the_play`) and the board is pinned as 1.0's reset is.
+- **The coach puts the rest right with Arrange team**, the only way a 2.0 side moves (4.6c).
+  `arrangement_faults` counts how far the side is from an arrangement that may stand -- a player
+  over a zone's spaces, a second non-Ooze on a space -- in any order, unlike
+  `arrangement_refusal`, so a change can be measured against the side as it stands. While it is
+  above zero, `ArrangementOptions.edits` also offers a move that lowers it, and
+  `MatchState.arrange_side` accepts one, moving the meeple alone: the roles wait until the side
+  is in an arrangement, since a zone may still hold more players than spaces. Done is refused
+  until it is (`coaching_finish_refusal`, over `standing_arrangement_faults`). A single move can
+  always lower it -- a zone over its spaces means another has room, and so an empty space -- so
+  the window never sticks, and Dinky sends the first such move until none is left.
+- **Finishing gives the roles of where they stand** (`RulesEngine.settle_arrangement`, from
+  `finish_coaching_step`): a player still outside their zone takes that zone's standard role, as
+  any move does, and the window's summary reads the new shape. A teammate on a unique role's
+  space is one who has to step off (`unique_space_sharers`) only while the holder stands there
+  too.
 
 ### The arrangement
 
