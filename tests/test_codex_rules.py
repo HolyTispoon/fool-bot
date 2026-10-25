@@ -492,6 +492,27 @@ class PatrolSlotTests(unittest.TestCase):
         self.assertEqual(match.player(1).patrollers(), {"squad_leader": unit.ref, "lookout": TROQ})
         self.assertEqual(set(PATROL_SLOTS) >= set(match.player(1).patrollers()), True)
 
+    def test_the_squad_leader_has_its_armor_as_it_patrols(self) -> None:
+        """The squad leader's +1 armor is on it from the moment it
+        patrols (UMR p. 10), so the board at the turn's end shows its
+        shield; the next turn's refresh sets it again, never twice."""
+        engine, game, match = main_phase()
+        unit = put(match, 1, "tenderfoot")
+        hero_in_play(match, 1)
+        match.enter_phase("patrol")
+        actions.lock_patrol(engine, game, match, {"squad_leader": unit.ref, "lookout": TROQ})
+        self.assertEqual(unit.armor, 1)
+        self.assertEqual(match.player(1).hero_by_ref(TROQ).armor, 0)
+
+        engine, game, match = main_phase()
+        unit = put(match, 1, "tenderfoot")
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
+        driver.apply(engine, game, match, Action(
+            PromptKind.PATROL, arguments={"assignment": {"squad_leader": unit.ref}},
+        ))
+        self.assertEqual(match.active, 2)
+        self.assertEqual(unit.armor, 1)
+
 
 class CardTests(unittest.TestCase):
     def test_a_spell_needs_a_hero_and_goes_to_the_discard(self) -> None:

@@ -29,6 +29,7 @@ from codex.engine import (
     BUILDING_DESTROYED_DAMAGE,
     LEVELS_FOR_A_KILL,
     SCAVENGER_GOLD,
+    SQUAD_LEADER_ARMOR,
     SUMMONING_RUNES_ON_DEATH,
     TECHNICIAN_CARDS,
     FUTURE,
@@ -1172,6 +1173,18 @@ def home_seat(card: CardInstance) -> int:
     return card.owner if card.lent else card.controller
 
 
+def take_slot(body, slot: str) -> None:
+    """`body` into its patrol `slot`, with the squad leader's armor at
+    once where that is the slot (UMR p. 10): the board shows a patroller
+    as it will defend from the moment it patrols, not from the next
+    turn's refresh, since a squad leader drawn without its shield reads
+    as one whose armor is already spent (the author, 2026-10-25). The
+    next turn's start sets the same armor again (`begin_turn`)."""
+    body.patrol_slot = slot
+    if slot == "squad_leader":
+        body.armor += armor_gain(body, SQUAD_LEADER_ARMOR)
+
+
 def lend(match: MatchState, owner: int, ref: str, borrower: int, slot: str) -> None:
     """The unit or hero `ref` of `owner`'s into `slot` of `borrower`'s
     patrol zone (Rulebook p. 14, free-for-all): `borrower` controls it,
@@ -1183,13 +1196,13 @@ def lend(match: MatchState, owner: int, ref: str, borrower: int, slot: str) -> N
     if is_hero_ref(ref):
         hero = match.player(owner).hero_by_ref(ref)
         hero.lent_to = borrower
-        hero.patrol_slot = slot
+        take_slot(hero, slot)
         return
     card = match.player(owner).instance(unit_ref(ref))
     match.player(owner).play.remove(card)
     card.controller = borrower
     card.lent = True
-    card.patrol_slot = slot
+    take_slot(card, slot)
     match.player(borrower).play.append(card)
 
 

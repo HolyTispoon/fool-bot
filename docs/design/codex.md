@@ -1221,7 +1221,10 @@ match as its saved dict, as D12 Ball's record does; its file,
 
 - **Two fields beyond the worksheet's list** were needed: each card
   and hero carries `armor` (what is left of the squad leader's armor
-  this turn, set when a turn begins), the hero its `patrol_slot`, and
+  this turn, set when a turn begins -- and the squad leader's added the
+  moment it patrols, `board.take_slot`, so the board at the turn's end
+  draws its shield rather than a squad leader that reads as already hit;
+  the author, 2026-10-25), the hero its `patrol_slot`, and
   the match `attacking`. Each is in its table with its fallback.
 - **Step 5 added four**, each with its fallback, since the save format is
   the contract: `attacked_this_turn` on a card and a hero (readiness

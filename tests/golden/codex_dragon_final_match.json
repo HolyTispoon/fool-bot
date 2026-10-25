@@ -6164,7 +6164,7 @@
           "peace": false,
           "play": [
             {
-              "armor": 0,
+              "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -6344,7 +6344,7 @@
           "peace": false,
           "play": [
             {
-              "armor": 0,
+              "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -8927,7 +8927,7 @@
               "time_runes": 0
             },
             {
-              "armor": 0,
+              "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -9171,7 +9171,7 @@
               "time_runes": 0
             },
             {
-              "armor": 0,
+              "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -12258,7 +12258,7 @@
               "time_runes": 0
             },
             {
-              "armor": 0,
+              "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -12469,7 +12469,7 @@
               "time_runes": 0
             },
             {
-              "armor": 0,
+              "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,

@@ -724,11 +724,11 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             continue
         if is_hero_ref(ref):
             hero = player.hero_by_ref(ref)
-            hero.patrol_slot = slot
+            board.take_slot(hero, slot)
             named = tokens.hero(hero.slug)
         else:
             card = player.instance(int(ref.split(":", 1)[1]))
-            card.patrol_slot = slot
+            board.take_slot(card, slot)
             named = tokens.card(card.slug)
         lines.append(f"{named} as {SLOT_NAMES[slot]}")
     lends = []
