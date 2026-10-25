@@ -10,10 +10,11 @@ from typing import Optional, TYPE_CHECKING
 from d12ball.components import (
     MatchState,
     TeamSide,
-    Zone,
 )
 from d12ball.flow.driver import Action
 from d12ball.prompts import (
+    ArrangementEdit,
+    ArrangementOptions,
     CoachingHubOptions,
     PendingPrompt,
     PromptKind,
@@ -211,8 +212,8 @@ class CoachingView(SafeView):
         **arguments: object,
     ) -> None:
         """
-        One of the hub's four changes -- formation, substitute, swap,
-        reposition -- through the driver, and back to the hub with the
+        One of the hub's changes -- formation or a 2.0 arrangement,
+        substitute, swap, reposition -- through the driver, and back to the hub with the
         note it came back with.
 
         `side` goes with the action because the hub is asked of one
@@ -277,6 +278,25 @@ class CoachingView(SafeView):
             position = match.board.meeple_position(player_id)
             where = space_label(*position, match.board) if position else where
         return f"{self.cog.engine.format_roster_player(player_id)} - {where}"[:80]
+
+    def standing_label(
+        self,
+        match: MatchState,
+        arrangement: ArrangementOptions,
+        player_id: str,
+    ) -> str:
+        """One of a 2.0 arrangement's six on a button: who, in what
+        role, where -- off the arrangement's options."""
+        space = arrangement.standing_of(player_id)
+        where = (
+            ""
+            if space is None
+            else (
+                f" - {space.takes.value.title()}, "
+                f"{space_label(space.zone, space.space_index, match.board)}"
+            )
+        )
+        return f"{self.cog.engine.format_roster_player(player_id)}{where}"[:80]
 
 
 class CoachingOfferView(CoachingView):
@@ -384,10 +404,22 @@ class CoachingHubView(CoachingView):
         if options is None:
             return
         # The occasion's `offers_positioning`, as the prompt carries
-        # it: no shapes on offer is the window before the shootout.
-        positioning = bool(options.formations)
+        # it: no shapes and no arrangement on offer is the window
+        # before the shootout.
+        positioning = (
+            bool(options.formations) or options.arrangement is not None
+        )
 
-        if positioning:
+        if options.arrangement is not None:
+            # A 2.0 side has no formations: it names its three unique
+            # roles and places three more, and the shape is what that
+            # makes (docs/rules-2.0.md 4.3).
+            self.add_action(
+                "Arrange team",
+                f"d12ball:coach_arrange:{game_id}",
+                self.open_arrangement,
+            )
+        elif positioning:
             formation = options.current_formation
             # The shape in brackets is the one they are in now, not the
             # one the button switches to, so it says so -- a bare
@@ -406,7 +438,9 @@ class CoachingHubView(CoachingView):
             # adapter refuses off the same reading.
             enabled=options.may_substitute,
         )
-        if positioning:
+        # A 2.0 side's trades and moves are Arrange team's
+        # (docs/rules-2.0.md 4.6), so it has neither of these.
+        if positioning and options.arrangement is None:
             self.add_action(
                 "Zone Assignment",
                 f"d12ball:coach_zone:{game_id}",
@@ -467,6 +501,18 @@ class CoachingHubView(CoachingView):
                 "skill, best defenders furthest back -- move anyone you "
                 "want elsewhere afterwards."
             ),
+        )
+
+    async def open_arrangement(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        view = CoachingArrangeView(self.cog, self.game_id)
+        await self.show(
+            interaction, game, match, view, note=view.note(match),
         )
 
     async def open_substitution(
@@ -643,6 +689,195 @@ class CoachingFormationView(CoachingView):
 
         await self.hub_answer(
             interaction, game, match, "formation", formation=formation,
+        )
+
+
+class CoachingArrangeView(CoachingView):
+    """
+    **A 2.0 side's arrangement, as it stands** (docs/rules-2.0.md 4.3,
+    4.6a): a button per player of the six, naming their role and space,
+    and each opening the changes that start with them
+    (`CoachingArrangePlayerView`). A coach never fills the arrangement
+    in afresh (the author, 2026-10-24): the deal set it up, and every
+    change is made to what is there and applied at once, so the
+    half-field under the message is always the side as it stands.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        game, match = self.load_match()
+        options = self.hub_options(game, match)
+        arrangement = None if options is None else options.arrangement
+        if arrangement is not None:
+            for player_id in arrangement.fielded:
+                button = discord.ui.Button(
+                    label=self.standing_label(
+                        match, arrangement, player_id,
+                    ),
+                    style=discord.ButtonStyle.secondary,
+                    custom_id=(
+                        f"d12ball:coach_arrange_pick:{game_id}:{player_id}"
+                    ),
+                )
+
+                async def callback(
+                    interaction: discord.Interaction,
+                    picked: str = player_id,
+                ) -> None:
+                    await self.pick(interaction, picked)
+
+                button.callback = callback
+                self.add_item(button)
+        self.add_back_button(row=4)
+
+    def note(self, match: MatchState) -> str:
+        """The side as it stands, and what is asked."""
+        options = self.hub_options(self.cog.games.get(self.game_id), match)
+        arrangement = None if options is None else options.arrangement
+        lines = []
+        for player_id in () if arrangement is None else arrangement.fielded:
+            space = arrangement.standing_of(player_id)
+            player = self.cog.engine.get_player_definition(player_id)
+            lines.append(
+                f"{space.takes.value.title()}: "
+                f"{self.cog.player_label(match, player)} "
+                f"({space_label(space.zone, space.space_index, match.board)})"
+            )
+        lines.append(
+            "Who do you want to change? Each change is made to the side "
+            "as it stands."
+        )
+        return "\n".join(lines)
+
+    async def pick(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        player = self.cog.engine.get_player_definition(player_id)
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingArrangePlayerView(self.cog, self.game_id, player_id),
+            note=f"What changes for {self.cog.player_label(match, player)}?",
+        )
+
+
+class CoachingArrangePlayerView(CoachingView):
+    """
+    The changes to a 2.0 arrangement that start with one player, off
+    `ArrangementOptions.edits` and nothing else: a move to a space with
+    room, a trade of places and roles with one of the other five, and
+    before kickoff a bench player put in their place. One click sends
+    the arrangement the change leaves, and the side as it now stands
+    comes back up.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
+        super().__init__(cog, game_id)
+        self.player_id = player_id
+
+        game, match = self.load_match()
+        options = self.hub_options(game, match)
+        arrangement = None if options is None else options.arrangement
+        edits = () if arrangement is None else arrangement.edits(player_id)
+        for number, edit in enumerate(edits):
+            button = discord.ui.Button(
+                label=self.edit_label(match, arrangement, edit),
+                style=(
+                    discord.ButtonStyle.primary
+                    if edit.kind == "move"
+                    else discord.ButtonStyle.secondary
+                ),
+                custom_id=(
+                    f"d12ball:coach_arrange_edit:{game_id}:{player_id}:"
+                    f"{number}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen: ArrangementEdit = edit,
+            ) -> None:
+                await self.choose(interaction, chosen)
+
+            button.callback = callback
+            self.add_item(button)
+
+        back = discord.ui.Button(
+            label="Back",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:coach_arrange_back:{game_id}:{player_id}",
+            row=4,
+        )
+        back.callback = self.back
+        self.add_item(back)
+
+    def edit_label(
+        self,
+        match: MatchState,
+        arrangement: ArrangementOptions,
+        edit: ArrangementEdit,
+    ) -> str:
+        """What a change does, on its button."""
+        if edit.kind == "move":
+            space = edit.space
+            label = (
+                f"Move to {space_label(space.zone, space.space_index, match.board)}"
+                f" - {space.takes.value.title()}"
+            )
+        elif edit.kind == "trade":
+            label = "Trade with " + self.standing_label(
+                match, arrangement, edit.other,
+            )
+        else:
+            label = (
+                "Bring on "
+                f"{self.cog.engine.format_roster_player(edit.other)}"
+            )
+        return label[:80]
+
+    async def back(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        view = CoachingArrangeView(self.cog, self.game_id)
+        await self.show(interaction, game, match, view, note=view.note(match))
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        edit: ArrangementEdit,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        result = await self.apply(
+            interaction,
+            game,
+            Action(
+                PromptKind.COACHING_HUB,
+                "arrange",
+                {
+                    "side": self.side(match),
+                    "arrangement": edit.answer(),
+                },
+            ),
+        )
+        if result is None:
+            return
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        view = CoachingArrangeView(self.cog, self.game_id)
+        await self.show(
+            interaction, game, match, view,
+            note=f"{result.answer[0]}\n\n{view.note(match)}", moved=True,
         )
 
 

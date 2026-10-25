@@ -1151,6 +1151,25 @@ def _formation_off_the_board(fixture: PromptFixture) -> dict:
     }
 
 
+def _arrangement_on_a_one_point_oh_side(fixture: PromptFixture) -> dict:
+    """The fixtures are 1.0 games, whose sides change formation and are
+    never arranged by their roles (docs/rules-2.0.md 4.3)."""
+    side = _coaching_side(fixture)
+    fielded = fixture.match.setup_for_side(side).field_players
+    return {
+        "side": side,
+        "arrangement": {
+            "fullback": fielded[0],
+            "playmaker": fielded[1],
+            "striker": fielded[2],
+            "placed": [
+                {"player_id": player, "zone": "midfield", "space_index": 0}
+                for player in fielded[3:]
+            ],
+        },
+    }
+
+
 def _substitute_from_the_field(fixture: PromptFixture) -> dict:
     side = _coaching_side(fixture)
     options = _prompt(fixture).options
@@ -1308,6 +1327,7 @@ REFUSED_ACTIONS = {
     (PromptKind.COACHING_OFFER, "declare"): _other_side_s_window,
     (PromptKind.COACHING_OFFER, "decline"): _other_side_s_offer_decline,
     (PromptKind.COACHING_HUB, "formation"): _formation_off_the_board,
+    (PromptKind.COACHING_HUB, "arrange"): _arrangement_on_a_one_point_oh_side,
     (PromptKind.COACHING_HUB, "substitute"): _substitute_from_the_field,
     (PromptKind.COACHING_HUB, "swap"): _swap_inside_a_zone,
     (PromptKind.COACHING_HUB, "reposition"): _reposition_off_the_zone,

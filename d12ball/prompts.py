@@ -57,12 +57,18 @@ from d12ball.special_abilities import (
     SCORCHIT_FORCED_TEST_TOKENS,
 )
 from d12ball.components import (
+    FORMATION_ZONE_ROLES,
     OVERDRIVE_DRAIN_COST,
+    SETUP_AREAS,
     SPECIES_TELEKINETIC,
+    UNIQUE_ROLE_AREAS,
     MatchState,
     PlayerRole,
     TeamSide,
     Zone,
+    area_for_zone,
+    arrangement_refusal,
+    zone_for_area,
 )
 
 from d12ball.flow.result import FollowOn, FollowOnStep
@@ -872,13 +878,261 @@ class RepositionOptions:
 
 
 @dataclass(frozen=True)
+class ArrangementSpace:
+    """A space a 2.0 arrangement may put somebody on, and the role
+    whoever stands there takes."""
+
+    zone: Zone
+    space_index: int
+    #: The role whoever stands here takes.
+    takes: PlayerRole
+
+    def to_dict(self) -> dict:
+        return {
+            "zone": Zone(self.zone).value,
+            "space_index": self.space_index,
+            "takes": PlayerRole(self.takes).value,
+        }
+
+
+@dataclass(frozen=True)
+class ArrangementEdit:
+    """
+    One change a coach may make to a 2.0 side's arrangement, and the
+    whole arrangement it leaves: `kind` is `move` (a player in a
+    standard role to `space`), `trade` (the player and `other` swap
+    places and roles) or `replace` (`other`, off the bench before
+    kickoff, takes the player's place). The arrangement is what the
+    hub's `arrange` answer sends.
+    """
+
+    kind: str
+    holders: tuple[tuple[str, str], ...]
+    placed: tuple[tuple[str, Zone, int], ...]
+    other: Optional[str] = None
+    space: Optional[ArrangementSpace] = None
+
+    def answer(self) -> dict:
+        """The arrangement this change leaves, as the hub's `arrange`
+        answer carries it (`driver._arrangement` reads it back) -- the
+        one spelling a view and the AI both send."""
+        return {
+            **dict(self.holders),
+            "placed": [
+                {
+                    "player_id": player,
+                    "zone": Zone(zone).value,
+                    "space_index": index,
+                }
+                for player, zone, index in self.placed
+            ],
+        }
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": self.kind,
+            "holders": {role: player for role, player in self.holders},
+            "placed": [
+                {
+                    "player_id": player,
+                    "zone": Zone(zone).value,
+                    "space_index": index,
+                }
+                for player, zone, index in self.placed
+            ],
+            "other": self.other,
+            "space": None if self.space is None else self.space.to_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class ArrangementOptions:
+    """
+    **A 2.0 side's arrangement** (docs/rules-2.0.md 4.3, 4.6a): the
+    one the side stands in -- `holders`, the Fullback, the Playmaker
+    and the Striker by role, and `placed`, the other three where they
+    stand -- and, through `edits`, every change a coach may make to it
+    (the author, 2026-10-24: a rearrangement starts from the side as
+    it stands). An edit is offered only where `arrangement_refusal`,
+    the reading `MatchState.arrange_side` refuses on, lets what it
+    leaves stand.
+    """
+
+    #: Who may be arranged: the six on the field, and before kickoff
+    #: the bench (`MatchState.arrangement_pool`).
+    pool: tuple[str, ...]
+    #: The three unique roles' spaces, Fullback, Playmaker, Striker.
+    unique: tuple[ArrangementSpace, ...]
+    #: Every space of the field, left to right, each with its zone's
+    #: standard role.
+    spaces: tuple[ArrangementSpace, ...]
+    #: The arrangement the side stands in.
+    holders: tuple[tuple[str, str], ...] = ()
+    placed: tuple[tuple[str, Zone, int], ...] = ()
+    #: The Spreadable Oozes in `pool`, who may share a space.
+    spreadable: tuple[str, ...] = ()
+
+    def standing_of(self, player_id: str) -> Optional[ArrangementSpace]:
+        """Where one of the six stands, and the role it gives them."""
+        for role, player in self.holders:
+            if player == player_id:
+                return next(
+                    space for space in self.unique if space.takes.value == role
+                )
+        for player, zone, index in self.placed:
+            if player == player_id:
+                return next(
+                    space for space in self.spaces
+                    if (space.zone, space.space_index) == (zone, index)
+                )
+        return None
+
+    @property
+    def fielded(self) -> tuple[str, ...]:
+        """The six in the arrangement, the unique roles first."""
+        return tuple(player for _, player in self.holders) + tuple(
+            player for player, _, _ in self.placed
+        )
+
+    def refusal(
+        self,
+        holders: Sequence[tuple[str, str]],
+        placed: Sequence[tuple[str, Zone, int]],
+    ) -> Optional[str]:
+        """Why an arrangement may not stand, or None."""
+        zone_sizes: dict[Zone, int] = {}
+        for space in self.spaces:
+            zone_sizes[space.zone] = zone_sizes.get(space.zone, 0) + 1
+        return arrangement_refusal(
+            dict(holders),
+            placed,
+            self.pool,
+            {
+                space.takes.value: (space.zone, space.space_index)
+                for space in self.unique
+            },
+            zone_sizes,
+            self.spreadable,
+        )
+
+    def edits(self, player_id: str) -> tuple[ArrangementEdit, ...]:
+        """
+        Every change to the standing arrangement that starts with
+        `player_id`, one of the six: moving them to another space if
+        they hold a standard role, trading places and roles with each
+        of the other five, and before kickoff putting a bench player
+        in their place -- each kept only if what it leaves may stand.
+        """
+        holders = list(self.holders)
+        placed = list(self.placed)
+        role = next(
+            (held for held, player in holders if player == player_id), None,
+        )
+        spot = next(
+            (
+                (zone, index) for player, zone, index in placed
+                if player == player_id
+            ),
+            None,
+        )
+        if role is None and spot is None:
+            return ()
+
+        def put(
+            who: str, where_role: Optional[str], where_spot, new_holders,
+            new_placed,
+        ) -> None:
+            if where_role is not None:
+                new_holders[:] = [
+                    (held, who if held == where_role else player)
+                    for held, player in new_holders
+                ]
+            else:
+                zone, index = where_spot
+                new_placed.append((who, zone, index))
+
+        found: list[ArrangementEdit] = []
+
+        def keep(kind, new_holders, new_placed, other=None, space=None):
+            if self.refusal(new_holders, new_placed) is None:
+                found.append(ArrangementEdit(
+                    kind, tuple(new_holders), tuple(new_placed),
+                    other=other, space=space,
+                ))
+
+        if spot is not None:
+            for space in self.spaces:
+                if (space.zone, space.space_index) == spot:
+                    continue
+                keep(
+                    "move",
+                    holders,
+                    [
+                        (player, zone, index) if player != player_id
+                        else (player, space.zone, space.space_index)
+                        for player, zone, index in placed
+                    ],
+                    space=space,
+                )
+
+        for other in self.fielded:
+            if other == player_id:
+                continue
+            other_role = next(
+                (held for held, player in holders if player == other), None,
+            )
+            other_spot = next(
+                (
+                    (zone, index) for player, zone, index in placed
+                    if player == other
+                ),
+                None,
+            )
+            new_holders = list(holders)
+            new_placed = [
+                entry for entry in placed
+                if entry[0] not in (player_id, other)
+            ]
+            put(other, role, spot, new_holders, new_placed)
+            put(player_id, other_role, other_spot, new_holders, new_placed)
+            keep("trade", new_holders, new_placed, other=other)
+
+        for other in self.pool:
+            if other in self.fielded:
+                continue
+            new_holders = list(holders)
+            new_placed = [entry for entry in placed if entry[0] != player_id]
+            put(other, role, spot, new_holders, new_placed)
+            keep("replace", new_holders, new_placed, other=other)
+        return tuple(found)
+
+    def to_dict(self) -> dict:
+        return {
+            "pool": list(self.pool),
+            "unique": [space.to_dict() for space in self.unique],
+            "spaces": [space.to_dict() for space in self.spaces],
+            "holders": {role: player for role, player in self.holders},
+            "placed": [
+                {
+                    "player_id": player,
+                    "zone": Zone(zone).value,
+                    "space_index": index,
+                }
+                for player, zone, index in self.placed
+            ],
+            "spreadable": list(self.spreadable),
+        }
+
+
+@dataclass(frozen=True)
 class CoachingHubOptions:
     """
     COACHING_HUB: the window's four sub-menus, for the side whose
     window is open. `formations` is empty where the occasion offers
     no positioning (the window before the shootout), as are `swaps`
-    and `repositions`. `may_substitute` is the allowance *and* the
-    pool: with either spent there is nobody to offer for anybody.
+    and `repositions`, which a 2.0 side is never offered either: its
+    `arrangement` covers both. `may_substitute` is the allowance *and*
+    the pool: with either spent there is nobody to offer for anybody.
     """
 
     formations: tuple[Formation, ...]
@@ -903,9 +1157,14 @@ class CoachingHubOptions:
     allowance: str = ""
     #: The 2.0 teammates left on a unique role's space they may not
     #: share, who have to move before the window closes
-    #: (`MatchState.unique_space_sharers`); each one's `repositions`
-    #: are the empty spaces open to them.
+    #: (`MatchState.unique_space_sharers`); `arrangement.edits` offers
+    #: each one the moves that take them off it.
     must_move: tuple[str, ...] = ()
+    #: **A 2.0 side's arrangement, in place of the formations**, which
+    #: a 2.0 side does not have (the author, 2026-10-24): `None` for a
+    #: 1.0 side and where the occasion offers no positioning, and
+    #: `formations` empty wherever this is set.
+    arrangement: Optional[ArrangementOptions] = None
 
     def to_dict(self) -> dict:
         return {
@@ -928,6 +1187,10 @@ class CoachingHubOptions:
             "finish_refusal": self.finish_refusal,
             "allowance": self.allowance,
             "must_move": list(self.must_move),
+            "arrangement": (
+                None if self.arrangement is None
+                else self.arrangement.to_dict()
+            ),
         }
 
 
@@ -2428,7 +2691,8 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
     PromptKind.COACHING_OFFER: ("declare", "decline"),
     PromptKind.COACHING_HUB: (
-        "formation", "substitute", "swap", "reposition", "done",
+        "formation", "arrange", "substitute", "swap", "reposition",
+        "done",
     ),
     PromptKind.SCORE_ATTEMPT: (
         "roll", "back", "overdrive", "boost", "merge", "pass",
@@ -3010,12 +3274,12 @@ def _coaching_hub_options(
 
     swaps: list[SwapOptions] = []
     repositions: list[RepositionOptions] = []
-    # A 2.0 side's roles decide who may move where (docs/rules-2.0.md
-    # 4.6c-e): the same readings `swap_field_positions` and
-    # `position_meeple` refuse against.
+    # A 2.0 side is moved by rearranging alone (docs/rules-2.0.md 4.6,
+    # the author, 2026-10-25): its trades and moves cover both, so it
+    # is offered no zone assignment and no space positioning.
     roles = match.formation_roles.get(side.value)
     exempt = engine.spread_exempt_ids(game, match, side)
-    if positioning:
+    if positioning and roles is None:
         for player_id in fielded:
             zone = setup.assigned_zone(player_id)
             swaps.append(SwapOptions(
@@ -3023,11 +3287,7 @@ def _coaching_hub_options(
                 tuple(
                     other for other in fielded
                     if other != player_id
-                    and (
-                        setup.assigned_zone(other) != zone
-                        if roles is None
-                        else roles.get(other) != roles.get(player_id)
-                    )
+                    and setup.assigned_zone(other) != zone
                 ),
             ))
             spaces = tuple(
@@ -3036,16 +3296,53 @@ def _coaching_hub_options(
                     side, player_id, exempt,
                 )
             )
-            if roles is not None and not spaces:
-                continue
             repositions.append(
                 RepositionOptions(player_id, spaces, zone=zone),
             )
 
 
+    # A 2.0 side is arranged by its roles and has no formations to
+    # pick (docs/rules-2.0.md 4.3).
+    arrangement = None
+    if positioning and roles is not None:
+        arranged = tuple(match.arrangement_pool(side))
+        spreadable = engine.spreadable_among(game, arranged)
+        holders, placed = match.current_arrangement(side)
+        arrangement = ArrangementOptions(
+            pool=arranged,
+            unique=tuple(
+                ArrangementSpace(
+                    zone_for_area(side, area),
+                    match.unique_role_space(side, area),
+                    FORMATION_ZONE_ROLES[area][0],
+                )
+                for area in SETUP_AREAS
+            ),
+            spaces=tuple(
+                ArrangementSpace(
+                    zone,
+                    space_index,
+                    FORMATION_ZONE_ROLES[area_for_zone(side, zone)][1],
+                )
+                for zone in Zone
+                for space_index in range(len(match.board.spaces[zone]))
+            ),
+            holders=tuple(
+                (role, holders[role]) for role in UNIQUE_ROLE_AREAS
+                if role in holders
+            ),
+            placed=tuple(placed),
+            spreadable=tuple(
+                player_id for player_id in arranged
+                if player_id in spreadable
+            ),
+        )
+
     return CoachingHubOptions(
         formations=(
-            tuple(engine.available_formations(match)) if positioning else ()
+            tuple(engine.available_formations(match))
+            if positioning and arrangement is None
+            else ()
         ),
         current_formation=(
             engine.current_formation(match, side) if positioning else None
@@ -3061,6 +3358,7 @@ def _coaching_hub_options(
             tuple(match.unique_space_sharers(side, exempt))
             if positioning else ()
         ),
+        arrangement=arrangement,
     )
 
 
