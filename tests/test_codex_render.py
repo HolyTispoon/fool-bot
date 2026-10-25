@@ -209,6 +209,27 @@ class RenderTests(unittest.TestCase):
                 self.assertEqual(board.height, rows * panel + (rows - 2) * render.TABLE_GAP
                                  + render.DIVIDER_HEIGHT)
 
+    def test_a_free_for_all_side_by_side_goes_round_clockwise(self) -> None:
+        """The author, 2026-10-25: side by side, the seats go round the
+        board clockwise in turn order -- the active player bottom left, up
+        the left column, across the top, down the right."""
+        from unittest import mock
+        expected = {3: [(1, 3), (2,)], 4: [(1, 4), (2, 3)], 5: [(1, 5), (2, 4), (3,)]}
+        for count, rows in expected.items():
+            with self.subTest(players=count):
+                match = self.engine.new_match(("bashing", "finesse", "bashing", "finesse", "bashing")[:count],
+                                              first=1, variant="free_for_all")
+                with mock.patch.object(render, "_even_panels", wraps=render._even_panels) as even:
+                    render.compose_board(match, "side_by_side", {}, self.engine.catalog)
+                self.assertEqual([tuple(call.args[1]) for call in even.call_args_list], rows)
+        # From whoever is active: seat 3 of four, then 4, 1, 2.
+        match = self.engine.new_match(("bashing", "finesse", "bashing", "finesse"), first=1,
+                                      variant="free_for_all")
+        match.active = 3
+        with mock.patch.object(render, "_even_panels", wraps=render._even_panels) as even:
+            render.compose_board(match, "side_by_side", {}, self.engine.catalog)
+        self.assertEqual([tuple(call.args[1]) for call in even.call_args_list], [(3, 2), (4, 1)])
+
     def test_a_free_for_all_divider_names_the_next_turn(self) -> None:
         """The author, 2026-10-20: a free-for-all's divider names whose
         turn is next beside the turn's pill -- every table size, both
@@ -224,14 +245,9 @@ class RenderTests(unittest.TestCase):
                                            wraps=render.horizontal_divider) as divider:
                         render.compose_board(match, layout, names, self.engine.catalog)
                     self.assertEqual(divider.call_args.args[3], "p2")
-                    # Side by side, over the panel right of the active
-                    # player's -- the board's right half; stacked, beside
-                    # the turn's pill.
-                    upcoming_centre = divider.call_args.args[4]
-                    if layout == "side_by_side":
-                        self.assertGreater(upcoming_centre, divider.call_args.args[0] / 2)
-                    else:
-                        self.assertIsNone(upcoming_centre)
+                    # Beside the turn's pill in both views: side by side
+                    # the next to play is above the divider, not on it.
+                    self.assertIsNone(divider.call_args.args[4])
         match = self.engine.new_match(("bashing", "finesse", "bashing"), first=1, variant="free_for_all")
         match.winner = 1
         with mock.patch.object(render, "horizontal_divider", wraps=render.horizontal_divider) as divider:

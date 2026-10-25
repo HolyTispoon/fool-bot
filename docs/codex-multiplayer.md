@@ -607,7 +607,9 @@ the author has already settled say so, with the date.
     at the bottom under the turn's divider and the next to play nearest
     it; and **side by side**, rows of two panels from the bottom, the
     acting seat's row under the divider with the active player on its
-    left and the next to play beside them -- three players one panel
+    left and the next to play beside them (since 2026-10-25 the seats go
+    round clockwise instead, the next to play above the active player:
+    docs/design/codex.md, "The board") -- three players one panel
     above two, four two above two (as a dragon's), five three rows with
     one panel at the top. **Three or four players open side by side;
     five open stacked.** `render._compose_table` and `_compose_rows` draw

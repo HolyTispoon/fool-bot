@@ -4290,18 +4290,26 @@ free-for-all stacked alone.
   five has no "across". **Stacked** (`render._compose_table`): the
   active player's panel at the bottom under the turn's divider, the
   others above in turn order, the next to play nearest. **Side by
-  side** (`_compose_rows`): rows of two from the bottom, the active
-  player and the next to play under the divider -- three players one
-  panel above two, four two above two, five three rows with one at the
-  top, a lone panel centred -- and the turn's pill over the acting
-  player's own panel rather than the board's middle. Beside the
+  side** (`_compose_rows`): rows of two from the bottom, the seats
+  going round the board **clockwise** in turn order (the author,
+  2026-10-25) -- the active player at the bottom left under the
+  divider, the next to play above them, up the left column, across the
+  top and down the right, so the seat that played last is beside the
+  active player -- three players one panel above two, four two above
+  two, five three rows with one at the top, a lone panel centred -- and
+  the turn's pill over the acting player's own panel rather than the
+  board's middle. Until then the rows read left to right, bottom to
+  top, which put the next to play beside the active player and made a
+  table of four a Z rather than a round. Beside the
   turn's pill on the same divider, a second, quieter one names whose
   turn is next, "NEXT: KIME" (`render.DIVIDER_NEXT`, `seats.next_seat`
   -- an extra turn and the playoff included), in both views and every
-  table size. Side by side it is centred over the panel right of the
-  active player's, the next to play's, as the turn's is over the active
-  player's (the author, 2026-10-20); stacked, where no panel is to the
-  right, the two pills are centred together. A long name is cut with an
+  table size. In both views the two pills sit together: stacked the pair
+  is centred, and side by side the next pill follows the turn's over
+  the active player's panel. It was centred over the panel right of
+  the active player's while that was the next to play's (the author,
+  2026-10-20); clockwise, that panel is the seat that played last, and
+  the next to play is above the divider. A long name is cut with an
   ellipsis where the pill would pass the turn's or the rule's end. A finished game
   names nobody. The author asked for it on the divider rather than in
   the room beside a lone top panel, which four players and the stacked
