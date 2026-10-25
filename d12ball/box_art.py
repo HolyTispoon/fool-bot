@@ -1843,8 +1843,8 @@ def board_photo(
 
     # **Nothing draws a ball here.** `boards.draw_kickoff_marks`
     # already prints one on the kickoff space -- a twelve-sided mark
-    # with the ball's speed on it and "KICKOFF / ball at speed 1"
-    # under it -- and a second one laid over it came out as two balls,
+    # with the ball's speed on it and "KICKOFF" under it -- and a
+    # second one laid over it came out as two balls,
     # the board's showing round the edge of this module's. Covering it
     # instead would mean a copy of that mark's own placement here,
     # which is the kind of second reading that drifts; the board is

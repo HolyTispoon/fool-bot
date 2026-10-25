@@ -136,6 +136,14 @@ The field board comes out twice: whole, and as two letter halves. See
   side, and board 10's four-space midfield answers it twice (home space −1,
   the visitors space 1). It is also what leaves the
   bracket under the field agreeing with the living rules' own table.
+- **One ball on every board, captioned KICKOFF and nothing more** (the
+  author, 2026-10-25). Board 10 prints it on the halfway line between its
+  two kickoff spaces, its caption on a paper tag so the line does not run
+  through the word, rather than a ball on each space: two balls read as
+  two balls in play, and the line is the field's middle (Law 2.1.3). Which
+  space a side kicks off from is Law 2.4.1's, and the bracket under the
+  field still names "the kickoff spaces". The second line, "ball at speed
+  1", went: the 1 on the ball already says it.
 - **Every field size but a playtest board is rendered by default.** A print
   run wants the 7- and 9-space boards; `--board-size` narrows it to one. The
   sizes come from `rules.board_layouts`, so a layout added upstream is printed

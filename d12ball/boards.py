@@ -1052,49 +1052,58 @@ def draw_kickoff_marks(
     geometry: FieldGeometry,
     layout: BoardLayout,
 ) -> None:
-    """Where a restart puts the ball -- see `kickoff_marks`."""
-    for flat, sides in kickoff_marks(layout).items():
-        left, right = geometry.space_bounds(flat)
-        center_x = (left + right) / 2
-        # Below the zone-name band, so the mark is centred in the space
-        # a coach sees rather than in the zone rectangle.
-        center_y = (geometry.strip_top + sheet.u(34) + geometry.strip_bottom) / 2
-        radius = min(
-            (right - left) * 0.26,
-            (geometry.strip_bottom - geometry.strip_top) * 0.22,
+    """
+    Where a restart puts the ball -- see `kickoff_marks` -- as **one
+    ball** captioned KICKOFF. On boards 7 and 9 it is on the kickoff
+    space both sides share. On board 10 it is on the halfway line
+    between the two sides' kickoff spaces rather than a ball on each
+    (the author, 2026-10-25): the line is the field's middle (Law
+    2.1.3), and two balls read as two balls in play. Which of the two
+    spaces a side kicks off from is Law 2.4.1's, and the board does not
+    word it.
+    """
+    spaces = sorted(kickoff_marks(layout))
+    left, _ = geometry.space_bounds(spaces[0])
+    _, right = geometry.space_bounds(spaces[-1])
+    center_x = (left + right) / 2
+    space_width = geometry.space_width
+    # Below the zone-name band, so the mark is centred in the space a
+    # coach sees rather than in the zone rectangle.
+    center_y = (geometry.strip_top + sheet.u(34) + geometry.strip_bottom) / 2
+    radius = min(
+        space_width * 0.26,
+        (geometry.strip_bottom - geometry.strip_top) * 0.22,
+    )
+    sheet.polygon(
+        polygon_points(center_x, center_y, radius, 12),
+        fill=PAPER,
+        outline=INK,
+        width=sheet.u(2),
+    )
+    sheet.text(
+        (center_x, center_y),
+        "1",
+        sheet.font(24, bold=True),
+        INK,
+        anchor="mm",
+    )
+    label_top = center_y + radius + sheet.u(10)
+    label_font = sheet.fitted_font("KICKOFF", space_width * 0.9, 16, bold=True)
+    if len(spaces) > 1:
+        # On the halfway line the caption sits on a tag of paper, so
+        # the line does not run through the word.
+        x0, y0, x1, y1 = sheet.draw.textbbox(
+            (center_x, label_top), "KICKOFF", font=label_font, anchor="ma"
         )
-        sheet.polygon(
-            polygon_points(center_x, center_y, radius, 12),
+        pad = sheet.u(5)
+        sheet.rect(
+            (x0 - pad, y0 - pad, x1 + pad, y1 + pad),
+            radius=sheet.u(4),
             fill=PAPER,
             outline=INK,
-            width=sheet.u(2),
+            width=sheet.u(1),
         )
-        sheet.text(
-            (center_x, center_y),
-            "1",
-            sheet.font(24, bold=True),
-            INK,
-            anchor="mm",
-        )
-        label = (
-            "KICKOFF"
-            if len(sides) == 2
-            else f"{side_display_name(sides[0]).upper()} KICKOFF"
-        )
-        sheet.text(
-            (center_x, center_y + radius + sheet.u(10)),
-            label,
-            sheet.fitted_font(label, (right - left) * 0.9, 16, bold=True),
-            INK,
-            anchor="ma",
-        )
-        sheet.text(
-            (center_x, center_y + radius + sheet.u(30)),
-            "ball at speed 1",
-            sheet.font(13),
-            MUTED,
-            anchor="ma",
-        )
+    sheet.text((center_x, label_top), "KICKOFF", label_font, INK, anchor="ma")
 
 
 #: The boards D12 Ball 2.0 is printed on by default: 9 and 10 (the

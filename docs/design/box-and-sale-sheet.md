@@ -258,7 +258,7 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
   that pentagon.
 - **Nothing here draws a ball on the board at all.** `draw_kickoff_marks` in
   `boards.py` already prints one on the kickoff space -- twelve-sided, with
-  the ball's speed on it and "KICKOFF / ball at speed 1" under it -- and this
+  the ball's speed on it and "KICKOFF" under it -- and this
   module laid a second over it, which came out as two balls with the board's
   showing round the edge of the overlay. Covering it would mean a copy of
   that mark's own placement here, and the board is the thing being
