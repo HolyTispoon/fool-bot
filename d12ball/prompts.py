@@ -912,6 +912,22 @@ class ArrangementEdit:
     other: Optional[str] = None
     space: Optional[ArrangementSpace] = None
 
+    def answer(self) -> dict:
+        """The arrangement this change leaves, as the hub's `arrange`
+        answer carries it (`driver._arrangement` reads it back) -- the
+        one spelling a view and the AI both send."""
+        return {
+            **dict(self.holders),
+            "placed": [
+                {
+                    "player_id": player,
+                    "zone": Zone(zone).value,
+                    "space_index": index,
+                }
+                for player, zone, index in self.placed
+            ],
+        }
+
     def to_dict(self) -> dict:
         return {
             "kind": self.kind,
@@ -1114,8 +1130,9 @@ class CoachingHubOptions:
     COACHING_HUB: the window's four sub-menus, for the side whose
     window is open. `formations` is empty where the occasion offers
     no positioning (the window before the shootout), as are `swaps`
-    and `repositions`. `may_substitute` is the allowance *and* the
-    pool: with either spent there is nobody to offer for anybody.
+    and `repositions`, which a 2.0 side is never offered either: its
+    `arrangement` covers both. `may_substitute` is the allowance *and*
+    the pool: with either spent there is nobody to offer for anybody.
     """
 
     formations: tuple[Formation, ...]
@@ -1140,8 +1157,8 @@ class CoachingHubOptions:
     allowance: str = ""
     #: The 2.0 teammates left on a unique role's space they may not
     #: share, who have to move before the window closes
-    #: (`MatchState.unique_space_sharers`); each one's `repositions`
-    #: are the empty spaces open to them.
+    #: (`MatchState.unique_space_sharers`); `arrangement.edits` offers
+    #: each one the moves that take them off it.
     must_move: tuple[str, ...] = ()
     #: **A 2.0 side's arrangement, in place of the formations**, which
     #: a 2.0 side does not have (the author, 2026-10-24): `None` for a
@@ -3257,12 +3274,12 @@ def _coaching_hub_options(
 
     swaps: list[SwapOptions] = []
     repositions: list[RepositionOptions] = []
-    # A 2.0 side's roles decide who may move where (docs/rules-2.0.md
-    # 4.6c-e): the same readings `swap_field_positions` and
-    # `position_meeple` refuse against.
+    # A 2.0 side is moved by rearranging alone (docs/rules-2.0.md 4.6,
+    # the author, 2026-10-25): its trades and moves cover both, so it
+    # is offered no zone assignment and no space positioning.
     roles = match.formation_roles.get(side.value)
     exempt = engine.spread_exempt_ids(game, match, side)
-    if positioning:
+    if positioning and roles is None:
         for player_id in fielded:
             zone = setup.assigned_zone(player_id)
             swaps.append(SwapOptions(
@@ -3270,11 +3287,7 @@ def _coaching_hub_options(
                 tuple(
                     other for other in fielded
                     if other != player_id
-                    and (
-                        setup.assigned_zone(other) != zone
-                        if roles is None
-                        else roles.get(other) != roles.get(player_id)
-                    )
+                    and setup.assigned_zone(other) != zone
                 ),
             ))
             spaces = tuple(
@@ -3283,8 +3296,6 @@ def _coaching_hub_options(
                     side, player_id, exempt,
                 )
             )
-            if roles is not None and not spaces:
-                continue
             repositions.append(
                 RepositionOptions(player_id, spaces, zone=zone),
             )

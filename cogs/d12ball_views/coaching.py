@@ -10,7 +10,6 @@ from typing import Optional, TYPE_CHECKING
 from d12ball.components import (
     MatchState,
     TeamSide,
-    Zone,
 )
 from d12ball.flow.driver import Action
 from d12ball.prompts import (
@@ -439,7 +438,9 @@ class CoachingHubView(CoachingView):
             # adapter refuses off the same reading.
             enabled=options.may_substitute,
         )
-        if positioning:
+        # A 2.0 side's trades and moves are Arrange team's
+        # (docs/rules-2.0.md 4.6), so it has neither of these.
+        if positioning and options.arrangement is None:
             self.add_action(
                 "Zone Assignment",
                 f"d12ball:coach_zone:{game_id}",
@@ -864,17 +865,7 @@ class CoachingArrangePlayerView(CoachingView):
                 "arrange",
                 {
                     "side": self.side(match),
-                    "arrangement": {
-                        **dict(edit.holders),
-                        "placed": [
-                            {
-                                "player_id": player,
-                                "zone": Zone(zone).value,
-                                "space_index": index,
-                            }
-                            for player, zone, index in edit.placed
-                        ],
-                    },
+                    "arrangement": edit.answer(),
                 },
             ),
         )

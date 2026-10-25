@@ -5234,10 +5234,11 @@ class MatchState:
                     "assignment trades two players in different zones.",
                     law="what-a-coach-may-do",
                 )
-            # In 2.0 a zone assignment trades roles, two players in the
-            # same zone included (docs/rules-2.0.md 4.6c) -- so long as
-            # it trades a role: two in the zone's standard role would
-            # only change spaces, which is space positioning.
+            # In 2.0 a trade swaps roles, two players in the same zone
+            # included -- so long as it trades a role: two in the zone's
+            # standard role would only change spaces. No 2.0 Coaching
+            # Choice asks it (docs/rules-2.0.md 4.6c); a rearrangement
+            # trades through `arrange_side`.
             if roles.get(player_id) == roles.get(other_player_id):
                 raise RuleRefusal(
                     "Both players hold the same role; moving one to "
@@ -5280,8 +5281,8 @@ class MatchState:
         side = TeamSide(side)
         self.swap_field_positions(side, player_id, other_player_id)
         self.swap_meeple_positions(side, player_id, other_player_id)
-        # In 2.0 a zone assignment trades the two players' roles
-        # (docs/rules-2.0.md 4.6c).
+        # In 2.0 the trade takes the two players' roles with it, though
+        # no 2.0 Coaching Choice asks it (docs/rules-2.0.md 4.6c).
         roles = self.formation_roles.get(side.value)
         if roles is not None and player_id in roles and other_player_id in roles:
             roles[player_id], roles[other_player_id] = (
@@ -5502,8 +5503,10 @@ class MatchState:
         """
         The spaces of their own zone a space-positioning move may take
         `player_id` to, each with the teammates standing there the move
-        would trade with. The hub's options are built from this and
-        `position_meeple` refuses against it.
+        would trade with. A 1.0 hub's options are built from this,
+        `position_meeple` refuses against it, and a 2.0 teammate moved
+        off a unique role's space goes by it
+        (`settle_unique_space_sharers`).
 
         In 1.0 that is every space but where they stand, with every
         teammate on it (`position_meeple`'s trade rule decides).
@@ -5582,11 +5585,11 @@ class MatchState:
         may not share -- the Fullback's, the Playmaker's or the
         Striker's, where the holder is not a Spreadable Ooze. Nobody
         puts one there: a teammate may share an Ooze's space
-        (docs/rules-2.0.md 4.6e), and a zone assignment or a
-        substitution can then put somebody who is not an Ooze in that
-        role. The trade stands and the teammate moves off (the author,
-        2026-10-18) -- `settle_unique_space_sharers` where only one
-        space is open to them, the coach where several are, and the
+        (docs/rules-2.0.md 4.6e), and a substitution can then put
+        somebody who is not an Ooze in that role. It stands and the
+        teammate moves off (the author, 2026-10-18) --
+        `settle_unique_space_sharers` where only one space is open to
+        them, the coach by rearranging where several are, and the
         window may not close until they have
         (`RulesEngine.coaching_finish_refusal`). An Ooze in a standard
         role may stand anywhere, so it never has to move.

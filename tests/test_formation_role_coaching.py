@@ -43,8 +43,12 @@ def by_role(engine, match, zone: Zone, role: PlayerRole) -> list[str]:
 
 
 class SpacePositioningTests(unittest.TestCase):
-    """4.6d: a unique role holds its space; a standard role moves to an
-    empty space or trades with another standard role."""
+    """The model's reading of where a 2.0 player may be moved
+    (`positioning_targets`): a unique role holds its space; a standard
+    role moves to an empty space or trades with another standard role.
+    A coach no longer moves anybody with it (4.6, the author,
+    2026-10-25), but a teammate moved off a unique role's space still
+    goes by it."""
 
     def test_a_unique_role_may_not_move(self) -> None:
         engine, _, match = kickoff(Edition.TWO, 9)
@@ -178,6 +182,16 @@ class MovingOffTests(unittest.TestCase):
             options = hub_options(engine, game, match)
             self.assertEqual(options.must_move, (defender,))
             self.assertIsNotNone(options.finish_refusal)
+            # The coach moves them by rearranging (4.6): every space
+            # with room is offered, in any zone.
+            moves = [
+                edit for edit in options.arrangement.edits(defender)
+                if edit.kind == "move"
+            ]
+            self.assertIn(
+                (Zone.HOME_ZONE, 2),
+                [(edit.space.zone, edit.space.space_index) for edit in moves],
+            )
             match.position_meeple(HOME, defender, 2, spread_exempt_ids=ooze)
             self.assertIsNone(
                 engine.coaching_finish_refusal(match, HOME, game),
@@ -185,7 +199,7 @@ class MovingOffTests(unittest.TestCase):
 
     def test_dinky_moves_them_before_it_is_done(self) -> None:
         engine, game, match, defender, ooze = self.share_the_fullbacks_space(9)
-        match.pending_coaching_occasion = CoachingOccasion.SETUP.value
+        open_setup(engine, match)
         with mock.patch.object(engine, "spread_exempt_ids", return_value=ooze):
             prompt = prompts.PendingPrompt(
                 kind=prompts.PromptKind.COACHING_HUB, ask="",
@@ -194,9 +208,12 @@ class MovingOffTests(unittest.TestCase):
         action = DinkyAI(engine.player_catalog, engine.maneuver_catalog).choose(
             prompt, game, match, HOME,
         )
-        self.assertEqual(action.choice, "reposition")
-        self.assertEqual(action.arguments["player_id"], defender)
-        self.assertEqual(action.arguments["space_index"], 1)
+        self.assertEqual(action.choice, "arrange")
+        with mock.patch.object(engine, "spread_exempt_ids", return_value=ooze):
+            run = driver.apply(engine, game, match, action)
+        self.assertNotIsInstance(run, driver.Refusal)
+        self.assertNotEqual(space_of(match, defender), (Zone.HOME_ZONE, 0))
+        self.assertEqual(match.unique_space_sharers(HOME, ooze), [])
 
     def test_one_point_oh_has_nobody_to_move(self) -> None:
         _, _, match = kickoff(Edition.ONE, 9)
@@ -204,7 +221,9 @@ class MovingOffTests(unittest.TestCase):
 
 
 class ZoneAssignmentTests(unittest.TestCase):
-    """4.6c: a zone assignment trades two roles, in the same zone too."""
+    """The model's trade of two 2.0 roles, in the same zone too -- no
+    longer offered in a Coaching Choice (4.6), where a rearrangement's
+    trade does it."""
 
     def test_two_in_the_same_zone_trade_roles_and_spaces(self) -> None:
         engine, _, match = kickoff(Edition.TWO, 9)
@@ -238,33 +257,54 @@ class ZoneAssignmentTests(unittest.TestCase):
 class HubOptionsTests(unittest.TestCase):
     """The hub offers what the model allows, and nothing else."""
 
-    def test_two_point_oh_offers_the_same_zones_other_role(self) -> None:
+    def test_two_point_oh_is_moved_by_rearranging_alone(self) -> None:
+        # 4.6, the author, 2026-10-25: no zone assignment and no space
+        # positioning; a rearrangement's trades and moves cover both.
         engine, game, match = kickoff(Edition.TWO, 9)
         options = hub_options(engine, game, match)
-        fullback = fielded(match, PlayerRole.FULLBACK)
-        partners = next(
-            swap.partner_ids for swap in options.swaps
-            if swap.player_id == fullback
-        )
-        self.assertIn(fielded(match, PlayerRole.DEFENDER), partners)
-        self.assertEqual(len(partners), 5)
+        self.assertIsNotNone(options.arrangement)
+        self.assertEqual(options.swaps, ())
+        self.assertEqual(options.repositions, ())
 
-    def test_a_unique_role_is_not_offered_a_space(self) -> None:
+    def test_two_point_oh_refuses_a_swap_and_a_reposition(self) -> None:
         engine, game, match = kickoff(Edition.TWO, 9)
-        options = hub_options(engine, game, match)
-        offered = {entry.player_id for entry in options.repositions}
-        self.assertEqual(offered, {
-            fielded(match, role)
-            for role in (
-                PlayerRole.DEFENDER, PlayerRole.MIDFIELDER, PlayerRole.WINGER,
-            )
-        })
+        open_setup(engine, match)
+        fullback = fielded(match, PlayerRole.FULLBACK)
         defender = fielded(match, PlayerRole.DEFENDER)
-        spaces = next(
-            entry.spaces for entry in options.repositions
-            if entry.player_id == defender
+        before = match.to_dict()
+        for choice, arguments in (
+            ("swap", {"player_id": fullback, "other_player_id": defender}),
+            ("reposition", {"player_id": defender, "space_index": 1}),
+        ):
+            with self.subTest(choice=choice):
+                refused = driver.apply(engine, game, match, driver.Action(
+                    prompts.PromptKind.COACHING_HUB, choice,
+                    {"side": "home", **arguments},
+                ))
+                self.assertIsInstance(refused, driver.Refusal)
+        self.assertEqual(match.to_dict(), before)
+
+    def test_dinky_stands_a_playmaker_back_on_the_kickoff_space(self) -> None:
+        engine, game, match = kickoff(Edition.TWO, 9)
+        open_setup(engine, match)
+        playmaker = fielded(match, PlayerRole.PLAYMAKER)
+        kickoff_space = space_of(match, playmaker)
+        match.board.place_meeple(playmaker, Zone.HOME_ZONE, 1)
+        options = hub_options(engine, game, match)
+        self.assertIsNotNone(options.finish_refusal)
+        prompt = prompts.PendingPrompt(
+            kind=prompts.PromptKind.COACHING_HUB, ask="",
+            side=HOME, options=options,
         )
-        self.assertEqual([space.space_index for space in spaces], [1])
+        action = DinkyAI(engine.player_catalog, engine.maneuver_catalog).choose(
+            prompt, game, match, HOME,
+        )
+        self.assertEqual(action.choice, "arrange")
+        self.assertNotIsInstance(
+            driver.apply(engine, game, match, action), driver.Refusal,
+        )
+        self.assertEqual(space_of(match, playmaker), kickoff_space)
+        self.assertIsNone(engine.coaching_finish_refusal(match, HOME, game))
 
     def test_one_point_oh_is_unchanged(self) -> None:
         engine, game, match = kickoff(Edition.ONE, 9)

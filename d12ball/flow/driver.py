@@ -988,8 +988,8 @@ def _answer_coaching_hub(
     So `choice` names which it is, and those that change something
     return the note the hub puts back above its own buttons. A 2.0
     side is offered `arrange` where a 1.0 side is offered `formation`
-    (docs/rules-2.0.md 4.3), and each is refused where the prompt does
-    not offer it.
+    (docs/rules-2.0.md 4.3), and in place of `swap` and `reposition`
+    too (4.6), and each is refused where the prompt does not offer it.
 
     **Its sub-menus are not prompts and never were.** They are steps of
     one answer on one Discord message -- pick a player, then pick where
@@ -1055,6 +1055,13 @@ def _answer_coaching_hub(
                 )
             ],
             board_changed=True,
+        )
+    if choice in ("swap", "reposition") and (
+        prompt.options.arrangement is not None
+    ):
+        _refuse(
+            "A 2.0 side is moved by rearranging it: trade two players "
+            "or move one with Arrange team."
         )
     if choice == "swap":
         return StepResult(

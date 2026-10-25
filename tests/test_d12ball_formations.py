@@ -987,8 +987,10 @@ class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
         labels = self.labels(CoachingHubView(cog, game.game_id))
         self.assertIn("Arrange team", labels)
         self.assertFalse(any(label.startswith("Formation") for label in labels))
-        self.assertIn("Zone Assignment", labels)
-        self.assertIn("Space Positioning", labels)
+        # Arrange team's trades and moves are 2.0's only way to move
+        # anybody (docs/rules-2.0.md 4.6).
+        self.assertNotIn("Zone Assignment", labels)
+        self.assertNotIn("Space Positioning", labels)
 
     def test_the_view_opens_on_the_side_as_it_stands(self) -> None:
         cog, game, match = self.build()
