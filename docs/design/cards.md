@@ -705,6 +705,67 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   with `--no-avery-players` and leaves them out, as the same cards a
   second way ([landing-pages.md](landing-pages.md)).
 
+## The 2.0 player tiles
+
+**D12 Ball 2.0 has its own player pieces** (the author, 2026-10-24),
+`render_player_card(..., edition=Edition.TWO)` and its back, written by
+`scripts/render_player_cards.py --edition 2.0`, and the kit's
+`player-cards-2.0/`. In 2.0 a player has no role -- the formation's
+zones hold the roles, the zone board says which beside each slot, and a
+role token laid on the tile may too ([printed-tokens.md](printed-tokens.md),
+"Role tokens") -- and no role ability applies (rules-2.0 4.7), so a
+2.0 piece names no role anywhere.
+
+**It is a tile, smaller than a card, at the card's type sizes** (the
+author, 2026-10-25: "the idea of making them tokens is to make them
+smaller than cards without decreasing font sizes"): 2.75 x 2.25in on
+its side (`render_player_tile`, `TILE_INCHES`), about seven tenths of a
+poker card's area, so the 2.0 zone board can lay a zone's tiles in a column
+under that zone of the field with the roles printed beside them
+([printed-boards.md](printed-boards.md), "The 2.0 boards"). Its corner
+is 0.2in (`TILE_CORNER`), since a card's 0.35in would cut into the
+header.
+
+- **The header is the portrait card's band**, with the corner index on
+  the left -- the two skills and the species' icon **in ink on the
+  panel's white, with no square of the species' colour under it**
+  (`INDEX_BADGE_ALONE`; the author, 2026-10-25: the square was there so
+  Slime green would read on white, and an ink icon reads for every
+  species) -- the **name left-aligned beside it**, and the team's emoji
+  on the right.
+- **Under it, a text column on the left and the portrait on the
+  right**, the species' badge and its ability's name at the column's
+  foot on both faces. The front's column is the labelled skills panel
+  **cut to what it says** (`draw_tile_stats`: OFFENSE 1 | 6 DEFENSE,
+  each number against the divider, at the card's sizes -- the author,
+  2026-10-25, so the portrait could be larger); the advanced face's is the
+  ADVANCED ribbon and the player's special ability at the card's 32
+  (no special ability, nothing there), its advanced skills in the
+  corner index.
+- **What the size cost**: the advanced face has no labelled skills
+  panel -- the corner index says the skills, as the bot's own board card
+  does, without the panel's mark beside a skill advanced mode changes;
+  the species is named and not explained, as on a 1.0 card (its rule is
+  on the species reference cards). The text column is as narrow as the
+  longest special ability allows -- six lines at 32 (Zenith, Scorchit)
+  in 400 units -- and the portrait takes the rest, about 1.15in across;
+  the height is what those six lines need, with room, and **a tile
+  refuses an ability that would run into the species** rather than
+  setting it smaller. The first draft, 2.75 x 2in with a column as wide
+  as the old panel, left the portrait 0.85in.
+- **A role token lies in the bottom-right corner** (`TILE_TOKEN_SPOT`),
+  over the portrait's foot, where it covers no number and no word.
+- **A team's sheet is three across**, the tiles upright, so it
+  duplexes as the 1.0 cards do (`duplex_order`). There are no Avery
+  pages for 2.0: the stock's die cut is a poker card's.
+
+The portrait card is untouched: the 1.0 faces, the maneuver cards and
+the reference cards are byte-identical (SHA-256 checked) with `Pen`
+now carrying its own size and corner, which is how one `Pen` draws
+both shapes. `/d12ball team_reference` posts the tiles in a game
+playing 2.0 (`maneuver_deck_applies`); the web app plays 1.0 alone and
+draws 1.0's.
+
 ## The species cards
 
 `d12ball/species_cards.py` draws the four species abilities -- Volatile
@@ -1125,8 +1186,10 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
 
 - **It draws nothing itself.** It runs `render_maneuver_cards.py`,
   `render_maneuver_tiles.py`, `render_player_cards.py`, `render_reference_cards.py`,
-  `render_token_sheet.py`, `render_boards.py` and `build_rulebooks.py`
-  in turn -- the same scripts a developer already reaches for one at a
+  `render_token_sheet.py`, `render_role_tokens.py`,
+  `render_standees.py`, `render_boards.py` and `build_rulebooks.py`
+  in turn (`render_player_cards.py` twice, the second time with
+  `--edition 2.0` into `player-cards-2.0/`) -- the same scripts a developer already reaches for one at a
   time -- and is only their sum into one
   folder. So a rules change, an import or an art fix reaches the kit
   exactly the way it reaches each script on its own, by re-running it;
@@ -1173,8 +1236,12 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   `CARD_FACES` is still three cards, and `render_species_cards.py` and
   `render_role_cards.py` still render one of each. They were one sheet
   of eight faces, each front beside its back, cut out and glued. `render_token_sheet.py` is the condition tokens as a front sheet and a
-  back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
-  kit prints everything a table needs but the meeples and the dice. The three card scripts take
+  back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"), and
+  `render_role_tokens.py` is 2.0's role tokens the same way ("Role tokens"). `render_standees.py`
+  is the players as standees, a team a page, printed one-sided
+  ([standees.md](standees.md)) -- they replaced the meeples the kit used to
+  send a table out for (the author, 2026-10-24). So the
+  kit prints everything a table needs but the standees' bases and the dice. The three card scripts take
   `--sheets-only` for this, and the kit passes it and a `--team` per
   colour team. A developer checking one card still runs the script on
   its own and gets every card. The kit came to 128 MB before this and
@@ -1195,12 +1262,16 @@ one subfolder per script, named as the kit names its own folders:
 | `d12ball/print/maneuver-cards/` | `render_maneuver_cards.py` |
 | `d12ball/print/maneuver-tiles/` | `render_maneuver_tiles.py` (the hexagon in `hexagon/`) |
 | `d12ball/print/player-cards/` | `render_player_cards.py` |
+| `d12ball/print/player-cards-2.0/` | `render_player_cards.py --edition 2.0` (its default `--out` is 1.0's folder, so name this one) |
 | `d12ball/print/species-cards/` | `render_species_cards.py` |
 | `d12ball/print/role-cards/` | `render_role_cards.py` |
 | `d12ball/print/reference-cards/` | `render_reference_cards.py` |
 | `d12ball/print/tokens/` | `render_token_sheet.py` (paper) |
 | `d12ball/print/tokens-3d/` | `render_token_models.py` (3MF and STL) |
+| `d12ball/print/role-tokens/` | `render_role_tokens.py` |
+| `d12ball/print/standees/` | `render_standees.py` |
 | `d12ball/print/boards/` | `render_boards.py` |
+| `d12ball/print/boards-2.0/` | `render_boards.py --edition 2.0` |
 | `d12ball/print/rulebooks/` | `build_rulebooks.py` |
 | `d12ball/print/box/` | `render_box_art.py` |
 | `d12ball/print/print-and-play/` | `generate_print_and_play_kit.py` (and its `.zip` beside it) |

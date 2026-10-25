@@ -136,6 +136,14 @@ The field board comes out twice: whole, and as two letter halves. See
   side, and board 10's four-space midfield answers it twice (home space −1,
   the visitors space 1). It is also what leaves the
   bracket under the field agreeing with the living rules' own table.
+- **One ball on every board, captioned KICKOFF and nothing more** (the
+  author, 2026-10-25). Board 10 prints it on the halfway line between its
+  two kickoff spaces, its caption on a paper tag so the line does not run
+  through the word, rather than a ball on each space: two balls read as
+  two balls in play, and the line is the field's middle (Law 2.1.3). Which
+  space a side kicks off from is Law 2.4.1's, and the bracket under the
+  field still names "the kickoff spaces". The second line, "ball at speed
+  1", went: the 1 on the ball already says it.
 - **Every field size but a playtest board is rendered by default.** A print
   run wants the 7- and 9-space boards; `--board-size` narrows it to one. The
   sizes come from `rules.board_layouts`, so a layout added upstream is printed
@@ -588,6 +596,19 @@ zones went to each coach's own side of the table.
   enforces it; a coach may stack more.
 - **The team board's reminder points at it**: "A card's zone is assigned on
   the zone board beside this one."
+- **Each space's number is large and faint, twice** (`draw_space_numbers`;
+  the author, 2026-10-24, could not see the small grey number that sat in
+  each space's corner). The way the bot's own board draws it
+  (`render.draw_space_number`): every number on a board one size, fitted
+  to the widest, in a faint ink a fifth of the way from the zone's tint to
+  ink. Once upright in the lower half for home, who sits along the bottom
+  edge, and once turned 180 degrees in the upper half for the visitors, so
+  each coach reads it from their seat -- placed apart rather than
+  mirrored (`SPACE_NUMBER_CENTRES`) because the zone names' band takes the
+  strip's top: home's between the kickoff mark's caption and home's 2.0
+  role marks, the visitors' between theirs and the kickoff mark. Both
+  editions' boards carry it; the box art draws its own strip and is
+  byte-identical.
 - **The field header stacks rather than sitting side by side.**
   `draw_field_header`'s title on the left and its note on the right used to
   overlap in the middle on the portrait sheet; both are stacked in one
@@ -603,3 +624,95 @@ zones went to each coach's own side of the table.
   so turning the sheet landscape left every word the size it printed at on
   the portrait board rather than half again as big; `Sheet`'s unit is a
   thousandth of whatever `unit_width` names, the width by default.
+
+## The 2.0 boards: which role goes where
+
+D12 Ball 2.0 puts the roles on the formation's zones (rules-2.0 section
+4), so its boards show them (the author, 2026-10-24).
+`scripts/render_boards.py --edition 2.0` writes them into
+`d12ball/print/boards-2.0/`, and the kit into `boards-2.0/`.
+
+- **Boards 9 and 10 are 2.0's by default** (`EDITION_TWO_BOARD_SIZES`,
+  the author, 2026-10-24). Board 10 is still a playtest board in 1.0
+  and printed only by name there (`PLAYTEST_BOARD_SIZES`); 2.0 prints
+  it.
+- **Only what differs is written.** The field board (and its halves) and
+  the zone boards carry the roles; the jumbotron and the team boards
+  name no role, are the same in both editions, and come from the 1.0
+  run. Every 1.0 board is byte-identical with the edition in (all
+  seventeen, SHA-256 checked).
+- **The field board marks each side's unique roles on their spaces**
+  (`draw_role_marks`, rules-2.0 4.3b): the Fullback on the last space
+  before its own goal, the Playmaker on its own kickoff space, the
+  Striker on the last space before the goal it attacks. Where they are
+  is `components.unique_role_space_index`, the function of the board's
+  shape that `MatchState.unique_role_space` now calls, so the printed
+  spaces are the ones the game plays. A mark is the role token's face in
+  ink, initials alone (`role_face(..., named=False)` -- the name in a
+  badge this size is about 3pt), the role's name under it and whose it
+  is under that (`role_mark`). The header says D12 BALL 2.0: the board
+  still names no mode, but the roles' spaces are the edition's.
+- **Each side's marks are on its own coach's side of the board** (the
+  author, 2026-10-24). Home sits along the bottom edge and reads the
+  board upright -- the side the old field board gave home's zone row --
+  so home's marks stand at the bottom of their spaces, and the visitors'
+  at the top, turned 180 degrees to read from the visitors' seat. A
+  space two sides' roles share -- an end space holds one side's Fullback
+  and the other's Striker, and on board 9 both Playmakers share the
+  kickoff space -- holds one at each end, and the kickoff mark keeps the
+  middle. The first draft stacked both at the bottom with a BOTH caption
+  for the shared kickoff space, which read as one side's.
+- **No shooting range; the standard roles in its place** (the author,
+  2026-10-25: in 2.0 a shot may be taken from anywhere). Where a 1.0
+  board brackets the two ranges, a 2.0 board has a panel under each zone
+  with the standard role a side's players there hold -- Defender before
+  their own goal, Midfielder in midfield, Winger in the zone they attack
+  -- as the token's face in ink, the role's name and whose it is
+  (`draw_standard_roles`, off `FORMATION_ZONE_ROLES` and
+  `zone_for_area`). Home's band is under the field; the visitors' is a
+  second band over it, between the attack arrows and the strip, turned
+  180 degrees and laid out mirrored first so the turn puts each panel
+  back over its zone. The strip gives the second band its height
+  (`FieldGeometry.for_sheet(..., upper_band=True)`), so a 2.0 strip is
+  about half an inch shorter than a 1.0 one; nothing stands on that
+  height. The 1.0 boards are byte-identical with this in.
+- **The 2.0 zone board runs along the field** (the author, 2026-10-25:
+  "zones have to be arranged horizontally along the board"). A 2.0
+  player is a tile on its side ([cards.md](cards.md), "The 2.0 player
+  tiles"), and the board is a column per zone, left to right in the
+  order the coach reads the field from their seat, **each column the
+  width of that zone on the 2.0 field board** (`zone_two_columns`, read
+  off `FieldGeometry`), with the two goal ends beside them where the
+  field board has its goal zones -- so the board laid along a coach's
+  side of the field puts every zone's tiles under the zone they stand
+  in. The title is ZONE BOARD 2.0 and the board size, since the columns
+  are.
+  - **The field board's paper**: 17in along the field is tabloid's
+    length, so the board is a tabloid sheet, landscape
+    (`ZONE_TWO_PAPER`), or the same two letter halves the field board
+    comes in (`render_zone_board_two_halves`, `halve_sheet`; the seam
+    runs down midfield's column). The board is about 8.6in deep; the
+    rest of the sheet is offcut past a cut line.
+  - **A slot a tile, each whole** (`draw_zone_two_slot`): the one
+    nearest the field is the zone's unique role, which the first player
+    in a zone takes (rules-2.0 4.2), solid gold on a pale gold, and the
+    two dashed ones under it its standard role -- as many as any
+    formation puts in a zone. Nothing is printed inside a slot.
+  - **Each slot's role is marked beside it, outside where the tile
+    lies** (`draw_zone_two_marker`; the author, 2026-10-25), so a tile
+    on the slot leaves its role in sight: the role token's face at the
+    token's own 19 mm, ringed in gold for the unique role and in ink
+    for a standard one, with UNIQUE or STANDARD under it. Marker and
+    tile are one group centred in the column; board 10's outer zones,
+    the narrowest at about 4.1in, take the 0.75in marker and the 2.75in
+    tile with room. The role tokens stay too, for the author to test
+    the table with them and without (2026-10-25).
+  - **The cost**: it takes the whole 17in along the coach's side, so
+    the team board no longer lies end to end with it.
+  - **No 2-up page for 2.0**: a tabloid sheet is a page of its own, so
+    `render_zone_board_sheet` refuses 2.0. The 1.0 zone board, its
+    cascade and its 2-up are byte-identical.
+  - It replaced, the same day, a portrait letter page whose cards were
+    cascaded 1.7in apart so each portrait card's token showed, and then
+    a board of poker cards on their side with each role printed inside
+    its slot, where the card covered it.

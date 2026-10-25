@@ -43,6 +43,13 @@ on the front. A player whose sheet sentence only names their higher
 skill ("High defensive skill.") prints that sentence, as the sheet words
 it; the numbers above it say how high. A player with no special
 ability prints their role's sentence on both faces.
+
+**D12 Ball 2.0 has its own** (the author, 2026-10-24), asked for with
+`edition=Edition.TWO`: a tile smaller than a card, on its side
+(`render_player_tile`, 2026-10-25), which names no role, since in
+2.0 the formation's zones hold the roles and a role token laid on the
+card says who holds which (docs/rules-2.0.md section 4,
+`d12ball/role_tokens.py`).
 """
 from dataclasses import dataclass
 
@@ -74,7 +81,7 @@ from d12ball.components import (
     RoleProfile,
     load_species_abilities,
 )
-from d12ball.game import COLOR_TEAMS, Team, paired_team
+from d12ball.game import COLOR_TEAMS, Edition, Team, paired_team
 from d12ball.render import (
     CARD_DEFENSE_COLOR,
     CARD_OFFENSE_COLOR,
@@ -283,12 +290,17 @@ INDEX_SKILL_ROWS = (0.29, 0.71)
 INDEX_ROLE_ROW = 0.28
 INDEX_BADGE_ROW = 0.70
 INDEX_BADGE = 40
+# A 2.0 card's column holds the species' icon alone, larger and
+# centred, since there is no role to print over it -- in ink on the
+# panel's white, with no coloured square (the author, 2026-10-25).
+INDEX_BADGE_ALONE = 56
 
 
 def draw_corner_index(
     pen: Pen,
     player: PlayerDefinition,
     skills: "RoleProfile | CardSkills",
+    edition: Edition = Edition.ONE,
 ) -> None:
     """
     **The card's corner index**, like a playing card's: the two skills
@@ -342,6 +354,15 @@ def draw_corner_index(
         width=2,
     )
     role_x = INDEX_LEFT + width * INDEX_ROLE_X
+    if edition == Edition.TWO:
+        icon = species_icon(player.species, INK)
+        if icon is not None:
+            pen.paste(
+                icon,
+                (role_x, (top + bottom) / 2),
+                (INDEX_BADGE_ALONE, INDEX_BADGE_ALONE),
+            )
+        return
     pen.text(
         (role_x, top + (bottom - top) * INDEX_ROLE_ROW),
         ROLE_INITIALS[player.role.value],
@@ -423,13 +444,19 @@ def advanced_card_skills(
 
 
 def advanced_card_ability(
-    catalog: PlayerCatalog, player: PlayerDefinition,
+    catalog: PlayerCatalog,
+    player: PlayerDefinition,
+    edition: Edition = Edition.ONE,
 ) -> str:
     """
     The sentence the advanced face prints: the player's special
-    ability as the sheet words it, or the role's where they have none.
-    Never shortened here -- see "Every ability is imported twice".
+    ability as the sheet words it, or the role's where they have none
+    -- and nothing there on a 2.0 card, which has no role ability to
+    fall back on. Never shortened here -- see "Every ability is
+    imported twice".
     """
+    if edition == Edition.TWO:
+        return player.advanced_ability
     return (
         player.advanced_ability
         or catalog.effective_profile(player).ability
@@ -909,9 +936,11 @@ def render_player_card(
     player: PlayerDefinition,
     team: Team,
     bleed: bool,
+    edition: Edition = Edition.ONE,
 ) -> Image.Image:
     """
-    One player's card, printed as a member of `team`. A dual-membership
+    One player's card, printed as a member of `team`, for `edition` --
+    a 2.0 player is a tile (`render_player_tile`). A dual-membership
     player -- every player, since the 2026-08-17 eight-team split -- has
     no team of their own to read this off (`PlayerDefinition` carries
     none), so which of their two rosters the card is drawn for is the
@@ -919,6 +948,8 @@ def render_player_card(
     belongs to is just calling this twice with the two teams
     `PlayerCatalog.teams` names them under -- no special-casing.
     """
+    if edition == Edition.TWO:
+        return render_player_tile(catalog, player, team, bleed)
     profile = catalog.effective_profile(player)
     pen = start_card(TEAM_COLORS[Team(team)])
     draw_face(pen, player, team, profile, profile.ability)
@@ -930,6 +961,7 @@ def render_player_card_back(
     player: PlayerDefinition,
     team: Team,
     bleed: bool,
+    edition: Edition = Edition.ONE,
 ) -> Image.Image:
     """
     The same player's advanced card -- the other side of the card
@@ -943,6 +975,8 @@ def render_player_card_back(
     as the front (the author, 2026-09-27), with the ribbon under the
     stats and a mark beside each skill it changes (2026-10-13).
     """
+    if edition == Edition.TWO:
+        return render_player_tile(catalog, player, team, bleed, advanced=True)
     pen = start_card(TEAM_COLORS[Team(team)])
     draw_face(
         pen,
@@ -962,3 +996,237 @@ def render_player_card_back(
 # since the maneuver and reference sheets print duplex too) is imported
 # here so the name a team's sheet was built with still answers.
 TEAM_SHEET_COLUMNS = DUPLEX_COLUMNS
+
+
+# **A 2.0 player is a tile, not a card** (the author, 2026-10-25): on
+# its side and smaller than a poker card, at the portrait card's own
+# type sizes -- "the idea of making them tokens is to make them smaller
+# than cards without decreasing font sizes" -- so a zone's tiles lie in
+# a column under their zone on the 2.0 zone board with the zone's roles
+# printed beside them (docs/design/cards.md, "The 2.0 player tiles").
+# What the size is traded for: the labelled skills panel is on the
+# front alone, the corner index saying the skills on both faces as the
+# bot's board card does, and the species is named but not explained,
+# as on a 1.0 card.
+TILE_INCHES = (2.75, 2.25)
+TILE = (round(TILE_INCHES[0] * 300), round(TILE_INCHES[1] * 300))
+# A poker card's 0.35in corner would cut into a 2in tile's header.
+TILE_CORNER = 60
+TILE_TEXT_LEFT = MARGIN + 6
+# The text column is as narrow as the longest special ability allows
+# at the card's 32 in six lines (Zenith, Scorchit), and the portrait
+# takes the rest of the width (the author, 2026-10-25: "the label with
+# skills can be much less wide with the same font size so the
+# portraits can be larger").
+TILE_TEXT_RIGHT = TILE_TEXT_LEFT + 400
+TILE_NAME_GAP = 22
+TILE_NAME_SIZE = 60
+TILE_SPECIES_SIZE = 34
+TILE_ABILITY_SIZE = 32
+TILE_BOTTOM_PAD = 26
+TILE_RIBBON_HEIGHT = 50
+# The skills panel cut to what it says -- "OFFENSE 1 | 6 DEFENSE", each
+# number beside the divider and its label beside it -- at the portrait
+# card's sizes (`STATS_LABEL_SIZE`, `STATS_VALUE_SIZE`), where
+# `draw_stats` centres each number in half a card's width.
+TILE_STATS_PAD = 14
+TILE_STATS_DIVIDER_GAP = 16
+
+# Where a role token lies on a tile, in inches from the tile's top-left
+# corner to the token's: the bottom-right corner, over the portrait's
+# foot, where it covers no number and no word.
+TILE_TOKEN_SPOT = (TILE_INCHES[0] - 0.12 - 0.748, TILE_INCHES[1] - 0.12 - 0.748)
+
+
+def draw_tile_header(
+    pen: Pen, player: PlayerDefinition, team: Team, color: str
+) -> None:
+    """
+    The team-coloured band across the top: the corner index's room on
+    the left, the name beside it, and the team's emoji on the right.
+    """
+    width = TILE[0]
+    pen.rect_in_card((FRAME, FRAME, width - FRAME, FRAME + HEADER_HEIGHT), color)
+    emoji_x = width - FRAME - 70
+    emoji = corner_mark(team, color)
+    if emoji is not None:
+        pen.paste(
+            emoji, (emoji_x, FRAME + HEADER_HEIGHT / 2), (HEADER_EMOJI, HEADER_EMOJI)
+        )
+    name_left = INDEX_RIGHT + TILE_NAME_GAP
+    name_right = emoji_x - HEADER_EMOJI / 2 - TILE_NAME_GAP
+    pen.text(
+        (name_left, FRAME + HEADER_HEIGHT / 2),
+        player.name,
+        fitted_bold_font(
+            pen,
+            player.name,
+            name_right - name_left,
+            max_size=TILE_NAME_SIZE,
+            min_size=22,
+        )
+        or font(22, bold=True),
+        high_contrast_ink(color),
+        anchor="lm",
+    )
+
+
+def draw_tile_portrait(
+    pen: Pen, player: PlayerDefinition, box: tuple[float, float, float, float]
+) -> None:
+    """The portrait, centred in `box` and capped as the portrait card's
+    is (`PORTRAIT_MAX_SCALE`)."""
+    portrait = load_player_portrait(player.name)
+    if portrait is None:
+        return
+    left, top, right, bottom = box
+    scale = min(
+        (right - left) / portrait.width,
+        (bottom - top) / portrait.height,
+        PORTRAIT_MAX_SCALE,
+    )
+    pen.paste(
+        portrait,
+        ((left + right) / 2, (top + bottom) / 2),
+        (portrait.width * scale, portrait.height * scale),
+    )
+
+
+def draw_tile_stats(
+    pen: Pen, skills: "RoleProfile | CardSkills", left: float, top: float
+) -> None:
+    """
+    The front's skills panel at its narrowest: each number set against
+    the divider, its label outside it, the panel ending a pad past the
+    labels. The numbers' column is as wide as the widest digit, so every
+    tile's panel is the same width.
+    """
+    label_face = font(STATS_LABEL_SIZE, bold=True)
+    value_face = font(STATS_VALUE_SIZE, bold=True)
+    label = max(pen.text_size(word, label_face)[0] for word in ("OFFENSE", "DEFENSE"))
+    value = max(pen.text_size(str(digit), value_face)[0] for digit in range(10))
+    half = TILE_STATS_PAD + label + STATS_LABEL_GAP + value + TILE_STATS_DIVIDER_GAP
+    divider = left + half
+    pen.rect(
+        (left, top, divider + half, top + STATS_HEIGHT),
+        radius=18,
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=2,
+    )
+    center_y = top + STATS_HEIGHT / 2
+    for side, word, number, color in (
+        (-1, "OFFENSE", skills.offense, CARD_OFFENSE_COLOR),
+        (1, "DEFENSE", skills.defense, CARD_DEFENSE_COLOR),
+    ):
+        value_x = divider + side * (TILE_STATS_DIVIDER_GAP + value / 2)
+        pen.text((value_x, center_y), str(number), value_face, color, anchor="mm")
+        pen.text(
+            (value_x + side * (value / 2 + STATS_LABEL_GAP), center_y),
+            word,
+            label_face,
+            MUTED,
+            anchor="rm" if side < 0 else "lm",
+        )
+    pen.line(
+        [(divider, top + 14), (divider, top + STATS_HEIGHT - 14)],
+        fill=PANEL_EDGE,
+        width=2,
+    )
+
+
+def draw_tile_species(pen: Pen, player: PlayerDefinition) -> float:
+    """
+    The species' badge and its ability's name at the foot of the text
+    column, in the same place on every tile; answers the row's top,
+    which is as far down as anything above it may run.
+    """
+    name = species_ability(player.species).get("name", "")
+    top = TILE[1] - FRAME - TILE_BOTTOM_PAD - BAND_BADGE
+    if not name:
+        return top
+    left = TILE_TEXT_LEFT
+    center_y = top + BAND_BADGE / 2
+    draw_species_badge(pen, player.species, (left + BAND_BADGE / 2, center_y))
+    pen.text(
+        (left + BAND_BADGE + BAND_BADGE_GAP, center_y),
+        name,
+        font(TILE_SPECIES_SIZE, bold=True),
+        INK,
+        anchor="lm",
+    )
+    return top
+
+
+def render_player_tile(
+    catalog: PlayerCatalog,
+    player: PlayerDefinition,
+    team: Team,
+    bleed: bool,
+    advanced: bool = False,
+) -> Image.Image:
+    """
+    **A D12 Ball 2.0 player tile**, either face. It names no role -- in
+    2.0 the formation's zones hold the roles (docs/rules-2.0.md section
+    4); the zone board says them beside the tile, and a role token laid
+    on it may too (`TILE_TOKEN_SPOT`). The front is the skills panel and
+    the species; the advanced face, under its ribbon, is the player's
+    special ability where they have one (`advanced_card_ability`), its
+    advanced skills in the corner index.
+    """
+    color = TEAM_COLORS[Team(team)]
+    width, height = TILE
+    pen = Pen(TILE, CARD_FACE, corner=TILE_CORNER)
+    pen.rect(
+        (FRAME, FRAME, width - FRAME, height - FRAME),
+        radius=TILE_CORNER,
+        fill=CARD_FACE,
+        outline=color,
+        width=EDGE_WIDTH,
+    )
+    profile = catalog.effective_profile(player)
+    skills = advanced_card_skills(catalog, player) if advanced else profile
+    draw_tile_header(pen, player, team, color)
+    draw_corner_index(pen, player, skills, Edition.TWO)
+
+    body_top = FRAME + HEADER_HEIGHT
+    left, right = TILE_TEXT_LEFT, TILE_TEXT_RIGHT
+    draw_tile_portrait(
+        pen,
+        player,
+        (
+            right + PORTRAIT_GAP,
+            body_top + PORTRAIT_GAP / 2,
+            width - FRAME - EDGE_WIDTH - PORTRAIT_GAP / 2,
+            height - FRAME - PORTRAIT_GAP / 2,
+        ),
+    )
+    floor = draw_tile_species(pen, player) - BAND_ROW_GAP
+    y = body_top + STATS_TOP_GAP
+    if not advanced:
+        draw_tile_stats(pen, skills, left, y)
+        return pen.finish(bleed, CARD_FACE)
+
+    pen.rect((left, y, right, y + TILE_RIBBON_HEIGHT), radius=10, fill=RIBBON_COLOR)
+    pen.text(
+        ((left + right) / 2, y + TILE_RIBBON_HEIGHT / 2),
+        "ADVANCED",
+        font(RIBBON_TEXT_SIZE, bold=True),
+        RIBBON_TEXT_COLOR,
+        anchor="mm",
+    )
+    y += TILE_RIBBON_HEIGHT + BAND_ROW_GAP / 2
+    ability = advanced_card_ability(catalog, player, Edition.TWO)
+    if ability:
+        face = font(TILE_ABILITY_SIZE)
+        step = line_height(pen, face)
+        lines = pen.wrapped(ability, face, right - left)
+        if y + len(lines) * step > floor:
+            raise ValueError(
+                f"{player.name}'s special ability runs past the species on "
+                f"a tile at {TILE_ABILITY_SIZE}: widen the column or the tile"
+            )
+        for line in lines:
+            pen.text((left, y), line, face, INK)
+            y += step
+    return pen.finish(bleed, CARD_FACE)

@@ -342,9 +342,22 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   the Charter's. The machinery is the run back's: "2.0: a new play is a run back" in
   [possession-and-turnovers.md](possession-and-turnovers.md).
 
+**At the table** a role is a loose piece: the print-and-play kit's role tokens, a zone's unique
+role on one side and its standard role on the other, laid on the card holding it -- a 2.0 card,
+which prints none -- and the players
+on the field are standees, since a meeple can no longer be told apart by role (the author,
+2026-10-24) -- [printed-tokens.md](printed-tokens.md), "Role tokens", and
+[standees.md](standees.md). The 2.0 field and zone boards show which role goes where, on boards 9
+and 10 -- [printed-boards.md](printed-boards.md), "The 2.0 boards".
+
 Decided for the step still to come (the author, 2026-10-18): **a 2.0 bench player is named by
 their skills** rather than a role, since they hold none.
 
+**The printed players have a 2.0 piece**, a tile smaller than a card that names no role (the
+author, 2026-10-24 and 2026-10-25), and
+`/d12ball team_reference` posts it in a 2.0 game -- [cards.md](cards.md), "The 2.0 player tiles".
+
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
 print-and-play kit; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the
-author, 2026-10-18): roles in the labels and pictures, a bench player named by their skills.
+author, 2026-10-18): roles in the bot's labels and board pictures, a bench player named by their
+skills.

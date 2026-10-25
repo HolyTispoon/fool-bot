@@ -23,7 +23,8 @@ is in the kit built here and never in the landing page's, which passes
 `--no-hexagon-tiles` (2026-10-04). **It
 draws nothing on its own** -- it runs `render_maneuver_cards.py`,
 `render_maneuver_tiles.py`, `render_player_cards.py`, `render_reference_cards.py`,
-`render_token_sheet.py`, `render_box_art.py` (the playtest card),
+`render_token_sheet.py`, `render_role_tokens.py`, `render_standees.py`,
+`render_box_art.py` (the playtest card),
 `render_boards.py` and `build_rulebooks.py`, the same scripts a
 developer already reaches for to check one component at a time, and
 is only their sum into a folder meant to leave the repo. So a rules
@@ -35,9 +36,10 @@ The kit is print-ready output and is gitignored, like everything
 else under `d12ball/print/`; run this again whenever the game underneath it changes rather
 than keeping a stale copy around.
 
-**What is not in the box.** The kit prints every card, every board and
-the tokens; it does not print meeples or dice. `write_readme` below
-lists what a table still needs to bring.
+**What is not in the box.** The kit prints every card, every board,
+the tokens and the players as standees; it does not print the standees'
+plastic bases or dice. `write_readme` below lists what a table still
+needs to bring.
 """
 import argparse
 import shutil
@@ -122,6 +124,15 @@ short edge**. The cards need no cutting.
   skills.
   `<team>-sheet.png` is the standard sides and
   `<team>-advanced-sheet.png` the advanced sides, printed as a pair.{player_avery}
+- **player-cards-2.0/** -- the same players as tiles for **D12 Ball
+  2.0**: 2.75in across and 2.25in tall, smaller than a card, so a zone's
+  tiles fit a column of the 2.0 zone board. In 2.0 a player has no role
+  and there are no role abilities, so these name no role: the standard
+  side carries the skills and the species, and the advanced side the
+  player's special ability where they have one. `<team>-sheet.png` and
+  `<team>-advanced-sheet.png` print as a pair, like the cards; cut on
+  each tile's rounded outline. If you play with role tokens, a token
+  goes in a tile's bottom-right corner.
 - **reference-cards/** -- the reference cards: the three double-sided
   species-ability cards (every pairing of the four species appears on
   one face), a fourth that is the first turned over, and two copies of
@@ -141,6 +152,22 @@ short edge**. The cards need no cutting.
   the back, and each marker is a condition on one side and what it
   turns into on a failed check on the other. Need more? Print the
   pair of pages again.
+- **role-tokens/** -- D12 Ball 2.0's role tokens, nine a colour team, on
+  one piece of letter paper. In 2.0 a role belongs to the formation, not
+  the player, so lay a token on each fielded player's card to say which
+  role they hold. A token is a zone's: its front is the zone's unique
+  role (Fullback, Playmaker, Striker) and its back the zone's standard
+  role (Defender, Midfielder, Winger) -- turn it over to trade the two
+  roles of one zone. `front-sheet.png` and `back-sheet.png` print duplex (flip
+  on the long edge); cut along the grey line on the front.
+- **standees/** -- every player as a standee, their portrait on both
+  faces over their name and species, a colour team a letter page
+  (`<team>-standees.png`), printed one-sided. Cut each strip out on its
+  grey line, fold it on the dashed line, glue the halves back to back
+  (a layer of thin card between them stiffens it and fills a base's
+  slot) and push the foot into a 1in (25 mm) slotted standee base. A
+  standee is 1.25in wide, so two sides' standees share a space by
+  standing along it.
 - **playtest-cards/** -- the playtest card, six to a page on the same
   Avery stock: the box cover on its front, and on its back the board,
   the feedback survey (a QR code and its address) and where to play
@@ -157,16 +184,32 @@ short edge**. The cards need no cutting.
   two boards, cut in half), as the standard board and in each colour
   team's colour; the coloured sheets pair Teal with Orange and Purple
   with Slime, so one board of each team is two sheets.
+- **boards-2.0/** -- the boards that change for **D12 Ball 2.0**, on
+  the 9- and 10-space fields: the field board, each also cut in two,
+  with each side's Fullback, Playmaker and Striker marked on the space
+  they stand on; and each coach's zone board (`zone-board-<n>-home.png`,
+  `zone-board-<n>-visitors.png`), which is the field board's length and
+  lies along that coach's side of it: a column under each zone of the
+  field, with a gold slot nearest the field for the zone's unique role
+  (Fullback, Playmaker, Striker) -- the first tile in a zone takes it --
+  and two slots under it for its standard role (Defender, Midfielder,
+  Winger), each slot's role printed beside it so a tile on the slot
+  leaves it in sight. It is the field board's paper, cut along the
+  dashed line to about 8.6in deep, and also comes cut in two for a letter printer
+  (`-left` and `-right`), taped like the field board. It takes the
+  whole length of your side, so the team board goes elsewhere -- beside
+  the jumbotron, say. The jumbotron and the team boards are the same as
+  1.0's, in **boards/**.
 
 ## Paper and cutting
 
-Cards are poker size (2.5 x 3.5in) at 300dpi, and every board is
-300dpi too.
+Cards are poker size (2.5 x 3.5in; a 2.0 player is a 2.75 x 2.25in
+tile) at 300dpi, and every board is 300dpi too.
 
 **Only the field board wants a big sheet.** It is {paper}
 ({paper_size}), landscape -- see `PAPERS` / `DEFAULT_PAPER` in
 `d12ball/boards.py` -- because its spaces have to be wide enough to
-stand two sides' meeples on, and shrinking it to letter would take
+stand two sides' standees on, and shrinking it to letter would take
 that away. If you have no printer that size, print
 `field-board-<n>-left.png` and `field-board-<n>-right.png` on two
 letter sheets, portrait, **at 100% (actual size)** -- never "fit to
@@ -178,7 +221,8 @@ the house has in it: the jumbotron on one sheet, landscape, and each
 coach's two boards -- the zone board and the team board -- half a
 sheet each.
 
-**Laying out the table.** The field board goes across the middle,
+**Laying out the table** (1.0; a 2.0 table lays its zone boards along
+the field instead, see **boards-2.0/**). The field board goes across the middle,
 home's goal on home's left. Each coach then makes a strip along their
 own side of it:
 
@@ -199,13 +243,14 @@ if a print shop wants the extra 1/8in margin to trim into.
 
 ## What to bring besides this kit
 
-Printed here: every card, every board, the maneuver tiles and the tokens. Not printed:
+Printed here: every card, every board, the maneuver tiles, the tokens and the standees. Not printed:
 
 - **A d12 a side** (a twelve-sided die) -- it is also the ball, and the
   face it shows is the ball's speed.
-- **Nine meeples or pawns a team**, in each team's own colour --
-  `d12ball/render.py`'s `TEAM_COLORS` names the hex if you want to
-  match a set to the board's own palette.
+- **Six 1in (25 mm) slotted standee bases a team**, one for each player
+  on the field; a substitute's standee goes into the base of the player
+  they replace. They are meant to be 3D printed, and the kit has no
+  model for them yet.
 
 ## Rules
 
@@ -294,8 +339,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Build the whole print-and-play kit -- the maneuver, player "
-            "and reference card sheets, the maneuver tiles, the tokens and "
-            "every board -- in one folder."
+            "and reference card sheets, the maneuver tiles, the tokens, the "
+            "standees and every board -- in one folder."
         ),
     )
     parser.add_argument(
@@ -368,6 +413,8 @@ def main() -> None:
     if args.no_avery_players:
         player_args.append("--no-avery")
     run("render_player_cards.py", player_args)
+    edition_args = ["--out", str(args.out / "player-cards-2.0"), "--edition", "2.0"]
+    run("render_player_cards.py", edition_args + player_args[2:])
 
     run(
         "render_reference_cards.py",
@@ -375,6 +422,8 @@ def main() -> None:
     )
 
     run("render_token_sheet.py", ["--out", str(args.out / "tokens")])
+    run("render_role_tokens.py", ["--out", str(args.out / "role-tokens")])
+    run("render_standees.py", ["--out", str(args.out / "standees")])
 
     # The card a playtest table is handed: the box cover on its front,
     # the board and the survey on its back (the author, 2026-09-29).
@@ -394,6 +443,10 @@ def main() -> None:
     if args.pdf:
         board_args.append("--pdf")
     run("render_boards.py", board_args)
+    run(
+        "render_boards.py",
+        ["--out", str(args.out / "boards-2.0"), "--edition", "2.0", *board_args[2:]],
+    )
 
     # The two rulebooks as the PDFs a table reads, on letter paper
     # whatever sheet the field board is on.

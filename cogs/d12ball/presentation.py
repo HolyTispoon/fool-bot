@@ -26,7 +26,7 @@ from d12ball.dice_brief import (
     maneuver_challenge_notes,
     score_attempt_brief,
 )
-from d12ball.game import D12BallGame, Team, coin_face_name, team_display_name
+from d12ball.game import D12BallGame, Edition, Team, coin_face_name, team_display_name
 from d12ball.player_cards import render_player_card, render_player_card_back
 from d12ball.render import (
     IgnitionDie,
@@ -545,7 +545,9 @@ class PresentationMixin:
         everywhere else -- the front carries the role's ability and
         skills, which is the whole of a player in training and standard
         mode. Which face is `special_abilities_apply`'s answer, not
-        the game's mode read here.
+        the game's mode read here. A game playing 2.0
+        (`maneuver_deck_applies`) gets 2.0's cards, which name no role,
+        since in 2.0 the formation holds the roles.
 
         In catalog order, which is the same whatever has happened on
         the board, so a coach finds a card in the same place each time.
@@ -557,10 +559,14 @@ class PresentationMixin:
             if self.engine.special_abilities_apply(game)
             else render_player_card
         )
+        edition = (
+            Edition.TWO if self.engine.maneuver_deck_applies(game) else Edition.ONE
+        )
         files = []
         for player in self.player_catalog.teams[team].players:
             png = await asyncio.to_thread(
                 card_png, render, self.player_catalog, player, team, False,
+                edition,
             )
             files.append(
                 discord.File(

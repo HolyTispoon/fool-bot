@@ -218,7 +218,13 @@ class Pen:
     in. Every method takes and returns those units.
     """
 
-    def __init__(self, size: tuple[int, int], background: str) -> None:
+    def __init__(
+        self, size: tuple[int, int], background: str, corner: float = CORNER
+    ) -> None:
+        # The trimmed piece's own size and corner: a 2.0 player tile is
+        # smaller than a card and rounder for it (`player_cards.TILE`).
+        self.size = size
+        self.corner = corner
         self.image = Image.new(
             "RGB",
             (round(px(size[0])), round(px(size[1]))),
@@ -310,10 +316,10 @@ class Pen:
             (
                 px(FRAME + inset),
                 px(FRAME + inset),
-                px(CARD_WIDTH - FRAME - inset),
-                px(CARD_HEIGHT - FRAME - inset),
+                px(self.size[0] - FRAME - inset),
+                px(self.size[1] - FRAME - inset),
             ),
-            radius=px(CORNER - inset),
+            radius=px(self.corner - inset),
             fill=255,
         )
         self.image.paste(fill, mask=ImageChops.multiply(shape, card))
@@ -416,14 +422,12 @@ class Pen:
         return wrap_text(self.draw, text, face, px(max_width))
 
     def finish(self, bleed: bool, background: str) -> Image.Image:
-        card = self.image.resize(
-            (CARD_WIDTH, CARD_HEIGHT), Image.Resampling.LANCZOS
-        )
+        card = self.image.resize(self.size, Image.Resampling.LANCZOS)
         if not bleed:
             return card
         sheet = Image.new(
             "RGB",
-            (CARD_WIDTH + BLEED * 2, CARD_HEIGHT + BLEED * 2),
+            (self.size[0] + BLEED * 2, self.size[1] + BLEED * 2),
             background,
         )
         sheet.paste(card, (BLEED, BLEED))
