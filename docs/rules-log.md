@@ -155,6 +155,18 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-25 (later still) -- author, 2.0: a stray player goes back to their zone or takes a new role
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.9d), to the entry below, which
+had a player left outside their zone take the standard role of the zone they stood in as the
+coach finished. Asked whether everyone ends the window in the zone of their role, and told that
+they did so by taking the role of wherever they stood, the author chose the stricter reading:
+*"Yeah I want the stricter version. The coach needs to put them back in a spot in their zone or
+else give them a new role"*. So a player stays in their role until the coach does one or the
+other -- moves them back into their zone, or gives them the standard role of the zone they are
+moved to or stand in -- and the window may not close while anybody stands outside the zone of
+their role.
+
 ### 2026-10-25 (later) -- author, 2.0: a time out's and halftime's window sends the unique roles back
 
 **A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.9d), replacing "a time out and
