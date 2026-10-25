@@ -997,7 +997,8 @@ def end_of_turn(engine: "RulesEngine", match: MatchState, result: StepResult) ->
     its owner's hand where it neither arrived nor attacked this turn --
     on its controller's turn alone, after the draw (its rulings);
     Chameleon Lizzo returns, if still in play, at the end of any turn;
-    Bloodlust's 1 damage to each it was given to; and a kidnapped unit
+    Bloodlust's 1 damage to each it was given to, an opponent's Sentry
+    and a squad leader's armor left preventing it; and a kidnapped unit
     goes back to whoever had it (Kidnapping's Card FAQ). This turn's
     modifiers and printed values go after, in `begin_tech`.
     """
@@ -1023,14 +1024,21 @@ def end_of_turn(engine: "RulesEngine", match: MatchState, result: StepResult) ->
                 )
                 board.leave_play(engine, match, card, "hand")
                 match.record_event("returned", slug=card.slug, owner=card.owner)
-    for side in match.players:
-        # Every unit and hero in play, a lent hero on its owner's list.
-        for body in (*side.play, *side.heroes_on_table):
-            lust = sum(1 for m in body.modifiers if m.get("kind") == "bloodlust")
-            if lust:
-                landed = board.take_damage(body, lust)
-                name = tokens.hero(body.slug) if not hasattr(body, "ref") else tokens.card(body.slug)
-                result.narration.append(f"{name} takes {landed} damage from {tokens.card('bloodlust')}.")
+    # Every unit and hero in play, a lent hero on its owner's list. Their
+    # damage is dealt at once, so an opponent's Sentry shields one of the
+    # patrollers among them -- unless this turn's spell or ability damage
+    # has already used it -- and the armor left on a squad leader takes
+    # its point first (the author, 2026-10-25).
+    lusting = [(body, lust) for side in match.players
+               for body in (*side.play, *side.heroes_on_table)
+               if (lust := sum(1 for m in body.modifiers if m.get("kind") == "bloodlust"))]
+    shielded = board.sentry_shields(engine, match, [body for body, _ in lusting], result)
+    for body, lust in lusting:
+        if any(body is one for one in shielded):
+            continue
+        landed = board.take_damage(body, lust)
+        name = tokens.hero(body.slug) if not hasattr(body, "ref") else tokens.card(body.slug)
+        result.narration.append(f"{name} takes {landed} damage from {tokens.card('bloodlust')}.")
     board.settle(engine, match, result)
     for side in match.players:
         for card in list(side.play):

@@ -1030,10 +1030,11 @@ class RulesEngine:
     def shown_stats(self, match: MatchState, body) -> tuple[int, int]:
         """A unit's or a hero's ATK and HP as the board's pill and a
         button's label show them: `body_stats`, with the elite's +1 ATK
-        added while it patrols there (UMR p. 10), as `attack_value` adds
+        added while it patrols there on an opponent's turn
+        (`elite_applies`, UMR p. 10), as `attack_value` adds
         it, so neither reads one less than the attack deals."""
         atk, hp = self.body_stats(match, body)
-        if body.patrol_slot == "elite":
+        if self.elite_applies(match, body):
             raw = self._unit_raw(body, match) if isinstance(body, CardInstance) \
                 else self._hero_raw(body, match)
             atk = raw[0] + ELITE_ATK
@@ -1047,11 +1048,21 @@ class RulesEngine:
             atk = max(atk, 0)
         return atk, hp
 
+    def elite_applies(self, match: MatchState, body) -> bool:
+        """Whether `body` has the elite's +1 ATK now: while it patrols the
+        elite slot, on an opponent's turn alone -- a patrol bonus is
+        the defender's, never its own turn's, so a unit just put there
+        at its turn's end shows no +1 until the next turn begins (the
+        author, 2026-10-25), as the squad leader's armor waits for the
+        next turn's refresh (`begin_turn`)."""
+        return body.patrol_slot == "elite" and self.seat_of(match, body) not in self.turn_seats(match)
+
     def attack_value(self, match: MatchState, seat: int, ref: str,
                      against: Optional[str] = None) -> int:
         """
         What `ref` on `seat`'s side deals in combat: its ATK, the elite's
-        +1 while it patrols there (UMR p. 10), and frenzy X on its
+        +1 while it patrols there on an opponent's turn (`elite_applies`,
+        UMR p. 10), and frenzy X on its
         controller's own turn (UMR p. 16), floored at 0 once everything
         is added -- and, where it attacks a building (`against`, a ref on
         the other side), "+X ATK when attacking buildings" (Steam Tank,
@@ -1067,7 +1078,7 @@ class RulesEngine:
             atk = self._unit_raw(body, match)[0]
         else:
             return 0
-        if body.patrol_slot == "elite":
+        if self.elite_applies(match, body):
             atk += ELITE_ATK
         if seat in self.turn_seats(match):
             atk += self.keyword_x(body, "Frenzy", match)

@@ -162,6 +162,8 @@ class TurnHeadingTests(unittest.TestCase):
         self.assertEqual(ref_label(engine, match, 2, elite.ref, "patroller"), "Iron Man 4/4 (patroller)")
         self.assertEqual(ref_label(engine, match, 2, other.ref), "Older Brother 2/2")
         self.assertEqual(engine.board_reading(match, elite)[:2], (4, 4))
+        # On seat 2's turn, as the elite's +1 is an opponent's turn's.
+        match.active = 2
         hero_in_play(match, 1, patrol="elite")
         ref = hero(match, 1)
         atk, hp = engine.hero_stats(match.hero_on(1, ref), match)

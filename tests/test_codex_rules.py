@@ -492,6 +492,18 @@ class PatrolSlotTests(unittest.TestCase):
         self.assertEqual(match.player(1).patrollers(), {"squad_leader": unit.ref, "lookout": TROQ})
         self.assertEqual(set(PATROL_SLOTS) >= set(match.player(1).patrollers()), True)
 
+    def test_the_elite_bonus_waits_for_an_opponents_turn(self) -> None:
+        """A patrol bonus is the defender's (the author, 2026-10-25): a
+        unit put in the elite slot at its own turn's end reads its
+        printed ATK until the next player's turn begins, then +1."""
+        engine, game, match = main_phase()
+        elite = put(match, 1, "older_brother", patrol="elite")
+        self.assertEqual(engine.shown_stats(match, elite), (2, 2))
+        self.assertEqual(engine.attack_value(match, 1, elite.ref), 2)
+        match.active = 2
+        self.assertEqual(engine.shown_stats(match, elite), (3, 2))
+        self.assertEqual(engine.attack_value(match, 1, elite.ref), 3)
+
 
 class CardTests(unittest.TestCase):
     def test_a_spell_needs_a_hero_and_goes_to_the_discard(self) -> None:

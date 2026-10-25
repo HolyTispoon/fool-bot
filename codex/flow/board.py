@@ -1606,15 +1606,22 @@ def sentry_shields(engine: "RulesEngine", match: MatchState, bodies, result: Ste
     Sentry: "Prevent the first damage per turn that a spell or ability
     would deal to one of your patrollers. (Choose randomly if multiple
     patrollers are damaged at once.)" -- sparkshot's and the tower's too
-    (its ruling). `bodies` are what is about to be damaged at once; the
-    one shielded, as a list of none or one.
+    (its ruling). A patroller is one on an opponent's turn alone
+    (Sirlin's ruling, the author, 2026-10-25): a unit or hero its
+    controller has just put in a slot is not one for the rest of their
+    own turn, so the draw phase's and the turn's end's damage to it is
+    never shielded. `bodies` are what is about to be damaged at once;
+    the one shielded, as a list of none or one.
     """
+    turn = engine.turn_seats(match)
     for seat in seats.seat_numbers(match):
         sentry = next((card for card in match.player(seat).play
                        if card.slug in effects.SENTRIES and engine.texted(card)
                        and not any(m.get("kind") == "once" and m.get("effect") == "sentry"
                                    for m in card.modifiers)), None)
         if sentry is None:
+            continue
+        if seat in turn:
             continue
         mine = [body for body in bodies
                 if engine.seat_of(match, body) == seat and getattr(body, "patrol_slot", None)]

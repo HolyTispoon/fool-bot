@@ -1530,8 +1530,10 @@ class ConditionedKeywordTests(KeywordCase):
     def test_the_board_shows_the_elites_plus_one(self) -> None:
         """The pill reads what a body fights with: the elite's +1 ATK
         while it patrols there (UMR p. 10), on a unit and a hero alike,
-        and nothing once it leaves the slot."""
+        and nothing once it leaves the slot. On an opponent's turn, as a
+        patrol bonus is (the author, 2026-10-25)."""
         engine, game, match = fresh()
+        match.active = 2
         unit = put(match, 1, "rambasa_twin", patrol="elite")
         atk, hp = engine.unit_stats(unit, match)
         self.assertEqual(engine.board_reading(match, unit)[:2], (atk + 1, hp))
@@ -1543,6 +1545,7 @@ class ConditionedKeywordTests(KeywordCase):
         atk, hp = engine.hero_stats(hero, match)
         self.assertEqual(engine.board_reading(match, hero)[:2], (atk + 1, hp))
         # Pestering Haunt: "Can't have more than 1 ATK." -- the elite's +1 too.
+        match.active = 1
         haunt = put(match, 2, "pestering_haunt", patrol="elite")
         self.assertEqual(engine.board_reading(match, haunt)[0], 1)
         self.assertEqual(engine.attack_value(match, 2, haunt.ref), 1)
