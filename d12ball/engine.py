@@ -4244,6 +4244,10 @@ class RulesEngine:
         begin_run_back). Each of them has to come back, so the only
         question left is which space.
         """
+        # A 2.0 restart places every one of its players again, whether
+        # or not they are out of their zone (docs/rules-2.0.md 4.9).
+        if match.pending_replace is not None:
+            return match.run_back_placing(side)
         stays_player_id = match.pending_run_back_stays_player_id
         return [
             player_id
@@ -4394,6 +4398,12 @@ class RulesEngine:
             for side in (TeamSide.HOME, TeamSide.VISITING):
                 setup = match.setup_for_side(side)
                 exempt_ids = self.spread_exempt_ids(game, match, side)
+                # A 2.0 restart's players are each their coach's to
+                # place wherever their zone has more than one open
+                # space -- who stands where is the whole of the choice
+                # (docs/rules-2.0.md 4.9) -- so only a zone with one
+                # player left and one space for them is settled here.
+                placing = match.pending_replace is not None
                 by_zone: dict[Zone, list[str]] = {}
                 for player_id in self.run_back_displaced(match, side):
                     by_zone.setdefault(
@@ -4414,26 +4424,71 @@ class RulesEngine:
                     if not players:
                         continue
 
-                    open_spaces = match.open_spaces_in_zone(
+                    open_spaces = match.run_back_open_spaces(
                         side, zone, exempt_ids,
                     )
                     if len(open_spaces) != len(players):
                         continue
+                    if placing and len(players) > 1:
+                        continue
                     for player_id, space_index in zip(players, open_spaces):
-                        distance = match.run_back_player(
-                            player_id, zone, space_index, exempt_ids,
+                        self.run_back_forced(
+                            game, match, player_id, zone, space_index,
+                            exempt_ids,
                         )
-                        match.add_exhaustion(
-                            player_id,
-                            self.run_back_cost(game, player_id, distance),
-                        )
-                        # A forced run back is applied silently, so
-                        # there is no message here to carry the
-                        # threshold test the way apply_exhaustion's
-                        # does -- but the flag still has to be set
-                        # before the caller's save.
-                        self.retest_exhausted(game, match, player_id)
                     applied_forced = True
+
+    def run_back_forced(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        zone: Zone,
+        space_index: int,
+        exempt_ids: Collection[str],
+    ) -> None:
+        """One placement the run back makes without asking, charged
+        what it costs unless it is free (`run_back_is_free`)."""
+        free = self.run_back_is_free(match, player_id)
+        distance = match.run_back_player(
+            player_id, zone, space_index, exempt_ids,
+        )
+        if not free:
+            match.add_exhaustion(
+                player_id, self.run_back_cost(game, player_id, distance),
+            )
+        # A forced run back is applied silently, so there is no message
+        # here to carry the threshold test the way apply_exhaustion's
+        # does -- but the flag still has to be set before the caller's
+        # save.
+        self.retest_exhausted(game, match, player_id)
+
+    @staticmethod
+    def restarts_by_run_back(match: MatchState) -> bool:
+        """
+        **Whether a restart runs everybody back rather than resetting
+        them** (docs/rules-2.0.md 4.9, the author, 2026-10-24): a 2.0
+        match, whose roles are the formation's, places every player
+        again in their own zone at a new play -- the unique roles on
+        their spaces, everyone else where their coach puts them -- and
+        keeps no saved arrangement to snap back to, so a time out's and
+        halftime's Coaching Choices open on the side as it stands, for
+        the coaches to place. A 1.0 match resets to its arrangement, as
+        it always has; so does a 2.0 match saved before its roles were
+        the formation's.
+        """
+        return bool(match.formation_roles)
+
+    @staticmethod
+    def run_back_is_free(match: MatchState, player_id: str) -> bool:
+        """
+        Whether running `player_id` back costs nothing: a 2.0 new play's
+        run back is free, as the 1.0 reset it replaces is
+        (docs/rules-2.0.md 4.9, 5.4a). A steal's
+        run back is charged a token a space, in both editions. Asked
+        before the move, since the move takes them off the list.
+        """
+        return player_id in match.run_back_placing()
 
     def next_run_back_step(
         self,
@@ -4753,22 +4808,54 @@ class RulesEngine:
         side: TeamSide,
         holders: Mapping[str, str],
         placed: Sequence[tuple[str, Zone, int]],
+        strays: Collection[str] = (),
     ) -> str:
         """
         Set a 2.0 side up from its roles (`MatchState.arrange_side`,
         docs/rules-2.0.md 4.3) and say where everybody stands. Who
         comes on before kickoff goes to the ordinary bench, as a setup
         substitution does (`CoachingOccasion.retires_outgoing_players`).
+        `strays` keep their role outside its zone for now (4.9d).
         """
         side = TeamSide(side)
         occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
+        spreadable = self.spreadable_among(game, match.arrangement_pool(side))
+        standing = {
+            player_id: match.board.meeple_position(player_id)
+            for player_id, _, _ in placed
+        }
+        was = dict(match.formation_roles.get(side.value, {}))
         swaps = match.arrange_side(
             side,
             holders,
             placed,
-            self.spreadable_among(game, match.arrangement_pool(side)),
+            spreadable,
             retire_outgoing=occasion.retires_outgoing_players,
+            strays=strays,
         )
+        # A change that only puts a scattered side partly right
+        # (docs/rules-2.0.md 4.9d) makes no shape yet, so it says who
+        # moved or took a new role, and how many are still out of place.
+        out_of_place = match.standing_arrangement_faults(side, spreadable)
+        if out_of_place:
+            roles = match.formation_roles[side.value]
+            lines = []
+            for player_id, zone, space_index in placed:
+                label = self.format_player_label(
+                    match, self.get_player_definition(player_id),
+                )
+                if standing.get(player_id) != (zone, space_index):
+                    lines.append(
+                        f"{label} moves to "
+                        f"{space_label(zone, space_index, match.board)}."
+                    )
+                elif was.get(player_id) != roles.get(player_id):
+                    lines.append(
+                        f"{label} takes the {roles[player_id].title()} "
+                        "role where they stand."
+                    )
+            lines.append(f"{out_of_place} still out of place.")
+            return "\n".join(lines)
 
         setup = match.setup_for_side(side)
         roles = match.formation_roles[side.value]
@@ -4919,6 +5006,10 @@ class RulesEngine:
         and 9, and from one each on board 10; each side is asked about
         its own, because the coverage belongs to the arrangement rather
         than to the space.
+
+        A 2.0 side is held by two more things: a teammate left on a
+        unique role's space they may not share, and a side a time out or
+        halftime left out of place (docs/rules-2.0.md 4.9d).
         """
         side = TeamSide(side)
         occasion = match.coaching_occasion
@@ -4938,6 +5029,17 @@ class RulesEngine:
                 f"{player_with_role(self.get_player_definition(card))} "
                 "is sharing a space only an Ooze may share, and has to "
                 "move to another space before finishing."
+            )
+        # A 2.0 side a time out or halftime left scattered stands in an
+        # arrangement before its coach finishes (docs/rules-2.0.md 4.9d).
+        if game is not None and match.standing_arrangement_faults(
+            side, self.spreadable_among(game, match.arrangement_pool(side)),
+        ):
+            return (
+                "Some players are out of place: everybody stands in the "
+                "zone of their role, nobody but an Ooze shares a space, "
+                "and no zone holds more players than it has spaces. Put "
+                "them right with Arrange team before finishing."
             )
         if match.kickoff_space_occupied_by(side):
             return None
@@ -5082,8 +5184,13 @@ class RulesEngine:
         )
         if not spaces:
             return "No space in their zone."
+        # A free run back has no price to quote: a move that costs
+        # nothing says nothing.
+        free = self.run_back_is_free(match, player_id)
         options = [
-            travel_space_phrase(
+            space_label(zone, index, match.board)
+            if free
+            else travel_space_phrase(
                 zone, index, match.run_back_distance(player_id, zone, index),
                 match.board,
             )

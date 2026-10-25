@@ -155,6 +155,33 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-25 (later still) -- author, 2.0: a stray player goes back to their zone or takes a new role
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.9d), to the entry below, which
+had a player left outside their zone take the standard role of the zone they stood in as the
+coach finished. Asked whether everyone ends the window in the zone of their role, and told that
+they did so by taking the role of wherever they stood, the author chose the stricter reading:
+*"Yeah I want the stricter version. The coach needs to put them back in a spot in their zone or
+else give them a new role"*. So a player stays in their role until the coach does one or the
+other -- moves them back into their zone, or gives them the standard role of the zone they are
+moved to or stand in -- and the window may not close while anybody stands outside the zone of
+their role.
+
+### 2026-10-25 (later) -- author, 2.0: a time out's and halftime's window sends the unique roles back
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.9d), replacing "a time out and
+halftime move nobody" of 2026-10-24 (later), now that a 2.0 coach moves their side by
+rearranging it alone (4.6c, the entry below). Asked what a Coaching Choice opened on a scattered
+side should do -- a Fullback, Playmaker or Striker off their space, or others outside their zone
+-- the author answered, to the option put to them of lining the side up at Done: *"Very close to
+your recommended option but no need to wait for the coach to clock done. Opening a window means
+there will be a new play and so players with unique roles snap back and the coach has to put
+everyone else back into a position"*. So as the window opens the three unique roles go back onto their own spaces, for nothing;
+everybody else stays where they stand, and the coach may not finish until the side stands in an
+arrangement 4.3 allows, each change in the meantime moving one player and leaving fewer out of
+place. Each player then holds the standard role of the zone they stand in -- the part of the
+option put to the author that their answer kept.
+
 ### 2026-10-25 -- author, 2.0: no zone assignment or space positioning; an Ooze shares both ways
 
 **Two more answers on PR #673** ([rules-2.0.md](rules-2.0.md) 4.6, 5.4a), to the two entries
@@ -184,6 +211,50 @@ The Charter's time out is offered only out of range (Law 13.2.1a), which no 2.0 
 Asked the same day whether a 2.0 side may call one on any turn, never, or only where the old
 range would have left it out, the author chose **any turn it has the ball**, with the other two
 conditions -- once a half, and not after last possession -- unchanged (6.2).
+
+### 2026-10-24 (later) -- author, 2.0: only a new play runs back, and a steal's run back is the Charter's
+
+**Two answers on PR #675** ([rules-2.0.md](rules-2.0.md) 4.6d, 4.9, 5.4a), narrowing the entry
+below. The author: *"There is no point in placing back players after a time out and before the
+second half. When there's a coaching window the player will have a chance to place them anyway.
+I want to pull back a little. After a steal all player run back to their zone including unique
+roles. So it's actually more like it used to in 1.0"*.
+
+- **A time out and halftime move nobody** (4.9d): their Coaching Choices open on the side as it
+  stands, and the coaches place their players there.
+- **A steal's run back is the Charter's** (4.9e): a Fullback, a Playmaker or a Striker out of
+  their zone runs back to any open space of it, like everybody else, and no space is kept for
+  them.
+
+One reading the answers left, written into 4.6d and put to the author on the PR: since a steal
+can now leave a unique role off their own space, and nothing at a time out or halftime puts them
+back, space positioning lets a unique role go back onto their own space -- and only there --
+swapping with a teammate standing on it; and a player standing outside their zone altogether
+moves to an empty space of it.
+
+### 2026-10-24 -- author, 2.0: a restart is a run back
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.9, 5.4a), replacing the reset
+to the coaches' arrangement (Law 12.5.1, 13.1.2) with a run back. The author: *"Another rule
+change for 2.0 is that run back and new play are now the same, in the sense that each player
+needs to run back to any open space in the zone they are assigned to. So a midfielder would just
+have to go to any open space in the midfield. The difference between turnovers and new plays is
+that in the case of turnover, there is someone that isn't running back because they are holding
+the ball, and run back during a new play doesn't cost exhaustion."* Asked the same day, the
+author answered:
+
+- **The Fullback, the Playmaker and the Striker run back to their own spaces** (4.9a, 4.9d) --
+  chosen over any open space like everyone else, which would leave the Playmaker off the kickoff
+  space they restart from (4.4).
+- **Everybody re-places at a restart** (4.9a), including those already in their own zone --
+  chosen over moving only those out of place, as a steal does.
+- **The run back comes first, then the Coaching Choice** (4.9c), which opens on the side as it
+  stands -- chosen over the Choice first.
+- **Halftime runs back too** (4.9) -- chosen over keeping halftime's snap back to the saved
+  arrangement, so 2.0 keeps no saved arrangement at all.
+
+A time out is a new play (Law 13.1.2), so it runs back the same way, before its two windows,
+where 1.0 resets after them.
 
 ### 2026-10-24 (later) -- author, 2.0: the zone cap holds with Oozes, and a rearrangement starts from where the side stands
 

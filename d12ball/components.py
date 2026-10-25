@@ -1967,6 +1967,8 @@ MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
         # 2.0's coin, likewise written only where it has been flipped.
         "tie_coin",
         "tie_coin_owed",
+        # 2.0's restart run back, only while one is under way.
+        "pending_replace",
         "ruleset_id",
         "player_data_version",
         "board",
@@ -2291,6 +2293,19 @@ class MatchState:
     # space step that consumes it and by every reset that ends a run
     # back.
     run_back_pick: Optional[str] = None
+    # **D12 Ball 2.0's new play run back** (docs/rules-2.0.md 4.9, the
+    # author, 2026-10-24): a new play sends every fielded player back to
+    # their own zone rather than snapping them onto a saved arrangement
+    # -- the three unique roles straight to their spaces, everyone else
+    # to an open space of their zone, their coach choosing, for nothing.
+    # `{"then": ..., "side": ..., "players": [...]}`: what follows once
+    # everybody is placed (`"window"`, the new play's Coaching Choice for
+    # `side`), and who is still to be placed, home's first.
+    # None in a 1.0 game and between restarts, and saved explicitly,
+    # only while one is under way, so a 1.0 match is written exactly as
+    # before (`MATCH_EXPLICIT_FIELDS`). Read by the run back's own
+    # readings (`run_back_placing`); `finish_run_back` acts on `then`.
+    pending_replace: Optional[dict[str, Any]] = None
     # **What a maneuver's effect still owes once its last prompt has
     # been answered**, as `{"kind": ..., ...}` -- or None, which is
     # nearly always.
@@ -4655,6 +4670,10 @@ class MatchState:
         so a zone holding more players than it has spaces settles
         with the surplus doubled up and nobody moving.
         """
+        # A 2.0 restart places everybody anyway, so no stack is asked
+        # about while it is (`run_back_placing`).
+        if self.pending_replace is not None:
+            return []
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
         team_players = set(setup.field_players) - set(spread_exempt_ids)
@@ -4733,19 +4752,145 @@ class MatchState:
         same way, permanently rather than only while one of them is the
         one moving -- see `open_spaces_in_zone`.
         """
+        side = TeamSide(side)
         zone = Zone(zone)
         setup = self.setup_for_side(side)
+        # **A 2.0 new play's run back** (docs/rules-2.0.md 4.9): a
+        # Fullback, a Playmaker or a Striker goes to their own space and
+        # nowhere else, nobody else is sent onto one, and a teammate
+        # still to be placed covers nothing -- they are about to move. A
+        # steal's run back is the Charter's, unique roles and all.
+        if (
+            player_id is not None
+            and player_id in self.run_back_placing()
+            and self.holds_unique_role(side, player_id)
+        ):
+            return [self.unique_role_space(side, area_for_zone(side, zone))]
+        reserved = self.reserved_spaces(side, zone)
         others = (
-            set(setup.field_players) - {player_id} - set(spread_exempt_ids)
+            set(setup.field_players)
+            - {player_id}
+            - set(spread_exempt_ids)
+            - set(self.run_back_placing(side))
         )
         uncovered = [
             index
             for index, occupants in enumerate(self.board.spaces[zone])
-            if not others.intersection(occupants)
+            if index not in reserved and not others.intersection(occupants)
         ]
         if uncovered:
             return uncovered
-        return list(range(len(self.board.spaces[zone])))
+        return [
+            index
+            for index in range(len(self.board.spaces[zone]))
+            if index not in reserved
+        ] or list(range(len(self.board.spaces[zone])))
+
+    def run_back_open_spaces(
+        self,
+        side: TeamSide,
+        zone: Zone,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[int]:
+        """
+        The spaces of `zone` a run back may still fill for `side`:
+        `open_spaces_in_zone`, less a 2.0 unique role's space, and with
+        a teammate a 2.0 restart has still to place covering nothing
+        (`placement_spaces_in_zone` reads the same two). In 1.0 it is
+        `open_spaces_in_zone` exactly.
+        """
+        side = TeamSide(side)
+        zone = Zone(zone)
+        reserved = self.reserved_spaces(side, zone)
+        covering = (
+            set(self.setup_for_side(side).field_players)
+            - set(spread_exempt_ids)
+            - set(self.run_back_placing(side))
+        )
+        return [
+            index
+            for index, occupants in enumerate(self.board.spaces[zone])
+            if index not in reserved and not covering.intersection(occupants)
+        ]
+
+    def reserved_spaces(self, side: TeamSide, zone: Zone) -> set[int]:
+        """
+        The space of `zone` a 2.0 new play's run back keeps for the
+        zone's unique role -- the Fullback's, the Playmaker's or the
+        Striker's -- and sends nobody else to (docs/rules-2.0.md 4.9).
+        None outside one: a steal's run back reserves nothing.
+        """
+        side = TeamSide(side)
+        if self.pending_replace is None or side.value not in self.formation_roles:
+            return set()
+        return {self.unique_role_space(side, area_for_zone(side, Zone(zone)))}
+
+    def run_back_placing(self, side: Optional[TeamSide] = None) -> list[str]:
+        """
+        Who a 2.0 new play's run back has still to place
+        (`pending_replace`), on one side or both, in the order they are
+        asked -- empty outside one.
+        """
+        if self.pending_replace is None:
+            return []
+        players = list(self.pending_replace.get("players", []))
+        if side is None:
+            return players
+        team = set(self.setup_for_side(TeamSide(side)).field_players)
+        return [player_id for player_id in players if player_id in team]
+
+    def begin_restart_run_back(
+        self, then: str, side: Optional[TeamSide] = None,
+    ) -> list[tuple[str, Zone, int]]:
+        """
+        **Start a 2.0 new play's run back** (docs/rules-2.0.md 4.9, the
+        author, 2026-10-24): every fielded player of both sides is to be
+        placed again in their own zone, for nothing. The three unique
+        roles have nothing to choose and go straight to their spaces,
+        reported as moved; everyone else is listed in `pending_replace`
+        for their coach to place, home's first. `then` and `side` say
+        what follows once the last of them is down.
+        """
+        moved: list[tuple[str, Zone, int]] = []
+        players: list[str] = []
+        for team_side in (TeamSide.HOME, TeamSide.VISITING):
+            moved.extend(self.return_unique_roles(team_side))
+            players.extend(
+                player_id
+                for player_id in self.setup_for_side(team_side).field_players
+                if not self.holds_unique_role(team_side, player_id)
+            )
+        self.pending_replace = {
+            "then": then,
+            "side": None if side is None else TeamSide(side).value,
+            "players": players,
+        }
+        return moved
+
+    def return_unique_roles(
+        self, side: TeamSide,
+    ) -> list[tuple[str, Zone, int]]:
+        """
+        Put a 2.0 side's Fullback, Playmaker and Striker back onto their
+        own spaces, for nothing, and report who moved: a new play's run
+        back starts with it, and a time out's or halftime's Coaching
+        Choice opens with it, everybody else staying where they stand
+        (docs/rules-2.0.md 4.9). Nothing for a 1.0 side.
+        """
+        side = TeamSide(side)
+        moved: list[tuple[str, Zone, int]] = []
+        if side.value not in self.formation_roles:
+            return moved
+        setup = self.setup_for_side(side)
+        for player_id in setup.field_players:
+            if not self.holds_unique_role(side, player_id):
+                continue
+            zone = setup.assigned_zone(player_id)
+            space = self.unique_role_space(side, area_for_zone(side, zone))
+            if self.board.meeple_position(player_id) != (zone, space):
+                self.board.place_meeple(player_id, zone, space)
+                moved.append((player_id, zone, space))
+        return moved
 
     def run_back_distance(
         self,
@@ -4814,6 +4959,10 @@ class MatchState:
 
         distance = self.run_back_distance(player_id, zone, space_index)
         self.board.place_meeple(player_id, zone, space_index)
+        if self.pending_replace is not None:
+            players = self.pending_replace.get("players", [])
+            if player_id in players:
+                players.remove(player_id)
         # **They moved, so they are running back** -- which is the whole
         # of what Charge-up asks. Recorded here rather than at the three
         # callers (the forced pass, the AI's placement and the coach's
@@ -5403,6 +5552,49 @@ class MatchState:
                     placed.append((player_id, position[0], position[1]))
         return holders, placed
 
+    def standing_arrangement_faults(
+        self,
+        side: TeamSide,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> int:
+        """
+        How many of a 2.0 side's players are out of place where they
+        stand (`arrangement_faults` over `current_arrangement`, its
+        strays included): zero for a side standing in an arrangement 4.3
+        allows with everybody in the zone of their role, and for a 1.0
+        side. A Coaching Choice may not close on more
+        (`RulesEngine.coaching_finish_refusal`, docs/rules-2.0.md 4.9d).
+        """
+        side = TeamSide(side)
+        if side.value not in self.formation_roles:
+            return 0
+        holders, placed = self.current_arrangement(side)
+        return arrangement_faults(
+            holders,
+            placed,
+            self.arrangement_unique_spaces(side),
+            {zone: len(self.board.spaces[zone]) for zone in Zone},
+            spread_exempt_ids,
+            self.arrangement_strays(side),
+        )
+
+    def arrangement_strays(self, side: TeamSide) -> list[str]:
+        """
+        A 2.0 side's players standing outside the zone of their role --
+        where open play left them before a time out or halftime, the
+        role kept until their coach moves them back or gives them a new
+        one (docs/rules-2.0.md 4.9d). Empty for a 1.0 side.
+        """
+        side = TeamSide(side)
+        if side.value not in self.formation_roles:
+            return []
+        setup = self.setup_for_side(side)
+        _, placed = self.current_arrangement(side)
+        return [
+            player_id for player_id, zone, _ in placed
+            if setup.assigned_zone(player_id) != zone
+        ]
+
     def arrangement_unique_spaces(
         self, side: TeamSide,
     ) -> dict[str, tuple[Zone, int]]:
@@ -5421,6 +5613,7 @@ class MatchState:
         placed: Sequence[tuple[str, Zone, int]],
         spread_exempt_ids: Collection[str] = (),
         retire_outgoing: bool = True,
+        strays: Collection[str] = (),
     ) -> list[tuple[str, str]]:
         """
         **Put a 2.0 side in an arrangement** (docs/rules-2.0.md 4.3, the
@@ -5440,6 +5633,13 @@ class MatchState:
         `substitute`, and is recorded as a substitution for the
         window's summary. Answers the substitutions it made, outgoing
         first.
+
+        **A side a time out or halftime left out of place**
+        (docs/rules-2.0.md 4.9d) is put right a change at a time:
+        `strays` names the players left outside their zone who keep
+        their role for now, and a change that leaves fewer players out
+        of place (`arrangement_faults`) stands though the side is not
+        yet in an arrangement.
         """
         side = TeamSide(side)
         if side.value not in self.formation_roles:
@@ -5451,16 +5651,60 @@ class MatchState:
             (player_id, Zone(zone), space_index)
             for player_id, zone, space_index in placed
         ]
-        refusal = arrangement_refusal(
-            holders,
-            placed,
-            self.arrangement_pool(side),
-            self.arrangement_unique_spaces(side),
-            {zone: len(self.board.spaces[zone]) for zone in Zone},
-            spread_exempt_ids,
+        unique_spaces = self.arrangement_unique_spaces(side)
+        zone_sizes = {zone: len(self.board.spaces[zone]) for zone in Zone}
+        # **`strays` keep their role** where play left them outside its
+        # zone (docs/rules-2.0.md 4.9d): each must be one standing there
+        # now and not moved by this change. Everybody else placed takes
+        # the standard role of the zone they are placed in.
+        strays = list(dict.fromkeys(strays))
+        standing_strays = self.arrangement_strays(side)
+        for player_id in strays:
+            position = self.board.meeple_position(player_id)
+            if player_id not in standing_strays or (
+                position is None or (player_id, *position) not in placed
+            ):
+                raise RuleRefusal(
+                    "Only a player left outside their zone, and not moved, "
+                    "keeps their role there."
+                )
+        shape = arrangement_shape_refusal(
+            holders, placed, self.arrangement_pool(side),
         )
-        if refusal is not None:
-            raise RuleRefusal(refusal)
+        if shape is not None:
+            raise RuleRefusal(shape)
+        # A side a time out or halftime left out of place is put right a
+        # change at a time: one that leaves fewer out of place stands
+        # though the side is not yet in place; one that leaves nobody
+        # out of place always does.
+        after = arrangement_faults(
+            holders, placed, unique_spaces, zone_sizes, spread_exempt_ids,
+            strays,
+        )
+        if after and after >= self.standing_arrangement_faults(
+            side, spread_exempt_ids,
+        ):
+            raise RuleRefusal(
+                arrangement_refusal(
+                    holders,
+                    placed,
+                    self.arrangement_pool(side),
+                    unique_spaces,
+                    zone_sizes,
+                    spread_exempt_ids,
+                )
+                or "That leaves nobody back in place: move a player back "
+                "into their zone, or give them the role of where they "
+                "stand."
+            )
+        kept = {
+            player_id: self.setup_for_side(side).assigned_zone(player_id)
+            for player_id in strays
+        }
+        kept_roles = {
+            player_id: self.formation_roles[side.value][player_id]
+            for player_id in strays
+        }
 
         chosen = list(holders.values()) + [
             player_id for player_id, _, _ in placed
@@ -5499,6 +5743,14 @@ class MatchState:
                     placement.append((player_id, zone, space_index))
                     roles[player_id] = standard.value
         self.deploy_side(side, placement)
+        # A stray keeps their role, and with it their zone, standing
+        # where they are.
+        for player_id, zone in kept.items():
+            for players in setup.zones.values():
+                if player_id in players:
+                    players.remove(player_id)
+            setup.zones[zone].append(player_id)
+            roles[player_id] = kept_roles[player_id]
         # Given rather than read back off the spaces: an Ooze may share
         # a unique role's space, and the space would not say which of
         # the two holds it.
@@ -5624,6 +5876,10 @@ class MatchState:
             if holder is None or holder in exempt:
                 continue
             space = self.unique_role_space(side, area)
+            # Sharing is with the holder: one a steal's run back left
+            # elsewhere has nobody on their space to share it with.
+            if self.board.meeple_position(holder) != (zone, space):
+                continue
             sharers.extend(
                 card for card in self.board.spaces[zone][space]
                 if card in team and card != holder and card not in exempt
@@ -6324,6 +6580,13 @@ class MatchState:
         if self.tie_coin is not None:
             saved["tie_coin"] = self.tie_coin
             saved["tie_coin_owed"] = self.tie_coin_owed
+        # 2.0's restart run back, only while one is under way.
+        if self.pending_replace is not None:
+            saved["pending_replace"] = {
+                "then": self.pending_replace.get("then"),
+                "side": self.pending_replace.get("side"),
+                "players": list(self.pending_replace.get("players", [])),
+            }
         return saved
 
     @classmethod
@@ -6467,6 +6730,18 @@ class MatchState:
             # coin: unflipped, which the next turn's start flips.
             tie_coin=data.get("tie_coin"),
             tie_coin_owed=bool(data.get("tie_coin_owed", False)),
+            # Absent from every save but one made mid-restart in 2.0.
+            pending_replace=(
+                None
+                if data.get("pending_replace") is None
+                else {
+                    "then": data["pending_replace"].get("then"),
+                    "side": data["pending_replace"].get("side"),
+                    "players": list(
+                        data["pending_replace"].get("players", []),
+                    ),
+                }
+            ),
             **{
                 saved_field.name: saved_field.restored(data)
                 for saved_field in MATCH_SAVED_FIELDS
@@ -6762,21 +7037,9 @@ def arrangement_refusal(
     so the match is never told something its options would not offer.
     Pure -- every fact it reads is handed in.
     """
-    if set(holders) != set(UNIQUE_ROLE_AREAS):
-        return "Name a Fullback, a Playmaker and a Striker."
-    if len(placed) != ARRANGED_PLAYER_COUNT:
-        return (
-            f"Place {ARRANGED_PLAYER_COUNT} players after the Fullback, "
-            "the Playmaker and the Striker."
-        )
-    chosen = list(holders.values()) + [player for player, _, _ in placed]
-    if len(set(chosen)) != len(chosen):
-        return "A player cannot be placed twice."
-    if any(player_id not in pool for player_id in chosen):
-        return (
-            "Everybody arranged has to come from the field -- or, before "
-            "kickoff, the bench."
-        )
+    shape = arrangement_shape_refusal(holders, placed, pool)
+    if shape is not None:
+        return shape
     standing = [
         (holders[role], *unique_spaces[role]) for role in UNIQUE_ROLE_AREAS
     ]
@@ -6799,6 +7062,73 @@ def arrangement_refusal(
             )
         standing.append((player_id, zone, space_index))
     return None
+
+
+def arrangement_shape_refusal(
+    holders: Mapping[str, str],
+    placed: Sequence[tuple[str, Zone, int]],
+    pool: Collection[str],
+) -> Optional[str]:
+    """
+    Why a 2.0 arrangement is not one at all, or None, before anybody's
+    space is looked at: the three unique roles named, `ARRANGED_PLAYER_COUNT`
+    more placed, everybody once and out of `pool`. The half of
+    `arrangement_refusal` a change that only puts a scattered side
+    partly right must still meet (`MatchState.arrange_side`).
+    """
+    if set(holders) != set(UNIQUE_ROLE_AREAS):
+        return "Name a Fullback, a Playmaker and a Striker."
+    if len(placed) != ARRANGED_PLAYER_COUNT:
+        return (
+            f"Place {ARRANGED_PLAYER_COUNT} players after the Fullback, "
+            "the Playmaker and the Striker."
+        )
+    chosen = list(holders.values()) + [player for player, _, _ in placed]
+    if len(set(chosen)) != len(chosen):
+        return "A player cannot be placed twice."
+    if any(player_id not in pool for player_id in chosen):
+        return (
+            "Everybody arranged has to come from the field -- or, before "
+            "kickoff, the bench."
+        )
+    return None
+
+
+def arrangement_faults(
+    holders: Mapping[str, str],
+    placed: Sequence[tuple[str, Zone, int]],
+    unique_spaces: Mapping[str, tuple[Zone, int]],
+    zone_sizes: Mapping[Zone, int],
+    spreadable_ids: Collection[str] = (),
+    strays: Collection[str] = (),
+) -> int:
+    """
+    **How far a 2.0 arrangement is from one that may stand**, as a
+    count of players out of place (docs/rules-2.0.md 4.9d): each player
+    over a zone's spaces, each player who is not an Ooze past the first
+    on a space, and each of `strays`, standing outside the zone of the
+    role they keep. Zero exactly where `arrangement_refusal` finds
+    nothing wrong with where everybody stands and nobody strays. Read
+    in any order, so a change can be measured against the side as it
+    stands: a side a time out or halftime left scattered is rearranged
+    one change at a time, each leaving fewer out of place
+    (`MatchState.arrange_side`).
+    """
+    standing = [
+        (holders[role], *unique_spaces[role]) for role in UNIQUE_ROLE_AREAS
+        if role in holders
+    ] + [(player_id, Zone(zone), index) for player_id, zone, index in placed]
+    faults = 0
+    for zone, size in zone_sizes.items():
+        faults += max(
+            0, sum(1 for _, at, _ in standing if Zone(at) == Zone(zone)) - size,
+        )
+    crowds: dict[tuple[Zone, int], int] = {}
+    for player_id, zone, index in standing:
+        if player_id not in spreadable_ids:
+            crowds[(Zone(zone), index)] = crowds.get((Zone(zone), index), 0) + 1
+    faults += sum(count - 1 for count in crowds.values() if count > 1)
+    return faults + len(set(strays))
 
 
 def zone_for_area(side: TeamSide, area: str) -> Zone:

@@ -232,6 +232,73 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
     `add_full_image_button`. That edit is the webhook route, not the channel's;
     see "Discord's rate limits" in [rate-limits.md](rate-limits.md).
 
+### 2.0: a new play is a run back
+
+**D12 Ball 2.0 keeps no arrangement to reset to** (rules-2.0 4.9, the author, 2026-10-24): a new
+play runs everybody back instead, free, and its Coaching Choice comes after, on the side as it
+stands. A time out's and halftime's window opens with the unique roles back on their spaces and
+everybody else where they stand, for the coach to put right (4.9d, the author, 2026-10-25), and a
+steal's run back is the Charter's, unique roles and all (*"more like it used to in 1.0"*).
+`RulesEngine.restarts_by_run_back` is the gate -- a match whose roles are the formation's -- so
+a 1.0 match, and a 2.0 match saved before its roles, reset as they always have.
+
+- **It is the run back's own machinery, not a second one.** `start_new_play_run_back` (in
+  `d12ball/flow/turnovers.py`) runs inside `begin_run_back`, after it has set the run back
+  pending, and `MatchState.begin_restart_run_back` stands each unique role on their space and
+  lists every other fielded player of both sides in **`MatchState.pending_replace`** --
+  `{"then", "side", "players"}`, saved explicitly and only while one is under way, so a 1.0 save
+  is written as before. While the list is there `run_back_displaced` answers with it rather than
+  with who is out of their zone, nobody is asked about a stack, and `run_back_player` takes each
+  off it as they are placed. The questions are the steal's own `RUN_BACK_SPACE`, asked of each
+  coach in turn, home's first, and an AI side answers them as it answers a steal's.
+- **Free**: `RulesEngine.run_back_is_free` (a player still on the list) is asked before the move
+  by the coach's step and the forced placements, and `SpaceOptions.free` tells a frontend not to
+  price the buttons -- a move that costs nothing says nothing. No charge-up is armed: it is not a
+  run back in Lithium Powered's sense, as the 1.0 reset is not.
+- **A teammate still to be placed covers nothing**, in `placement_spaces_in_zone` and
+  `run_back_open_spaces`, and a unique role's space is kept for them (`reserved_spaces`) -- both
+  only while a new play's run back is under way; a steal's reserves nothing. Only a zone with one
+  player left and one space for them is settled without asking: who stands where is the whole of
+  the choice.
+- **Then the window** (`finish_run_back`, on `pending_replace`), with the run back left pending,
+  so the restart's tail -- the kickoff and any pickup -- runs after the window as it does after a
+  1.0 reset, and the board pinned (`new_play`) once everybody is down. The kickoff fill waits for
+  the window (`run_back_passes`), since the window can change who the Playmaker is.
+- **A time out's and halftime's window sends the unique roles back** (rules-2.0 4.9d, the
+  author, 2026-10-25: *"Opening a window means there will be a new play and so players with
+  unique roles snap back and the coach has to put everyone else back into a position"*). As a
+  2.0 window that positions anybody opens, `MatchState.return_unique_roles` stands the
+  Fullback, Playmaker and Striker on their spaces, for nothing, where 1.0 restores the saved
+  arrangement (`open_substitution_window`); everybody else stays where open play left them.
+  After a new play's run back it moves nobody, so it is one rule for every occasion rather than
+  a time-out step. A 2.0 `finish_time_out` resets nothing after the windows -- it ends the play
+  (`end_the_play`) and the board is pinned as 1.0's reset is.
+- **Everybody else keeps their role, and must end in its zone** (rules-2.0 4.9d, the author,
+  2026-10-25: *"The coach needs to put them back in a spot in their zone or else give them a new
+  role"*). `MatchState.arrangement_strays` names who stands outside the zone of their role; the
+  options carry them with the role they keep (`ArrangementOptions.strays`, `role_of`), so Discord
+  shows a stray as a Defender "(out of zone)" rather than as whatever the space would make them.
+  A stray stops being one only by the coach's change: a move back into their zone (same role), a
+  move or a trade elsewhere (the standard role of where they then stand), or **Stay here** --
+  the `role` change, which gives them the role of where they stand without moving them. Nothing
+  re-roles a player the coach did not touch: the `arrange` answer names the strays still keeping
+  their role (`ArrangementEdit.strays`, `"strays"` on the wire), and `arrange_side` gives every
+  other placed player the role of their space and leaves a stray's zone and role as they were.
+- **The coach puts the side right a change at a time**, with Arrange team, the only way a 2.0 side
+  moves (4.6c). `arrangement_faults` counts how far the side is from standing in place -- a
+  player over a zone's spaces, a second non-Ooze on a space, a stray -- in any order, unlike
+  `arrangement_refusal`, so a change can be measured against the side as it stands. A change is
+  offered (`ArrangementOptions.edits`) and accepted (`MatchState.arrange_side`) when it leaves
+  nobody out of place, or, while somebody is, fewer than now; `arrangement_shape_refusal` is the
+  half of `arrangement_refusal` every change must still meet. A zone may hold more roles than
+  spaces part-way through, which nothing reads. Done is refused until nobody is out of place
+  (`coaching_finish_refusal`, over `standing_arrangement_faults`), so there is nothing for Done
+  to settle. A single change can always lower the count -- a stray can stay where they are, and
+  a zone over its spaces means another has room, and so an empty space -- so the window never
+  sticks; Dinky takes the first change offered, sending a player back into the zone of their
+  role before giving them a new one. A teammate on a unique role's space is one who has to step
+  off (`unique_space_sharers`) only while the holder stands there too.
+
 ### The arrangement
 
 `MatchState.assigned_positions` is `player_id -> [zone, space]`, persisted
