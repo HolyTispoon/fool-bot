@@ -45,7 +45,9 @@ the same size. --no-halves leaves them out.
 **`--edition 2.0` writes D12 Ball 2.0's boards** into
 `d12ball/print/boards-2.0/` by default: the field board and its halves,
 with each side's unique roles on the spaces they stand on, and the zone
-boards, with each zone's roles on its card guides -- on boards 9 and 10
+boards and their halves -- the field board's paper, a column under each
+zone of the field with a gold slot for its unique role and two for its
+standard role, each a 2.0 card on its side -- on boards 9 and 10
 unless --board-size names one (`EDITION_TWO_BOARD_SIZES`). The
 jumbotron and the team boards are the same in both editions and are
 written only by a 1.0 run.
@@ -83,6 +85,7 @@ from d12ball.boards import (  # noqa: E402
     render_team_board_sheet,
     render_zone_board,
     render_zone_board_sheet,
+    render_zone_board_two_halves,
     zone_slot_inches,
 )
 from d12ball.components import (  # noqa: E402
@@ -237,7 +240,20 @@ def main() -> None:
                 args.out / f"zone-board-{board_size}-{name}.png",
                 args.pdf,
             )
-        # A 2.0 zone board is a page of its own, so it has no 2-up.
+            # A 2.0 zone board is tabloid like the field board, so it
+            # comes in the same two letter halves.
+            if edition == Edition.TWO and args.halves:
+                halves = render_zone_board_two_halves(
+                    board_size, side, bleed=args.bleed
+                )
+                for part, half in zip(("left", "right"), halves):
+                    save(
+                        half,
+                        args.out / f"zone-board-{board_size}-{name}-{part}.png",
+                        args.pdf,
+                    )
+        # A 2.0 zone board is a tabloid sheet of its own, so it has no
+        # 2-up.
         if edition == Edition.ONE:
             save(
                 render_zone_board_sheet(

@@ -125,12 +125,14 @@ short edge**. The cards need no cutting.
   `<team>-sheet.png` is the standard sides and
   `<team>-advanced-sheet.png` the advanced sides, printed as a pair.{player_avery}
 - **player-cards-2.0/** -- the same players' cards for **D12 Ball 2.0**,
-  laid out and printed the same way. In 2.0 a player has no role and
-  there are no role abilities, so these cards name no role: the
-  standard side carries the skills and the species ability, and the
-  advanced side the player's special ability where they have one. Lay
-  a role token on each fielded player's card to say which role they
-  hold.
+  poker size but lying on their side (3.5in across, 2.5in tall), so a
+  zone's cards fit a column of the 2.0 zone board. In 2.0 a player has
+  no role and there are no role abilities, so these cards name no role:
+  the standard side carries the skills and the species ability with its
+  short rule, and the advanced side the player's special ability where
+  they have one. The sheets print and cut like the 1.0 cards -- each
+  card is turned a quarter on the page. A role token goes in a card's
+  bottom-right corner to say which role the player holds.
 - **reference-cards/** -- the reference cards: the three double-sided
   species-ability cards (every pairing of the four species appears on
   one face), a fourth that is the first turned over, and two copies of
@@ -185,22 +187,24 @@ short edge**. The cards need no cutting.
 - **boards-2.0/** -- the boards that change for **D12 Ball 2.0**, on
   the 9- and 10-space fields: the field board, each also cut in two,
   with each side's Fullback, Playmaker and Striker marked on the space
-  they stand on; and the zone boards, with each zone's roles on its card
-  guides -- the first card in a zone takes the unique role (Fullback,
-  Playmaker, Striker) and the rest the standard one (Defender,
-  Midfielder, Winger). A 2.0 zone board is a whole letter page,
-  portrait, one per coach (`zone-board-<n>-home.png`,
-  `zone-board-<n>-visitors.png`), because its cards are spread 1.7in
-  apart so the role token on each one shows; lay each card on its guide
-  and its token on the spot the guide marks. It is 8.5in along the
-  field like the 1.0 half sheet, so it still lies end to end with the
-  team board. The jumbotron and the team boards are the same as 1.0's,
-  in **boards/**.
+  they stand on; and each coach's zone board (`zone-board-<n>-home.png`,
+  `zone-board-<n>-visitors.png`), which is the field board's length and
+  lies along that coach's side of it: a column under each zone of the
+  field, with a gold slot nearest the field for the zone's unique role
+  (Fullback, Playmaker, Striker) -- the first card in a zone takes it --
+  and two slots under it for its standard role (Defender, Midfielder,
+  Winger). Each slot marks where the role token goes on the card laid
+  there. It is the field board's paper, cut along the dashed line to
+  9.2in deep, and also comes cut in two for a letter printer
+  (`-left` and `-right`), taped like the field board. It takes the
+  whole length of your side, so the team board goes elsewhere -- beside
+  the jumbotron, say. The jumbotron and the team boards are the same as
+  1.0's, in **boards/**.
 
 ## Paper and cutting
 
-Cards are poker size (2.5 x 3.5in) at 300dpi, and every board is
-300dpi too.
+Cards are poker size (2.5 x 3.5in; a 2.0 card lies on its side) at
+300dpi, and every board is 300dpi too.
 
 **Only the field board wants a big sheet.** It is {paper}
 ({paper_size}), landscape -- see `PAPERS` / `DEFAULT_PAPER` in
@@ -217,7 +221,8 @@ the house has in it: the jumbotron on one sheet, landscape, and each
 coach's two boards -- the zone board and the team board -- half a
 sheet each.
 
-**Laying out the table.** The field board goes across the middle,
+**Laying out the table** (1.0; a 2.0 table lays its zone boards along
+the field instead, see **boards-2.0/**). The field board goes across the middle,
 home's goal on home's left. Each coach then makes a strip along their
 own side of it:
 

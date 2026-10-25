@@ -164,15 +164,16 @@ players on the field are standees for the same reason
 
 - **19 mm, on the card** (the author, 2026-10-24), the condition tokens'
   size and rounded square (`SQUARE_CORNER`, `RING`). The trade was put to
-  the author: on the zone board a zone's cards cascade 0.35in apart
+  the author: on the 1.0 zone board a zone's cards cascade 0.35in apart
   (`ZONE_CASCADE`), so a 19 mm token covers the next card or is covered
-  by it, and a zone's cards have to be spread out where a token is on
-  each. A tag small enough for the strip the cascade leaves showing
+  by it. A tag small enough for the strip the cascade leaves showing
   (about 13 x 8 mm) was the other choice; the author took the 19 mm
-  token, and the 2.0 zone board spreads a zone's cards 1.7in apart so
-  each card's token shows, at the spot its guide marks
-  (`TOKEN_ON_CARD_INCHES`; [printed-boards.md](printed-boards.md),
-  "The 2.0 boards", 2026-10-25).
+  token. The 2.0 card lies on its side and the 2.0 zone board gives
+  each card a whole slot, so a token lies in the card's bottom-right
+  corner (`player_cards.LANDSCAPE_TOKEN_SPOT`), at the spot each slot
+  marks ([printed-boards.md](printed-boards.md), "The 2.0 boards").
+  The slot names its role as well, so the tokens may turn out not to
+  be needed; the author keeps them to test both ways (2026-10-25).
 - **A token is a zone's, front and back** (the author, 2026-10-24): the
   zone's unique role on the front and its standard role on the back --
   Fullback over Defender, Playmaker over Midfielder, Striker over

@@ -85,13 +85,14 @@ from d12ball.components import (
     Zone,
     area_for_zone,
     kickoff_space_index,
+    load_basic_ruleset,
     period_last_minute,
     unique_role_space_index,
     zone_for_area,
 )
 from d12ball.formatting import side_display_name
 from d12ball.game import Edition, Team
-from d12ball.player_cards import team_emoji
+from d12ball.player_cards import LANDSCAPE_TOKEN_SPOT, team_emoji
 from d12ball.render import (
     EXHAUSTED_ICON_PATH,
     EXHAUST_ICON_PATH,
@@ -173,6 +174,8 @@ GOAL_GAP = 8
 # proportions with it on the bot's board (CARD_SIZE is 110 x 154), so
 # the areas that hold them are cut for it.
 CARD_INCHES = (2.5, 3.5)
+# A 2.0 player card, which lies on its side (`player_cards.LANDSCAPE`).
+LANDSCAPE_CARD_INCHES = (CARD_INCHES[1], CARD_INCHES[0])
 # How many cards a zone on the zone board is guided for: three, which
 # is what a zone holds under 2-3-1 and 1-3-2. It is the guide and not a
 # limit -- see "The zone board" in docs/design/printed-boards.md.
@@ -2801,19 +2804,6 @@ ZONE_AREA_PADDING_INCHES = 0.04
 # descenders on the area's outline.
 ZONE_LABEL_GAP_INCHES = 0.05
 
-# **A 2.0 zone board spreads a zone's cards** (the author, 2026-10-25):
-# each card carries a role token, 19 mm, which a 0.35in strip cannot
-# show. A card sits this far below the one behind it -- its header, its
-# skills band and a token under them -- and the board is a whole
-# letter page, portrait, to have the room: the same 8.5in along the
-# field as the half sheet, so it still lies end to end with the team
-# board, and deeper toward the coach.
-ZONE_SPREAD_STEP_INCHES = 1.7
-ZONE_SPREAD_PAPER = "letter"
-# Where the token goes on a card, from its top left corner: under the
-# skills band, at the card's left, clear of the portrait's middle.
-TOKEN_ON_CARD_INCHES = (0.12, 0.88)
-
 
 @dataclass(frozen=True)
 class ZoneBoardGeometry:
@@ -2837,18 +2827,9 @@ class ZoneBoardGeometry:
     area_top: float
     area_bottom: float
     slot: tuple[float, float]
-    # The share of a card's height each card sits below the one behind
-    # it: `ZONE_CASCADE`, or a 2.0 board's spread.
-    cascade: float = ZONE_CASCADE
-
-    @property
-    def spread(self) -> bool:
-        return self.cascade != ZONE_CASCADE
 
     @classmethod
-    def for_sheet(
-        cls, sheet: Sheet, cascade: float = ZONE_CASCADE,
-    ) -> "ZoneBoardGeometry":
+    def for_sheet(cls, sheet: Sheet) -> "ZoneBoardGeometry":
         def inches(value: float) -> float:
             return value * PRINT_DPI
 
@@ -2877,10 +2858,10 @@ class ZoneBoardGeometry:
         )
 
         padding = inches(ZONE_AREA_PADDING_INCHES)
-        stack = 1 + (CARDS_PER_AREA - 1) * cascade
+        cascade = 1 + (CARDS_PER_AREA - 1) * ZONE_CASCADE
         slot_height = min(
             inches(CARD_INCHES[1]),
-            (area_bottom - area_top - 2 * padding) / stack,
+            (area_bottom - area_top - 2 * padding) / cascade,
             (width - 2 * padding) * CARD_INCHES[1] / CARD_INCHES[0],
         )
         return cls(
@@ -2894,7 +2875,6 @@ class ZoneBoardGeometry:
             area_top=area_top,
             area_bottom=area_bottom,
             slot=(slot_height * CARD_INCHES[0] / CARD_INCHES[1], slot_height),
-            cascade=cascade,
         )
 
 
@@ -2937,43 +2917,23 @@ def render_zone_board(
     It is per board size because the 9- and 10-space boards' outer
     zones are thirds (see `zone_labels`), and per side because the order
     is.
-
-    **A 2.0 zone board says which role goes in which zone** (the
-    author, 2026-10-24): each zone's top card guide carries its unique
-    role and the guides below its standard one -- the first player in a
-    zone takes the unique role (rules-2.0 4.2) -- read off
-    `FORMATION_ZONE_ROLES` for this side's own end. On the guides rather
-    than in a line of their own because the three cascaded cards take
-    the cell's whole height.
-
-    **And spreads them** (the author, 2026-10-25): a role token lies on
-    every card, so each card shows `ZONE_SPREAD_STEP_INCHES` -- its
-    header, its skills and the token -- on a whole letter page,
-    portrait, rather than half of one; `paper` is the half sheet's and
-    a 2.0 board ignores it.
     """
     if edition == Edition.TWO:
-        width, height = sheet_pixels(ZONE_SPREAD_PAPER, landscape=False)
-        sheet = Sheet(width, height)
-        geometry = ZoneBoardGeometry.for_sheet(
-            sheet, cascade=ZONE_SPREAD_STEP_INCHES / CARD_INCHES[1],
-        )
-    else:
-        width, height = team_board_pixels(paper)
-        sheet = Sheet(width, height)
-        geometry = ZoneBoardGeometry.for_sheet(sheet)
+        return render_zone_board_two(board_size, side, bleed=bleed)
+    width, height = team_board_pixels(paper)
+    sheet = Sheet(width, height)
+    geometry = ZoneBoardGeometry.for_sheet(sheet)
     labels = zone_labels(board_size)
 
     title_font = print_font(TEAM_TITLE_INCHES, bold=True)
-    title = "ZONE BOARD 2.0" if edition == Edition.TWO else "ZONE BOARD"
-    sheet.text((geometry.left, geometry.top), title, title_font, INK)
+    sheet.text((geometry.left, geometry.top), "ZONE BOARD", title_font, INK)
     side_name = side_display_name(side).upper()
     sheet.text(
         (geometry.right, geometry.top), side_name, title_font, INK, anchor="ra"
     )
     # Where it goes, between the two: the one thing about this board a
     # coach needs telling, said where they will read it.
-    note_left = geometry.left + sheet.text_width(title, title_font)
+    note_left = geometry.left + sheet.text_width("ZONE BOARD", title_font)
     note_right = geometry.right - sheet.text_width(side_name, title_font)
     gutter = TEAM_COLUMN_GAP_INCHES * PRINT_DPI * 2
     note = "lay it on your left, your team board on your right"
@@ -3011,12 +2971,7 @@ def render_zone_board(
             INK,
             bold=True,
         )
-        roles = (
-            FORMATION_ZONE_ROLES[area_for_zone(side, zone)]
-            if edition == Edition.TWO
-            else None
-        )
-        draw_zone_cell(sheet, geometry, left, right, zone, roles)
+        draw_zone_cell(sheet, geometry, left, right, zone)
 
     return add_bleed(sheet.image) if bleed else sheet.image
 
@@ -3027,7 +2982,6 @@ def draw_zone_cell(
     left: float,
     right: float,
     zone: Zone,
-    roles: Optional[tuple[PlayerRole, PlayerRole]] = None,
 ) -> None:
     """
     One zone's area, tinted the field's own colour for it, with **three
@@ -3036,11 +2990,6 @@ def draw_zone_cell(
     strip -- its top edge, and its two sides down to where the next
     card covers it -- never a line across the front card's face, the
     way the team board's benches draw theirs sideways.
-
-    `roles`, on a 2.0 board, is the zone's (unique, standard) pair: the
-    top guide's strip carries the unique role and every guide under it
-    the standard one, each as the role token's face in ink and the
-    role's name beside it (`draw_guide_role`).
     """
     area = (left, geometry.area_top, right, geometry.area_bottom)
     sheet.rect(
@@ -3051,7 +3000,7 @@ def draw_zone_cell(
         width=max(1, round(0.012 * PRINT_DPI)),
     )
     slot_width, slot_height = geometry.slot
-    step = slot_height * geometry.cascade
+    step = slot_height * ZONE_CASCADE
     stack_height = slot_height + (CARDS_PER_AREA - 1) * step
     card_left = (left + right - slot_width) / 2
     card_right = card_left + slot_width
@@ -3085,88 +3034,209 @@ def draw_zone_cell(
                 dash_length=round(dash),
                 gap_length=round(dash * 0.7),
             )
-    if roles is None:
-        return
-    for index in range(CARDS_PER_AREA):
-        role = roles[0] if index == 0 else roles[1]
-        top = stack_top + index * step
-        if geometry.spread:
-            draw_token_spot(sheet, role, card_left, card_right, top)
-        else:
-            draw_guide_role(sheet, role, card_left, card_right, top, step)
 
 
-# A role on a 2.0 zone board's card guide: the badge's share of the
-# strip a cascaded card leaves showing, and the room round it.
-GUIDE_ROLE_SHARE = 0.72
-GUIDE_ROLE_PAD_INCHES = 0.07
+
+# **D12 Ball 2.0's zone board runs along the field** (the author,
+# 2026-10-25). A 2.0 card lies on its side (`player_cards.LANDSCAPE`),
+# and each zone is a column the width of that zone on the field board,
+# so the board laid along a coach's side of the field puts every zone's
+# cards under the zone they stand in. That is the field board's 17in,
+# so it is the field board's paper too -- tabloid, landscape, or its
+# two letter halves (`render_zone_board_two_halves`) -- cut to the depth
+# three cards need. In each column the gold slot nearest the field is
+# the zone's unique role, which the first player in a zone takes
+# (rules-2.0 4.2), and the two dashed slots under it its standard role;
+# every slot shows where the role token lies on the card laid on it
+# (`player_cards.LANDSCAPE_TOKEN_SPOT`).
+ZONE_TWO_PAPER = DEFAULT_PAPER
+ZONE_TWO_SLOT_GAP_INCHES = 0.12
+ZONE_TWO_LABEL_INCHES = 0.42
+UNIQUE_SLOT_COLOR = "#c9962b"
+UNIQUE_SLOT_TINT = "#fbf1d9"
 
 
-def draw_guide_role(
-    sheet: Sheet,
-    role: PlayerRole,
-    left: float,
-    right: float,
-    top: float,
-    strip: float,
-) -> None:
-    """One card guide's role, in the strip of it that shows: the token's
-    face in ink at the left, the role's name beside it."""
-    # Imported here: `role_tokens` reads the papers from this module.
-    from d12ball.role_tokens import role_face
+def zone_two_columns(
+    board_size: int, side: TeamSide, sheet_width: int
+) -> dict[Zone, tuple[float, float]]:
+    """
+    Each zone's left and right edges on the 2.0 zone board: its span on
+    the 2.0 field board (`FieldGeometry`), home's way round, and
+    mirrored for the visitors, who read the field from the other seat
+    and lay their board along the other edge.
+    """
+    layout = load_basic_ruleset().board_layouts[board_size]
+    width, height = sheet_pixels(ZONE_TWO_PAPER, landscape=True)
+    geometry = FieldGeometry.for_sheet(
+        field_sheet(width, height), layout, upper_band=True
+    )
+    spans, first = {}, 0
+    for zone in Zone:
+        count = layout.zone_spaces[zone]
+        spans[zone] = geometry.span_bounds(first, first + count - 1)
+        first += count
+    if side == TeamSide.VISITING:
+        spans = {
+            zone: (sheet_width - right, sheet_width - left)
+            for zone, (left, right) in spans.items()
+        }
+    return spans
 
-    size = round(strip * GUIDE_ROLE_SHARE)
-    pad = GUIDE_ROLE_PAD_INCHES * PRINT_DPI
-    y = top + (strip - size) / 2
-    badge = role_face(role, INK, size, named=False)
-    sheet.image.paste(badge, (round(left + pad), round(y)), badge)
-    name = role.value.upper()
-    text_left = left + pad + size + pad
-    draw_fitted(
-        sheet,
-        (text_left, top + strip / 2),
-        name,
-        right - pad - text_left,
-        TEAM_BODY_INCHES,
+
+def render_zone_board_two(
+    board_size: int, side: TeamSide, bleed: bool = False
+) -> Image.Image:
+    """
+    **One coach's 2.0 zone board**: a column per zone in the order the
+    coach reads the field from their seat, each under its zone on the
+    field board, with the goal ends beside them; a gold slot for the
+    zone's unique role and two dashed ones for its standard role, each a
+    card on its side. The rest of the tabloid sheet under the board is
+    offcut, past a cut line.
+    """
+    width, height = sheet_pixels(ZONE_TWO_PAPER, landscape=True)
+    sheet = Sheet(width, height)
+    columns = zone_two_columns(board_size, side, width)
+    edge = FIELD_EDGE_INCHES * PRINT_DPI
+
+    title_font = print_font(TEAM_TITLE_INCHES, bold=True)
+    sheet.text((edge, edge), f"ZONE BOARD 2.0 · BOARD {board_size}", title_font, INK)
+    side_name = side_display_name(side).upper()
+    sheet.text((width - edge, edge), side_name, title_font, INK, anchor="ra")
+    note = "lay it along your side of the field, each zone under its zone"
+    sheet.text(
+        (width / 2, edge + TEAM_TITLE_INCHES * PRINT_DPI * 0.55),
+        note,
+        print_font(TEAM_BODY_INCHES * 1.25),
         MUTED,
-        bold=True,
-        anchor="lm",
+        anchor="mm",
+    )
+
+    slot_width = LANDSCAPE_CARD_INCHES[0] * PRINT_DPI
+    slot_height = LANDSCAPE_CARD_INCHES[1] * PRINT_DPI
+    gap = ZONE_TWO_SLOT_GAP_INCHES * PRINT_DPI
+    top = edge + TEAM_TITLE_INCHES * PRINT_DPI + gap * 2
+    first_slot = top + ZONE_TWO_LABEL_INCHES * PRINT_DPI
+    bottom = first_slot + CARDS_PER_AREA * slot_height + (CARDS_PER_AREA + 1) * gap
+    line = max(1, round(0.012 * PRINT_DPI))
+
+    # The goal ends, where the field board has its goal zones.
+    ends = sorted(columns.values())
+    for (left, right), words in (
+        ((edge, ends[0][0] - gap / 2), "YOUR GOAL"),
+        ((ends[-1][1] + gap / 2, width - edge), "GOAL YOU ATTACK"),
+    ):
+        sheet.rect(
+            (left, top, right, bottom),
+            radius=0.08 * PRINT_DPI,
+            fill=PAPER_PANEL,
+            outline=INK,
+            width=line,
+        )
+        draw_sideways(sheet, words, (left + right) / 2, (top + bottom) / 2,
+                      right - left, bottom - top)
+
+    labels = zone_labels(board_size)
+    for zone, (left, right) in columns.items():
+        left, right = left + gap / 4, right - gap / 4
+        sheet.rect(
+            (left, top, right, bottom),
+            radius=0.08 * PRINT_DPI,
+            fill=ZONE_TINTS[zone],
+            outline=INK,
+            width=line,
+        )
+        draw_fitted(
+            sheet,
+            ((left + right) / 2, top + ZONE_TWO_LABEL_INCHES * PRINT_DPI * 0.55),
+            labels[zone],
+            right - left - gap * 2,
+            TEAM_CELL_TITLE_INCHES * 1.3,
+            INK,
+            bold=True,
+            anchor="mm",
+        )
+        unique, standard = FORMATION_ZONE_ROLES[area_for_zone(side, zone)]
+        card_left = (left + right - slot_width) / 2
+        for index in range(CARDS_PER_AREA):
+            slot_top = first_slot + gap + index * (slot_height + gap)
+            box = (card_left, slot_top, card_left + slot_width, slot_top + slot_height)
+            draw_zone_two_slot(sheet, box, unique if index == 0 else standard, index == 0)
+
+    draw_cut_line(sheet, bottom + gap * 2)
+    return add_bleed(sheet.image) if bleed else sheet.image
+
+
+def draw_sideways(
+    sheet: Sheet, text: str, cx: float, cy: float, width: float, height: float
+) -> None:
+    """A goal end's name, turned to run up the end, as large as fits."""
+    face = print_font(TEAM_CELL_TITLE_INCHES * 1.1, bold=True)
+    strip = Image.new("RGBA", (round(height), round(width)), (0, 0, 0, 0))
+    ImageDraw.Draw(strip).text(
+        (height / 2, width / 2), text, font=face, fill=MUTED, anchor="mm"
+    )
+    turned = strip.rotate(90, expand=True)
+    sheet.image.paste(
+        turned, (round(cx - turned.width / 2), round(cy - turned.height / 2)), turned
     )
 
 
-def draw_token_spot(
+def draw_zone_two_slot(
     sheet: Sheet,
+    box: tuple[float, float, float, float],
     role: PlayerRole,
-    left: float,
-    right: float,
-    top: float,
+    unique: bool,
 ) -> None:
-    """On a spread 2.0 zone board, where the card laid on this guide
-    carries its role token: the token's face in ink, at the token's own
-    size and spot (`TOKEN_ON_CARD_INCHES`), and the role's name beside
-    it."""
-    # Imported here: `role_tokens` and `token_sheet` read the papers
-    # from this module.
-    from d12ball.role_tokens import role_face
-    from d12ball.token_sheet import TOKEN_INCHES
+    """
+    One card's slot: the unique role's solid and gold, a standard role's
+    dashed, with the role's name across its middle and, at the spot a
+    role token lies on the card (`LANDSCAPE_TOKEN_SPOT`), the token's
+    face -- in gold for the unique role, in ink for a standard one.
+    """
+    from d12ball.role_tokens import TOKEN_INCHES, role_face
+
+    left, top, right, bottom = box
+    radius = CARD_CORNER_RADIUS / 300 * PRINT_DPI
+    line = max(1, round(0.01 * PRINT_DPI))
+    color = UNIQUE_SLOT_COLOR if unique else MUTED
+    if unique:
+        sheet.rect(
+            box, radius=radius, fill=UNIQUE_SLOT_TINT, outline=color, width=line * 3
+        )
+    else:
+        sheet.dashed_rect(box, outline=color, width=line, dash=0.055 * PRINT_DPI)
+
+    cx, cy = (left + right) / 2, (top + bottom) / 2
+    name_font = print_font(0.26, bold=True)
+    sheet.text((cx, cy - 0.14 * PRINT_DPI), role.value.upper(), name_font,
+               INK if unique else MUTED, anchor="mm")
+    kind = "UNIQUE ROLE" if unique else "STANDARD ROLE"
+    sheet.text((cx, cy + 0.16 * PRINT_DPI), kind, print_font(TEAM_BODY_INCHES, bold=True),
+               color, anchor="mm")
 
     size = round(TOKEN_INCHES * PRINT_DPI)
-    x = left + TOKEN_ON_CARD_INCHES[0] * PRINT_DPI
-    y = top + TOKEN_ON_CARD_INCHES[1] * PRINT_DPI
-    badge = role_face(role, INK, size)
-    sheet.image.paste(badge, (round(x), round(y)), badge)
-    text_left = x + size + GUIDE_ROLE_PAD_INCHES * PRINT_DPI
-    draw_fitted(
-        sheet,
-        (text_left, y + size / 2),
-        role.value.upper(),
-        right - GUIDE_ROLE_PAD_INCHES * PRINT_DPI - text_left,
-        TEAM_BODY_INCHES,
-        MUTED,
-        bold=True,
-        anchor="lm",
+    face = role_face(role, color if unique else INK, size)
+    sheet.image.paste(
+        face,
+        (
+            round(left + LANDSCAPE_TOKEN_SPOT[0] * PRINT_DPI),
+            round(top + LANDSCAPE_TOKEN_SPOT[1] * PRINT_DPI),
+        ),
+        face if face.mode == "RGBA" else None,
     )
 
+
+def render_zone_board_two_halves(
+    board_size: int, side: TeamSide, bleed: bool = False
+) -> tuple[Image.Image, Image.Image]:
+    """
+    The 2.0 zone board on two letter sheets, as the field board's halves
+    are (`render_field_board_halves`): the finished board halved, the
+    seam down the middle of midfield's column.
+    """
+    first, second = halve_sheet(render_zone_board_two(board_size, side))
+    return (add_bleed(first), add_bleed(second)) if bleed else (first, second)
 
 def render_zone_board_sheet(
     board_size: int,
@@ -3181,8 +3251,9 @@ def render_zone_board_sheet(
     printed upright: each is a board of its own, picked up and laid at
     its coach's seat.
 
-    A 2.0 zone board is a whole letter page (`ZONE_SPREAD_PAPER`), so
-    two are not one page and there is none to cut: this refuses it.
+    A 2.0 zone board is a tabloid sheet of its own
+    (`render_zone_board_two`), so there is no page of two: this refuses
+    it.
     """
     if edition == Edition.TWO:
         raise ValueError("A 2.0 zone board is a page of its own; print each.")
