@@ -18,7 +18,7 @@ from d12ball.game import D12BallGame, Edition, GameMode, RuleRefusal
 from d12ball.prompts import PromptKind, pending_prompt
 from prompt_fixtures import MANEUVERS
 
-from test_driver_full_game import build_engine, build_game, build_match, play
+from test_driver_full_game import Policy, build_engine, build_game, build_match, play
 
 
 def two_point_oh(mode: GameMode = GameMode.ADVANCED) -> D12BallGame:
@@ -232,6 +232,26 @@ def _deck_invariants(test: unittest.TestCase, match: MatchState) -> None:
         test.assertTrue(deck["draw"], side)
 
 
+class DeckPolicy(Policy):
+    """The full-game policy, but for the shot. It shoots whenever one
+    is offered, which in 1.0 is only in range; 2.0 has no range
+    (docs/rules-2.0.md section 6), so a shot is offered every turn and
+    that policy would never play a card. This one shoots a turn in
+    three, off the engine's own stream, and otherwise plays the turn
+    as the policy does."""
+
+    def action(self, match, prompt):
+        if (
+            prompt.kind is PromptKind.PLAYER_ACTION
+            and "shoot" in prompt.options.live
+            and self.engine.rng.randrange(3)
+        ):
+            if "time_out" in prompt.options.live:
+                return Action(prompt.kind, "time_out")
+            return Action(prompt.kind, "maneuver")
+        return super().action(match, prompt)
+
+
 class WholeGameTests(unittest.TestCase):
     """2.0 in every mode, through the driver with a reload after every
     click (`test_driver_full_game.play`)."""
@@ -246,7 +266,9 @@ class WholeGameTests(unittest.TestCase):
                     dealer.rng.seed(seed)
                     dealer.deal_maneuver_decks(game, match)
                     dealt = maneuver_deck_copy(match)
-                    game, match, answered = play(seed, game, match)
+                    game, match, answered = play(
+                        seed, game, match, policy_class=DeckPolicy,
+                    )
                     self.assertTrue(game.is_finished)
                     self.assertNotIn(PromptKind.GAMBIT_ANSWER, answered)
                     self.assertIn(PromptKind.MANEUVER_ACTION, answered)
@@ -263,7 +285,7 @@ class WholeGameTests(unittest.TestCase):
         dealer = build_engine()
         dealer.rng.seed(21)
         dealer.deal_maneuver_decks(game, match)
-        game, match, _ = play(21, game, match)
+        game, match, _ = play(21, game, match, policy_class=DeckPolicy)
         self.assertTrue(game.is_finished)
         _deck_invariants(self, match)
 

@@ -683,6 +683,38 @@ class RulesEngine:
         """
         return self.maneuver_deck_applies(game)
 
+    def shooting_range_applies(self, game: Optional[D12BallGame]) -> bool:
+        """
+        Whether **a shot may only be taken from within range** (Law
+        2.3). 2.0 has no range -- a shot from anywhere (docs/rules-2.0.md
+        section 6; the author, 2026-10-25) -- so this is the deck's own
+        answer, the other way round, under its own name.
+        """
+        return not self.maneuver_deck_applies(game)
+
+    def can_attempt_score(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        side: Optional[TeamSide] = None,
+    ) -> bool:
+        """**The one reading of whether a shot may be taken** from where
+        the ball is -- `MatchState.can_attempt_score` with the game's
+        answer to whether there is a range at all."""
+        return match.can_attempt_score(
+            side, range_applies=self.shooting_range_applies(game),
+        )
+
+    def may_call_time_out(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> bool:
+        """**The one reading of whether a time out may be called** --
+        `MatchState.may_call_time_out` with the game's answer to
+        whether being in range forbids one (docs/rules-2.0.md 6.2)."""
+        return match.may_call_time_out(
+            range_applies=self.shooting_range_applies(game),
+        )
+
     def pay_for_move(
         self,
         game: Optional[D12BallGame],
@@ -5346,9 +5378,9 @@ class RulesEngine:
         # buttons that are not on the message in order to introduce the
         # one that is -- and did it on every turn for the rest of a
         # half, since a spent time out does not come back.
-        if match.can_attempt_score():
+        if self.can_attempt_score(game, match):
             action_line = "Choose an action:"
-        elif match.may_call_time_out():
+        elif self.may_call_time_out(game, match):
             action_line = (
                 "Out of shooting range. Maneuver, or take a time out:"
             )

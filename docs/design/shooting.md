@@ -7,7 +7,10 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 A team may only shoot from within **shooting range** -- see "Score attempt" and
 "Field, direction, and shooting range" in the living rules.
 `MatchState.can_attempt_score` is the
-whole rule, over `BoardState.is_in_shooting_range`.
+whole rule, over `BoardState.is_in_shooting_range`, and
+`RulesEngine.can_attempt_score` the reading every site asks, because
+**2.0 has no range** (rules-2.0 section 6) and only the engine knows the
+edition -- see [maneuver-deck.md](maneuver-deck.md), "No shooting range".
 
 - **Shooting range is not a zone**, and is deliberately not called a half
   either. It is measured from the middle of the board and cuts across midfield,

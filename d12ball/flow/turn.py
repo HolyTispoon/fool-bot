@@ -504,12 +504,12 @@ def turn_action_refusal(
             "prompt."
         )
 
-    if action == "shoot" and not match.can_attempt_score():
+    if action == "shoot" and not engine.can_attempt_score(game, match):
         return "The ball is out of shooting range."
 
-    if action == "time_out" and not match.may_call_time_out():
+    if action == "time_out" and not engine.may_call_time_out(game, match):
         # The same three reasons the button would not have been built.
-        if match.can_attempt_score():
+        if engine.can_attempt_score(game, match):
             return (
                 "The ball is in shooting range now, so there is "
                 "nothing to stop play for."
