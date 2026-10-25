@@ -2427,23 +2427,29 @@ def _compose_rows(match: MatchState, panels, label: str, near: Optional[int],
                   upcoming: Optional[str] = None) -> Image.Image:
     """
     A free-for-all's board side by side: rows of two panels, every one
-    upright (the author, 2026-10-14). Seats go in turn order from the seat
-    looked from, two a row from the bottom -- the acting seat's row at the
-    bottom under the turn's divider, the active player on its left and the
-    next to play beside them -- so three players are one panel above two,
-    four are two above two, as a dragon's board is, and five are three
-    rows with one panel at the top. A lone panel is centred.
+    upright (the author, 2026-10-14), the seats going round the board
+    **clockwise** in turn order from the seat looked from (the author,
+    2026-10-25): the active player at the bottom left under the turn's
+    divider, the next to play above them, up the left column, across the
+    top and down the right, so the seat that played last is beside the
+    active player under the divider. Three players are one panel above
+    two, four two above two, as a dragon's board is, and five three rows
+    with one panel at the top, centred.
     """
     near_seat = match.active if near is None else near
     order = seats.turn_order(match, near_seat)
-    rows = [panels(order[at:at + 2]) for at in range(0, len(order), 2)]
+    height = (len(order) + 1) // 2
+    # The left column bottom to top, then the right top to bottom: read
+    # from the bottom, the right column is the rest of the order reversed.
+    left, right = order[:height], order[height:][::-1]
+    rows = [panels(left[at:at + 1] + right[at:at + 1]) for at in range(height)]
     column = max(panel.width for row in rows for panel in row)
     drawn = [_pair_strip(row, column) for row in rows]
     # The pill over the active player's own panel, the bottom row's left
-    # (the author, 2026-10-14), and the next pill over the panel to its
-    # right (the author, 2026-10-20).
+    # (the author, 2026-10-14), and the next pill beside it: the next to
+    # play is above, not on the divider's row.
     return _stack(list(reversed(drawn[1:])), drawn[0], label, centre=column / 2,
-                  upcoming=upcoming, upcoming_centre=column + TABLE_GAP + rows[0][1].width / 2)
+                  upcoming=upcoming)
 
 
 def _compose_dragon(match: MatchState, layout: str, panels, label: str,

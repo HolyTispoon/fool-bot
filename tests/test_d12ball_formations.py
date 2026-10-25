@@ -20,6 +20,8 @@ from cogs.d12ball_helpers import space_label
 from roster import fielded
 from space_codes import code, codes
 from cogs.d12ball_views import (
+    CoachingArrangePlayerView,
+    CoachingArrangeView,
     CoachingFormationView,
     CoachingHubView,
     LowPassChoiceView,
@@ -48,7 +50,9 @@ from ai_answers import solo_game
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
+    Edition,
     Formation,
+    GameMode,
     GameStatus,
     Team,
 )
@@ -950,6 +954,101 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         # every zone's worst defender still beats the next zone's best.
         flattened = [value for group in by_zone for value in group]
         self.assertEqual(flattened, sorted(flattened, reverse=True))
+
+
+class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
+    """A 2.0 side's Coaching Choice arranges it by its roles in place of
+    a formation (docs/rules-2.0.md 4.3): three unique roles named, three
+    more placed, and the shape is what that makes."""
+
+    def build(self, board_size: int = 9):
+        cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
+        game = build_game(
+            status=GameStatus.IN_PROGRESS,
+            home_player_number=1,
+            visiting_player_number=2,
+            board_size=board_size,
+            edition=Edition.TWO,
+            # No species abilities, so no Ooze widens the spaces offered.
+            mode=GameMode.TRAINING,
+        )
+        cog.games[game.game_id] = game
+        match = cog.engine.initialize_standard_match(game)
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.SETUP)
+        game.match_state = match.to_dict()
+        return cog, game, match
+
+    def labels(self, view) -> list[str]:
+        return [item.label for item in view.children]
+
+    def test_the_hub_arranges_rather_than_changing_formation(self) -> None:
+        cog, game, _ = self.build()
+        labels = self.labels(CoachingHubView(cog, game.game_id))
+        self.assertIn("Arrange team", labels)
+        self.assertFalse(any(label.startswith("Formation") for label in labels))
+        # Arrange team's trades and moves are 2.0's only way to move
+        # anybody (docs/rules-2.0.md 4.6).
+        self.assertNotIn("Zone Assignment", labels)
+        self.assertNotIn("Space Positioning", labels)
+
+    def test_a_stray_is_shown_in_their_role_and_may_stay(self) -> None:
+        cog, game, match = self.build()
+        # Open play left the Defender on home's free midfield space.
+        defender = fielded(match, PlayerRole.DEFENDER)
+        empty = next(
+            index for index in range(3)
+            if not set(match.board.spaces[Zone.MIDFIELD][index])
+            & set(match.home.field_players)
+        )
+        match.board.place_meeple(defender, Zone.MIDFIELD, empty)
+        game.match_state = match.to_dict()
+        name = cog.engine.format_roster_player(defender)
+        self.assertTrue(any(
+            label.startswith(f"{name} - Defender,")
+            and label.endswith("(out of zone)")
+            for label in self.labels(CoachingArrangeView(cog, game.game_id))
+        ))
+        labels = self.labels(
+            CoachingArrangePlayerView(cog, game.game_id, defender),
+        )
+        self.assertIn("Stay here - Midfielder", labels)
+
+    def test_the_view_opens_on_the_side_as_it_stands(self) -> None:
+        cog, game, match = self.build()
+        labels = self.labels(CoachingArrangeView(cog, game.game_id))
+        self.assertEqual(len(labels), 7)
+        fullback = cog.engine.format_roster_player(
+            fielded(match, PlayerRole.FULLBACK),
+        )
+        self.assertIn(f"{fullback} - Fullback, space −4", labels)
+
+    async def test_one_click_changes_the_side_and_shows_it_again(self) -> None:
+        cog, game, match = self.build()
+        defender = fielded(match, PlayerRole.DEFENDER)
+        bench = match.home.team_board.bench[0]
+        view = CoachingArrangePlayerView(cog, game.game_id, defender)
+        labels = self.labels(view)
+        self.assertIn("Move to space 1 - Midfielder", labels)
+        self.assertIn(
+            f"Bring on {cog.engine.format_roster_player(bench)}", labels,
+        )
+        click = build_interaction()
+        move = next(
+            item for item in view.children
+            if item.label == "Move to space 1 - Midfielder"
+        )
+        with suppressed_cog_saves():
+            await move.callback(click)
+
+        match = cog.engine.load_match_state(game)
+        self.assertEqual(cog.engine.shape_name(match, TeamSide.HOME), "1-3-2")
+        self.assertEqual(
+            cog.engine.role_of(match, defender), PlayerRole.MIDFIELDER,
+        )
+        shown = click.response.edit_message.await_args.kwargs
+        self.assertIsInstance(shown["view"], CoachingArrangeView)
+        self.assertIn("attachments", shown)
 
 
 class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):

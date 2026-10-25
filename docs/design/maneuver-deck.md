@@ -197,6 +197,29 @@ charge, "" in 1.0 or for a move that went nowhere.
   the cost in the narration. Pricing them is an option field on `DRIBBLE_ADVANCE_CHOICE`, both
   sides reading it, as the Burst's `dribble_burst_note` does.
 
+## No shooting range
+
+**2.0 has no shooting range: a shot may be taken from anywhere** (rules-2.0 section 6; the
+author, 2026-10-25). `RulesEngine.shooting_range_applies` is the gate -- the deck's answer the
+other way round, under its own name -- and two engine readings carry it to every site:
+`can_attempt_score(game, match, side)` and `may_call_time_out(game, match)`, over the
+`MatchState` methods of the same names, which take `range_applies` because the match cannot see
+the edition. Every rule site asks the engine (the turn's options and refusal, the turn prompt,
+a 2-space High Ball's and Vorix's set-up, the Winger's, Zytheris's shot); a 1.0 caller of the
+`MatchState` methods gets the range by default.
+
+- **The time out is offered on any turn** (6.2, the author's answer when asked): the Charter's
+  "out of range" condition would never hold in 2.0, so it is dropped, and once a half and not
+  after last possession stay. So a 2.0 turn offers all three actions at once.
+- **The bot's board draws no range bracket** in a 2.0 game (`shooting_range` on
+  `render_match_image`, `render_field_image` and `draw_board`, from `shooting_range_applies`),
+  and the printed 2.0 field board puts the standard roles where 1.0 brackets the ranges
+  ([printed-boards.md](printed-boards.md), "The 2.0 boards").
+- **Dinky needs nothing**: it shoots only from the scoring space, so it does not start shooting
+  from its own end, and calls a time out only for an injured player on the field.
+- **A long shot is still harder**: every defender between the ball and the goal adds half their
+  skill (Law 5.3.2), which is what makes a range unnecessary rather than the shot free.
+
 ## Roles
 
 **`RulesEngine.role_of(match, player_id)` is the one reading of which role a card is
@@ -221,20 +244,24 @@ since `has_role_ability` answers no only for a match whose roles are the formati
 
 - **The deal** is `RulesEngine.deal_formation_roles`, beside the decks at kickoff and gated the
   same way (`maneuver_deck_applies`, so never a tutorial): the six 1.0 deals, each in the role
-  their card names (the author, 2026-10-18). Each unique role has a space (rules-2.0 4.3b,
+  their card names (the author, 2026-10-18). Each unique role has a space (rules-2.0 4.3a,
   `MatchState.unique_role_space`), and on boards 7 and 9 the 1.0 deal already stands them there;
   on board 10 it puts the Midfielder on the kickoff space (Law 3.2.2), so the 2.0 deal moves the
   Playmaker onto it and the Midfielder behind, and records that as the first arrangement.
 - **`MatchState.assign_formation_roles`** reads a freshly dealt side: in each zone the card on
   the unique role's space (the nearest, where nobody is) takes it and the rest the standard role
-  (`FORMATION_ZONE_ROLES`). It is asked only where nobody shares a space -- after the deal and
-  after a formation change -- since an Ooze may share a unique role's space and the space would
-  then not say who holds it.
-- **A substitute takes the outgoing card's role** (`substitute`), and **a zone assignment trades
-  the two roles** (`exchange_field_players`) -- in 2.0 two in the same zone included
-  (rules-2.0 4.6c), which is how a coach puts somebody else in a unique role. Two in the same
-  standard role are refused (`swap_field_positions`): trading them would change spaces and no
-  role, which is space positioning. So the hub offers a card every teammate in a different role.
+  (`FORMATION_ZONE_ROLES`). It is asked only where nobody shares a space -- after the deal, and
+  after a re-deal by hand (`apply_formation`, which no 2.0 hub offers) -- since an Ooze may
+  share a unique role's space and the space would then not say who holds it. An arrangement
+  (below) gives its roles rather than reading them back.
+- **A substitute takes the outgoing card's role** (`substitute`). **A 2.0 Coaching Choice has no
+  zone assignment and no space positioning** (rules-2.0 4.6c, the author, 2026-10-25: *"drop
+  them"*): a rearrangement's trades and moves (below) do both, so the hub offers a 2.0 side no
+  `swaps` and no `repositions`, the driver refuses `swap` and `reposition` for it, and Discord
+  builds neither button. The model's own readings stay -- `exchange_field_players` still trades
+  two 2.0 roles, two in the same zone included, and `positioning_targets` still says where a 2.0
+  card may be moved -- because a sharer stepping off a unique role's space goes by the second,
+  and a test or an admin edit may call the first.
 - **The Playmaker takes the kickoff** (rules-2.0 4.4): `RulesEngine.hand_kickoff_to_playmaker`
   makes them the carrier just before a restart from the kickoff space is played -- at the end
   of setup (`finish_setup_coaching`), of halftime (`finish_halftime`) and of a goal's restart
@@ -243,34 +270,77 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   what a carrier says (Law 4.2.2) and `turn_handler_candidates` already honours it. It only
   changes anything where somebody shares the Playmaker's space -- an Ooze (rules-2.0 4.6e) --
   since nobody else's arrangement puts them on the kickoff space.
-- **Space positioning reads the role** (rules-2.0 4.6d): `MatchState.positioning_targets` is the
-  one reading of where a card may be moved and whom it trades with, the hub's `repositions` are
-  built from it and `position_meeple` refuses against it. A unique role goes nowhere, and the hub
-  offers it no button; a standard role goes to an empty space, or trades with a teammate in a
-  standard role, never onto a space a unique role holds. In 1.0 it is every other space of the
-  zone, and `position_meeple`'s own trade rule decides, as before. **An Ooze bends it**
-  (4.6e): one in a standard role may go anywhere in its zone and shares rather than trades, and
-  one in a unique role is still locked but lets a standard teammate share its space. Which cards
-  are Spreadable is the engine's (`spread_exempt_ids`), handed in, since the match knows no
-  species -- so in training mode, which plays no species abilities, nobody bends it.
+- **Where a card may be moved reads the role** (rules-2.0 4.6d): `MatchState.positioning_targets`
+  is the one reading of where a card may be moved and whom it trades with, and `position_meeple`
+  refuses against it. A unique role goes nowhere; a standard role goes to an empty space, or
+  trades with a teammate in a standard role, never onto a space a unique role holds. In 1.0 it is
+  every other space of the zone, the hub's `repositions` are built from it, and
+  `position_meeple`'s own trade rule decides, as before. **An Ooze bends it** (4.6e): one in a
+  standard role may go anywhere in its zone and shares rather than trades, and one in a unique
+  role is still locked but lets a standard teammate share its space. Which cards are Spreadable
+  is the engine's (`spread_exempt_ids`), handed in, since the match knows no species -- so in
+  training mode, which plays no species abilities, nobody bends it.
 - **Moving off a unique role's space** (rules-2.0 4.6e, the author, 2026-10-18): a teammate
-  sharing an Ooze's unique space is left sharing it with somebody who is not an Ooze when a zone
-  assignment or a substitution puts them in the role. The trade stands;
-  `MatchState.unique_space_sharers` names who has to move, `settle_unique_space_sharers` moves
-  each who has one empty space to go to (`windows.settle_moves`, which says so), and one with a
-  choice is the coach's: `positioning_targets` offers them only the empty spaces, a trade there
-  would only leave the other teammate on the unique space instead, `coaching_finish_refusal`
-  holds the window until they have moved, and the hub's options name them (`must_move`) so
-  Dinky moves them before it is done. A zone never holds more players than spaces, so with two on
-  one there is always an empty one.
-- **A formation change keeps the Fullback, the Playmaker and the Striker** (the author,
-  2026-10-18): `RulesEngine.formation_role_placement` stands each on their space and fills the
-  new shape's standard roles from the other three by defensive skill, from the coach's own goal
-  forward -- a Defender or a Winger furthest from their unique role, a Midfielder behind the
-  Playmaker first (`standard_role_spaces`, 4.5's spaces). Rules-2.0 4.6a leaves the change wholly
-  to the coach; this is the arrangement it starts from, and role trades and space positioning
-  between them reach every assignment the rules allow. `deploy_side` then reads the roles back off
-  the spaces, each holder dealt first in their zone.
+  sharing an Ooze's unique space is left sharing it with somebody who is not an Ooze when a
+  substitution puts them in the role. The substitution stands; `MatchState.unique_space_sharers`
+  names who has to move, `settle_unique_space_sharers` moves each who has one empty space of
+  their zone to go to (`windows.settle_moves`, which says so), and one with a choice is the
+  coach's, by rearranging (the author, 2026-10-25): the arrangement as it stands would not be
+  allowed (`arrangement_refusal`), but `ArrangementOptions.edits` keeps every change whose result
+  would be, so the sharer is offered a move to any space with room, in any zone, and the other
+  five only what also moves the sharer off. `coaching_finish_refusal` holds the window until they
+  have moved, and the hub's options name them (`must_move`), so Dinky sends the first move their
+  edits offer before it is done. A zone never holds more players than spaces, so with two on one
+  there is always an empty one.
+- **There are no formations: a side is arranged by its roles** (rules-2.0 4.2, 4.3; the author,
+  2026-10-24, replacing the formation change of 2026-10-18). An arrangement is the three unique
+  roles' holders, each stood on their space, and three placements anywhere on the field, each
+  taking its zone's standard role. `MatchState.arrange_side` puts a side in one, checking it
+  whole before anybody moves, and `RulesEngine.apply_arrangement` words it. The shape is whatever
+  that makes, so a 2.0 side is named by its counts (`RulesEngine.shape_name`, "3-1-2" as readily
+  as "2-2-2") rather than by `current_formation`, which knows only the five 1.0 shapes; the hub's
+  title and the window's summary both ask it.
+- **One reading of whether an arrangement may stand**: `arrangement_refusal`, a pure function
+  over every fact it needs, with `arrangement_space_open` under it -- an empty space, or a shared
+  one where either is an Ooze, in a zone with room. **No zone holds more players than spaces,
+  Oozes included** (the author, 2026-10-24): besides being the rule, it is what keeps an empty
+  space for a unique role's sharer to step off to. `arrange_side` refuses on it, and the
+  prompt's `ArrangementOptions.refusal` and `edits` read the same function, so nothing is offered
+  that the match would refuse.
+- **A rearrangement starts from the side as it stands** (the author, 2026-10-24: *"it should
+  already be set up the way it is currently set up, and then they can make changes on the basis
+  of the current setup"*). The deal still sets every side up (`deal_formation_roles`);
+  `MatchState.current_arrangement` reads it back, the options carry it (`holders`, `placed`), and
+  `ArrangementOptions.edits(player)` is every change that starts with one of the six -- a move to
+  a space with room, a trade of places and roles with one of the other five, and before kickoff a
+  bench player in their place -- each the whole arrangement it leaves, kept only if
+  `arrangement_refusal` lets it stand. The hub's `arrange` answer takes that whole arrangement,
+  so the driver's door is one and the same however the frontend builds it.
+- **Before kickoff the pool is the squad** (rules-2.0 4.3c): `MatchState.arrangement_pool` is the
+  six on the field, and the bench too where the window's substitutions have no limit -- setup's
+  -- so whoever on the field is left out goes off through `substitute` and is recorded as the
+  window's substitution. After kickoff a substitution is counted, so an arrangement rearranges
+  the six playing. Who among the pool is Spreadable is `RulesEngine.spreadable_among`, since a
+  bench Ooze is not among `spread_exempt_ids`' fielded six.
+- **The hub offers Arrange team in place of Formation** for a 2.0 side (`CoachingHubOptions.
+  arrangement`, with `formations` empty, and the driver's `arrange` answer refusing a 1.0 side
+  as `formation` refuses a 2.0 one). On Discord `CoachingArrangeView` lists the six as they stand,
+  role and space on each button, and `CoachingArrangePlayerView` one player's edits; a click
+  applies the change at once and the side comes back up with the half-field redrawn, one
+  `edit_message` a click as every hub step is. Zone Assignment and Space Positioning are not
+  built beside it. Dinky never arranges for its own sake -- the deal's recommended arrangement is
+  its -- and sends `arrange` only to move a sharer off a unique role's space, or, where the
+  window is held while a unique role stands off their space, the side as it stands again, which
+  puts the Playmaker back on the kickoff space (`DinkyAI._rearrangement`). The web app plays no
+  2.0, so it shows neither control.
+
+- **A new play is a run back** (rules-2.0 4.9, the author, 2026-10-24): every player is placed
+  again in their own zone, free -- the unique roles on their spaces -- and the Coaching Choice
+  comes after; a time out's and halftime's window sends the unique roles back as it opens and
+  the coach puts everybody else right by rearranging, a change at a time -- each stray back in
+  their zone or given a new role -- and a steal's run back is
+  the Charter's. The machinery is the run back's: "2.0: a new play is a run back" in
+  [possession-and-turnovers.md](possession-and-turnovers.md).
 
 **At the table** a role is a loose piece: the print-and-play kit's role tokens, a zone's unique
 role on one side and its standard role on the other, laid on the card holding it -- a 2.0 card,

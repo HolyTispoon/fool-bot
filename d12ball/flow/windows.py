@@ -51,7 +51,7 @@ from d12ball.engine import RulesEngine
 from d12ball.flow import gates
 from d12ball.flow.clock import charge_clock
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.turnovers import announce_new_play_reset
+from d12ball.flow.turnovers import announce_new_play_reset, end_the_play
 from d12ball import tokens
 from d12ball.formatting import (
     ball_space_label,
@@ -122,7 +122,12 @@ def coaching_window_note(
     # side scattered is looking at their own shape again and
     # should be told why.
     if restored:
-        lines.append("Your side is back on the arrangement you last set.")
+        lines.append(
+            "Your Fullback, Playmaker and Striker are back on their own "
+            "spaces; everybody else stands where the play left them."
+            if engine.restarts_by_run_back(match)
+            else "Your side is back on the arrangement you last set."
+        )
 
     # An injured player is worth pointing out, but only as a
     # nudge: nothing compels a side to get them off, and a coach
@@ -169,12 +174,12 @@ def coaching_summary(
     lines: list[str] = []
 
     was = match.pending_coaching_formation
-    now = engine.current_formation(match, side)
-    if now is not None and now.value != was:
+    now = engine.shape_name(match, side)
+    if now is not None and now != was:
         lines.append(
-            f"Formation: **{was} → {now.value}**."
+            f"Formation: **{was} → {now}**."
             if was
-            else f"Formation: **{now.value}**."
+            else f"Formation: **{now}**."
         )
 
     for outgoing_player_id, incoming_player_id in (
@@ -513,17 +518,21 @@ def open_substitution_window(
     side = TeamSide(side)
     occasion = CoachingOccasion(occasion)
 
-    restored = (
-        match.restore_assigned_positions(side)
-        if occasion.offers_positioning
-        else False
-    )
-    shape = engine.current_formation(match, side)
+    # A 2.0 side keeps no arrangement to go back to (docs/rules-2.0.md
+    # 4.9): its Fullback, Playmaker and Striker go back onto their own
+    # spaces and everybody else stays where they stand, for the coach
+    # to put right -- which after a new play's run back moves nobody.
+    if not occasion.offers_positioning:
+        restored = False
+    elif engine.restarts_by_run_back(match):
+        restored = bool(match.return_unique_roles(side))
+    else:
+        restored = match.restore_assigned_positions(side)
     match.open_coaching_window(
         side,
         occasion,
         is_response=is_response,
-        formation=shape.value if shape else None,
+        formation=engine.shape_name(match, side),
     )
 
     note = coaching_window_note(
@@ -786,13 +795,14 @@ def begin_time_out(
     # next thing. Until step 7 of docs/architecture-migration.md it
     # rode inside the caller's own menu as its heading, which an AI
     # caller has no menu to carry it on.
+    announcement = (
+        f"# {label} calls a time out\n"
+        "Both coaches get a Coaching Choice. The ball stays "
+        f"with {label} on "
+        f"{ball_space_label(match)}. {clock}"
+    )
     return StepResult(
-        narration=[
-            f"# {label} calls a time out\n"
-            "Both coaches get a Coaching Choice. The ball stays "
-            f"with {label} on "
-            f"{ball_space_label(match)}. {clock}"
-        ],
+        narration=[announcement],
         board_changed=True,
         next=FollowOn(
             FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
@@ -841,7 +851,25 @@ def finish_time_out(
     closed.
     """
     match.pending_time_out = False
-    reset = announce_new_play_reset(engine, game, match)
+    if engine.restarts_by_run_back(match):
+        # A 2.0 time out resets nobody (docs/rules-2.0.md 4.9d): the
+        # coaches have just put their sides right in their windows, and
+        # there is no arrangement to reset to. The board the play
+        # restarts from is still the one a frontend pins (`new_play`).
+        end_the_play(match)
+        label = format_team_side_label(
+            match.setup_for_side(match.ball.possession), game,
+        )
+        reset = StepResult(
+            narration=[
+                f"# New play\nPlay restarts with {label} on "
+                f"{ball_space_label(match)}."
+            ],
+            board_changed=True,
+            new_play=True,
+        )
+    else:
+        reset = announce_new_play_reset(engine, game, match)
     needs_recovery = not match.eligible_ball_handlers()
     match.pending_ball_recovery = needs_recovery
     match.pending_recovery_from_time_out = needs_recovery

@@ -47,6 +47,7 @@ from .special_abilities import BOOST_DRAIN_COST
 from .game import AIOpponent, HomeChoice, Team
 from .prompts import (
     Action,
+    ArrangementEdit,
     CoachingHubOptions,
     PendingPrompt,
     PromptKind,
@@ -511,7 +512,11 @@ class DinkyAI(AIStrategy):
         arrangement covers its own side's, a coach is refused Done
         until they have (`CoachingHubOptions.finish_refusal`), and
         Dinky is held to the same rule -- it moves the nearest
-        midfielder onto it, at no cost, and then says it is done.
+        midfielder onto it, at no cost, and then says it is done. A 2.0
+        side is moved by rearranging alone (docs/rules-2.0.md 4.6):
+        Dinky moves a teammate off a unique role's space to the first
+        space its options offer, and covers the kickoff space by
+        standing the side in its arrangement, the Playmaker on it.
         """
         if options.may_substitute:
             swap = self._injured_swap(match, side, options)
@@ -526,19 +531,15 @@ class DinkyAI(AIStrategy):
                         "incoming_player_id": incoming_player_id,
                     },
                 )
-        for option in options.repositions:
-            # A 2.0 teammate left on a unique role's space moves to the
-            # first space open to them before Dinky is done.
-            if option.player_id in options.must_move and option.spaces:
+        if options.arrangement is not None:
+            arrangement = self._rearrangement(match, options)
+            if arrangement is not None:
                 return Action(
                     prompt.kind,
-                    "reposition",
-                    {
-                        "side": side,
-                        "player_id": option.player_id,
-                        "space_index": option.spaces[0].space_index,
-                    },
+                    "arrange",
+                    {"side": side, "arrangement": arrangement},
                 )
+            return Action(prompt.kind, "done", {"side": side})
         if options.finish_refusal is not None:
             cover = self._kickoff_cover(match, side, options)
             if cover is not None:
@@ -553,6 +554,55 @@ class DinkyAI(AIStrategy):
                     },
                 )
         return Action(prompt.kind, "done", {"side": side})
+
+    @staticmethod
+    def _rearrangement(match, options) -> Optional[dict]:
+        """
+        The arrangement a 2.0 side has to be rearranged into before its
+        coach may be done, or None where it may be done as it stands:
+        a player out of place moved -- back into the zone of their role
+        where their edits offer it, a teammate on a unique role's space
+        first -- and otherwise,
+        while the window is held and a unique role stands off their
+        space, the side stood in its own arrangement again, which puts
+        the Playmaker on the kickoff space (docs/rules-2.0.md 4.3a).
+        """
+        arrangement = options.arrangement
+        out_of_place = arrangement.faults(
+            arrangement.holders, arrangement.placed, arrangement.stray_ids,
+        )
+        # Out of place -- a sharer on a unique role's space, or a side a
+        # time out or halftime left scattered (docs/rules-2.0.md 4.9d):
+        # each change its options offer leaves fewer out of place, and
+        # Dinky takes the first, a player sent back into the zone of
+        # their own role before one given a new role, until none is.
+        if out_of_place:
+            for player_id in (*options.must_move, *arrangement.fielded):
+                changes = [
+                    edit for edit in arrangement.edits(player_id)
+                    if edit.kind in ("move", "role")
+                ]
+                home = [
+                    edit for edit in changes
+                    if edit.kind == "move"
+                    and edit.space.takes.value
+                    == arrangement.role_of(player_id)
+                ]
+                if changes:
+                    return (home or changes)[0].answer()
+        if options.finish_refusal is None or out_of_place:
+            return None
+        for _, player_id in arrangement.holders:
+            space = arrangement.standing_of(player_id)
+            if match.board.meeple_position(player_id) != (
+                space.zone, space.space_index,
+            ):
+                break
+        else:
+            return None
+        return ArrangementEdit(
+            "move", arrangement.holders, arrangement.placed,
+        ).answer()
 
     def _halftime_token(self, prompt, game, match, side, options) -> Action:
         """The most tired of them loses the extra token."""

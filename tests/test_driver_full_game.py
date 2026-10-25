@@ -168,6 +168,14 @@ class Policy:
             card = self.engine.rng.choice(hand.maneuver_keys)
             return Action(kind, "", {"side": hand.side, "maneuver_key": card})
         if kind is PromptKind.COACHING_HUB:
+            # Done, unless the window refuses it: a 2.0 time out or
+            # halftime moves nobody (docs/rules-2.0.md 4.9), so a coach
+            # may have a kickoff space to cover or a unique role's space
+            # to step off first -- which Dinky's own hub answer does.
+            if options.finish_refusal is not None:
+                return self.engine.ai_strategies[AIOpponent.DINKY].choose(
+                    prompt, self.game, match, prompt.side,
+                )
             return Action(kind, "done", {"side": prompt.side})
         if kind is PromptKind.COACHING_OFFER:
             return Action(kind, "decline", {"side": prompt.side})

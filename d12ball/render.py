@@ -1721,7 +1721,11 @@ def draw_board(
     players: dict[str, PlayerDefinition],
     species_icons: bool = False,
     cyborg_ids: frozenset[str] = frozenset(),
+    shooting_range: bool = True,
 ) -> dict[Zone, tuple[int, int]]:
+    """The field, its goals and -- where the game has one
+    (`shooting_range`, `RulesEngine.shooting_range_applies`; 2.0 has
+    none) -- each side's shooting range bracketed under it."""
     bounds = zone_bounds(match)
     draw.rounded_rectangle(
         (BOARD_LEFT, BOARD_TOP, BOARD_RIGHT, BOARD_BOTTOM),
@@ -1766,9 +1770,10 @@ def draw_board(
         BOARD_RIGHT + GOAL_ZONE_GAP + GOAL_ZONE_WIDTH,
         angle=270,
     )
-    draw_shooting_range_band(
-        draw, match, BOARD_LEFT, BOARD_RIGHT, RANGE_BAND_TOP, RANGE_BAND_BOTTOM,
-    )
+    if shooting_range:
+        draw_shooting_range_band(
+            draw, match, BOARD_LEFT, BOARD_RIGHT, RANGE_BAND_TOP, RANGE_BAND_BOTTOM,
+        )
     return bounds
 
 
@@ -6417,6 +6422,7 @@ def render_field_image(
     catalog: PlayerCatalog,
     species_icons: bool = False,
     cyborg_ids: frozenset[str] = frozenset(),
+    shooting_range: bool = True,
 ) -> BytesIO:
     """
     The field on its own -- both sides' meeples, the ball, the space
@@ -6447,7 +6453,7 @@ def render_field_image(
     draw = ImageDraw.Draw(canvas)
     draw_board(
         canvas, draw, match, players, species_icons=species_icons,
-        cyborg_ids=cyborg_ids,
+        cyborg_ids=cyborg_ids, shooting_range=shooting_range,
     )
 
     field = canvas.crop(
@@ -6471,6 +6477,7 @@ def render_match_image(
     card_skills: Mapping[str, tuple[int, int]] = {},
     coaches: Mapping[TeamSide, str] = {},
     tie_coin: Optional[tuple[str, str]] = None,
+    shooting_range: bool = True,
 ) -> BytesIO:
     """
     The board. `title` may carry team marks (`draw_marked_text`) -- the
@@ -6478,7 +6485,8 @@ def render_match_image(
     -- and `coaches` names each side the short way over its score and
     its bench (the author, 2026-10-05); with neither, every side is its
     team's name, as it always was. `tie_coin` is 2.0's coin on the
-    jumbotron (`draw_jumbotron_coin`), and None everywhere else.
+    jumbotron (`draw_jumbotron_coin`), and None everywhere else;
+    `shooting_range` is False in 2.0, which has none (`draw_board`).
     """
     players = player_index(catalog)
     canvas = Image.new(
@@ -6526,7 +6534,7 @@ def render_match_image(
     )
     draw_board(
         canvas, draw, match, players, species_icons=species_icons,
-        cyborg_ids=cyborg_ids,
+        cyborg_ids=cyborg_ids, shooting_range=shooting_range,
     )
     draw_assignment_cards(
         canvas,

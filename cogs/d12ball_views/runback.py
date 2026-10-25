@@ -10,6 +10,7 @@ from d12ball.flow.driver import Action
 from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import (
     build_full_image_button,
+    capitalized,
     player_with_role,
     space_label,
     travel_space_label,
@@ -252,10 +253,17 @@ class RunBackChoiceView(SafeView):
                 # a run back costs a token a space, so the two spaces of
                 # a zone are rarely the same offer. Both are the
                 # prompt's (`SpaceOptions`). See travel_space_label.
-                label=travel_space_label(
-                    options.zone, space_index, distance, match.board,
+                # A free run back (a 2.0 restart's) has no price to
+                # quote, so the button names the space alone.
+                label=(
+                    capitalized(
+                        space_label(options.zone, space_index, match.board),
+                    )
+                    if options.free
+                    else travel_space_label(
+                        options.zone, space_index, distance, match.board,
+                    )
                 ),
-
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:run_back:{game_id}:{player_id}:{space_index}"
