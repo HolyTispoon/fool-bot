@@ -456,15 +456,6 @@ def finish_coaching_step(
     if refusal is not None:
         raise RuleRefusal(refusal, law="finishing-a-coaching-choice")
 
-    # A 2.0 player still outside their zone takes the role of the one
-    # they stand in (docs/rules-2.0.md 4.9d), before the summary reads
-    # the shape -- which is what says so, as a change of shape.
-    settled = (
-        engine.settle_arrangement(game, match, side)
-        if match.coaching_occasion is not None
-        and match.coaching_occasion.offers_positioning
-        else None
-    )
     setup = match.setup_for_side(side)
     changes = coaching_summary(engine, match, side)
     return StepResult(
@@ -477,8 +468,6 @@ def finish_coaching_step(
                 ]
             )
         ],
-        # The roles drawn on the board changed with them.
-        board_changed=settled is not None,
         next=FollowOn(FollowOnStep.FINISH_SUBSTITUTION_WINDOW),
     )
 

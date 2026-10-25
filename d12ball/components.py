@@ -5559,8 +5559,9 @@ class MatchState:
     ) -> int:
         """
         How many of a 2.0 side's players are out of place where they
-        stand (`arrangement_faults` over `current_arrangement`): zero
-        for a side standing in an arrangement 4.3 allows, and for a 1.0
+        stand (`arrangement_faults` over `current_arrangement`, its
+        strays included): zero for a side standing in an arrangement 4.3
+        allows with everybody in the zone of their role, and for a 1.0
         side. A Coaching Choice may not close on more
         (`RulesEngine.coaching_finish_refusal`, docs/rules-2.0.md 4.9d).
         """
@@ -5574,7 +5575,25 @@ class MatchState:
             self.arrangement_unique_spaces(side),
             {zone: len(self.board.spaces[zone]) for zone in Zone},
             spread_exempt_ids,
+            self.arrangement_strays(side),
         )
+
+    def arrangement_strays(self, side: TeamSide) -> list[str]:
+        """
+        A 2.0 side's players standing outside the zone of their role --
+        where open play left them before a time out or halftime, the
+        role kept until their coach moves them back or gives them a new
+        one (docs/rules-2.0.md 4.9d). Empty for a 1.0 side.
+        """
+        side = TeamSide(side)
+        if side.value not in self.formation_roles:
+            return []
+        setup = self.setup_for_side(side)
+        _, placed = self.current_arrangement(side)
+        return [
+            player_id for player_id, zone, _ in placed
+            if setup.assigned_zone(player_id) != zone
+        ]
 
     def arrangement_unique_spaces(
         self, side: TeamSide,
@@ -5594,6 +5613,7 @@ class MatchState:
         placed: Sequence[tuple[str, Zone, int]],
         spread_exempt_ids: Collection[str] = (),
         retire_outgoing: bool = True,
+        strays: Collection[str] = (),
     ) -> list[tuple[str, str]]:
         """
         **Put a 2.0 side in an arrangement** (docs/rules-2.0.md 4.3, the
@@ -5613,6 +5633,13 @@ class MatchState:
         `substitute`, and is recorded as a substitution for the
         window's summary. Answers the substitutions it made, outgoing
         first.
+
+        **A side a time out or halftime left out of place**
+        (docs/rules-2.0.md 4.9d) is put right a change at a time:
+        `strays` names the players left outside their zone who keep
+        their role for now, and a change that leaves fewer players out
+        of place (`arrangement_faults`) stands though the side is not
+        yet in an arrangement.
         """
         side = TeamSide(side)
         if side.value not in self.formation_roles:
@@ -5626,39 +5653,58 @@ class MatchState:
         ]
         unique_spaces = self.arrangement_unique_spaces(side)
         zone_sizes = {zone: len(self.board.spaces[zone]) for zone in Zone}
-        refusal = arrangement_refusal(
-            holders,
-            placed,
-            self.arrangement_pool(side),
-            unique_spaces,
-            zone_sizes,
-            spread_exempt_ids,
+        # **`strays` keep their role** where play left them outside its
+        # zone (docs/rules-2.0.md 4.9d): each must be one standing there
+        # now and not moved by this change. Everybody else placed takes
+        # the standard role of the zone they are placed in.
+        strays = list(dict.fromkeys(strays))
+        standing_strays = self.arrangement_strays(side)
+        for player_id in strays:
+            position = self.board.meeple_position(player_id)
+            if player_id not in standing_strays or (
+                position is None or (player_id, *position) not in placed
+            ):
+                raise RuleRefusal(
+                    "Only a player left outside their zone, and not moved, "
+                    "keeps their role there."
+                )
+        shape = arrangement_shape_refusal(
+            holders, placed, self.arrangement_pool(side),
         )
-        if refusal is not None:
-            # A side a time out or halftime left scattered may be put
-            # right a player at a time (docs/rules-2.0.md 4.9d): a move
-            # that leaves fewer out of place stands though the side is
-            # not yet in an arrangement, and moves the meeple alone --
-            # the roles follow once it is.
-            current_holders, current_placed = self.current_arrangement(side)
-            if (
-                dict(holders) != current_holders
-                or sorted(player for player, _, _ in placed)
-                != sorted(player for player, _, _ in current_placed)
-                or arrangement_faults(
-                    holders, placed, unique_spaces, zone_sizes,
+        if shape is not None:
+            raise RuleRefusal(shape)
+        # A side a time out or halftime left out of place is put right a
+        # change at a time: one that leaves fewer out of place stands
+        # though the side is not yet in place; one that leaves nobody
+        # out of place always does.
+        after = arrangement_faults(
+            holders, placed, unique_spaces, zone_sizes, spread_exempt_ids,
+            strays,
+        )
+        if after and after >= self.standing_arrangement_faults(
+            side, spread_exempt_ids,
+        ):
+            raise RuleRefusal(
+                arrangement_refusal(
+                    holders,
+                    placed,
+                    self.arrangement_pool(side),
+                    unique_spaces,
+                    zone_sizes,
                     spread_exempt_ids,
                 )
-                >= arrangement_faults(
-                    current_holders, current_placed, unique_spaces,
-                    zone_sizes, spread_exempt_ids,
-                )
-            ):
-                raise RuleRefusal(refusal)
-            for player_id, zone, space_index in placed:
-                if self.board.meeple_position(player_id) != (zone, space_index):
-                    self.board.place_meeple(player_id, zone, space_index)
-            return []
+                or "That leaves nobody back in place: move a player back "
+                "into their zone, or give them the role of where they "
+                "stand."
+            )
+        kept = {
+            player_id: self.setup_for_side(side).assigned_zone(player_id)
+            for player_id in strays
+        }
+        kept_roles = {
+            player_id: self.formation_roles[side.value][player_id]
+            for player_id in strays
+        }
 
         chosen = list(holders.values()) + [
             player_id for player_id, _, _ in placed
@@ -5697,6 +5743,14 @@ class MatchState:
                     placement.append((player_id, zone, space_index))
                     roles[player_id] = standard.value
         self.deploy_side(side, placement)
+        # A stray keeps their role, and with it their zone, standing
+        # where they are.
+        for player_id, zone in kept.items():
+            for players in setup.zones.values():
+                if player_id in players:
+                    players.remove(player_id)
+            setup.zones[zone].append(player_id)
+            roles[player_id] = kept_roles[player_id]
         # Given rather than read back off the spaces: an Ooze may share
         # a unique role's space, and the space would not say which of
         # the two holds it.
@@ -6983,21 +7037,9 @@ def arrangement_refusal(
     so the match is never told something its options would not offer.
     Pure -- every fact it reads is handed in.
     """
-    if set(holders) != set(UNIQUE_ROLE_AREAS):
-        return "Name a Fullback, a Playmaker and a Striker."
-    if len(placed) != ARRANGED_PLAYER_COUNT:
-        return (
-            f"Place {ARRANGED_PLAYER_COUNT} players after the Fullback, "
-            "the Playmaker and the Striker."
-        )
-    chosen = list(holders.values()) + [player for player, _, _ in placed]
-    if len(set(chosen)) != len(chosen):
-        return "A player cannot be placed twice."
-    if any(player_id not in pool for player_id in chosen):
-        return (
-            "Everybody arranged has to come from the field -- or, before "
-            "kickoff, the bench."
-        )
+    shape = arrangement_shape_refusal(holders, placed, pool)
+    if shape is not None:
+        return shape
     standing = [
         (holders[role], *unique_spaces[role]) for role in UNIQUE_ROLE_AREAS
     ]
@@ -7022,22 +7064,55 @@ def arrangement_refusal(
     return None
 
 
+def arrangement_shape_refusal(
+    holders: Mapping[str, str],
+    placed: Sequence[tuple[str, Zone, int]],
+    pool: Collection[str],
+) -> Optional[str]:
+    """
+    Why a 2.0 arrangement is not one at all, or None, before anybody's
+    space is looked at: the three unique roles named, `ARRANGED_PLAYER_COUNT`
+    more placed, everybody once and out of `pool`. The half of
+    `arrangement_refusal` a change that only puts a scattered side
+    partly right must still meet (`MatchState.arrange_side`).
+    """
+    if set(holders) != set(UNIQUE_ROLE_AREAS):
+        return "Name a Fullback, a Playmaker and a Striker."
+    if len(placed) != ARRANGED_PLAYER_COUNT:
+        return (
+            f"Place {ARRANGED_PLAYER_COUNT} players after the Fullback, "
+            "the Playmaker and the Striker."
+        )
+    chosen = list(holders.values()) + [player for player, _, _ in placed]
+    if len(set(chosen)) != len(chosen):
+        return "A player cannot be placed twice."
+    if any(player_id not in pool for player_id in chosen):
+        return (
+            "Everybody arranged has to come from the field -- or, before "
+            "kickoff, the bench."
+        )
+    return None
+
+
 def arrangement_faults(
     holders: Mapping[str, str],
     placed: Sequence[tuple[str, Zone, int]],
     unique_spaces: Mapping[str, tuple[Zone, int]],
     zone_sizes: Mapping[Zone, int],
     spreadable_ids: Collection[str] = (),
+    strays: Collection[str] = (),
 ) -> int:
     """
     **How far a 2.0 arrangement is from one that may stand**, as a
     count of players out of place (docs/rules-2.0.md 4.9d): each player
-    over a zone's spaces, and each player who is not an Ooze past the
-    first on a space. Zero exactly where `arrangement_refusal` finds
-    nothing wrong with where everybody stands. Read in any order, so a
-    change can be measured against the side as it stands: a side a
-    time out or halftime left scattered is rearranged one change at a
-    time, each leaving fewer out of place (`MatchState.arrange_side`).
+    over a zone's spaces, each player who is not an Ooze past the first
+    on a space, and each of `strays`, standing outside the zone of the
+    role they keep. Zero exactly where `arrangement_refusal` finds
+    nothing wrong with where everybody stands and nobody strays. Read
+    in any order, so a change can be measured against the side as it
+    stands: a side a time out or halftime left scattered is rearranged
+    one change at a time, each leaving fewer out of place
+    (`MatchState.arrange_side`).
     """
     standing = [
         (holders[role], *unique_spaces[role]) for role in UNIQUE_ROLE_AREAS
@@ -7053,7 +7128,7 @@ def arrangement_faults(
         if player_id not in spreadable_ids:
             crowds[(Zone(zone), index)] = crowds.get((Zone(zone), index), 0) + 1
     faults += sum(count - 1 for count in crowds.values() if count > 1)
-    return faults
+    return faults + len(set(strays))
 
 
 def zone_for_area(side: TeamSide, area: str) -> Zone:

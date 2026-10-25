@@ -69,6 +69,7 @@ from d12ball.components import (
     area_for_zone,
     arrangement_faults,
     arrangement_refusal,
+    arrangement_shape_refusal,
     zone_for_area,
 )
 
@@ -907,9 +908,11 @@ class ArrangementEdit:
     One change a coach may make to a 2.0 side's arrangement, and the
     whole arrangement it leaves: `kind` is `move` (a player in a
     standard role to `space`), `trade` (the player and `other` swap
-    places and roles) or `replace` (`other`, off the bench before
-    kickoff, takes the player's place). The arrangement is what the
-    hub's `arrange` answer sends.
+    places and roles), `replace` (`other`, off the bench before
+    kickoff, takes the player's place) or `role` (a player a time out
+    or halftime left outside their zone takes the standard role of
+    `space`, where they stand -- docs/rules-2.0.md 4.9d). The
+    arrangement is what the hub's `arrange` answer sends.
     """
 
     kind: str
@@ -917,6 +920,9 @@ class ArrangementEdit:
     placed: tuple[tuple[str, Zone, int], ...]
     other: Optional[str] = None
     space: Optional[ArrangementSpace] = None
+    #: Who still keeps their role outside its zone after this change
+    #: (docs/rules-2.0.md 4.9d).
+    strays: tuple[str, ...] = ()
 
     def answer(self) -> dict:
         """The arrangement this change leaves, as the hub's `arrange`
@@ -932,6 +938,7 @@ class ArrangementEdit:
                 }
                 for player, zone, index in self.placed
             ],
+            "strays": list(self.strays),
         }
 
     def to_dict(self) -> dict:
@@ -948,6 +955,7 @@ class ArrangementEdit:
             ],
             "other": self.other,
             "space": None if self.space is None else self.space.to_dict(),
+            "strays": list(self.strays),
         }
 
 
@@ -979,6 +987,23 @@ class ArrangementOptions:
     placed: tuple[tuple[str, Zone, int], ...] = ()
     #: The Spreadable Oozes in `pool`, who may share a space.
     spreadable: tuple[str, ...] = ()
+    #: The players a time out or halftime left outside the zone of
+    #: their role, with the role they keep until their coach moves them
+    #: back or gives them a new one (docs/rules-2.0.md 4.9d).
+    strays: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def stray_ids(self) -> tuple[str, ...]:
+        return tuple(player for player, _ in self.strays)
+
+    def role_of(self, player_id: str) -> Optional[str]:
+        """The role one of the six holds: a stray's own, everybody
+        else's the role of where they stand."""
+        for player, role in self.strays:
+            if player == player_id:
+                return role
+        space = self.standing_of(player_id)
+        return None if space is None else space.takes.value
 
     def standing_of(self, player_id: str) -> Optional[ArrangementSpace]:
         """Where one of the six stands, and the role it gives them."""
@@ -1033,15 +1058,18 @@ class ArrangementOptions:
         self,
         holders: Sequence[tuple[str, str]],
         placed: Sequence[tuple[str, Zone, int]],
+        strays: Sequence[str] = (),
     ) -> int:
         """How many players an arrangement leaves out of place
-        (`arrangement_faults`): zero for one that may stand."""
+        (`arrangement_faults`), `strays` among them: zero for one that
+        may stand."""
         return arrangement_faults(
             dict(holders),
             placed,
             self._unique_spaces(),
             self._zone_sizes(),
             self.spreadable,
+            strays,
         )
 
     def edits(self, player_id: str) -> tuple[ArrangementEdit, ...]:
@@ -1049,8 +1077,13 @@ class ArrangementOptions:
         Every change to the standing arrangement that starts with
         `player_id`, one of the six: moving them to another space if
         they hold a standard role, trading places and roles with each
-        of the other five, and before kickoff putting a bench player
-        in their place -- each kept only if what it leaves may stand.
+        of the other five, before kickoff putting a bench player in
+        their place, and for a player left outside their zone giving
+        them the role of where they stand -- each kept only if what it
+        leaves may stand, or, while a time out or halftime has left the
+        side out of place, leaves fewer players out of place
+        (docs/rules-2.0.md 4.9d), as `MatchState.arrange_side` accepts.
+        Whoever a change moves or re-roles is a stray no longer.
         """
         holders = list(self.holders)
         placed = list(self.placed)
@@ -1081,25 +1114,31 @@ class ArrangementOptions:
                 new_placed.append((who, zone, index))
 
         found: list[ArrangementEdit] = []
-        # A side a time out or halftime left out of place is put right a
-        # player at a time (docs/rules-2.0.md 4.9d): while it is, a move
-        # that leaves fewer out of place is offered too, as
-        # `MatchState.arrange_side` accepts it.
-        out_of_place = (
-            self.faults(holders, placed)
-            if self.refusal(holders, placed) is not None
-            else 0
-        )
+        out_of_place = self.faults(holders, placed, self.stray_ids)
 
         def keep(kind, new_holders, new_placed, other=None, space=None):
-            if self.refusal(new_holders, new_placed) is None or (
-                kind == "move"
-                and self.faults(new_holders, new_placed) < out_of_place
-            ):
+            touched = {player_id, other}
+            strays = tuple(
+                stray for stray in self.stray_ids if stray not in touched
+            )
+            if arrangement_shape_refusal(
+                dict(new_holders), new_placed, self.pool,
+            ) is not None:
+                return
+            after = self.faults(new_holders, new_placed, strays)
+            if after == 0 or after < out_of_place:
                 found.append(ArrangementEdit(
                     kind, tuple(new_holders), tuple(new_placed),
-                    other=other, space=space,
+                    other=other, space=space, strays=strays,
                 ))
+
+        if spot is not None and player_id in self.stray_ids:
+            keep(
+                "role",
+                holders,
+                placed,
+                space=self.standing_of(player_id),
+            )
 
         if spot is not None:
             for space in self.spaces:
@@ -1162,6 +1201,7 @@ class ArrangementOptions:
                 for player, zone, index in self.placed
             ],
             "spreadable": list(self.spreadable),
+            "strays": {player: role for player, role in self.strays},
         }
 
 
@@ -3377,6 +3417,10 @@ def _coaching_hub_options(
             spreadable=tuple(
                 player_id for player_id in arranged
                 if player_id in spreadable
+            ),
+            strays=tuple(
+                (player_id, roles[player_id])
+                for player_id in match.arrangement_strays(side)
             ),
         )
 

@@ -273,21 +273,31 @@ a 1.0 match, and a 2.0 match saved before its roles, reset as they always have.
   After a new play's run back it moves nobody, so it is one rule for every occasion rather than
   a time-out step. A 2.0 `finish_time_out` resets nothing after the windows -- it ends the play
   (`end_the_play`) and the board is pinned as 1.0's reset is.
-- **The coach puts the rest right with Arrange team**, the only way a 2.0 side moves (4.6c).
-  `arrangement_faults` counts how far the side is from an arrangement that may stand -- a player
-  over a zone's spaces, a second non-Ooze on a space -- in any order, unlike
-  `arrangement_refusal`, so a change can be measured against the side as it stands. While it is
-  above zero, `ArrangementOptions.edits` also offers a move that lowers it, and
-  `MatchState.arrange_side` accepts one, moving the meeple alone: the roles wait until the side
-  is in an arrangement, since a zone may still hold more players than spaces. Done is refused
-  until it is (`coaching_finish_refusal`, over `standing_arrangement_faults`). A single move can
-  always lower it -- a zone over its spaces means another has room, and so an empty space -- so
-  the window never sticks, and Dinky sends the first such move until none is left.
-- **Finishing gives the roles of where they stand** (`RulesEngine.settle_arrangement`, from
-  `finish_coaching_step`): a player still outside their zone takes that zone's standard role, as
-  any move does, and the window's summary reads the new shape. A teammate on a unique role's
-  space is one who has to step off (`unique_space_sharers`) only while the holder stands there
-  too.
+- **Everybody else keeps their role, and must end in its zone** (rules-2.0 4.9d, the author,
+  2026-10-25: *"The coach needs to put them back in a spot in their zone or else give them a new
+  role"*). `MatchState.arrangement_strays` names who stands outside the zone of their role; the
+  options carry them with the role they keep (`ArrangementOptions.strays`, `role_of`), so Discord
+  shows a stray as a Defender "(out of zone)" rather than as whatever the space would make them.
+  A stray stops being one only by the coach's change: a move back into their zone (same role), a
+  move or a trade elsewhere (the standard role of where they then stand), or **Stay here** --
+  the `role` change, which gives them the role of where they stand without moving them. Nothing
+  re-roles a player the coach did not touch: the `arrange` answer names the strays still keeping
+  their role (`ArrangementEdit.strays`, `"strays"` on the wire), and `arrange_side` gives every
+  other placed player the role of their space and leaves a stray's zone and role as they were.
+- **The coach puts the side right a change at a time**, with Arrange team, the only way a 2.0 side
+  moves (4.6c). `arrangement_faults` counts how far the side is from standing in place -- a
+  player over a zone's spaces, a second non-Ooze on a space, a stray -- in any order, unlike
+  `arrangement_refusal`, so a change can be measured against the side as it stands. A change is
+  offered (`ArrangementOptions.edits`) and accepted (`MatchState.arrange_side`) when it leaves
+  nobody out of place, or, while somebody is, fewer than now; `arrangement_shape_refusal` is the
+  half of `arrangement_refusal` every change must still meet. A zone may hold more roles than
+  spaces part-way through, which nothing reads. Done is refused until nobody is out of place
+  (`coaching_finish_refusal`, over `standing_arrangement_faults`), so there is nothing for Done
+  to settle. A single change can always lower the count -- a stray can stay where they are, and
+  a zone over its spaces means another has room, and so an empty space -- so the window never
+  sticks; Dinky takes the first change offered, sending a player back into the zone of their
+  role before giving them a new one. A teammate on a unique role's space is one who has to step
+  off (`unique_space_sharers`) only while the holder stands there too.
 
 ### The arrangement
 

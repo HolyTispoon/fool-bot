@@ -560,25 +560,37 @@ class DinkyAI(AIStrategy):
         """
         The arrangement a 2.0 side has to be rearranged into before its
         coach may be done, or None where it may be done as it stands:
-        a player out of place moved to the first space their edits
-        offer, a teammate on a unique role's space first, and otherwise,
+        a player out of place moved -- back into the zone of their role
+        where their edits offer it, a teammate on a unique role's space
+        first -- and otherwise,
         while the window is held and a unique role stands off their
         space, the side stood in its own arrangement again, which puts
         the Playmaker on the kickoff space (docs/rules-2.0.md 4.3a).
         """
         arrangement = options.arrangement
+        out_of_place = arrangement.faults(
+            arrangement.holders, arrangement.placed, arrangement.stray_ids,
+        )
         # Out of place -- a sharer on a unique role's space, or a side a
         # time out or halftime left scattered (docs/rules-2.0.md 4.9d):
-        # the first move its options offer, each leaving fewer out of
-        # place, until none is.
-        if arrangement.refusal(arrangement.holders, arrangement.placed):
+        # each change its options offer leaves fewer out of place, and
+        # Dinky takes the first, a player sent back into the zone of
+        # their own role before one given a new role, until none is.
+        if out_of_place:
             for player_id in (*options.must_move, *arrangement.fielded):
-                for edit in arrangement.edits(player_id):
-                    if edit.kind == "move":
-                        return edit.answer()
-        if options.finish_refusal is None:
-            return None
-        if arrangement.refusal(arrangement.holders, arrangement.placed):
+                changes = [
+                    edit for edit in arrangement.edits(player_id)
+                    if edit.kind in ("move", "role")
+                ]
+                home = [
+                    edit for edit in changes
+                    if edit.kind == "move"
+                    and edit.space.takes.value
+                    == arrangement.role_of(player_id)
+                ]
+                if changes:
+                    return (home or changes)[0].answer()
+        if options.finish_refusal is None or out_of_place:
             return None
         for _, player_id in arrangement.holders:
             space = arrangement.standing_of(player_id)

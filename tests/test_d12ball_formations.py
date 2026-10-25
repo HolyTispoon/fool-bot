@@ -992,6 +992,28 @@ class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Zone Assignment", labels)
         self.assertNotIn("Space Positioning", labels)
 
+    def test_a_stray_is_shown_in_their_role_and_may_stay(self) -> None:
+        cog, game, match = self.build()
+        # Open play left the Defender on home's free midfield space.
+        defender = fielded(match, PlayerRole.DEFENDER)
+        empty = next(
+            index for index in range(3)
+            if not set(match.board.spaces[Zone.MIDFIELD][index])
+            & set(match.home.field_players)
+        )
+        match.board.place_meeple(defender, Zone.MIDFIELD, empty)
+        game.match_state = match.to_dict()
+        name = cog.engine.format_roster_player(defender)
+        self.assertTrue(any(
+            label.startswith(f"{name} - Defender,")
+            and label.endswith("(out of zone)")
+            for label in self.labels(CoachingArrangeView(cog, game.game_id))
+        ))
+        labels = self.labels(
+            CoachingArrangePlayerView(cog, game.game_id, defender),
+        )
+        self.assertIn("Stay here - Midfielder", labels)
+
     def test_the_view_opens_on_the_side_as_it_stands(self) -> None:
         cog, game, match = self.build()
         labels = self.labels(CoachingArrangeView(cog, game.game_id))

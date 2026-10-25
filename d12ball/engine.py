@@ -4808,12 +4808,14 @@ class RulesEngine:
         side: TeamSide,
         holders: Mapping[str, str],
         placed: Sequence[tuple[str, Zone, int]],
+        strays: Collection[str] = (),
     ) -> str:
         """
         Set a 2.0 side up from its roles (`MatchState.arrange_side`,
         docs/rules-2.0.md 4.3) and say where everybody stands. Who
         comes on before kickoff goes to the ordinary bench, as a setup
         substitution does (`CoachingOccasion.retires_outgoing_players`).
+        `strays` keep their role outside its zone for now (4.9d).
         """
         side = TeamSide(side)
         occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
@@ -4822,24 +4824,36 @@ class RulesEngine:
             player_id: match.board.meeple_position(player_id)
             for player_id, _, _ in placed
         }
+        was = dict(match.formation_roles.get(side.value, {}))
         swaps = match.arrange_side(
             side,
             holders,
             placed,
             spreadable,
             retire_outgoing=occasion.retires_outgoing_players,
+            strays=strays,
         )
-        # A move that only puts a scattered side partly right
-        # (docs/rules-2.0.md 4.9d) changes no role and makes no shape,
-        # so it says who moved and how many are still out of place.
+        # A change that only puts a scattered side partly right
+        # (docs/rules-2.0.md 4.9d) makes no shape yet, so it says who
+        # moved or took a new role, and how many are still out of place.
         out_of_place = match.standing_arrangement_faults(side, spreadable)
         if out_of_place:
-            lines = [
-                f"{self.format_player_label(match, self.get_player_definition(player_id))} "
-                f"moves to {space_label(zone, space_index, match.board)}."
-                for player_id, zone, space_index in placed
-                if standing.get(player_id) != (zone, space_index)
-            ]
+            roles = match.formation_roles[side.value]
+            lines = []
+            for player_id, zone, space_index in placed:
+                label = self.format_player_label(
+                    match, self.get_player_definition(player_id),
+                )
+                if standing.get(player_id) != (zone, space_index):
+                    lines.append(
+                        f"{label} moves to "
+                        f"{space_label(zone, space_index, match.board)}."
+                    )
+                elif was.get(player_id) != roles.get(player_id):
+                    lines.append(
+                        f"{label} takes the {roles[player_id].title()} "
+                        "role where they stand."
+                    )
             lines.append(f"{out_of_place} still out of place.")
             return "\n".join(lines)
 
@@ -4873,33 +4887,6 @@ class RulesEngine:
                 f"{', '.join(names)}"
             )
         return "\n".join(lines)
-
-    def settle_arrangement(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        side: TeamSide,
-    ) -> Optional[str]:
-        """
-        **Give a 2.0 side the roles of where it stands** as its coach
-        finishes a Coaching Choice (docs/rules-2.0.md 4.9d): a player a
-        time out or halftime left outside their zone, and not moved
-        since, takes the standard role of the zone they stand in. Says
-        the side's new line-up, or None where everybody already stands
-        in their own zone -- every change a coach made through
-        `apply_arrangement` has already settled it.
-        """
-        side = TeamSide(side)
-        if side.value not in match.formation_roles:
-            return None
-        setup = match.setup_for_side(side)
-        holders, placed = match.current_arrangement(side)
-        if all(
-            setup.assigned_zone(player_id) == zone
-            for player_id, zone, _ in placed
-        ):
-            return None
-        return self.apply_arrangement(game, match, side, holders, placed)
 
     def shape_name(
         self,
@@ -5049,9 +5036,10 @@ class RulesEngine:
             side, self.spreadable_among(game, match.arrangement_pool(side)),
         ):
             return (
-                "Some players are out of place: nobody but an Ooze may "
-                "share a space, and no zone may hold more players than it "
-                "has spaces. Move them with Arrange team before finishing."
+                "Some players are out of place: everybody stands in the "
+                "zone of their role, nobody but an Ooze shares a space, "
+                "and no zone holds more players than it has spaces. Put "
+                "them right with Arrange team before finishing."
             )
         if match.kickoff_space_occupied_by(side):
             return None

@@ -292,8 +292,13 @@ class CoachingView(SafeView):
             ""
             if space is None
             else (
-                f" - {space.takes.value.title()}, "
+                f" - {arrangement.role_of(player_id).title()}, "
                 f"{space_label(space.zone, space.space_index, match.board)}"
+                + (
+                    " (out of zone)"
+                    if player_id in arrangement.stray_ids
+                    else ""
+                )
             )
         )
         return f"{self.cog.engine.format_roster_player(player_id)}{where}"[:80]
@@ -740,9 +745,15 @@ class CoachingArrangeView(CoachingView):
             space = arrangement.standing_of(player_id)
             player = self.cog.engine.get_player_definition(player_id)
             lines.append(
-                f"{space.takes.value.title()}: "
+                f"{arrangement.role_of(player_id).title()}: "
                 f"{self.cog.player_label(match, player)} "
-                f"({space_label(space.zone, space.space_index, match.board)})"
+                f"({space_label(space.zone, space.space_index, match.board)}"
+                + (
+                    ", out of their zone"
+                    if player_id in arrangement.stray_ids
+                    else ""
+                )
+                + ")"
             )
         lines.append(
             "Who do you want to change? Each change is made to the side "
@@ -831,6 +842,8 @@ class CoachingArrangePlayerView(CoachingView):
                 f"Move to {space_label(space.zone, space.space_index, match.board)}"
                 f" - {space.takes.value.title()}"
             )
+        elif edit.kind == "role":
+            label = f"Stay here - {edit.space.takes.value.title()}"
         elif edit.kind == "trade":
             label = "Trade with " + self.standing_label(
                 match, arrangement, edit.other,

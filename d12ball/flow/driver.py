@@ -1019,10 +1019,12 @@ def _answer_coaching_hub(
                 "Only a 2.0 side is arranged by its roles, and only in a "
                 "Coaching Choice that offers positioning."
             )
-        holders, placed = _arrangement(arrangement)
+        holders, placed, strays = _arrangement(arrangement)
         return StepResult(
             narration=[
-                engine.apply_arrangement(game, match, side, holders, placed)
+                engine.apply_arrangement(
+                    game, match, side, holders, placed, strays,
+                )
             ],
             board_changed=True,
         )
@@ -1086,12 +1088,14 @@ def _answer_coaching_hub(
 
 def _arrangement(
     value: Optional[Mapping[str, object]],
-) -> tuple[dict[str, str], list[tuple[str, Zone, int]]]:
+) -> tuple[dict[str, str], list[tuple[str, Zone, int]], list[str]]:
     """
     A 2.0 arrangement off the wire, as the model's own types:
     `{"fullback": id, "playmaker": id, "striker": id, "placed":
-    [{"player_id": id, "zone": zone, "space_index": n}, ...]}` into the
-    holders keyed by role and the placements `arrange_side` takes. A
+    [{"player_id": id, "zone": zone, "space_index": n}, ...],
+    "strays": [id, ...]}` into the holders keyed by role, the
+    placements `arrange_side` takes, and the players who keep their
+    role outside its zone (docs/rules-2.0.md 4.9d; absent, nobody). A
     shape that is not that is refused here; whether the arrangement is
     legal is `MatchState.arrange_side`'s.
     """
@@ -1109,12 +1113,13 @@ def _arrangement(
             )
             for entry in value["placed"]
         ]
+        strays = [str(player_id) for player_id in value.get("strays", [])]
     except (KeyError, TypeError, ValueError):
         _refuse(
             "An arrangement names a Fullback, a Playmaker and a Striker, "
             "and where each other player is placed."
         )
-    return holders, placed
+    return holders, placed, strays
 
 
 def _window_is(match: MatchState, side: TeamSide) -> None:

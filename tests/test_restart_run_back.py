@@ -327,12 +327,15 @@ class ScatteredSideTests(unittest.TestCase):
         arrangement = prompt.options.arrangement
         before = match.standing_arrangement_faults(HOME)
         defender = fielded(match, PlayerRole.DEFENDER)
-        moves = arrangement.edits(defender)
-        self.assertTrue(moves)
-        self.assertTrue(all(edit.kind == "move" for edit in moves))
+        changes = arrangement.edits(defender)
+        self.assertTrue(changes)
+        self.assertTrue(
+            all(edit.kind in ("move", "role", "trade") for edit in changes)
+        )
+        move = next(edit for edit in changes if edit.kind == "move")
         outcome = driver.apply(engine, game, match, driver.Action(
             PromptKind.COACHING_HUB, "arrange",
-            {"side": "home", "arrangement": moves[0].answer()},
+            {"side": "home", "arrangement": move.answer()},
         ))
         self.assertNotIsInstance(outcome, driver.Refusal, outcome)
         after = match.standing_arrangement_faults(HOME)
@@ -344,21 +347,20 @@ class ScatteredSideTests(unittest.TestCase):
     def test_a_change_that_puts_nobody_right_is_refused(self) -> None:
         engine, game, match, _ = self.open_halftime()
         holders, placed = match.current_arrangement(HOME)
-        first, zone, index = placed[0]
-        # Onto another crowded space of the same zone: no fewer out of
-        # place.
         before = match.to_dict()
+        # The side as it stands, every stray keeping their role: nobody
+        # fewer out of place.
         with self.assertRaises(RuleRefusal):
-            match.arrange_side(HOME, holders, [
-                (player, zone, index) for player, _, _ in placed
-            ])
+            match.arrange_side(
+                HOME, holders, placed, strays=match.arrangement_strays(HOME),
+            )
         self.assertEqual(match.to_dict(), before)
 
-    def test_finishing_gives_the_roles_of_where_they_stand(self) -> None:
+    def stray_defender(self):
+        """A Defender open play left in a midfield space with room: out
+        of their zone, and nothing else out of place."""
         engine, game, match = kickoff(Edition.TWO, 9)
         defender = fielded(match, PlayerRole.DEFENDER)
-        # Home's midfield has room for one more: the Defender is out
-        # of their zone but nobody is out of place.
         empty = next(
             index for index in range(3)
             if not set(match.board.spaces[Zone.MIDFIELD][index])
@@ -368,14 +370,69 @@ class ScatteredSideTests(unittest.TestCase):
         windows.open_substitution_window(
             engine, game, match, HOME, CoachingOccasion.HALFTIME,
         )
-        self.assertIsNone(engine.coaching_finish_refusal(match, HOME, game))
-        outcome = driver.apply(engine, game, match, driver.Action(
+        return engine, game, match, defender
+
+    def test_a_stray_keeps_their_role_until_the_coach_decides(self) -> None:
+        engine, game, match, defender = self.stray_defender()
+        self.assertEqual(match.arrangement_strays(HOME), [defender])
+        self.assertEqual(engine.role_of(match, defender), PlayerRole.DEFENDER)
+        self.assertIsNotNone(engine.coaching_finish_refusal(match, HOME, game))
+        refused = driver.apply(engine, game, match, driver.Action(
             PromptKind.COACHING_HUB, "done", {"side": "home"},
         ))
+        self.assertIsInstance(refused, driver.Refusal)
+
+    def apply_edit(self, engine, game, match, edit):
+        outcome = driver.apply(engine, game, match, driver.Action(
+            PromptKind.COACHING_HUB, "arrange",
+            {"side": "home", "arrangement": edit.answer()},
+        ))
         self.assertNotIsInstance(outcome, driver.Refusal, outcome)
+        done = driver.apply(engine, game, match, driver.Action(
+            PromptKind.COACHING_HUB, "done", {"side": "home"},
+        ))
+        self.assertNotIsInstance(done, driver.Refusal, done)
+
+    def test_a_stray_sent_back_keeps_their_role(self) -> None:
+        engine, game, match, defender = self.stray_defender()
+        arrangement = pending_prompt(engine, game, match).options.arrangement
+        back = next(
+            edit for edit in arrangement.edits(defender)
+            if edit.kind == "move" and edit.space.zone == Zone.HOME_ZONE
+        )
+        self.assertEqual(back.space.takes, PlayerRole.DEFENDER)
+        self.apply_edit(engine, game, match, back)
+        self.assertEqual(engine.role_of(match, defender), PlayerRole.DEFENDER)
+        self.assertEqual(space_of(match, defender)[0], Zone.HOME_ZONE)
+        self.assertEqual(engine.shape_name(match, HOME), "2-2-2")
+
+    def test_a_stray_given_a_new_role_stays_where_they_stand(self) -> None:
+        engine, game, match, defender = self.stray_defender()
+        standing = space_of(match, defender)
+        arrangement = pending_prompt(engine, game, match).options.arrangement
+        stay = next(
+            edit for edit in arrangement.edits(defender)
+            if edit.kind == "role"
+        )
+        self.assertEqual(stay.space.takes, PlayerRole.MIDFIELDER)
+        self.apply_edit(engine, game, match, stay)
+        self.assertEqual(space_of(match, defender), standing)
         self.assertEqual(engine.role_of(match, defender), PlayerRole.MIDFIELDER)
         self.assertEqual(match.home.assigned_zone(defender), Zone.MIDFIELD)
         self.assertEqual(engine.shape_name(match, HOME), "1-3-2")
+
+    def test_only_a_change_that_deals_with_the_stray_is_offered(self) -> None:
+        engine, game, match, defender = self.stray_defender()
+        arrangement = pending_prompt(engine, game, match).options.arrangement
+        winger = fielded(match, PlayerRole.WINGER)
+        # Nothing else is out of place: a change to somebody else is
+        # offered only where it deals with the stray too -- a trade with
+        # them, each taking the role of where they then stand.
+        changes = arrangement.edits(winger)
+        self.assertTrue(changes)
+        for edit in changes:
+            self.assertEqual((edit.kind, edit.other), ("trade", defender))
+            self.assertEqual(edit.strays, ())
 
     def test_dinky_puts_a_scattered_side_right(self) -> None:
         engine, game, match, _ = self.open_halftime()
