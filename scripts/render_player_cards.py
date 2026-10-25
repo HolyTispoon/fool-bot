@@ -20,9 +20,12 @@ as a sheet of their own, with every row reversed so a duplex print
 lands each back behind its own front; see `cards.duplex_order`. Pass
 `--fronts-only` for the one-sided run these used to be.
 
-`--edition 2.0` draws D12 Ball 2.0's cards, which name no role (see the
-module docstring of `d12ball/player_cards.py`); the files are named as
-1.0's, so give them a folder of their own.
+`--edition 2.0` draws D12 Ball 2.0's cards, which name no role and lie
+on their side, 3.5 x 2.5in (`render_landscape_card` in
+`d12ball/player_cards.py`); the files are named as 1.0's, so give them
+a folder of their own. On the sheets and the Avery pages each is turned
+a quarter (`sheet_face`), so a 2.0 sheet is the 1.0 page, three by
+three, and prints duplex the same way.
 
 What the back is still waiting on is an advanced *role* ability: the
 sheet's `Advanced` column is empty for all thirty-six, so the band
@@ -43,6 +46,7 @@ from d12ball.player_cards import (  # noqa: E402
     duplex_order,
     render_player_card,
     render_player_card_back,
+    sheet_face,
 )
 
 
@@ -149,7 +153,10 @@ def main() -> None:
 
         if args.sheet:
             sheet_path = args.out / f"{team.value}-sheet.png"
-            print_sheet(fronts, columns=TEAM_SHEET_COLUMNS).save(
+            print_sheet(
+                [sheet_face(card) for card in fronts],
+                columns=TEAM_SHEET_COLUMNS,
+            ).save(
                 sheet_path, dpi=(300, 300)
             )
             print(f"wrote {sheet_path}")
@@ -157,13 +164,16 @@ def main() -> None:
             if backs:
                 back_sheet = args.out / f"{team.value}-advanced-sheet.png"
                 print_sheet(
-                    duplex_order(backs, TEAM_SHEET_COLUMNS),
+                    duplex_order(
+                        [sheet_face(card, back=True) for card in backs],
+                        TEAM_SHEET_COLUMNS,
+                    ),
                     columns=TEAM_SHEET_COLUMNS,
                 ).save(back_sheet, dpi=(300, 300))
                 print(f"wrote {back_sheet}")
 
-        all_fronts += fronts
-        all_backs += backs
+        all_fronts += [sheet_face(card) for card in fronts]
+        all_backs += [sheet_face(card, back=True) for card in backs]
 
     if args.sheet and not args.no_avery:
         # The same cards on Avery Presta 95328 stock, beside the sheets

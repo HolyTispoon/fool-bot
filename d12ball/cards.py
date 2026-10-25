@@ -219,6 +219,9 @@ class Pen:
     """
 
     def __init__(self, size: tuple[int, int], background: str) -> None:
+        # The trimmed card's own size: a 2.0 player card is a poker
+        # card turned on its side (`player_cards.LANDSCAPE`).
+        self.size = size
         self.image = Image.new(
             "RGB",
             (round(px(size[0])), round(px(size[1]))),
@@ -310,8 +313,8 @@ class Pen:
             (
                 px(FRAME + inset),
                 px(FRAME + inset),
-                px(CARD_WIDTH - FRAME - inset),
-                px(CARD_HEIGHT - FRAME - inset),
+                px(self.size[0] - FRAME - inset),
+                px(self.size[1] - FRAME - inset),
             ),
             radius=px(CORNER - inset),
             fill=255,
@@ -416,14 +419,12 @@ class Pen:
         return wrap_text(self.draw, text, face, px(max_width))
 
     def finish(self, bleed: bool, background: str) -> Image.Image:
-        card = self.image.resize(
-            (CARD_WIDTH, CARD_HEIGHT), Image.Resampling.LANCZOS
-        )
+        card = self.image.resize(self.size, Image.Resampling.LANCZOS)
         if not bleed:
             return card
         sheet = Image.new(
             "RGB",
-            (CARD_WIDTH + BLEED * 2, CARD_HEIGHT + BLEED * 2),
+            (self.size[0] + BLEED * 2, self.size[1] + BLEED * 2),
             background,
         )
         sheet.paste(card, (BLEED, BLEED))

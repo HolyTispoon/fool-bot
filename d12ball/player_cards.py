@@ -44,18 +44,12 @@ skill ("High defensive skill.") prints that sentence, as the sheet words
 it; the numbers above it say how high. A player with no special
 ability prints their role's sentence on both faces.
 
-**D12 Ball 2.0 has cards of its own** (the author, 2026-10-24), drawn
-by the same functions with `edition=Edition.TWO`. In 2.0 a player has
-no role -- the formation's zones hold the roles, and a role token laid
-on the card says who holds which (docs/rules-2.0.md section 4,
-`d12ball/role_tokens.py`) -- and there are no role abilities (4.7). So
-a 2.0 card names no role anywhere: no line under the name, which is
-centred in the band; no initials in the corner index, whose species
-badge takes the column alone; and no role row in the ability band. The
-front's band is the species' row alone and the portrait takes the
-height; the back's is the player's special ability over it, set the
-band's full width with no badge, or the species' row alone for a
-player who has none.
+**D12 Ball 2.0 has cards of its own** (the author, 2026-10-24), asked
+for with `edition=Edition.TWO`: a poker card on its side
+(`render_landscape_card`, 2026-10-25), which names no role, since in
+2.0 the formation's zones hold the roles and a role token laid on the
+card says who holds which (docs/rules-2.0.md section 4,
+`d12ball/role_tokens.py`).
 """
 from dataclasses import dataclass
 
@@ -245,20 +239,13 @@ def draw_header(
     ink = high_contrast_ink(color)
     name_left = FRAME + NAME_INSET
     name_right = CARD_WIDTH - FRAME - NAME_INSET
-    # A 2.0 card has no line under the name (`header_subtitle`), so the
-    # name takes the middle of the band.
     pen.text(
-        (
-            (name_left + name_right) / 2,
-            FRAME + 50 if subtitle else FRAME + HEADER_HEIGHT / 2,
-        ),
+        ((name_left + name_right) / 2, FRAME + 50),
         player.name,
         fitted_name(pen, player.name, name_right - name_left),
         ink,
         anchor="mm",
     )
-    if not subtitle:
-        return
     pen.text(
         ((name_left + name_right) / 2, FRAME + 102),
         subtitle,
@@ -391,16 +378,15 @@ def draw_corner_index(
     )
 
 
-def header_subtitle(player: PlayerDefinition, edition: Edition = Edition.ONE) -> str:
+def header_subtitle(player: PlayerDefinition) -> str:
     """
-    The line under the name: the player's role, the same on both faces
-    -- and nothing on a 2.0 card, where a player has no role.
+    The line under the name: the player's role, the same on both faces.
 
     It used to end "· ADVANCED" on the back; the ribbon says that now
     (`draw_ribbon`), across the card, so the role line says the role
     alone and is set at full size again (the author, 2026-10-13).
     """
-    return player.role.value.upper() if edition == Edition.ONE else ""
+    return player.role.value.upper()
 
 
 def draw_ribbon(pen: Pen) -> None:
@@ -482,6 +468,8 @@ def draw_stats(
     profile: "RoleProfile | CardSkills",
     top: float,
     standard: "RoleProfile | None" = None,
+    left: float = MARGIN,
+    right: float = CARD_WIDTH - MARGIN,
 ) -> None:
     """
     The two skills on one row, each number centred in its half with
@@ -501,16 +489,19 @@ def draw_stats(
     a gold triangle pointing the way it went and how far, "▲ +2" (the
     author, 2026-10-13) -- so what the back adds is read off the row
     rather than by turning the card over to compare.
+
+    `left` and `right` are the panel's edges: the card's margins, or a
+    2.0 card's text column (`draw_landscape_face`).
     """
     pen.rect(
-        (MARGIN, top, CARD_WIDTH - MARGIN, top + STATS_HEIGHT),
+        (left, top, right, top + STATS_HEIGHT),
         radius=18,
         fill=PANEL_COLOR,
         outline=PANEL_EDGE,
         width=2,
     )
 
-    column_width = (CARD_WIDTH - MARGIN * 2) / 2
+    column_width = (right - left) / 2
     label_face = font(STATS_LABEL_SIZE, bold=True)
     value_face = font(STATS_VALUE_SIZE, bold=True)
     center_y = top + STATS_HEIGHT / 2
@@ -523,7 +514,7 @@ def draw_stats(
         ("DEFENSE", str(profile.defense), CARD_DEFENSE_COLOR, 1),
     )
     for index, (label, value, color, side) in enumerate(columns):
-        cx = MARGIN + column_width * (index + 0.5)
+        cx = left + column_width * (index + 0.5)
         pen.text((cx, center_y), value, value_face, color, anchor="mm")
         value_half = pen.text_size(value, value_face)[0] / 2
         pen.text(
@@ -545,8 +536,8 @@ def draw_stats(
                 )
     pen.line(
         [
-            (MARGIN + column_width, top + 14),
-            (MARGIN + column_width, top + STATS_HEIGHT - 14),
+            (left + column_width, top + 14),
+            (left + column_width, top + STATS_HEIGHT - 14),
         ],
         fill=PANEL_EDGE,
         width=2,
@@ -670,12 +661,9 @@ def role_badge(role: PlayerRole, team: Team) -> Image.Image | None:
 _ROLE_BADGES: dict[tuple[PlayerRole, Team], Image.Image | None] = {}
 
 
-def ability_text_width(badged: bool = True) -> float:
-    """The room a band row leaves its text: right of the badge, or the
-    band's whole width for a 2.0 card's special ability, which has no
-    role badge in front of it."""
-    width = CARD_WIDTH - MARGIN * 2 - 20
-    return width - BAND_BADGE - BAND_BADGE_GAP if badged else width
+def ability_text_width() -> float:
+    """The room a band row leaves its text, right of the badge."""
+    return CARD_WIDTH - MARGIN * 2 - 20 - BAND_BADGE - BAND_BADGE_GAP
 
 
 @dataclass(frozen=True)
@@ -695,7 +683,6 @@ def ability_band(
     ability: str,
     species_name: str,
     portrait_top: float = PORTRAIT_TOP,
-    badged: bool = True,
 ) -> AbilityBand:
     """
     The sentence wrapped beside its badge at the largest size, up to
@@ -709,15 +696,9 @@ def ability_band(
     runs to five lines or more -- special abilities on the back, today
     -- come down a point at a time until the portrait keeps its floor,
     and stop at ABILITY_MIN_SIZE whatever that leaves.
-
-    A 2.0 card may have no sentence at all -- the front always, the
-    back where the player has no special ability -- and its band is
-    then the species' row alone.
     """
-    if not ability:
-        return AbilityBand([], ABILITY_SIZE, BAND_TOP_PAD + (BAND_BADGE if species_name else 0))
     for size in range(ABILITY_SIZE, ABILITY_MIN_SIZE - 1, -1):
-        lines = pen.wrapped(ability, font(size), ability_text_width(badged))
+        lines = pen.wrapped(ability, font(size), ability_text_width())
         height = BAND_TOP_PAD + row_height(pen, size, len(lines))
         if species_name:
             height += BAND_ROW_GAP + BAND_BADGE
@@ -775,7 +756,6 @@ def draw_ability(
     band: AbilityBand,
     species_name: str,
     top: float,
-    edition: Edition = Edition.ONE,
 ) -> None:
     """
     The ability band, the same on both faces: the role's badge beside
@@ -792,10 +772,6 @@ def draw_ability(
     The band is laid out from the bottom edge up, so the species row is
     in the same place on every card of either face, whatever the
     sentence above it runs to.
-
-    A 2.0 card carries no role badge: its special ability, where it has
-    one, is set from the band's left edge, and where it has none the
-    band is the species' row alone.
     """
     pen.line(
         [(MARGIN + 10, top), (CARD_WIDTH - MARGIN - 10, top)],
@@ -809,24 +785,19 @@ def draw_ability(
     text_x = MARGIN + 10 + BAND_BADGE + BAND_BADGE_GAP
     y = top + BAND_TOP_PAD
 
-    if band.lines:
-        line_x = text_x
-        if edition == Edition.ONE:
-            badge = role_badge(player.role, team)
-            if badge is not None:
-                pen.paste(
-                    badge, (badge_x, y + BAND_BADGE / 2), (BAND_BADGE, BAND_BADGE)
-                )
-        else:
-            line_x = MARGIN + 10
-        text_y = y + first_line_offset(pen, band.size)
-        for line in band.lines:
-            pen.text((line_x, text_y), line, body, INK, anchor="la")
-            text_y += step
-        y += row_height(pen, band.size, len(band.lines)) + BAND_ROW_GAP
+    badge = role_badge(player.role, team)
+    if badge is not None:
+        pen.paste(
+            badge, (badge_x, y + BAND_BADGE / 2), (BAND_BADGE, BAND_BADGE)
+        )
+    text_y = y + first_line_offset(pen, band.size)
+    for line in band.lines:
+        pen.text((text_x, text_y), line, body, INK, anchor="la")
+        text_y += step
 
     if not species_name:
         return
+    y += row_height(pen, band.size, len(band.lines)) + BAND_ROW_GAP
     center_y = y + BAND_BADGE / 2
     draw_species_badge(pen, player.species, (badge_x, center_y))
     pen.text(
@@ -936,7 +907,6 @@ def draw_face(
     skills: "RoleProfile | CardSkills",
     ability: str,
     standard: "RoleProfile | None" = None,
-    edition: Edition = Edition.ONE,
 ) -> None:
     """
     Everything on a face but its edge, top to bottom: the header, the
@@ -948,8 +918,8 @@ def draw_face(
     changes.
     """
     color = TEAM_COLORS[Team(team)]
-    draw_header(pen, player, team, color, header_subtitle(player, edition))
-    draw_corner_index(pen, player, skills, edition)
+    draw_header(pen, player, team, color, header_subtitle(player))
+    draw_corner_index(pen, player, skills)
     draw_stats(pen, skills, FRAME + HEADER_HEIGHT + STATS_TOP_GAP, standard)
 
     portrait_top = PORTRAIT_TOP
@@ -958,14 +928,12 @@ def draw_face(
         portrait_top += RIBBON_GAP + RIBBON_HEIGHT
 
     species_name = species_ability(player.species).get("name", "")
-    band = ability_band(
-        pen, ability, species_name, portrait_top, badged=edition == Edition.ONE
-    )
+    band = ability_band(pen, ability, species_name, portrait_top)
     ability_top = CARD_HEIGHT - FRAME - ABILITY_BOTTOM_PAD - band.height
     draw_portrait(
         pen, player, portrait_top + PORTRAIT_GAP, ability_top - PORTRAIT_GAP
     )
-    draw_ability(pen, player, team, band, species_name, ability_top, edition)
+    draw_ability(pen, player, team, band, species_name, ability_top)
 
 
 def render_player_card(
@@ -976,8 +944,8 @@ def render_player_card(
     edition: Edition = Edition.ONE,
 ) -> Image.Image:
     """
-    One player's card, printed as a member of `team`, for `edition`
-    (see the module docstring for what a 2.0 card leaves off). A dual-membership
+    One player's card, printed as a member of `team`, for `edition` --
+    a 2.0 card is the landscape one (`render_landscape_card`). A dual-membership
     player -- every player, since the 2026-08-17 eight-team split -- has
     no team of their own to read this off (`PlayerDefinition` carries
     none), so which of their two rosters the card is drawn for is the
@@ -985,10 +953,11 @@ def render_player_card(
     belongs to is just calling this twice with the two teams
     `PlayerCatalog.teams` names them under -- no special-casing.
     """
+    if edition == Edition.TWO:
+        return render_landscape_card(catalog, player, team, bleed)
     profile = catalog.effective_profile(player)
     pen = start_card(TEAM_COLORS[Team(team)])
-    ability = profile.ability if edition == Edition.ONE else ""
-    draw_face(pen, player, team, profile, ability, edition=edition)
+    draw_face(pen, player, team, profile, profile.ability)
     return pen.finish(bleed, CARD_FACE)
 
 
@@ -1011,15 +980,16 @@ def render_player_card_back(
     as the front (the author, 2026-09-27), with the ribbon under the
     stats and a mark beside each skill it changes (2026-10-13).
     """
+    if edition == Edition.TWO:
+        return render_landscape_card(catalog, player, team, bleed, advanced=True)
     pen = start_card(TEAM_COLORS[Team(team)])
     draw_face(
         pen,
         player,
         team,
         advanced_card_skills(catalog, player),
-        advanced_card_ability(catalog, player, edition),
+        advanced_card_ability(catalog, player),
         standard=catalog.effective_profile(player),
-        edition=edition,
     )
     return pen.finish(bleed, CARD_FACE)
 
@@ -1031,3 +1001,221 @@ def render_player_card_back(
 # since the maneuver and reference sheets print duplex too) is imported
 # here so the name a team's sheet was built with still answers.
 TEAM_SHEET_COLUMNS = DUPLEX_COLUMNS
+
+
+# **A 2.0 card is a poker card on its side** (the author, 2026-10-25):
+# 3.5in across and 2.5in tall, so a zone's cards lie in a column under
+# their zone on the 2.0 zone board, each whole, and a coach reads every
+# one without lifting it (docs/design/cards.md, "The 2.0 player
+# cards"). The header and the corner index are the portrait card's,
+# the name set beside the index rather than centred, so it still shows
+# where a token or the next card covers the right of the card; under
+# them a text column on the left and the portrait on the right.
+LANDSCAPE = (CARD_HEIGHT, CARD_WIDTH)
+LANDSCAPE_TEXT_LEFT = MARGIN + 24
+LANDSCAPE_TEXT_RIGHT = 560
+LANDSCAPE_NAME_GAP = 26
+LANDSCAPE_NAME_SIZE = 60
+LANDSCAPE_SPECIES_SIZE = 34
+# The species' short rule under its name on the front, which has the
+# room the portrait card spent on the role's ability; the back keeps
+# that room for the special ability and names the species alone.
+LANDSCAPE_RULE_SIZE = 25
+LANDSCAPE_ABILITY_SIZE = 32
+LANDSCAPE_ABILITY_MIN_SIZE = 22
+LANDSCAPE_BOTTOM_PAD = 38
+
+# Where a role token lies on a 2.0 card, in inches from the card's
+# top-left corner to the token's: in the bottom-right corner, over the
+# portrait's foot, where it covers no number and no word. The 2.0 zone
+# board marks the same spot on each guide (`boards.draw_token_spot`).
+LANDSCAPE_TOKEN_SPOT = (2.62, 1.62)
+
+
+def draw_landscape_header(
+    pen: Pen, player: PlayerDefinition, team: Team, color: str
+) -> None:
+    """
+    The team-coloured band across the top: the corner index's room on
+    the left, the name beside it, and the team's emoji on the right.
+    """
+    width = LANDSCAPE[0]
+    pen.rect_in_card((FRAME, FRAME, width - FRAME, FRAME + HEADER_HEIGHT), color)
+    emoji_x = width - FRAME - 78
+    emoji = corner_mark(team, color)
+    if emoji is not None:
+        pen.paste(
+            emoji, (emoji_x, FRAME + HEADER_HEIGHT / 2), (HEADER_EMOJI, HEADER_EMOJI)
+        )
+    name_left = INDEX_RIGHT + LANDSCAPE_NAME_GAP
+    name_right = emoji_x - HEADER_EMOJI / 2 - LANDSCAPE_NAME_GAP
+    pen.text(
+        (name_left, FRAME + HEADER_HEIGHT / 2),
+        player.name,
+        fitted_bold_font(
+            pen,
+            player.name,
+            name_right - name_left,
+            max_size=LANDSCAPE_NAME_SIZE,
+            min_size=22,
+        )
+        or font(22, bold=True),
+        high_contrast_ink(color),
+        anchor="lm",
+    )
+
+
+def draw_landscape_portrait(
+    pen: Pen, player: PlayerDefinition, box: tuple[float, float, float, float]
+) -> None:
+    """The portrait, centred in `box` and capped as the portrait card's
+    is (`PORTRAIT_MAX_SCALE`)."""
+    portrait = load_player_portrait(player.name)
+    if portrait is None:
+        return
+    left, top, right, bottom = box
+    scale = min(
+        (right - left) / portrait.width,
+        (bottom - top) / portrait.height,
+        PORTRAIT_MAX_SCALE,
+    )
+    pen.paste(
+        portrait,
+        ((left + right) / 2, (top + bottom) / 2),
+        (portrait.width * scale, portrait.height * scale),
+    )
+
+
+def draw_landscape_species(
+    pen: Pen, player: PlayerDefinition, rule: bool, right: float
+) -> float:
+    """
+    The species' badge and its ability's name at the foot of the text
+    column, and on the front its short rule under them (`rule`).
+    Laid out from the bottom up, so the badge is in the same place on
+    every card with the same rule; answers the block's top, which is
+    as far down as the special ability may run.
+    """
+    species = species_ability(player.species)
+    name = species.get("name", "")
+    if not name:
+        return LANDSCAPE[1] - FRAME - LANDSCAPE_BOTTOM_PAD
+    left = LANDSCAPE_TEXT_LEFT
+    rule_face = font(LANDSCAPE_RULE_SIZE)
+    step = line_height(pen, rule_face)
+    lines = (
+        pen.wrapped(species.get("ability_short", ""), rule_face, right - left)
+        if rule
+        else []
+    )
+    rule_height = len(lines) * step + (BAND_ROW_GAP if lines else 0)
+    top = LANDSCAPE[1] - FRAME - LANDSCAPE_BOTTOM_PAD - BAND_BADGE - rule_height
+    pen.line([(left, top - BAND_ROW_GAP), (right, top - BAND_ROW_GAP)], PANEL_EDGE, 2)
+    center_y = top + BAND_BADGE / 2
+    draw_species_badge(pen, player.species, (left + BAND_BADGE / 2, center_y))
+    pen.text(
+        (left + BAND_BADGE + BAND_BADGE_GAP, center_y),
+        name,
+        font(LANDSCAPE_SPECIES_SIZE, bold=True),
+        INK,
+        anchor="lm",
+    )
+    y = top + BAND_BADGE + BAND_ROW_GAP
+    for line in lines:
+        pen.text((left, y), line, rule_face, INK)
+        y += step
+    return top - BAND_ROW_GAP
+
+
+def render_landscape_card(
+    catalog: PlayerCatalog,
+    player: PlayerDefinition,
+    team: Team,
+    bleed: bool,
+    advanced: bool = False,
+) -> Image.Image:
+    """
+    **A D12 Ball 2.0 card**, either face, landscape. It names no role
+    -- in 2.0 the formation's zones hold the roles (docs/rules-2.0.md
+    section 4) and a role token laid on the card says which
+    (`LANDSCAPE_TOKEN_SPOT`). The front is the skills and the species
+    with its short rule; the advanced face, under its ribbon, is the
+    player's advanced skills, marked where they change, and their
+    special ability where they have one (`advanced_card_ability`).
+    """
+    color = TEAM_COLORS[Team(team)]
+    width, height = LANDSCAPE
+    pen = Pen(LANDSCAPE, CARD_FACE)
+    pen.rect(
+        (FRAME, FRAME, width - FRAME, height - FRAME),
+        radius=CORNER,
+        fill=CARD_FACE,
+        outline=color,
+        width=EDGE_WIDTH,
+    )
+    profile = catalog.effective_profile(player)
+    skills = advanced_card_skills(catalog, player) if advanced else profile
+    draw_landscape_header(pen, player, team, color)
+    draw_corner_index(pen, player, skills, Edition.TWO)
+
+    body_top = FRAME + HEADER_HEIGHT
+    left, right = LANDSCAPE_TEXT_LEFT, LANDSCAPE_TEXT_RIGHT
+    draw_landscape_portrait(
+        pen,
+        player,
+        (
+            right + PORTRAIT_GAP,
+            body_top + PORTRAIT_GAP,
+            width - FRAME - EDGE_WIDTH - PORTRAIT_GAP,
+            height - FRAME - PORTRAIT_GAP,
+        ),
+    )
+    top = body_top + STATS_TOP_GAP
+    draw_stats(
+        pen, skills, top, profile if advanced else None, left=left, right=right
+    )
+    y = top + STATS_HEIGHT
+    floor = draw_landscape_species(pen, player, rule=not advanced, right=right)
+    if not advanced:
+        return pen.finish(bleed, CARD_FACE)
+
+    y += RIBBON_GAP
+    pen.rect((left, y, right, y + RIBBON_HEIGHT), radius=10, fill=RIBBON_COLOR)
+    pen.text(
+        ((left + right) / 2, y + RIBBON_HEIGHT / 2),
+        "ADVANCED",
+        font(RIBBON_TEXT_SIZE, bold=True),
+        RIBBON_TEXT_COLOR,
+        anchor="mm",
+    )
+    y += RIBBON_HEIGHT + BAND_ROW_GAP
+    ability = advanced_card_ability(catalog, player, Edition.TWO)
+    if ability:
+        # The largest size the sentence fits the room above the species
+        # at, down to a floor it is set at whatever that leaves.
+        for size in range(LANDSCAPE_ABILITY_SIZE, LANDSCAPE_ABILITY_MIN_SIZE - 1, -1):
+            face = font(size)
+            lines = pen.wrapped(ability, face, right - left)
+            step = line_height(pen, face)
+            if y + len(lines) * step <= floor:
+                break
+        for line in lines:
+            pen.text((left, y), line, face, INK)
+            y += step
+    return pen.finish(bleed, CARD_FACE)
+
+
+def sheet_face(card: Image.Image, back: bool = False) -> Image.Image:
+    """
+    A 2.0 card as a print sheet lays it: a quarter turn, so the sheet
+    is the portrait card's own page, three across and three down, and
+    the Avery stock's die cut fits it. The back turns the other way: a
+    duplex printer flips the page about its long edge, which turns a
+    card lying on its side top to bottom, and the opposite quarter
+    turn puts the back upright behind its front.
+    """
+    if card.width <= card.height:
+        return card
+    return card.transpose(
+        Image.Transpose.ROTATE_270 if back else Image.Transpose.ROTATE_90
+    )

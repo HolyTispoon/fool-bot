@@ -707,35 +707,52 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
 
 ## The 2.0 player cards
 
-**D12 Ball 2.0 has player cards of its own** (the author, 2026-10-24):
-the same functions with `edition=Edition.TWO`, written by
+**D12 Ball 2.0 has player cards of its own** (the author, 2026-10-24),
+`render_player_card(..., edition=Edition.TWO)` and its back, written by
 `scripts/render_player_cards.py --edition 2.0`, and the kit's
-`player-cards-2.0/`. In 2.0 a player has no role -- the formation's zones
-hold the roles, and a role token laid on the card says who holds which
-([printed-tokens.md](printed-tokens.md), "Role tokens") -- and no role
-ability applies (rules-2.0 4.7). A 1.0 card would print a role and a role
-ability that are both wrong in 2.0, so a 2.0 card names no role
-anywhere:
+`player-cards-2.0/`. In 2.0 a player has no role -- the formation's
+zones hold the roles, and a role token laid on the card says who holds
+which ([printed-tokens.md](printed-tokens.md), "Role tokens") -- and no
+role ability applies (rules-2.0 4.7), so a 2.0 card names no role
+anywhere.
 
-- **No line under the name**, which takes the middle of the header band
-  (`header_subtitle` answers `""`).
-- **No initials in the corner index**: the species' icon takes the
-  column alone, larger (`INDEX_BADGE_ALONE`) and centred -- in ink on
-  the panel's white, with no square of the species' colour under it
-  (the author, 2026-10-25). The square was there so Slime green would
-  read on white; an ink icon reads on white for every species. The
-  ability band's species badge keeps its colour.
-- **No role row in the ability band.** The front's band is the species'
-  row alone, and the portrait takes the height the role's sentence had.
-  The back's is the player's special ability over the species' row, set
-  the band's full width (`ability_text_width(badged=False)`), since the
-  role's badge was what stood in front of it; a player with no special
-  ability has the species' row alone there too, where a 1.0 card falls
-  back on the role's sentence (`advanced_card_ability`).
+**It is a poker card on its side** (the author, 2026-10-25:
+`render_landscape_card`, `LANDSCAPE`), 3.5in across and 2.5in tall, so
+the 2.0 zone board can lay a zone's cards in a column under that zone
+of the field, each whole ([printed-boards.md](printed-boards.md), "The
+2.0 boards"). Still poker size, so the same sleeves and Avery stock.
 
-Everything else -- the skills, the advanced ribbon and its marks, the
-portrait, the edge -- is the 1.0 card's, and the 1.0 cards are
-byte-identical with the parameter in (all 144 faces, SHA-256 checked).
+- **The header is the portrait card's band**, with the corner index on
+  the left -- the two skills and the species' icon **in ink on the
+  panel's white, with no square of the species' colour under it**
+  (`INDEX_BADGE_ALONE`; the author, 2026-10-25: the square was there so
+  Slime green would read on white, and an ink icon reads for every
+  species) -- the **name left-aligned beside it** rather than centred,
+  and the team's emoji on the right.
+- **Under it, a text column on the left and the portrait on the
+  right.** The column is the skills panel (`draw_stats` with the
+  column's edges) and, at its foot, the species' badge and its
+  ability's name (`draw_landscape_species`). The front also prints the
+  species' short rule (`ability_short`, never shortened here) under its
+  name, in the room the portrait card spent on the role's ability; the
+  advanced face keeps that room for the ADVANCED ribbon and the
+  player's special ability, the largest size that fits above the
+  species down to a floor, and names the species alone. A player with
+  no special ability has nothing there, where a 1.0 card falls back on
+  the role's sentence (`advanced_card_ability`).
+- **A role token lies in the bottom-right corner** (`LANDSCAPE_TOKEN_SPOT`),
+  over the portrait's foot, where it covers no number and no word; the
+  zone board's slots mark the same spot.
+- **On a print sheet each card is turned a quarter** (`sheet_face`), so
+  a 2.0 team is the 1.0 page -- three across, three down, letter
+  upright -- and the Avery pages' die cut fits it. The back turns the
+  other way: a duplex printer flips the page about its long edge, which
+  turns a card lying on the page on its side top to bottom, and the
+  opposite quarter turn lands each back upright behind its front.
+
+The portrait card is untouched: the 1.0 faces, the maneuver cards and
+the reference cards are byte-identical (SHA-256 checked) with `Pen`
+now carrying its own size, which is how one `Pen` draws both shapes.
 `/d12ball team_reference` posts the 2.0 cards in a game playing 2.0
 (`maneuver_deck_applies`); the web app plays 1.0 alone and draws 1.0's.
 
