@@ -1224,7 +1224,9 @@ match as its saved dict, as D12 Ball's record does; its file,
   this turn, set when a turn begins -- and the squad leader's added the
   moment it patrols, `board.take_slot`, so the board at the turn's end
   draws its shield rather than a squad leader that reads as already hit;
-  the author, 2026-10-25), the hero its `patrol_slot`, and
+  the author, 2026-10-25: that armor absorbs damage at its own turn's
+  end, Bloodlust's 1, and the next turn's refresh renews it, armor
+  preventing damage turn by turn), the hero its `patrol_slot`, and
   the match `attacking`. Each is in its table with its fallback.
 - **Step 5 added four**, each with its fallback, since the save format is
   the contract: `attacked_this_turn` on a card and a hero (readiness

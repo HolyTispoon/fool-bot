@@ -513,6 +513,22 @@ class PatrolSlotTests(unittest.TestCase):
         self.assertEqual(match.active, 2)
         self.assertEqual(unit.armor, 1)
 
+    def test_the_squad_leaders_armor_takes_its_own_turns_end_damage(self) -> None:
+        """Bloodlust's 1 damage at the end of the turn lands on a squad
+        leader's armor first, and the next turn's refresh renews it (the
+        author, 2026-10-25): a 1/1 squad leader lives, its armor back."""
+        engine, game, match = main_phase()
+        messenger = put(match, 1, "timely_messenger")
+        messenger.modifiers.append({"kind": "bloodlust", "until": "end_of_turn"})
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
+        driver.apply(engine, game, match, Action(
+            PromptKind.PATROL, arguments={"assignment": {"squad_leader": messenger.ref}},
+        ))
+        self.assertEqual(match.active, 2)
+        self.assertIn(messenger, match.player(1).play)
+        self.assertEqual(messenger.damage, 0)
+        self.assertEqual(messenger.armor, 1)
+
 
 class CardTests(unittest.TestCase):
     def test_a_spell_needs_a_hero_and_goes_to_the_discard(self) -> None:
