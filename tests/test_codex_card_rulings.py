@@ -4054,6 +4054,40 @@ class PurpleRulingTests(unittest.TestCase):
         match.active = 2
         self.assertEqual(board.sentry_shields(engine, match, [fresh], StepResult()), [fresh])
 
+    def test_bloodlust_on_an_opponents_patrollers(self) -> None:
+        """Bloodlust's 1 damage at the end of the caster's turn lands on an
+        opponent's patrollers, which are patrollers then: their Sentry
+        prevents it and a squad leader's armor takes it -- unless the
+        turn's other damage has used either up first (the author,
+        2026-10-25)."""
+        def lust_at_turns_end(lusted: str, burned: tuple[str, ...] = ()):
+            engine, game, match = red_green()
+            put(match, 2, "sentry")
+            bodies = {"leader": put(match, 2, "older_brother", patrol="squad_leader"),
+                      "elite": put(match, 2, "older_brother", patrol="elite")}
+            bodies["leader"].armor = 1
+            for name in burned:
+                burn = put(match, 1, "bloodburn")
+                burn.runes["blood"] = 2
+                ability(engine, game, match, "bloodburn", burn.ref)
+                apply(engine, game, match, PromptKind.TARGET, target=f"2:{bodies[name].ref}")
+            body = bodies[lusted]
+            before = body.damage
+            body.modifiers.append({"kind": "bloodlust", "until": "end_of_turn"})
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+            apply(engine, game, match, PromptKind.PATROL, assignment={})
+            self.assertEqual(match.active, 2)
+            return body.damage - before
+
+        # The Sentry's prevention, while no damage has used it.
+        self.assertEqual(lust_at_turns_end("elite"), 0)
+        # A Bloodburn used it: Bloodlust's 1 lands.
+        self.assertEqual(lust_at_turns_end("elite", burned=("leader",)), 1)
+        # A Bloodburn used the Sentry and the leader's armor is left.
+        self.assertEqual(lust_at_turns_end("leader", burned=("elite",)), 0)
+        # Two Bloodburns used the Sentry and then the armor.
+        self.assertEqual(lust_at_turns_end("leader", burned=("leader", "leader")), 1)
+
     def test_slowtime_generator_1(self) -> None:
         """For example, if a player had 7 workers, they would get a total of
         4 gold from their workers, rather than 7 gold."""
