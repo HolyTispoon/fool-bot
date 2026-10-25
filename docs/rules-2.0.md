@@ -194,9 +194,14 @@ role ability to play it beside.
   coach first. Since no zone holds more players than it has spaces, there is always one.
 - **b.** **It costs nothing** (5.4a).
 - **c.** **The Coaching Choice comes after the run back**, on the side as it then stands.
-- **d.** **A time out (Law 13.1.2) and halftime move nobody**: each coach's Coaching Choice opens
-  on the side as it stands, and the coach places their players there (4.6d); nothing puts them
-  back afterwards.
+- **d.** **A time out (Law 13.1.2) and halftime send the unique roles back alone.** As each
+  coach's Coaching Choice opens, their Fullback, Playmaker and Striker go straight back onto
+  their own spaces, for nothing, and everyone else stays where they stand. The coach then
+  rearranges the side (4.6a) and may not finish the Coaching Choice until it stands in an
+  arrangement 4.3 allows -- nobody sharing a space but an Ooze, and no zone holding more players
+  than it has spaces. Until it does, each change moves one player and must leave fewer players
+  out of place. When the coach finishes, each player holds the standard role of the zone they
+  stand in.
 - **e.** **After a steal (Law 12.4)** the run back is the Charter's: everyone outside their own
   zone and one of any stack while their zone has an open space, a player in a unique role
   included, runs back to an open space of their zone, never the player holding the ball, at a

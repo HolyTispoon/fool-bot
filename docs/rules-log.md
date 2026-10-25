@@ -155,6 +155,21 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-25 (later) -- author, 2.0: a time out's and halftime's window sends the unique roles back
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.9d), replacing "a time out and
+halftime move nobody" of 2026-10-24 (later), now that a 2.0 coach moves their side by
+rearranging it alone (4.6c, the entry below). Asked what a Coaching Choice opened on a scattered
+side should do -- a Fullback, Playmaker or Striker off their space, or others outside their zone
+-- the author answered, to the option put to them of lining the side up at Done: *"Very close to
+your recommended option but no need to wait for the coach to clock done. Opening a window means
+there will be a new play and so players with unique roles snap back and the coach has to put
+everyone else back into a position"*. So as the window opens the three unique roles go back onto their own spaces, for nothing;
+everybody else stays where they stand, and the coach may not finish until the side stands in an
+arrangement 4.3 allows, each change in the meantime moving one player and leaving fewer out of
+place. Each player then holds the standard role of the zone they stand in -- the part of the
+option put to the author that their answer kept.
+
 ### 2026-10-25 -- author, 2.0: no zone assignment or space positioning; an Ooze shares both ways
 
 **Two more answers on PR #673** ([rules-2.0.md](rules-2.0.md) 4.6, 5.4a), to the two entries
