@@ -168,12 +168,12 @@ players on the field are standees for the same reason
   (`ZONE_CASCADE`), so a 19 mm token covers the next card or is covered
   by it. A tag small enough for the strip the cascade leaves showing
   (about 13 x 8 mm) was the other choice; the author took the 19 mm
-  token. The 2.0 card lies on its side and the 2.0 zone board gives
-  each card a whole slot, so a token lies in the card's bottom-right
-  corner (`player_cards.LANDSCAPE_TOKEN_SPOT`), at the spot each slot
-  marks ([printed-boards.md](printed-boards.md), "The 2.0 boards").
-  The slot names its role as well, so the tokens may turn out not to
-  be needed; the author keeps them to test both ways (2026-10-25).
+  token. A 2.0 player is a tile on its side and the 2.0 zone board
+  gives each tile a whole slot, so a token lies in the tile's
+  bottom-right corner (`player_cards.TILE_TOKEN_SPOT`). The board marks
+  each slot's role beside it as well, with the token's own face, so
+  the tokens may turn out not to be needed; the author keeps them to
+  test both ways (2026-10-25).
 - **A token is a zone's, front and back** (the author, 2026-10-24): the
   zone's unique role on the front and its standard role on the back --
   Fullback over Defender, Playmaker over Midfielder, Striker over

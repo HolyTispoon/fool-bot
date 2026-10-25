@@ -92,7 +92,7 @@ from d12ball.components import (
 )
 from d12ball.formatting import side_display_name
 from d12ball.game import Edition, Team
-from d12ball.player_cards import LANDSCAPE_TOKEN_SPOT, team_emoji
+from d12ball.player_cards import TILE_INCHES, team_emoji
 from d12ball.render import (
     EXHAUSTED_ICON_PATH,
     EXHAUST_ICON_PATH,
@@ -174,8 +174,6 @@ GOAL_GAP = 8
 # proportions with it on the bot's board (CARD_SIZE is 110 x 154), so
 # the areas that hold them are cut for it.
 CARD_INCHES = (2.5, 3.5)
-# A 2.0 player card, which lies on its side (`player_cards.LANDSCAPE`).
-LANDSCAPE_CARD_INCHES = (CARD_INCHES[1], CARD_INCHES[0])
 # How many cards a zone on the zone board is guided for: three, which
 # is what a zone holds under 2-3-1 and 1-3-2. It is the guide and not a
 # limit -- see "The zone board" in docs/design/printed-boards.md.
@@ -3038,20 +3036,24 @@ def draw_zone_cell(
 
 
 # **D12 Ball 2.0's zone board runs along the field** (the author,
-# 2026-10-25). A 2.0 card lies on its side (`player_cards.LANDSCAPE`),
-# and each zone is a column the width of that zone on the field board,
-# so the board laid along a coach's side of the field puts every zone's
-# cards under the zone they stand in. That is the field board's 17in,
-# so it is the field board's paper too -- tabloid, landscape, or its
-# two letter halves (`render_zone_board_two_halves`) -- cut to the depth
-# three cards need. In each column the gold slot nearest the field is
-# the zone's unique role, which the first player in a zone takes
-# (rules-2.0 4.2), and the two dashed slots under it its standard role;
-# every slot shows where the role token lies on the card laid on it
-# (`player_cards.LANDSCAPE_TOKEN_SPOT`).
+# 2026-10-25). A 2.0 player is a tile on its side
+# (`player_cards.TILE_INCHES`), and each zone is a column the width of
+# that zone on the field board, so the board laid along a coach's side
+# of the field puts every zone's tiles under the zone they stand in.
+# That is the field board's 17in, so it is the field board's paper too
+# -- tabloid, landscape, or its two letter halves
+# (`render_zone_board_two_halves`) -- cut to the depth three tiles need.
+# In each column the slot nearest the field is the zone's unique role,
+# which the first player in a zone takes (rules-2.0 4.2), and the two
+# under it its standard role; **each slot's role is marked beside it,
+# outside where the tile lies** (the author, 2026-10-25), so a tile on
+# the slot leaves its role in sight.
 ZONE_TWO_PAPER = DEFAULT_PAPER
 ZONE_TWO_SLOT_GAP_INCHES = 0.12
 ZONE_TWO_LABEL_INCHES = 0.42
+# The role marker beside a slot: the role token's face at the token's
+# own size (`role_tokens.TOKEN_INCHES`), so it reads like the token.
+ZONE_TWO_MARKER_GAP_INCHES = 0.1
 UNIQUE_SLOT_COLOR = "#c9962b"
 UNIQUE_SLOT_TINT = "#fbf1d9"
 
@@ -3089,11 +3091,13 @@ def render_zone_board_two(
     """
     **One coach's 2.0 zone board**: a column per zone in the order the
     coach reads the field from their seat, each under its zone on the
-    field board, with the goal ends beside them; a gold slot for the
-    zone's unique role and two dashed ones for its standard role, each a
-    card on its side. The rest of the tabloid sheet under the board is
-    offcut, past a cut line.
+    field board, with the goal ends beside them; in each, three tile
+    slots -- the zone's unique role's in gold, its standard role's
+    dashed -- each with its role marked to its left. The rest of the
+    tabloid sheet under the board is offcut, past a cut line.
     """
+    from d12ball.role_tokens import TOKEN_INCHES
+
     width, height = sheet_pixels(ZONE_TWO_PAPER, landscape=True)
     sheet = Sheet(width, height)
     columns = zone_two_columns(board_size, side, width)
@@ -3112,8 +3116,10 @@ def render_zone_board_two(
         anchor="mm",
     )
 
-    slot_width = LANDSCAPE_CARD_INCHES[0] * PRINT_DPI
-    slot_height = LANDSCAPE_CARD_INCHES[1] * PRINT_DPI
+    slot_width = TILE_INCHES[0] * PRINT_DPI
+    slot_height = TILE_INCHES[1] * PRINT_DPI
+    marker = TOKEN_INCHES * PRINT_DPI
+    marker_gap = ZONE_TWO_MARKER_GAP_INCHES * PRINT_DPI
     gap = ZONE_TWO_SLOT_GAP_INCHES * PRINT_DPI
     top = edge + TEAM_TITLE_INCHES * PRINT_DPI + gap * 2
     first_slot = top + ZONE_TWO_LABEL_INCHES * PRINT_DPI
@@ -3157,11 +3163,21 @@ def render_zone_board_two(
             anchor="mm",
         )
         unique, standard = FORMATION_ZONE_ROLES[area_for_zone(side, zone)]
-        card_left = (left + right - slot_width) / 2
+        # The marker and the tile as one group, centred in the column.
+        group = marker + marker_gap + slot_width
+        marker_left = (left + right - group) / 2
+        tile_left = marker_left + marker + marker_gap
         for index in range(CARDS_PER_AREA):
+            role = unique if index == 0 else standard
             slot_top = first_slot + gap + index * (slot_height + gap)
-            box = (card_left, slot_top, card_left + slot_width, slot_top + slot_height)
-            draw_zone_two_slot(sheet, box, unique if index == 0 else standard, index == 0)
+            draw_zone_two_slot(
+                sheet,
+                (tile_left, slot_top, tile_left + slot_width, slot_top + slot_height),
+                index == 0,
+            )
+            draw_zone_two_marker(
+                sheet, role, index == 0, marker_left, slot_top + slot_height / 2
+            )
 
     draw_cut_line(sheet, bottom + gap * 2)
     return add_bleed(sheet.image) if bleed else sheet.image
@@ -3170,7 +3186,7 @@ def render_zone_board_two(
 def draw_sideways(
     sheet: Sheet, text: str, cx: float, cy: float, width: float, height: float
 ) -> None:
-    """A goal end's name, turned to run up the end, as large as fits."""
+    """A goal end's name, turned to run up the end."""
     face = print_font(TEAM_CELL_TITLE_INCHES * 1.1, bold=True)
     strip = Image.new("RGBA", (round(height), round(width)), (0, 0, 0, 0))
     ImageDraw.Draw(strip).text(
@@ -3183,47 +3199,51 @@ def draw_sideways(
 
 
 def draw_zone_two_slot(
-    sheet: Sheet,
-    box: tuple[float, float, float, float],
-    role: PlayerRole,
-    unique: bool,
+    sheet: Sheet, box: tuple[float, float, float, float], unique: bool
+) -> None:
+    """Where a tile lies: solid gold on a pale gold for the unique role,
+    dashed for a standard one, with nothing in it a tile would cover."""
+    from d12ball.player_cards import TILE_CORNER
+
+    line = max(1, round(0.01 * PRINT_DPI))
+    if unique:
+        sheet.rect(
+            box,
+            radius=TILE_CORNER / 300 * PRINT_DPI,
+            fill=UNIQUE_SLOT_TINT,
+            outline=UNIQUE_SLOT_COLOR,
+            width=line * 3,
+        )
+    else:
+        sheet.dashed_rect(box, outline=MUTED, width=line, dash=0.055 * PRINT_DPI)
+
+
+def draw_zone_two_marker(
+    sheet: Sheet, role: PlayerRole, unique: bool, left: float, center_y: float
 ) -> None:
     """
-    One card's slot: the unique role's solid and gold, a standard role's
-    dashed, with the role's name across its middle and, at the spot a
-    role token lies on the card (`LANDSCAPE_TOKEN_SPOT`), the token's
-    face -- in gold for the unique role, in ink for a standard one.
+    A slot's role, beside it: the role token's face, ringed in gold for
+    the unique role and in ink for a standard one, with UNIQUE or
+    STANDARD under it.
     """
     from d12ball.role_tokens import TOKEN_INCHES, role_face
 
-    left, top, right, bottom = box
-    radius = CARD_CORNER_RADIUS / 300 * PRINT_DPI
-    line = max(1, round(0.01 * PRINT_DPI))
-    color = UNIQUE_SLOT_COLOR if unique else MUTED
-    if unique:
-        sheet.rect(
-            box, radius=radius, fill=UNIQUE_SLOT_TINT, outline=color, width=line * 3
-        )
-    else:
-        sheet.dashed_rect(box, outline=color, width=line, dash=0.055 * PRINT_DPI)
-
-    cx, cy = (left + right) / 2, (top + bottom) / 2
-    name_font = print_font(0.26, bold=True)
-    sheet.text((cx, cy - 0.14 * PRINT_DPI), role.value.upper(), name_font,
-               INK if unique else MUTED, anchor="mm")
-    kind = "UNIQUE ROLE" if unique else "STANDARD ROLE"
-    sheet.text((cx, cy + 0.16 * PRINT_DPI), kind, print_font(TEAM_BODY_INCHES, bold=True),
-               color, anchor="mm")
-
     size = round(TOKEN_INCHES * PRINT_DPI)
-    face = role_face(role, color if unique else INK, size)
+    color = UNIQUE_SLOT_COLOR if unique else INK
+    face = role_face(role, color, size)
+    top = center_y - size / 2 - 0.08 * PRINT_DPI
     sheet.image.paste(
-        face,
-        (
-            round(left + LANDSCAPE_TOKEN_SPOT[0] * PRINT_DPI),
-            round(top + LANDSCAPE_TOKEN_SPOT[1] * PRINT_DPI),
-        ),
-        face if face.mode == "RGBA" else None,
+        face, (round(left), round(top)), face if face.mode == "RGBA" else None
+    )
+    draw_fitted(
+        sheet,
+        (left + size / 2, top + size + 0.1 * PRINT_DPI),
+        "UNIQUE" if unique else "STANDARD",
+        size + 0.08 * PRINT_DPI,
+        TEAM_BODY_INCHES,
+        UNIQUE_SLOT_COLOR if unique else MUTED,
+        bold=True,
+        anchor="mm",
     )
 
 

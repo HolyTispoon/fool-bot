@@ -124,15 +124,15 @@ short edge**. The cards need no cutting.
   skills.
   `<team>-sheet.png` is the standard sides and
   `<team>-advanced-sheet.png` the advanced sides, printed as a pair.{player_avery}
-- **player-cards-2.0/** -- the same players' cards for **D12 Ball 2.0**,
-  poker size but lying on their side (3.5in across, 2.5in tall), so a
-  zone's cards fit a column of the 2.0 zone board. In 2.0 a player has
-  no role and there are no role abilities, so these cards name no role:
-  the standard side carries the skills and the species ability with its
-  short rule, and the advanced side the player's special ability where
-  they have one. The sheets print and cut like the 1.0 cards -- each
-  card is turned a quarter on the page. A role token goes in a card's
-  bottom-right corner to say which role the player holds.
+- **player-cards-2.0/** -- the same players as tiles for **D12 Ball
+  2.0**: 2.75in across and 2in tall, smaller than a card, so a zone's
+  tiles fit a column of the 2.0 zone board. In 2.0 a player has no role
+  and there are no role abilities, so these name no role: the standard
+  side carries the skills and the species, and the advanced side the
+  player's special ability where they have one. `<team>-sheet.png` and
+  `<team>-advanced-sheet.png` print as a pair, like the cards; cut on
+  each tile's rounded outline. If you play with role tokens, a token
+  goes in a tile's bottom-right corner.
 - **reference-cards/** -- the reference cards: the three double-sided
   species-ability cards (every pairing of the four species appears on
   one face), a fourth that is the first turned over, and two copies of
@@ -191,11 +191,11 @@ short edge**. The cards need no cutting.
   `zone-board-<n>-visitors.png`), which is the field board's length and
   lies along that coach's side of it: a column under each zone of the
   field, with a gold slot nearest the field for the zone's unique role
-  (Fullback, Playmaker, Striker) -- the first card in a zone takes it --
+  (Fullback, Playmaker, Striker) -- the first tile in a zone takes it --
   and two slots under it for its standard role (Defender, Midfielder,
-  Winger). Each slot marks where the role token goes on the card laid
-  there. It is the field board's paper, cut along the dashed line to
-  9.2in deep, and also comes cut in two for a letter printer
+  Winger), each slot's role printed beside it so a tile on the slot
+  leaves it in sight. It is the field board's paper, cut along the
+  dashed line to about 7.9in deep, and also comes cut in two for a letter printer
   (`-left` and `-right`), taped like the field board. It takes the
   whole length of your side, so the team board goes elsewhere -- beside
   the jumbotron, say. The jumbotron and the team boards are the same as
@@ -203,8 +203,8 @@ short edge**. The cards need no cutting.
 
 ## Paper and cutting
 
-Cards are poker size (2.5 x 3.5in; a 2.0 card lies on its side) at
-300dpi, and every board is 300dpi too.
+Cards are poker size (2.5 x 3.5in; a 2.0 player is a 2.75 x 2in
+tile) at 300dpi, and every board is 300dpi too.
 
 **Only the field board wants a big sheet.** It is {paper}
 ({paper_size}), landscape -- see `PAPERS` / `DEFAULT_PAPER` in

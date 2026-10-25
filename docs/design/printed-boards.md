@@ -678,37 +678,41 @@ D12 Ball 2.0 puts the roles on the formation's zones (rules-2.0 section
   height. The 1.0 boards are byte-identical with this in.
 - **The 2.0 zone board runs along the field** (the author, 2026-10-25:
   "zones have to be arranged horizontally along the board"). A 2.0
-  card lies on its side ([cards.md](cards.md), "The 2.0 player cards"),
-  and the board is a column per zone, left to right in the order the
-  coach reads the field from their seat, **each column the width of
-  that zone on the 2.0 field board** (`zone_two_columns`, read off
-  `FieldGeometry`), with the two goal ends beside them where the field
-  board has its goal zones -- so the board laid along a coach's side of
-  the field puts every zone's cards under the zone they stand in. The
-  title is ZONE BOARD 2.0 and the board size, since the columns are.
+  player is a tile on its side ([cards.md](cards.md), "The 2.0 player
+  tiles"), and the board is a column per zone, left to right in the
+  order the coach reads the field from their seat, **each column the
+  width of that zone on the 2.0 field board** (`zone_two_columns`, read
+  off `FieldGeometry`), with the two goal ends beside them where the
+  field board has its goal zones -- so the board laid along a coach's
+  side of the field puts every zone's tiles under the zone they stand
+  in. The title is ZONE BOARD 2.0 and the board size, since the columns
+  are.
   - **The field board's paper**: 17in along the field is tabloid's
     length, so the board is a tabloid sheet, landscape
     (`ZONE_TWO_PAPER`), or the same two letter halves the field board
     comes in (`render_zone_board_two_halves`, `halve_sheet`; the seam
-    runs down midfield's column). Board 10's outer zones, the
-    narrowest columns, are about 4.1in, so a 3.5in card fits each with
-    room. The board is 9.2in deep; the rest of the sheet is offcut
-    past a cut line.
-  - **A slot a card, each whole** (`draw_zone_two_slot`): the gold one
+    runs down midfield's column). The board is about 7.9in deep; the
+    rest of the sheet is offcut past a cut line.
+  - **A slot a tile, each whole** (`draw_zone_two_slot`): the one
     nearest the field is the zone's unique role, which the first player
-    in a zone takes (rules-2.0 4.2), solid-edged on a pale gold, and
-    the two dashed ones under it its standard role -- as many as any
-    formation puts in a zone. Each slot names its role and says UNIQUE
-    ROLE or STANDARD ROLE, and draws the role token's face where the
-    token lies on the card laid there (`LANDSCAPE_TOKEN_SPOT`), gold
-    for the unique role. The slot says the role on its own; the tokens
-    stay (the author, 2026-10-25: tested both ways at the table).
+    in a zone takes (rules-2.0 4.2), solid gold on a pale gold, and the
+    two dashed ones under it its standard role -- as many as any
+    formation puts in a zone. Nothing is printed inside a slot.
+  - **Each slot's role is marked beside it, outside where the tile
+    lies** (`draw_zone_two_marker`; the author, 2026-10-25), so a tile
+    on the slot leaves its role in sight: the role token's face at the
+    token's own 19 mm, ringed in gold for the unique role and in ink
+    for a standard one, with UNIQUE or STANDARD under it. Marker and
+    tile are one group centred in the column; board 10's outer zones,
+    the narrowest at about 4.1in, take the 0.75in marker and the 2.75in
+    tile with room. The role tokens stay too, for the author to test
+    the table with them and without (2026-10-25).
   - **The cost**: it takes the whole 17in along the coach's side, so
-    the team board no longer lies end to end with it, and it puts
-    9.2in of depth between the coach and the field.
+    the team board no longer lies end to end with it.
   - **No 2-up page for 2.0**: a tabloid sheet is a page of its own, so
     `render_zone_board_sheet` refuses 2.0. The 1.0 zone board, its
     cascade and its 2-up are byte-identical.
   - It replaced, the same day, a portrait letter page whose cards were
-    cascaded 1.7in apart so each portrait card's token showed; the
-    landscape card and this board are what the author asked for next.
+    cascaded 1.7in apart so each portrait card's token showed, and then
+    a board of poker cards on their side with each role printed inside
+    its slot, where the card covered it.
