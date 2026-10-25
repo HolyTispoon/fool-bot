@@ -303,8 +303,9 @@ INDEX_SKILL_ROWS = (0.29, 0.71)
 INDEX_ROLE_ROW = 0.28
 INDEX_BADGE_ROW = 0.70
 INDEX_BADGE = 40
-# A 2.0 card's column holds the species' badge alone, larger and
-# centred, since there is no role to print over it.
+# A 2.0 card's column holds the species' icon alone, larger and
+# centred, since there is no role to print over it -- in ink on the
+# panel's white, with no coloured square (the author, 2026-10-25).
 INDEX_BADGE_ALONE = 56
 
 
@@ -367,9 +368,13 @@ def draw_corner_index(
     )
     role_x = INDEX_LEFT + width * INDEX_ROLE_X
     if edition == Edition.TWO:
-        draw_species_badge(
-            pen, player.species, (role_x, (top + bottom) / 2), INDEX_BADGE_ALONE
-        )
+        icon = species_icon(player.species, INK)
+        if icon is not None:
+            pen.paste(
+                icon,
+                (role_x, (top + bottom) / 2),
+                (INDEX_BADGE_ALONE, INDEX_BADGE_ALONE),
+            )
         return
     pen.text(
         (role_x, top + (bottom - top) * INDEX_ROLE_ROW),

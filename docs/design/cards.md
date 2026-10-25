@@ -719,8 +719,12 @@ anywhere:
 
 - **No line under the name**, which takes the middle of the header band
   (`header_subtitle` answers `""`).
-- **No initials in the corner index**: the species' badge takes the
-  column alone, larger (`INDEX_BADGE_ALONE`) and centred.
+- **No initials in the corner index**: the species' icon takes the
+  column alone, larger (`INDEX_BADGE_ALONE`) and centred -- in ink on
+  the panel's white, with no square of the species' colour under it
+  (the author, 2026-10-25). The square was there so Slime green would
+  read on white; an ink icon reads on white for every species. The
+  ability band's species badge keeps its colour.
 - **No role row in the ability band.** The front's band is the species'
   row alone, and the portrait takes the height the role's sentence had.
   The back's is the player's special ability over the species' row, set
