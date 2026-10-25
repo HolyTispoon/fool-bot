@@ -676,12 +676,30 @@ D12 Ball 2.0 puts the roles on the formation's zones (rules-2.0 section
   (`FieldGeometry.for_sheet(..., upper_band=True)`), so a 2.0 strip is
   about half an inch shorter than a 1.0 one; nothing stands on that
   height. The 1.0 boards are byte-identical with this in.
-- **The zone board puts the roles on the card guides** (`draw_guide_role`):
-  each zone's top guide carries its unique role and the two under it the
-  standard role, because the first player in a zone takes the unique
-  role (rules-2.0 4.2). In the strip each guide shows rather than in a
-  line of their own, because the three cascaded cards already take the
-  cell's whole height -- a line under the zone's name would cut the
-  guides under a real card. A card laid in the zone covers its guide's
-  role, and the role token on the card says it from then on. The title
-  is ZONE BOARD 2.0.
+- **The zone board puts the roles on the card guides**: each zone's top
+  guide carries its unique role and the two under it the standard role,
+  because the first player in a zone takes the unique role (rules-2.0
+  4.2). A card laid in the zone covers its guide's role, and the role
+  token on the card says it from then on. The title is ZONE BOARD 2.0.
+- **The 2.0 zone board spreads a zone's cards** (the author,
+  2026-10-25). A 19 mm role token lies on every card, and the 1.0
+  cascade leaves 0.35in of a card showing, so each card now sits
+  `ZONE_SPREAD_STEP_INCHES` (1.7in) below the one behind it: its
+  header with the name and the two skills, its skills band, and the
+  token under them, at the card's left (`TOKEN_ON_CARD_INCHES`). Each
+  guide draws the token's face in ink at that spot, at the token's own
+  size, with the role's name beside it (`draw_token_spot`), so a coach
+  sees where the token goes before the card is down. The special
+  ability at a card's foot shows only on the front card of a zone;
+  showing it on every card would want 3.5in a card, 10.5in a zone, more
+  than any page this board can be.
+  - **A whole letter page, portrait** (`ZONE_SPREAD_PAPER`), rather
+    than half of one: three cards at that step are 6.9in, which a
+    5.5in-deep half sheet cannot hold. It keeps the half sheet's 8.5in
+    along the field, so it still lies end to end with the team board in
+    the 17in strip, and is deeper toward the coach. The stack is centred
+    in its zone with about 1.4in spare above and below.
+  - **No 2-up page for 2.0**: two letter pages are not one, so
+    `render_zone_board_sheet` refuses 2.0 and the script writes each
+    side's board alone. The 1.0 zone board, its cascade and its 2-up are
+    byte-identical.

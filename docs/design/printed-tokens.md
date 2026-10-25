@@ -169,7 +169,10 @@ players on the field are standees for the same reason
   by it, and a zone's cards have to be spread out where a token is on
   each. A tag small enough for the strip the cascade leaves showing
   (about 13 x 8 mm) was the other choice; the author took the 19 mm
-  token.
+  token, and the 2.0 zone board spreads a zone's cards 1.7in apart so
+  each card's token shows, at the spot its guide marks
+  (`TOKEN_ON_CARD_INCHES`; [printed-boards.md](printed-boards.md),
+  "The 2.0 boards", 2026-10-25).
 - **A token is a zone's, front and back** (the author, 2026-10-24): the
   zone's unique role on the front and its standard role on the back --
   Fullback over Defender, Playmaker over Midfielder, Striker over

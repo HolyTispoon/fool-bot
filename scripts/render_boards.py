@@ -237,14 +237,15 @@ def main() -> None:
                 args.out / f"zone-board-{board_size}-{name}.png",
                 args.pdf,
             )
-        save(
-            render_zone_board_sheet(
-                board_size, paper=args.team_paper, bleed=args.bleed,
-                edition=edition,
-            ),
-            args.out / f"zone-board-{board_size}-2up.png",
-            args.pdf,
-        )
+        # A 2.0 zone board is a page of its own, so it has no 2-up.
+        if edition == Edition.ONE:
+            save(
+                render_zone_board_sheet(
+                    board_size, paper=args.team_paper, bleed=args.bleed,
+                ),
+                args.out / f"zone-board-{board_size}-2up.png",
+                args.pdf,
+            )
         if not args.halves:
             continue
         # The same board, cut in two -- not a second layout for the

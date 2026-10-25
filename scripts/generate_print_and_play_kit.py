@@ -188,8 +188,14 @@ short edge**. The cards need no cutting.
   they stand on; and the zone boards, with each zone's roles on its card
   guides -- the first card in a zone takes the unique role (Fullback,
   Playmaker, Striker) and the rest the standard one (Defender,
-  Midfielder, Winger). The jumbotron and the team boards are the same
-  as 1.0's, in **boards/**.
+  Midfielder, Winger). A 2.0 zone board is a whole letter page,
+  portrait, one per coach (`zone-board-<n>-home.png`,
+  `zone-board-<n>-visitors.png`), because its cards are spread 1.7in
+  apart so the role token on each one shows; lay each card on its guide
+  and its token on the spot the guide marks. It is 8.5in along the
+  field like the 1.0 half sheet, so it still lies end to end with the
+  team board. The jumbotron and the team boards are the same as 1.0's,
+  in **boards/**.
 
 ## Paper and cutting
 
