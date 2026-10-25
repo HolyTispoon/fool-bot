@@ -1865,8 +1865,10 @@ else the bot shows is ephemeral.
     +1 ATK added while the body patrols there on an opponent's turn
     (`elite_applies`: a patrol bonus is the defender's, so a unit put
     there at its own turn's end shows none until the next turn begins,
-    as the squad leader's armor waits for that turn's refresh -- the
-    author, 2026-10-25), capped and floored as
+    as the squad leader's armor waits for that turn's refresh, and as
+    Sentry shields a patroller on an opponent's turn alone
+    (`board.sentry_shields`, Sirlin's ruling) -- the author,
+    2026-10-25), capped and floored as
     `attack_value` does, because the slot's bonus is what it fights
     with and a pill that left it out read one less than the attack did;
     frenzy, which `attack_value` adds on its controller's turn alone, is

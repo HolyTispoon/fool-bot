@@ -4042,6 +4042,18 @@ class PurpleRulingTests(unittest.TestCase):
         self.assertIsNotNone(match.player(1).instance(side.id))
         self.assertEqual(side.damage, 3)
 
+    def test_sentry_shields_patrollers_on_an_opponents_turn_alone(self) -> None:
+        """A patroller is one on an opponent's turn alone (Sirlin's ruling,
+        the author, 2026-10-25): a unit put in a slot at its controller's
+        own turn's end is not shielded by their Sentry until the next
+        player's turn, when it is."""
+        engine, game, match = purple()
+        put(match, 1, "sentry")
+        fresh = put(match, 1, "neo_plexus", patrol="squad_leader")
+        self.assertEqual(board.sentry_shields(engine, match, [fresh], StepResult()), [])
+        match.active = 2
+        self.assertEqual(board.sentry_shields(engine, match, [fresh], StepResult()), [fresh])
+
     def test_slowtime_generator_1(self) -> None:
         """For example, if a player had 7 workers, they would get a total of
         4 gold from their workers, rather than 7 gold."""
