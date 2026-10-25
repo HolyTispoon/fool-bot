@@ -72,7 +72,13 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
-from d12ball.components import MatchState, RuleRefusal, TeamSide
+from d12ball.components import (
+    UNIQUE_ROLE_AREAS,
+    MatchState,
+    RuleRefusal,
+    TeamSide,
+    Zone,
+)
 from d12ball.engine import RulesEngine
 from d12ball.flow import (
     arrivals,
@@ -964,6 +970,7 @@ def _answer_coaching_hub(
     *,
     side: TeamSide,
     formation: Optional[object] = None,
+    arrangement: Optional[Mapping[str, object]] = None,
     outgoing_player_id: Optional[str] = None,
     incoming_player_id: Optional[str] = None,
     player_id: Optional[str] = None,
@@ -972,14 +979,17 @@ def _answer_coaching_hub(
     swap_with: Optional[str] = None,
 ) -> StepResult:
     """
-    The Coaching Choice's own five answers, on one message.
+    The Coaching Choice's own answers, on one message.
 
     **The hub is the one prompt with several answers that are not
     alternatives**: a coach changes shape, substitutes, exchanges two
     players' zones and moves a meeple within its zone, in any order and
     as often as their allowance lets them, and then says they are done.
-    So `choice` names which of the five it is, and the four that change
-    something return the note the hub puts back above its own buttons.
+    So `choice` names which it is, and those that change something
+    return the note the hub puts back above its own buttons. A 2.0
+    side is offered `arrange` where a 1.0 side is offered `formation`
+    (docs/rules-2.0.md 4.3), and in place of `swap` and `reposition`
+    too (4.6), and each is refused where the prompt does not offer it.
 
     **Its sub-menus are not prompts and never were.** They are steps of
     one answer on one Discord message -- pick a player, then pick where
@@ -1003,7 +1013,25 @@ def _answer_coaching_hub(
     _window_is(match, side)
     if choice == "done":
         return windows.finish_coaching_step(engine, game, match, side=side)
+    if choice == "arrange":
+        if prompt.options.arrangement is None:
+            _refuse(
+                "Only a 2.0 side is arranged by its roles, and only in a "
+                "Coaching Choice that offers positioning."
+            )
+        holders, placed = _arrangement(arrangement)
+        return StepResult(
+            narration=[
+                engine.apply_arrangement(game, match, side, holders, placed)
+            ],
+            board_changed=True,
+        )
     if choice == "formation":
+        if prompt.options.arrangement is not None:
+            _refuse(
+                "A 2.0 side has no formations: name its Fullback, "
+                "Playmaker and Striker and place three more."
+            )
         if formation not in prompt.options.formations:
             _refuse("That formation is not played on this board.")
         return StepResult(
@@ -1028,6 +1056,13 @@ def _answer_coaching_hub(
             ],
             board_changed=True,
         )
+    if choice in ("swap", "reposition") and (
+        prompt.options.arrangement is not None
+    ):
+        _refuse(
+            "A 2.0 side is moved by rearranging it: trade two players "
+            "or move one with Arrange team."
+        )
     if choice == "swap":
         return StepResult(
             narration=[
@@ -1047,6 +1082,39 @@ def _answer_coaching_hub(
         ],
         board_changed=True,
     )
+
+
+def _arrangement(
+    value: Optional[Mapping[str, object]],
+) -> tuple[dict[str, str], list[tuple[str, Zone, int]]]:
+    """
+    A 2.0 arrangement off the wire, as the model's own types:
+    `{"fullback": id, "playmaker": id, "striker": id, "placed":
+    [{"player_id": id, "zone": zone, "space_index": n}, ...]}` into the
+    holders keyed by role and the placements `arrange_side` takes. A
+    shape that is not that is refused here; whether the arrangement is
+    legal is `MatchState.arrange_side`'s.
+    """
+    if not isinstance(value, Mapping):
+        _refuse("An arrangement names its roles and its placements.")
+    try:
+        holders = {
+            role: str(value[role]) for role in UNIQUE_ROLE_AREAS
+        }
+        placed = [
+            (
+                str(entry["player_id"]),
+                Zone(entry["zone"]),
+                int(entry["space_index"]),
+            )
+            for entry in value["placed"]
+        ]
+    except (KeyError, TypeError, ValueError):
+        _refuse(
+            "An arrangement names a Fullback, a Playmaker and a Striker, "
+            "and where each other player is placed."
+        )
+    return holders, placed
 
 
 def _window_is(match: MatchState, side: TeamSide) -> None:
@@ -1933,6 +2001,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
 REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
     PromptKind.COACHING_HUB: {
         "formation": ("formation",),
+        "arrange": ("arrangement",),
         "substitute": ("outgoing_player_id", "incoming_player_id"),
         "swap": ("player_id", "other_player_id"),
         "reposition": ("player_id", "space_index"),

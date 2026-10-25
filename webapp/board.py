@@ -464,7 +464,7 @@ def board_layout(
                 }
             )
 
-    in_range = match.can_attempt_score()
+    in_range = engine.can_attempt_score(game, match)
 
     return {
         "jumbotron": jumbotron(game, match, engine),

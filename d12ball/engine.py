@@ -41,7 +41,7 @@ side is only ever "insert `.engine`" at each call site.
 """
 
 import random
-from collections.abc import Collection
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Optional
 
@@ -59,8 +59,6 @@ from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
     CYBORG_DRAINED_AT,
     DOUBLE_TEAM_PARTNER_KIND,
-    FIELD_PLAYER_COUNT,
-    FORMATION_ZONE_ROLES,
     MIND_PULL_SUCCESS_FACES,
     MIND_PULL_TOKEN_COST,
     OVERDRIVE_BONUS,
@@ -683,6 +681,38 @@ class RulesEngine:
         """
         return self.maneuver_deck_applies(game)
 
+    def shooting_range_applies(self, game: Optional[D12BallGame]) -> bool:
+        """
+        Whether **a shot may only be taken from within range** (Law
+        2.3). 2.0 has no range -- a shot from anywhere (docs/rules-2.0.md
+        section 6; the author, 2026-10-25) -- so this is the deck's own
+        answer, the other way round, under its own name.
+        """
+        return not self.maneuver_deck_applies(game)
+
+    def can_attempt_score(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        side: Optional[TeamSide] = None,
+    ) -> bool:
+        """**The one reading of whether a shot may be taken** from where
+        the ball is -- `MatchState.can_attempt_score` with the game's
+        answer to whether there is a range at all."""
+        return match.can_attempt_score(
+            side, range_applies=self.shooting_range_applies(game),
+        )
+
+    def may_call_time_out(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> bool:
+        """**The one reading of whether a time out may be called** --
+        `MatchState.may_call_time_out` with the game's answer to
+        whether being in range forbids one (docs/rules-2.0.md 6.2)."""
+        return match.may_call_time_out(
+            range_applies=self.shooting_range_applies(game),
+        )
+
     def pay_for_move(
         self,
         game: Optional[D12BallGame],
@@ -856,7 +886,7 @@ class RulesEngine:
         whoever stands there for their coach to choose between. Asked
         just before the restart is played, once every arrangement and
         window has settled, so the Playmaker is on their own kickoff
-        space (rules-2.0 4.3b); an Ooze sharing it is why it is asked
+        space (rules-2.0 4.3a); an Ooze sharing it is why it is asked
         at all. A 1.0 match, and a Playmaker somewhere else, change
         nothing.
         """
@@ -1701,12 +1731,21 @@ class RulesEngine:
         `placement_spaces_in_zone` and `crowded_candidates` below,
         and `smooth_candidates` for the same split elsewhere).
         """
+        return self.spreadable_among(
+            game, match.setup_for_side(side).field_players,
+        )
+
+    def spreadable_among(
+        self, game: D12BallGame, player_ids: Iterable[str],
+    ) -> set[str]:
+        """The Spreadable Oozes among `player_ids`, fielded or not --
+        a 2.0 arrangement before kickoff may bring one on from the
+        bench (`MatchState.arrangement_pool`)."""
         if not self.species_abilities_apply(game):
             return set()
-        setup = match.setup_for_side(side)
         return {
             player_id
-            for player_id in setup.field_players
+            for player_id in player_ids
             if self.has_species_ability(game, player_id, SPECIES_OOZE)
         }
 
@@ -4126,18 +4165,14 @@ class RulesEngine:
         somewhere particular now moves it afterwards, with zone
         assignment and space positioning.
 
-        A 2.0 side keeps its three unique roles -- see
-        `formation_role_placement`.
+        A 2.0 side has no formations to change to: its coach arranges
+        it by its roles (`apply_arrangement`). Re-dealt here anyway --
+        by hand, from a test or an admin command -- its roles are read
+        back off the spaces (`MatchState.deploy_side`).
         """
         side = TeamSide(side)
         shape = self.formation_shape(match, formation)
         ordered = self.defense_ordered_field_players(match, side, game)
-        if side.value in match.formation_roles:
-            placement = self.formation_role_placement(
-                match, side, shape, ordered,
-            )
-            if placement is not None:
-                return placement
 
         placement: list[tuple[str, Zone, int]] = []
         cursor = 0
@@ -4153,86 +4188,6 @@ class RulesEngine:
                 )
             cursor += count
         return placement
-
-    def formation_role_placement(
-        self,
-        match: MatchState,
-        side: TeamSide,
-        shape: FormationShape,
-        ordered: list[str],
-    ) -> Optional[list[tuple[str, Zone, int]]]:
-        """
-        **A 2.0 formation change** (the author, 2026-10-18): the
-        Fullback, the Playmaker and the Striker keep their roles and
-        stand on their spaces, and the other three fill the new shape's
-        standard roles by defensive skill -- `ordered`, best defender
-        first, from the coach's own goal forward. The coach makes it
-        their own afterwards with zone assignments and space
-        positioning (docs/rules-2.0.md 4.6a). Each holder comes first
-        in their zone, which is how `MatchState.deploy_side` reads the
-        roles back off the spaces.
-
-        None where the side is missing a unique role, which no 2.0 deal
-        leaves; the 1.0 re-deal then decides the shape, and the roles
-        are read off it.
-        """
-        roles = match.formation_roles[TeamSide(side).value]
-        holders = {}
-        for area in SETUP_AREAS:
-            unique, _ = FORMATION_ZONE_ROLES[area]
-            holder = next(
-                (card for card in ordered if roles.get(card) == unique.value),
-                None,
-            )
-            if holder is None:
-                return None
-            holders[area] = holder
-        rest = [card for card in ordered if card not in holders.values()]
-
-        placement: list[tuple[str, Zone, int]] = []
-        for area in SETUP_AREAS:
-            zone = zone_for_area(side, area)
-            placement.append(
-                (holders[area], zone, match.unique_role_space(side, area))
-            )
-            count = shape.count(area) - 1
-            spaces = self.standard_role_spaces(match, side, area)
-            for offset in range(count):
-                placement.append((rest.pop(0), zone, spaces[offset]))
-        return placement
-
-    def standard_role_spaces(
-        self,
-        match: MatchState,
-        side: TeamSide,
-        area: str,
-    ) -> list[int]:
-        """
-        A zone's spaces other than its unique role's, in the order a
-        2.0 deal fills its standard roles (docs/rules-2.0.md 4.5): a
-        Defender or a Winger furthest from the unique role first, a
-        Midfielder behind the Playmaker first, toward their own goal,
-        and then ahead. Any count past the zone's spaces stacks on the
-        last, which no shape either board plays reaches.
-        """
-        side = TeamSide(side)
-        zone = zone_for_area(side, area)
-        unique = match.unique_role_space(side, area)
-        others = [
-            index
-            for index in range(len(match.board.spaces[zone]))
-            if index != unique
-        ]
-        if area == "midfield":
-            def behind(index: int) -> bool:
-                return (index < unique) == (side == TeamSide.HOME)
-
-            others.sort(key=lambda index: (
-                abs(index - unique), not behind(index),
-            ))
-        else:
-            others.sort(key=lambda index: -abs(index - unique))
-        return others + [others[-1] if others else unique] * FIELD_PLAYER_COUNT
 
     def current_formation(
         self,
@@ -4828,15 +4783,9 @@ class RulesEngine:
 
         setup = match.setup_for_side(side)
         board_size = match.board.layout.board_size
-        kept = (
-            "The Fullback, Playmaker and Striker keep their roles, the "
-            "best defenders furthest back"
-            if side.value in match.formation_roles
-            else "Best defenders furthest back"
-        )
         lines = [
             f"**{format_team_side_label(setup, game)} switches to "
-            f"{formation.value}.** {kept}; "
+            f"{formation.value}.** Best defenders furthest back; "
             "rearranging costs no exhaustion."
         ]
         for area in SETUP_AREAS:
@@ -4852,6 +4801,84 @@ class RulesEngine:
             )
         return "\n".join(lines)
 
+    def apply_arrangement(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        holders: Mapping[str, str],
+        placed: Sequence[tuple[str, Zone, int]],
+    ) -> str:
+        """
+        Set a 2.0 side up from its roles (`MatchState.arrange_side`,
+        docs/rules-2.0.md 4.3) and say where everybody stands. Who
+        comes on before kickoff goes to the ordinary bench, as a setup
+        substitution does (`CoachingOccasion.retires_outgoing_players`).
+        """
+        side = TeamSide(side)
+        occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
+        swaps = match.arrange_side(
+            side,
+            holders,
+            placed,
+            self.spreadable_among(game, match.arrangement_pool(side)),
+            retire_outgoing=occasion.retires_outgoing_players,
+        )
+
+        setup = match.setup_for_side(side)
+        roles = match.formation_roles[side.value]
+        board_size = match.board.layout.board_size
+        lines = [
+            f"**{format_team_side_label(setup, game)} lines up "
+            f"{self.shape_name(match, side)}.** Rearranging costs no "
+            "exhaustion."
+        ]
+        for outgoing_player_id, incoming_player_id in swaps:
+            outgoing = self.get_player_definition(outgoing_player_id)
+            incoming = self.get_player_definition(incoming_player_id)
+            lines.append(
+                f"{self.format_player_label(match, incoming)} comes on "
+                f"for {self.format_player_label(match, outgoing)}."
+            )
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            names = []
+            for player_id in setup.zones[zone]:
+                _, space_index = match.board.meeple_position(player_id)
+                names.append(
+                    f"{roles[player_id].title()} "
+                    f"{self.format_roster_player_for_message(player_id, setup.team)} "
+                    f"({space_label(zone, space_index, match.board)})"
+                )
+            lines.append(
+                f"{destination_display_name(zone.value, board_size)}: "
+                f"{', '.join(names)}"
+            )
+        return "\n".join(lines)
+
+    def shape_name(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> Optional[str]:
+        """
+        The shape a side stands in, as a coach reads it: a 1.0 side's
+        formation (`current_formation`), or None for a shape no
+        formation describes. **A 2.0 side has no formations** (the
+        author, 2026-10-24): its shape is whatever its arrangement made,
+        so it is named by its counts from the coach's own goal forward
+        whatever they are -- "3-1-2" as readily as "2-2-2".
+        """
+        side = TeamSide(side)
+        if side.value not in match.formation_roles:
+            formation = self.current_formation(match, side)
+            return None if formation is None else formation.value
+        setup = match.setup_for_side(side)
+        return "-".join(
+            str(len(setup.zones[zone_for_area(side, area)]))
+            for area in SETUP_AREAS
+        )
+
     def coaching_title(
         self,
         match: MatchState,
@@ -4862,8 +4889,8 @@ class RulesEngine:
         the side the long way, its coach cut as an image cuts one, its
         mark drawn by the renderer (`render.draw_marked_text`)."""
         setup = match.setup_for_side(side)
-        formation = self.current_formation(match, side)
-        shape = f" - {formation.value}" if formation else ""
+        name = self.shape_name(match, side)
+        shape = f" - {name}" if name else ""
         return f"{format_team_side_label(setup, game, cut=True)}{shape}"
 
     def coaching_prompt(
@@ -5406,9 +5433,9 @@ class RulesEngine:
         # buttons that are not on the message in order to introduce the
         # one that is -- and did it on every turn for the rest of a
         # half, since a spent time out does not come back.
-        if match.can_attempt_score():
+        if self.can_attempt_score(game, match):
             action_line = "Choose an action:"
-        elif match.may_call_time_out():
+        elif self.may_call_time_out(game, match):
             action_line = (
                 "Out of shooting range. Maneuver, or take a time out:"
             )

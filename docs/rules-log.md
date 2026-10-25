@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-24.
+**As of:** 2026-10-25.
 
 ## Where the rules come from
 
@@ -155,6 +155,36 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-25 -- author, 2.0: no zone assignment or space positioning; an Ooze shares both ways
+
+**Two more answers on PR #673** ([rules-2.0.md](rules-2.0.md) 4.6, 5.4a), to the two entries
+below.
+
+- **An Ooze shares a space both ways** (4.6e): an Ooze may be placed on anybody's space, a
+  unique role's included, and a teammate may be placed on an Ooze's, an Ooze in a unique role
+  included -- the reading of *"unless it's an ooze that can go there"* put to the author, who
+  answered *"That is right"*.
+- **A 2.0 Coaching Choice has no zone assignment and no space positioning** (4.6c). Put to the
+  author because rearranging's trades and moves (4.6a) already do both, the author answered
+  *"drop them"*. So a 2.0 coach moves their side by rearranging it and brings players on by
+  substitution, and nothing else. A teammate left sharing an Ooze's unique space once a
+  substitution puts somebody who is not an Ooze in the role still moves off it for nothing, to
+  the one empty space of their zone where there is only one, and otherwise wherever the coach
+  rearranges them -- rearranging rather than space positioning now, so to any space with room,
+  in any zone (4.6e).
+
+### 2026-10-25 -- author, 2.0: no shooting range
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) section 6). The author, asking for
+the range to come off the printed 2.0 field board: *"there is no shooting range in 2.0. Players
+can shoot from wherever they want."* So a score attempt is offered on every turn, the speed
+modifier goes with a shot from anywhere, and a set-up's shot is never lost to the range (6.1).
+
+The Charter's time out is offered only out of range (Law 13.2.1a), which no 2.0 side ever is.
+Asked the same day whether a 2.0 side may call one on any turn, never, or only where the old
+range would have left it out, the author chose **any turn it has the ball**, with the other two
+conditions -- once a half, and not after last possession -- unchanged (6.2).
+
 ### 2026-10-24 (later) -- author, 2.0: only a new play runs back, and a steal's run back is the Charter's
 
 **Two answers on PR #675** ([rules-2.0.md](rules-2.0.md) 4.6d, 4.9, 5.4a), narrowing the entry
@@ -198,6 +228,54 @@ author answered:
 
 A time out is a new play (Law 13.1.2), so it runs back the same way, before its two windows,
 where 1.0 resets after them.
+
+### 2026-10-24 (later) -- author, 2.0: the zone cap holds with Oozes, and a rearrangement starts from where the side stands
+
+**Two answers on PR #673** ([rules-2.0.md](rules-2.0.md) 4.3, 4.6a), to the entry below.
+
+- **No zone holds more players than it has spaces, Oozes included.** The author: *"Make note
+  that there can be no more players in a zone than spaces even with oozes in the rules"* -- the
+  reading the entry below put to them, now stated on its own under 4.3.
+- **The standard deal still sets every side up, and a rearrangement starts from it.** The
+  author: *"At the start of the game there should still be a default setup dealt. And anytime
+  coaches want to make a change, it should already be set up the way it is currently set up, and
+  then they can make changes on the basis of the current setup rather than having to redo
+  everything from scratch every time."* So 4.6a's rearranging is a change at a time -- a unique
+  role given to somebody else, a player moved to a space with room, two players trading places
+  and roles, or before kickoff a bench player put in somebody's place -- each from the side as it
+  stands, with the two steps of 4.3 the rules every result must meet rather than a form filled in
+  afresh.
+
+### 2026-10-24 -- author, 2.0: no formations; a side is arranged by its roles
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 4.2, 4.3, 4.5, 4.6a, 4.6e, 5.4a),
+replacing 4.3's three steps -- a formation, then the roles, then the standard roles' spaces --
+and the formation change of 2026-10-18. The author: *"for d12ball 2.0 the way to assign players
+to formation should follow the following procedure. 1. Coaches assign players to the roles of
+Fullback, playmaker, and Striker. 2. Coaches assign 3 more players to any of the spaces on the
+board that aren't occupied by the FB, PM or SK (unless it's an ooze that can go there). The
+assigned players are given the roles associated with the zones of the spaces they were assigned
+to"*, and *"Basically we are removing formations as they are, but players can still create
+formations as they place players"*. Asked the same day, the author answered:
+
+- **Before kickoff the six come from the whole squad of nine** (4.3c), the three left out on the
+  bench -- chosen over arranging only the six the deal fielded.
+- **Any shape the spaces allow** (4.2) -- 3-1-2 and 2-1-3 on boards 9 and 10, 1-4-1 on board 10
+  -- chosen over refusing a shape the old list of five did not have.
+- **At setup and in place of a formation change** in every later Coaching Choice (4.6a) --
+  chosen over setup alone.
+- **Nobody stacks** (4.3b): the three go to empty spaces, and only an Ooze shares one -- chosen
+  over letting two in standard roles share a space.
+
+One reading the answers left, written into 4.3b and 4.6e and put to the author on the PR -- and
+confirmed (the entry above): **no zone holds more players than it has spaces, an Ooze counted.** Without it an Ooze Fullback on
+board 7 could share its space with a Defender while a second Defender stood on the zone's other
+space; a zone assignment putting somebody who is not an Ooze in the Fullback's role would then
+leave the first Defender to step off (4.6e) with no empty space to go to. The old 4.3c held the
+same line ("no formation puts more players in a zone than it has spaces").
+
+Rearranging later in the game uses the six on the field; only a substitution brings anybody on
+(4.3c), since a Coaching Choice after kickoff counts its substitutions.
 
 ### 2026-10-21 -- author, 2.0: moving costs a token a space, and a card costs nothing
 

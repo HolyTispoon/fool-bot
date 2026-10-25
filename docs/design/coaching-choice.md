@@ -65,6 +65,12 @@ positioning. See "Coaching Choice" in the living rules. They were three flows
 offering overlapping subsets of those four; a coach should not have to learn
 three menus to do one job.
 
+**A 2.0 side is offered two of them**: Arrange team in place of the formation,
+and the substitution (rules-2.0 4.6; the author, 2026-10-25). Arrange team's
+trades and moves do what zone assignment and space positioning did, so the
+hub's options carry no `swaps` or `repositions` for it and the driver refuses
+both answers -- see "Roles" in [maneuver-deck.md](maneuver-deck.md).
+
 A fourth occasion joined them: the window between full time and the
 [extreme shootout](shootout.md#the-extreme-shootout). It is the same flow, with **one
 substitution and none of the other three actions** -- a shootout is played by
