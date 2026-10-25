@@ -627,9 +627,16 @@ class FieldGeometry:
     range_bottom: float
     space_width: float
     board_size: int
+    # A 2.0 board's band over the strip, the visitors' standard roles
+    # (`draw_standard_roles`); on a 1.0 board it takes no height and
+    # both are the strip's top.
+    upper_band_top: float = 0.0
+    upper_band_bottom: float = 0.0
 
     @classmethod
-    def for_sheet(cls, sheet: Sheet, layout: BoardLayout) -> "FieldGeometry":
+    def for_sheet(
+        cls, sheet: Sheet, layout: BoardLayout, upper_band: bool = False
+    ) -> "FieldGeometry":
         # **The full width of the sheet, less what a printer cannot
         # reach.**
         edge = FIELD_EDGE_INCHES * PRINT_DPI
@@ -658,12 +665,18 @@ class FieldGeometry:
         header = sheet.u(FIELD_NOTE_TOP + FIELD_NOTE_LEADING)
         direction = content * 0.05
         ranges = sheet.u(44)
-        strip = content - header - direction - ranges - 3 * gap
+        # A 2.0 board has a second band of that height over the strip,
+        # the visitors' mirror of the one under it, and the strip gives
+        # up the height.
+        upper = ranges + gap if upper_band else 0
+        strip = content - header - direction - ranges - 3 * gap - upper
 
         header_bottom = content_top + header
         direction_top = header_bottom + gap
         direction_bottom = direction_top + direction
-        strip_top = direction_bottom + gap
+        upper_band_top = direction_bottom + gap
+        upper_band_bottom = upper_band_top + (ranges if upper_band else 0)
+        strip_top = direction_bottom + gap + upper
         strip_bottom = strip_top + strip
         range_top = strip_bottom + gap
 
@@ -689,6 +702,8 @@ class FieldGeometry:
             range_bottom=range_top + ranges,
             space_width=space_width,
             board_size=layout.board_size,
+            upper_band_top=upper_band_top if upper_band else strip_top,
+            upper_band_bottom=upper_band_bottom if upper_band else strip_top,
         )
 
     @property
@@ -734,8 +749,12 @@ def render_field_board(
     """
     The field: one row of spaces, split into the three zones, with the
     kickoff space marked and each side's shooting range bracketed under
-    it -- and on a 2.0 board each side's three unique roles on the
-    spaces they stand on (`draw_role_marks`).
+    it. **A 2.0 board has no shooting range** -- a shot may be taken
+    from anywhere (the author, 2026-10-25) -- so it carries each side's
+    three unique roles on the spaces they stand on (`draw_role_marks`)
+    and, where the ranges were, each side's standard roles a zone each
+    (`draw_standard_roles`): home's under the field, the visitors' over
+    it.
 
     **Landscape, and the field alone** (the author, 2026-10-05). The
     zone-assignment rows that used to stand above and below it are each
@@ -752,15 +771,18 @@ def render_field_board(
 
     width, height = sheet_pixels(paper, landscape=True)
     sheet = field_sheet(width, height)
-    geometry = FieldGeometry.for_sheet(sheet, layout)
+    two = edition == Edition.TWO
+    geometry = FieldGeometry.for_sheet(sheet, layout, upper_band=two)
 
     draw_field_header(sheet, geometry, layout, edition)
     draw_attack_directions(sheet, geometry, board)
     draw_field_strip(sheet, geometry, layout)
-    if edition == Edition.TWO:
-        draw_role_marks(sheet, geometry, layout)
     draw_field_end_zones(sheet, geometry)
-    draw_shooting_ranges(sheet, geometry, board)
+    if two:
+        draw_role_marks(sheet, geometry, layout)
+        draw_standard_roles(sheet, geometry, layout)
+    else:
+        draw_shooting_ranges(sheet, geometry, board)
 
     return add_bleed(sheet.image) if bleed else sheet.image
 
@@ -1420,6 +1442,87 @@ def draw_field_end_zone(
     ball_x = round(ball_center_x - ball_center)
     ball_y = round(ball_center_y - ball_center)
     sheet.image.paste(ball_layer, (ball_x, ball_y), ball_layer)
+
+
+def standard_role_band(
+    sheet: Sheet,
+    geometry: FieldGeometry,
+    layout: BoardLayout,
+    side: TeamSide,
+) -> Image.Image:
+    """
+    One side's standard roles as a band the strip's width and the
+    range band's height, upright as that side's coach reads it: a panel
+    under each zone with the role the side's players there hold once
+    the zone's unique role is taken -- Defender in the zone before
+    their own goal, Midfielder in midfield, Winger in the zone they
+    attack (`FORMATION_ZONE_ROLES`, `zone_for_area`) -- each the role
+    token's face in ink beside its name and whose it is.
+    """
+    # Imported here: `role_tokens` reads the papers from this module.
+    from d12ball.role_tokens import role_face
+
+    left = geometry.strip_left
+    width = round(geometry.strip_right - left)
+    height = round(geometry.range_bottom - geometry.range_top)
+    band = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(band)
+    badge_size = round(height * 0.72)
+    gap = sheet.u(10)
+    caption = side_display_name(side).upper()
+    caption_font = sheet.fitted_font(caption, width, 13)
+    first = 0
+    for zone in Zone:
+        count = layout.zone_spaces[zone]
+        last = first + count - 1
+        x0, x1 = geometry.span_bounds(first, last)
+        x0, x1 = x0 - left + sheet.u(4), x1 - left - sheet.u(4)
+        if side == TeamSide.VISITING:
+            # Laid out as the visitors read it, which the 180-degree
+            # turn in `draw_standard_roles` puts back over its zone.
+            x0, x1 = width - x1, width - x0
+        first = last + 1
+        role = FORMATION_ZONE_ROLES[area_for_zone(side, zone)][1]
+        pen.rounded_rectangle(
+            (round(x0), 0, round(x1), height - 1),
+            radius=round(sheet.u(6)),
+            fill=PAPER_PANEL,
+            outline=PAPER_EDGE,
+            width=max(1, round(sheet.u(1.6))),
+        )
+        name = role.value.upper()
+        name_font = sheet.fitted_font(name, (x1 - x0) * 0.45, 17, bold=True)
+        name_width = pen.textlength(name, font=name_font)
+        caption_width = pen.textlength(caption, font=caption_font)
+        group = badge_size + gap + name_width + gap + caption_width
+        x = (x0 + x1 - group) / 2
+        badge = role_face(role, INK, badge_size, named=False)
+        band.paste(badge, (round(x), round((height - badge_size) / 2)), badge)
+        x += badge_size + gap
+        pen.text((x, height / 2), name, font=name_font, fill=INK, anchor="lm")
+        x += name_width + gap
+        pen.text((x, height / 2), caption, font=caption_font, fill=MUTED, anchor="lm")
+    return band
+
+
+def draw_standard_roles(
+    sheet: Sheet,
+    geometry: FieldGeometry,
+    layout: BoardLayout,
+) -> None:
+    """
+    **A 2.0 board's standard roles, where 1.0 brackets the shooting
+    ranges** (the author, 2026-10-25: 2.0 has no shooting range). Home's
+    band is under the field, upright, along home's edge; the visitors'
+    is over the field, turned 180 degrees to read from their seat --
+    each side's roles on its own coach's side, as the unique roles'
+    marks are (`draw_role_marks`).
+    """
+    left = round(geometry.strip_left)
+    home = standard_role_band(sheet, geometry, layout, TeamSide.HOME)
+    sheet.image.paste(home, (left, round(geometry.range_top)), home)
+    visitors = standard_role_band(sheet, geometry, layout, TeamSide.VISITING).rotate(180)
+    sheet.image.paste(visitors, (left, round(geometry.upper_band_top)), visitors)
 
 
 def range_side(board: BoardState, index: int) -> int:

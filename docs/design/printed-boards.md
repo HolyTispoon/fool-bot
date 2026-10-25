@@ -662,6 +662,20 @@ D12 Ball 2.0 puts the roles on the formation's zones (rules-2.0 section
   kickoff space -- holds one at each end, and the kickoff mark keeps the
   middle. The first draft stacked both at the bottom with a BOTH caption
   for the shared kickoff space, which read as one side's.
+- **No shooting range; the standard roles in its place** (the author,
+  2026-10-25: in 2.0 a shot may be taken from anywhere). Where a 1.0
+  board brackets the two ranges, a 2.0 board has a panel under each zone
+  with the standard role a side's players there hold -- Defender before
+  their own goal, Midfielder in midfield, Winger in the zone they attack
+  -- as the token's face in ink, the role's name and whose it is
+  (`draw_standard_roles`, off `FORMATION_ZONE_ROLES` and
+  `zone_for_area`). Home's band is under the field; the visitors' is a
+  second band over it, between the attack arrows and the strip, turned
+  180 degrees and laid out mirrored first so the turn puts each panel
+  back over its zone. The strip gives the second band its height
+  (`FieldGeometry.for_sheet(..., upper_band=True)`), so a 2.0 strip is
+  about half an inch shorter than a 1.0 one; nothing stands on that
+  height. The 1.0 boards are byte-identical with this in.
 - **The zone board puts the roles on the card guides** (`draw_guide_role`):
   each zone's top guide carries its unique role and the two under it the
   standard role, because the first player in a zone takes the unique
