@@ -2752,7 +2752,9 @@ class MatchState:
         )
         return self.ball.space_index == closest_space
 
-    def can_attempt_score(self, side: Optional[TeamSide] = None) -> bool:
+    def can_attempt_score(
+        self, side: Optional[TeamSide] = None, range_applies: bool = True,
+    ) -> bool:
         """
         Whether a shot at goal is legal from where the ball is: only
         from within the shooting team's range (see "Score attempt" in
@@ -2761,11 +2763,18 @@ class MatchState:
         explicitly, since they read the offense once at the top and
         resolve the whole effect against it.
 
+        **2.0 has no range** (docs/rules-2.0.md section 6), so there a
+        shot is legal from anywhere: `range_applies` is the game's
+        answer, which the match cannot see, and
+        `RulesEngine.can_attempt_score` is the one place it is asked.
+
         This governs a set-up's shot as much as the ordinary turn's,
         because a set-up sends a player into an ordinary score
         attempt: what the set-up buys is the shot out of turn, not a
         shot from anywhere.
         """
+        if not range_applies:
+            return True
         return self.board.is_in_shooting_range(
             self.ball.possession if side is None else side,
             self.board.flat_index(self.ball.zone, self.ball.space_index),
@@ -2834,11 +2843,13 @@ class MatchState:
         ):
             self.events.pop()
 
-    def may_call_time_out(self) -> bool:
+    def may_call_time_out(self, range_applies: bool = True) -> bool:
         """
         Whether the team in possession may stop play to coach -- see
         "Time out" in docs/living-rules.md. Three conditions and no
-        others:
+        others -- two in 2.0, which has no range (`range_applies`
+        False; docs/rules-2.0.md 6.2), so its time out is on offer on
+        any turn. `RulesEngine.may_call_time_out` asks it:
 
         - **They are out of shooting range.** A side with a shot on is
           not stuck, and the rule exists for a side that is. It is the
@@ -2865,7 +2876,7 @@ class MatchState:
         would mislead far more often than it helped.
         """
         return (
-            not self.can_attempt_score()
+            not (range_applies and self.can_attempt_score())
             and not self.scoreboard.last_possession
             and self.may_take_time_out(self.ball.possession)
         )
