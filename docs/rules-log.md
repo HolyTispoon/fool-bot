@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-24.
+**As of:** 2026-10-25.
 
 ## Where the rules come from
 
@@ -154,6 +154,24 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-25 -- author, 2.0: no zone assignment or space positioning; an Ooze shares both ways
+
+**Two more answers on PR #673** ([rules-2.0.md](rules-2.0.md) 4.6, 5.4a), to the two entries
+below.
+
+- **An Ooze shares a space both ways** (4.6e): an Ooze may be placed on anybody's space, a
+  unique role's included, and a teammate may be placed on an Ooze's, an Ooze in a unique role
+  included -- the reading of *"unless it's an ooze that can go there"* put to the author, who
+  answered *"That is right"*.
+- **A 2.0 Coaching Choice has no zone assignment and no space positioning** (4.6c). Put to the
+  author because rearranging's trades and moves (4.6a) already do both, the author answered
+  *"drop them"*. So a 2.0 coach moves their side by rearranging it and brings players on by
+  substitution, and nothing else. A teammate left sharing an Ooze's unique space once a
+  substitution puts somebody who is not an Ooze in the role still moves off it for nothing, to
+  the one empty space of their zone where there is only one, and otherwise wherever the coach
+  rearranges them -- rearranging rather than space positioning now, so to any space with room,
+  in any zone (4.6e).
 
 ### 2026-10-24 (later) -- author, 2.0: the zone cap holds with Oozes, and a rearrangement starts from where the side stands
 

@@ -139,7 +139,8 @@ three start on the bench, as in 1.0.
 which is what this arrangement does. As you gain experience with the game, feel free to change
 things around!
 
-**4.6** **In a Coaching Choice** (Law 14.2) a player's role decides how they may move:
+**4.6** **In a Coaching Choice** (Law 14.2) a coach moves their side by rearranging it and
+brings players on by substitution, and nothing else:
 
 - **a.** **Rearranging** takes the place of a formation change: starting from the side as it
   stands, the coach may put a different player in a unique role, move a player in a standard
@@ -148,23 +149,19 @@ things around!
   makes. Nobody is dealt by defensive skill (Law 14.7.3 does not apply).
 - **b.** A **substitution** brings the player on into the outgoing player's role, with their
   zone and their space.
-- **c.** A **zone assignment** trades two fielded players' roles, and their zones, cards and
-  meeples with them -- two players in the same zone included. It is how a coach puts a different
-  player in a unique role.
-- **d.** **Space positioning** never changes a role. A player in a unique role may not move to
-  another space. A player in a standard role may move to an empty space in their zone, or to one
-  held by a teammate in a standard role, the two swapping places; never onto a unique role's
-  space.
-- **e.** **An Ooze bends 4.3b and 4.6d** in standard and advanced mode, because Spreadable (Law
-  20.5.4) counts it as 0 toward its zone's occupancy. An Ooze may be placed on any space, sharing
-  it with anybody, a unique role included, and a teammate may be placed on an Ooze's space;
-  either way its zone still holds no more players than it has spaces. In space positioning an
-  Ooze in a standard role may move to any space in its zone, sharing it with anybody, a unique
-  role included, and an Ooze in a unique role is still locked onto its space, but a teammate in
-  a standard role may be moved onto that space to share it. A zone assignment or a substitution that puts somebody who is not an Ooze
-  into that unique role still stands, and the teammate sharing the space moves off it to an empty
-  space in their zone, for nothing; where more than one is empty, their coach chooses which, and
-  may not finish the Coaching Choice until they have.
+- **c.** **There is no zone assignment and no space positioning** (Law 14.2.1): rearranging's
+  trades and moves (4.6a) do what both did.
+- **d.** **A unique role holds its space.** Nobody moves a Fullback, a Playmaker or a Striker
+  off their role's space except by rearranging the role onto somebody else, and nobody but an
+  Ooze is moved onto it (4.6e).
+- **e.** **An Ooze bends 4.3b** in standard and advanced mode, because Spreadable (Law 20.5.4)
+  counts it as 0 toward its zone's occupancy. An Ooze may be placed on any space, sharing it
+  with anybody, a unique role included, and a teammate may be placed on an Ooze's space, an Ooze
+  in a unique role included; either way its zone still holds no more players than it has
+  spaces. A substitution that puts somebody who is not an Ooze into an Ooze's unique role still
+  stands, and a teammate sharing that space moves off it, for nothing: to the one empty space of
+  their zone where there is only one, and otherwise wherever their coach rearranges them (4.6a)
+  -- and the coach may not finish the Coaching Choice until they have.
 
 **4.7** **There are no role abilities.** Nothing a role adds in the Charter applies in a 2.0
 game -- neither the six abilities of Law 2.6.2 nor the role lines on the advanced maneuvers
@@ -221,8 +218,8 @@ Double Team moves forward (19.10.6), as well as every move the Charter already c
 -- a player sent to the ball (9.4) and a player running back after a steal (12.4.3).
 
 - **a.** **Two kinds of move are free**: the reset after a new play (Law 12.5), and every move a
-  Coaching Choice makes -- space positioning, a zone assignment, an arrangement, a
-  substitution and stepping off a unique role's space (Law 14; section 4).
+  Coaching Choice makes -- a rearrangement, a substitution and stepping off a unique role's
+  space (Law 14; section 4).
 - **b.** **An ability or a card that prices its own move keeps that price**: Emberdash's Burst
   costs nothing and so, in 2.0, does their Dribble (Law 21.3.4); a Strider runs back for at most
   1 (21.4.4); Quantor's run and Glompex's step onto the ball cost what their abilities say
