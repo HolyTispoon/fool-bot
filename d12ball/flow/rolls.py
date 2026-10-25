@@ -1077,7 +1077,7 @@ def after_the_contest(
     if (
         was_high_pass
         and not turnover_occurred
-        and match.can_attempt_score(match.ball.possession)
+        and engine.can_attempt_score(game, match, match.ball.possession)
         and engine.has_special_ability(
             game, winner_id, SpecialAbility.SHOOTS_OFF_ANY_PASS,
         )

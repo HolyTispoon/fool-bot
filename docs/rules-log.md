@@ -173,6 +173,18 @@ below.
   rearranges them -- rearranging rather than space positioning now, so to any space with room,
   in any zone (4.6e).
 
+### 2026-10-25 -- author, 2.0: no shooting range
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) section 6). The author, asking for
+the range to come off the printed 2.0 field board: *"there is no shooting range in 2.0. Players
+can shoot from wherever they want."* So a score attempt is offered on every turn, the speed
+modifier goes with a shot from anywhere, and a set-up's shot is never lost to the range (6.1).
+
+The Charter's time out is offered only out of range (Law 13.2.1a), which no 2.0 side ever is.
+Asked the same day whether a 2.0 side may call one on any turn, never, or only where the old
+range would have left it out, the author chose **any turn it has the ball**, with the other two
+conditions -- once a half, and not after last possession -- unchanged (6.2).
+
 ### 2026-10-24 (later) -- author, 2.0: the zone cap holds with Oozes, and a rearrangement starts from where the side stands
 
 **Two answers on PR #673** ([rules-2.0.md](rules-2.0.md) 4.3, 4.6a), to the entry below.

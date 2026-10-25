@@ -2857,9 +2857,9 @@ def _turn_options(
     prompt: PendingPrompt,
 ) -> TurnOptions:
     actions = ["maneuver"]
-    if match.can_attempt_score():
+    if engine.can_attempt_score(game, match):
         actions.append("shoot")
-    if match.may_call_time_out():
+    if engine.may_call_time_out(game, match):
         actions.append("time_out")
     allowed = tutorial.allowed_actions(tutorial.beat_for_game(game))
     live = [

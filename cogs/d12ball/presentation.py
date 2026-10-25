@@ -639,6 +639,7 @@ class PresentationMixin:
             card_skills=self.engine.card_skills(game, match),
             coaches=coaches,
             tie_coin=self.tie_coin_brief(game, match),
+            shooting_range=self.engine.shooting_range_applies(game),
         )
         return image.getvalue()
 
@@ -794,6 +795,7 @@ class PresentationMixin:
             self.player_catalog,
             species_icons=self.engine.species_abilities_apply(game),
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
+            shooting_range=self.engine.shooting_range_applies(game),
         )
         return discord.File(image, filename=FIELD_IMAGE_FILENAME)
 

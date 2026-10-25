@@ -197,6 +197,29 @@ charge, "" in 1.0 or for a move that went nowhere.
   the cost in the narration. Pricing them is an option field on `DRIBBLE_ADVANCE_CHOICE`, both
   sides reading it, as the Burst's `dribble_burst_note` does.
 
+## No shooting range
+
+**2.0 has no shooting range: a shot may be taken from anywhere** (rules-2.0 section 6; the
+author, 2026-10-25). `RulesEngine.shooting_range_applies` is the gate -- the deck's answer the
+other way round, under its own name -- and two engine readings carry it to every site:
+`can_attempt_score(game, match, side)` and `may_call_time_out(game, match)`, over the
+`MatchState` methods of the same names, which take `range_applies` because the match cannot see
+the edition. Every rule site asks the engine (the turn's options and refusal, the turn prompt,
+a 2-space High Ball's and Vorix's set-up, the Winger's, Zytheris's shot); a 1.0 caller of the
+`MatchState` methods gets the range by default.
+
+- **The time out is offered on any turn** (6.2, the author's answer when asked): the Charter's
+  "out of range" condition would never hold in 2.0, so it is dropped, and once a half and not
+  after last possession stay. So a 2.0 turn offers all three actions at once.
+- **The bot's board draws no range bracket** in a 2.0 game (`shooting_range` on
+  `render_match_image`, `render_field_image` and `draw_board`, from `shooting_range_applies`),
+  and the printed 2.0 field board puts the standard roles where 1.0 brackets the ranges
+  ([printed-boards.md](printed-boards.md), "The 2.0 boards").
+- **Dinky needs nothing**: it shoots only from the scoring space, so it does not start shooting
+  from its own end, and calls a time out only for an injured player on the field.
+- **A long shot is still harder**: every defender between the ball and the goal adds half their
+  skill (Law 5.3.2), which is what makes a range unnecessary rather than the shot free.
+
 ## Roles
 
 **`RulesEngine.role_of(match, player_id)` is the one reading of which role a card is

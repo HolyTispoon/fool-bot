@@ -2,8 +2,9 @@
 
 **D12 Ball 2.0 is the Charter ([living-rules.md](living-rules.md)) with the rules below: a
 maneuver deck in place of how a coach chooses a maneuver (sections 1 to 3), roles that
-belong to the formation rather than to the players, with no role abilities (section 4), and a
-coin that settles tied rolls, with moving on the board costing exhaustion a space (section 5).**
+belong to the formation rather than to the players, with no role abilities (section 4), a
+coin that settles tied rolls, with moving on the board costing exhaustion a space (section 5),
+and no shooting range (section 6).**
 Everything the Charter does not change here plays exactly as it says. D12 Ball 1.0 is the
 Charter unchanged. The edition is chosen at setup, beside the mode, and either edition goes
 with any of the three modes: the mode still decides which abilities are played (Law 18). Where
@@ -236,3 +237,22 @@ running back -- are one:
 | What costs tokens | How many |
 | --- | --- |
 | Moving on the board during play, but for a reset or a Coaching Choice | 1 per space traveled |
+
+## 6. No shooting range
+
+**6.1** **There is no shooting range: a team may shoot from anywhere on the field** (Law 2.3
+does not apply). Wherever the Charter asks whether the ball is in range, in 2.0 it is:
+
+- **a.** A score attempt is offered on every turn (Law 1.3, 4.2b, 4.3.1, 5.1.1).
+- **b.** The ball speed modifier is added to a shot from wherever it is taken (Law 5.2.2,
+  7.4.1).
+- **c.** Every set-up's scoring opportunity may be taken wherever the ball is -- a 2-space High
+  Ball's, Vorix's and Zytheris's (Law 6.7, 8.1.2, 21.5.6, 21.5.8).
+
+A shot from further out is harder without a range to forbid it: every defender between the ball
+and the goal still adds half their defensive skill (Law 5.3.2).
+
+**6.2** **A time out may be called on any turn the side has the ball**, under the other two
+conditions as they stand: the side has not yet taken its time out this half, and last possession
+has not been declared (Law 13.2.1b and c). Being out of range is no longer one of them (Law
+4.3.3, 13.1.1 and 13.2.1a do not apply).

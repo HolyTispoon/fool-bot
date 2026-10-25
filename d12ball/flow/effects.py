@@ -395,7 +395,7 @@ def low_pass_tail(
     )
     if not (
         winger or zytheris
-    ) or not match.can_attempt_score(offense_side):
+    ) or not engine.can_attempt_score(game, match, offense_side):
         return [], FollowOn(
             FollowOnStep.FINISH_MANEUVER_RESOLUTION,
             {"distance_moved": distance_moved},
@@ -1872,7 +1872,7 @@ def high_pass_step(
     # branch below settles -- the range rule takes away the shot,
     # not the catch.
     setup_candidates = []
-    if distance == 2 and match.can_attempt_score(offense_side):
+    if distance == 2 and engine.can_attempt_score(game, match, offense_side):
         setup_candidates = receiver_candidates
 
     # **Vorix's pass of 3 is a set-up** (Law 21): no contest, the
@@ -1894,7 +1894,7 @@ def high_pass_step(
             f"long pass needs no contest -- ball speed "
             f"**{VORIX_BALL_SPEED}**."
         )
-        if match.can_attempt_score(offense_side):
+        if engine.can_attempt_score(game, match, offense_side):
             setup_candidates = receiver_candidates
         else:
             return complete_high_pass_reception(
