@@ -718,9 +718,9 @@ role token laid on the tile may too ([printed-tokens.md](printed-tokens.md),
 
 **It is a tile, smaller than a card, at the card's type sizes** (the
 author, 2026-10-25: "the idea of making them tokens is to make them
-smaller than cards without decreasing font sizes"): 2.75 x 2.0in on its
-side (`render_player_tile`, `TILE_INCHES`), under two thirds of a poker
-card's area, so the 2.0 zone board can lay a zone's tiles in a column
+smaller than cards without decreasing font sizes"): 2.75 x 2.25in on
+its side (`render_player_tile`, `TILE_INCHES`), about seven tenths of a
+poker card's area, so the 2.0 zone board can lay a zone's tiles in a column
 under that zone of the field with the roles printed beside them
 ([printed-boards.md](printed-boards.md), "The 2.0 boards"). Its corner
 is 0.2in (`TILE_CORNER`), since a card's 0.35in would cut into the
@@ -736,7 +736,9 @@ header.
 - **Under it, a text column on the left and the portrait on the
   right**, the species' badge and its ability's name at the column's
   foot on both faces. The front's column is the labelled skills panel
-  (`draw_stats` with the column's edges); the advanced face's is the
+  **cut to what it says** (`draw_tile_stats`: OFFENSE 1 | 6 DEFENSE,
+  each number against the divider, at the card's sizes -- the author,
+  2026-10-25, so the portrait could be larger); the advanced face's is the
   ADVANCED ribbon and the player's special ability at the card's 32
   (no special ability, nothing there), its advanced skills in the
   corner index.
@@ -744,10 +746,13 @@ header.
   panel -- the corner index says the skills, as the bot's own board card
   does, without the panel's mark beside a skill advanced mode changes;
   the species is named and not explained, as on a 1.0 card (its rule is
-  on the species reference cards); and the portrait is about 0.85in
-  across. The height is the longest special ability's: five lines at
-  32 (Zenith, Scorchit) need 2.0in, and **a tile refuses an ability
-  that would run into the species** rather than setting it smaller.
+  on the species reference cards). The text column is as narrow as the
+  longest special ability allows -- six lines at 32 (Zenith, Scorchit)
+  in 400 units -- and the portrait takes the rest, about 1.15in across;
+  the height is what those six lines need, with room, and **a tile
+  refuses an ability that would run into the species** rather than
+  setting it smaller. The first draft, 2.75 x 2in with a column as wide
+  as the old panel, left the portrait 0.85in.
 - **A role token lies in the bottom-right corner** (`TILE_TOKEN_SPOT`),
   over the portrait's foot, where it covers no number and no word.
 - **A team's sheet is three across**, the tiles upright, so it

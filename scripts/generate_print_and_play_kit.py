@@ -125,7 +125,7 @@ short edge**. The cards need no cutting.
   `<team>-sheet.png` is the standard sides and
   `<team>-advanced-sheet.png` the advanced sides, printed as a pair.{player_avery}
 - **player-cards-2.0/** -- the same players as tiles for **D12 Ball
-  2.0**: 2.75in across and 2in tall, smaller than a card, so a zone's
+  2.0**: 2.75in across and 2.25in tall, smaller than a card, so a zone's
   tiles fit a column of the 2.0 zone board. In 2.0 a player has no role
   and there are no role abilities, so these name no role: the standard
   side carries the skills and the species, and the advanced side the
@@ -195,7 +195,7 @@ short edge**. The cards need no cutting.
   and two slots under it for its standard role (Defender, Midfielder,
   Winger), each slot's role printed beside it so a tile on the slot
   leaves it in sight. It is the field board's paper, cut along the
-  dashed line to about 7.9in deep, and also comes cut in two for a letter printer
+  dashed line to about 8.6in deep, and also comes cut in two for a letter printer
   (`-left` and `-right`), taped like the field board. It takes the
   whole length of your side, so the team board goes elsewhere -- beside
   the jumbotron, say. The jumbotron and the team boards are the same as
@@ -203,7 +203,7 @@ short edge**. The cards need no cutting.
 
 ## Paper and cutting
 
-Cards are poker size (2.5 x 3.5in; a 2.0 player is a 2.75 x 2in
+Cards are poker size (2.5 x 3.5in; a 2.0 player is a 2.75 x 2.25in
 tile) at 300dpi, and every board is 300dpi too.
 
 **Only the field board wants a big sheet.** It is {paper}

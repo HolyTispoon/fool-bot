@@ -468,8 +468,6 @@ def draw_stats(
     profile: "RoleProfile | CardSkills",
     top: float,
     standard: "RoleProfile | None" = None,
-    left: float = MARGIN,
-    right: float = CARD_WIDTH - MARGIN,
 ) -> None:
     """
     The two skills on one row, each number centred in its half with
@@ -489,19 +487,16 @@ def draw_stats(
     a gold triangle pointing the way it went and how far, "▲ +2" (the
     author, 2026-10-13) -- so what the back adds is read off the row
     rather than by turning the card over to compare.
-
-    `left` and `right` are the panel's edges: the card's margins, or a
-    2.0 tile's text column (`render_player_tile`).
     """
     pen.rect(
-        (left, top, right, top + STATS_HEIGHT),
+        (MARGIN, top, CARD_WIDTH - MARGIN, top + STATS_HEIGHT),
         radius=18,
         fill=PANEL_COLOR,
         outline=PANEL_EDGE,
         width=2,
     )
 
-    column_width = (right - left) / 2
+    column_width = (CARD_WIDTH - MARGIN * 2) / 2
     label_face = font(STATS_LABEL_SIZE, bold=True)
     value_face = font(STATS_VALUE_SIZE, bold=True)
     center_y = top + STATS_HEIGHT / 2
@@ -514,7 +509,7 @@ def draw_stats(
         ("DEFENSE", str(profile.defense), CARD_DEFENSE_COLOR, 1),
     )
     for index, (label, value, color, side) in enumerate(columns):
-        cx = left + column_width * (index + 0.5)
+        cx = MARGIN + column_width * (index + 0.5)
         pen.text((cx, center_y), value, value_face, color, anchor="mm")
         value_half = pen.text_size(value, value_face)[0] / 2
         pen.text(
@@ -536,8 +531,8 @@ def draw_stats(
                 )
     pen.line(
         [
-            (left + column_width, top + 14),
-            (left + column_width, top + STATS_HEIGHT - 14),
+            (MARGIN + column_width, top + 14),
+            (MARGIN + column_width, top + STATS_HEIGHT - 14),
         ],
         fill=PANEL_EDGE,
         width=2,
@@ -1012,19 +1007,30 @@ TEAM_SHEET_COLUMNS = DUPLEX_COLUMNS
 # What the size is traded for: the labelled skills panel is on the
 # front alone, the corner index saying the skills on both faces as the
 # bot's board card does, and the species is named but not explained,
-# as on a 1.0 card; the portrait is smaller.
-TILE_INCHES = (2.75, 2.0)
+# as on a 1.0 card.
+TILE_INCHES = (2.75, 2.25)
 TILE = (round(TILE_INCHES[0] * 300), round(TILE_INCHES[1] * 300))
 # A poker card's 0.35in corner would cut into a 2in tile's header.
 TILE_CORNER = 60
 TILE_TEXT_LEFT = MARGIN + 6
-TILE_TEXT_RIGHT = 548
+# The text column is as narrow as the longest special ability allows
+# at the card's 32 in six lines (Zenith, Scorchit), and the portrait
+# takes the rest of the width (the author, 2026-10-25: "the label with
+# skills can be much less wide with the same font size so the
+# portraits can be larger").
+TILE_TEXT_RIGHT = TILE_TEXT_LEFT + 400
 TILE_NAME_GAP = 22
 TILE_NAME_SIZE = 60
 TILE_SPECIES_SIZE = 34
 TILE_ABILITY_SIZE = 32
 TILE_BOTTOM_PAD = 26
 TILE_RIBBON_HEIGHT = 50
+# The skills panel cut to what it says -- "OFFENSE 1 | 6 DEFENSE", each
+# number beside the divider and its label beside it -- at the portrait
+# card's sizes (`STATS_LABEL_SIZE`, `STATS_VALUE_SIZE`), where
+# `draw_stats` centres each number in half a card's width.
+TILE_STATS_PAD = 14
+TILE_STATS_DIVIDER_GAP = 16
 
 # Where a role token lies on a tile, in inches from the tile's top-left
 # corner to the token's: the bottom-right corner, over the portrait's
@@ -1083,6 +1089,49 @@ def draw_tile_portrait(
         portrait,
         ((left + right) / 2, (top + bottom) / 2),
         (portrait.width * scale, portrait.height * scale),
+    )
+
+
+def draw_tile_stats(
+    pen: Pen, skills: "RoleProfile | CardSkills", left: float, top: float
+) -> None:
+    """
+    The front's skills panel at its narrowest: each number set against
+    the divider, its label outside it, the panel ending a pad past the
+    labels. The numbers' column is as wide as the widest digit, so every
+    tile's panel is the same width.
+    """
+    label_face = font(STATS_LABEL_SIZE, bold=True)
+    value_face = font(STATS_VALUE_SIZE, bold=True)
+    label = max(pen.text_size(word, label_face)[0] for word in ("OFFENSE", "DEFENSE"))
+    value = max(pen.text_size(str(digit), value_face)[0] for digit in range(10))
+    half = TILE_STATS_PAD + label + STATS_LABEL_GAP + value + TILE_STATS_DIVIDER_GAP
+    divider = left + half
+    pen.rect(
+        (left, top, divider + half, top + STATS_HEIGHT),
+        radius=18,
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=2,
+    )
+    center_y = top + STATS_HEIGHT / 2
+    for side, word, number, color in (
+        (-1, "OFFENSE", skills.offense, CARD_OFFENSE_COLOR),
+        (1, "DEFENSE", skills.defense, CARD_DEFENSE_COLOR),
+    ):
+        value_x = divider + side * (TILE_STATS_DIVIDER_GAP + value / 2)
+        pen.text((value_x, center_y), str(number), value_face, color, anchor="mm")
+        pen.text(
+            (value_x + side * (value / 2 + STATS_LABEL_GAP), center_y),
+            word,
+            label_face,
+            MUTED,
+            anchor="rm" if side < 0 else "lm",
+        )
+    pen.line(
+        [(divider, top + 14), (divider, top + STATS_HEIGHT - 14)],
+        fill=PANEL_EDGE,
+        width=2,
     )
 
 
@@ -1155,7 +1204,7 @@ def render_player_tile(
     floor = draw_tile_species(pen, player) - BAND_ROW_GAP
     y = body_top + STATS_TOP_GAP
     if not advanced:
-        draw_stats(pen, skills, y, left=left, right=right)
+        draw_tile_stats(pen, skills, left, y)
         return pen.finish(bleed, CARD_FACE)
 
     pen.rect((left, y, right, y + TILE_RIBBON_HEIGHT), radius=10, fill=RIBBON_COLOR)

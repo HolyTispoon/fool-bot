@@ -691,7 +691,7 @@ D12 Ball 2.0 puts the roles on the formation's zones (rules-2.0 section
     length, so the board is a tabloid sheet, landscape
     (`ZONE_TWO_PAPER`), or the same two letter halves the field board
     comes in (`render_zone_board_two_halves`, `halve_sheet`; the seam
-    runs down midfield's column). The board is about 7.9in deep; the
+    runs down midfield's column). The board is about 8.6in deep; the
     rest of the sheet is offcut past a cut line.
   - **A slot a tile, each whole** (`draw_zone_two_slot`): the one
     nearest the field is the zone's unique role, which the first player
