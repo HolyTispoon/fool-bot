@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-21.
+**As of:** 2026-10-25.
 
 ## Where the rules come from
 
@@ -154,6 +154,18 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-25 -- author, 2.0: no shooting range
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) section 6). The author, asking for
+the range to come off the printed 2.0 field board: *"there is no shooting range in 2.0. Players
+can shoot from wherever they want."* So a score attempt is offered on every turn, the speed
+modifier goes with a shot from anywhere, and a set-up's shot is never lost to the range (6.1).
+
+The Charter's time out is offered only out of range (Law 13.2.1a), which no 2.0 side ever is.
+Asked the same day whether a 2.0 side may call one on any turn, never, or only where the old
+range would have left it out, the author chose **any turn it has the ball**, with the other two
+conditions -- once a half, and not after last possession -- unchanged (6.2).
 
 ### 2026-10-21 -- author, 2.0: moving costs a token a space, and a card costs nothing
 
