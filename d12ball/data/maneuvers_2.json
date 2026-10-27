@@ -1,0 +1,310 @@
+{
+  "data_version": 1,
+  "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1310773351",
+  "maneuvers": {
+    "offense": [
+      {
+        "name": "Pass",
+        "key": "low_pass",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 1,
+        "defeats_rank": 3,
+        "effect": "Ball to the nearest teammate ahead or behind, ball speed +2.",
+        "time": "1"
+      },
+      {
+        "name": "Curved Pass",
+        "key": "curved_pass",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 2,
+        "defeats_rank": 3,
+        "effect": "Ball to a teammate 0-2 spaces away.",
+        "time": "1"
+      },
+      {
+        "name": "Pass and Run",
+        "key": "pass_and_run",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 3,
+        "defeats_rank": 3,
+        "effect": "Ball to the nearest teammate ahead or behind, passer moves forward 1.",
+        "time": "1"
+      },
+      {
+        "name": "Reset Play",
+        "key": "reset_play",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 4,
+        "defeats_rank": 3,
+        "effect": "Ball to the playmaker (wherever they are).",
+        "time": "1"
+      },
+      {
+        "name": "Pinpoint",
+        "key": "skilled_pass",
+        "rank": 1,
+        "tier": "advanced",
+        "deck_index": 5,
+        "defeats_rank": 3,
+        "effect": "Ball to a teammate up to 3 spaces away. Ball speed +3.\nFailed: after stealing, the defender may Pass unopposed.",
+        "time": "1"
+      },
+      {
+        "name": "Dribble",
+        "key": "dribble_advance",
+        "rank": 2,
+        "tier": "basic",
+        "deck_index": 1,
+        "defeats_rank": 1,
+        "effect": "Player and ball move forward 1 space. Ball speed +2.",
+        "time": "1"
+      },
+      {
+        "name": "Advance",
+        "key": "advance",
+        "rank": 2,
+        "tier": "basic",
+        "deck_index": 2,
+        "defeats_rank": 1,
+        "effect": "Player and ball move forward up to 2 spaces.",
+        "time": "1"
+      },
+      {
+        "name": "Spin",
+        "key": "spin",
+        "rank": 2,
+        "tier": "basic",
+        "deck_index": 3,
+        "defeats_rank": 1,
+        "effect": "Change ball speed by up to oSkill. A teammate in the zone moves up to 2 spaces.",
+        "time": "1"
+      },
+      {
+        "name": "Drive",
+        "key": "drive",
+        "rank": 2,
+        "tier": "basic",
+        "deck_index": 4,
+        "defeats_rank": 1,
+        "effect": "Player and ball to closest teammate ahead or behind. Teammate may take the ball. Ball speed -2.",
+        "time": "1"
+      },
+      {
+        "name": "Burst",
+        "key": "dribble_burst",
+        "rank": 2,
+        "tier": "advanced",
+        "deck_index": 5,
+        "defeats_rank": 1,
+        "effect": "Player and ball move up to 4 spaces. Ball speed to 12.\nFailed: lose possession, ball speed does not reset.",
+        "time": "1"
+      },
+      {
+        "name": "High Ball",
+        "key": "high_pass",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 1,
+        "defeats_rank": 2,
+        "effect": "Ball forward 3 spaces, receiver must win a contest, then may set up scoring.",
+        "time": "2"
+      },
+      {
+        "name": "Set up",
+        "key": "set_up",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 2,
+        "defeats_rank": 2,
+        "effect": "ball forward 2 spaces, may set up scoring.",
+        "time": "2"
+      },
+      {
+        "name": "Long shot",
+        "key": "long_shot",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 3,
+        "defeats_rank": 2,
+        "effect": "Ball to striker, must win a contest to receive and then set up scoring.",
+        "time": "2"
+      },
+      {
+        "name": "Vertical Ball",
+        "key": "vertical_ball",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 4,
+        "defeats_rank": 2,
+        "effect": "Ball 0-1 spaces, may set up a scoring.",
+        "time": "2"
+      },
+      {
+        "name": "Cross",
+        "key": "setup_pass",
+        "rank": 3,
+        "tier": "advanced",
+        "deck_index": 5,
+        "defeats_rank": 2,
+        "effect": "Successful gambit: Set up scoring  0-3 spaces away (with speed bonus).\nFailed gambit: opponent auto wins a contest to get the deflected ball.",
+        "time": "2"
+      }
+    ],
+    "defense": [
+      {
+        "name": "Deflect",
+        "key": "deflect",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 1,
+        "defeats_rank": 3,
+        "effect": "Ball moves back 1 space. If reaches goal zone, may set up scoring. Ball speed -1. If Fullback ball moves an additional space.",
+        "time": "1"
+      },
+      {
+        "name": "Follow",
+        "key": "follow",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 2,
+        "defeats_rank": 3,
+        "effect": "Ball moves back 1 space, defender follows it. Ball speed +3.",
+        "time": "1"
+      },
+      {
+        "name": "Boot",
+        "key": "boot",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 3,
+        "defeats_rank": 3,
+        "effect": "Ball moves back 2 spaces. If reaches the goal zone, not set up scoring.",
+        "time": "1"
+      },
+      {
+        "name": "Block",
+        "key": "block",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 4,
+        "defeats_rank": 3,
+        "effect": "The ball is contested on the spot.",
+        "time": "1"
+      },
+      {
+        "name": "Clear",
+        "key": "clear",
+        "rank": 1,
+        "tier": "advanced",
+        "deck_index": 5,
+        "defeats_rank": 3,
+        "effect": "Successful gambit: ball moves back 3. If reaches the goal zone may set up scoring. Ball speed -3.\nFailed gambit: exhaust 2.",
+        "time": "1"
+      },
+      {
+        "name": "Steal",
+        "key": "steal",
+        "rank": 2,
+        "tier": "basic",
+        "deck_index": 1,
+        "defeats_rank": 1,
+        "effect": "Turnover. Defender and ball move back 1 space. Manipulate ball speed after turnover (up to dSkill).",
+        "time": "1"
+      },
+      {
+        "name": "Pickpocket",
+        "key": "pickpocket",
+        "rank": 2,
+        "tier": "basic",
+        "deck_index": 2,
+        "defeats_rank": 1,
+        "effect": "Turnover.",
+        "time": "1"
+      },
+      {
+        "name": "My Turf!",
+        "key": "my_turf",
+        "rank": 2,
+        "tier": "basic",
+        "deck_index": 3,
+        "defeats_rank": 1,
+        "effect": "Turnover. Defender and ball move back 1 space. Defenders and midfielders gain +3 to contest.",
+        "time": "1"
+      },
+      {
+        "name": "Toss",
+        "key": "toss",
+        "rank": 2,
+        "tier": "basic",
+        "deck_index": 4,
+        "defeats_rank": 1,
+        "effect": "Turnover. Ball to the nearest teammate behind the defender.",
+        "time": "1"
+      },
+      {
+        "name": "Intercept",
+        "key": "intercept",
+        "rank": 2,
+        "tier": "advanced",
+        "deck_index": 5,
+        "defeats_rank": 1,
+        "effect": "Successful gambit: turnover. Defender and ball move forward 1. Adjust ball speed after turnover (up to dSkill).\nFailed gambit: High Ball reception is uncontested.",
+        "time": "1"
+      },
+      {
+        "name": "Pressure",
+        "key": "pressure",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 1,
+        "defeats_rank": 2,
+        "effect": "Player and ball go back 1 space. Defender moves 1 forward. If reaches the goal zone, risk own goal.",
+        "time": "1"
+      },
+      {
+        "name": "Control",
+        "key": "control",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 2,
+        "defeats_rank": 2,
+        "effect": "If the defender is a Defender, turnover. Otherwise, Player and ball go back 1 space. Defender moves 1 forward. If reaches goal zone, own goal risk.",
+        "time": "1"
+      },
+      {
+        "name": "Stay Close",
+        "key": "stay_close",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 3,
+        "defeats_rank": 2,
+        "effect": "The handler exhausts 1. Ball speed -2.",
+        "time": "1"
+      },
+      {
+        "name": "Stress",
+        "key": "stress",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 4,
+        "defeats_rank": 2,
+        "effect": "Ball to handler's nearest teammate behind. Defender follows. If reaches the goal zone, risk own goal.",
+        "time": "1"
+      },
+      {
+        "name": "Double Team",
+        "key": "double_team",
+        "rank": 3,
+        "tier": "advanced",
+        "deck_index": 5,
+        "defeats_rank": 2,
+        "effect": "Successful gambit: player and ball go back 1; Defender moves 1 forward and nearest teammate behind joins, gaining Merge for the next defensive maneuver. If reaches the goal zone, own goal risk.\nFailed gambit: Defender and nearest teammate behind go 1 forward.",
+        "time": "1"
+      }
+    ]
+  }
+}

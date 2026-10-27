@@ -64,7 +64,7 @@ from d12ball.components import (
     ShotDefender,
     TeamSide,
 )
-from d12ball import tokens
+from d12ball import maneuver_deck, tokens
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
 from d12ball.flow import injuries
@@ -466,6 +466,18 @@ def score_skill_test(
         engine, match, defense_detail, defense_ignite,
         defense_player.player_id,
     )
+
+    # **My Turf!** (2.0): a Defender or a Midfielder who played it adds
+    # 3 to the tie's skill test -- the card reads the role, which 2.0
+    # still has though it plays no role abilities (rules-2.0 4.7).
+    if match.defense_maneuver == "my_turf" and engine.role_of(
+        match, defense_player.player_id,
+    ) in (PlayerRole.DEFENDER, PlayerRole.MIDFIELDER):
+        defense_total += maneuver_deck.MY_TURF_BONUS
+        defense_detail.append(
+            f"+{maneuver_deck.MY_TURF_BONUS} "
+            f"{engine.maneuver_name('my_turf')}"
+        )
 
     # Role ability -- Midfielder: +3 on a skill test when attempting
     # Pass (offense) or Steal (defense).
@@ -1078,8 +1090,11 @@ def after_the_contest(
         was_high_pass
         and not turnover_occurred
         and engine.can_attempt_score(game, match, match.ball.possession)
-        and engine.has_special_ability(
-            game, winner_id, SpecialAbility.SHOOTS_OFF_ANY_PASS,
+        and (
+            engine.has_special_ability(
+                game, winner_id, SpecialAbility.SHOOTS_OFF_ANY_PASS,
+            )
+            or engine.contest_sets_up(match)
         )
     ):
         return {

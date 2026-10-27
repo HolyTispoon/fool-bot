@@ -2211,7 +2211,7 @@ class RulesEngine:
 
         **In 2.0 it is what the coach's hand plays on this side**
         (`maneuver_deck_hand`): each two-headed card the basic maneuver
-        of its rank, each advanced card of this side itself, and an
+        of its rank and row, each advanced card of this side itself, and an
         advanced card of the other side nothing -- one entry a
         maneuver however many copies of its card are held. An advanced
         card is in the hand against no challenge too, and resolves as
@@ -2230,7 +2230,7 @@ class RulesEngine:
             }
             return tuple(sorted(
                 playable.values(),
-                key=lambda item: (item.rank, item.tier != MANEUVER_TIER_BASIC),
+                key=lambda item: (item.rank, item.is_gambit, item.deck_index),
             ))
         tiers = self.maneuver_tiers(game, match, side)
         return tuple(
@@ -2515,6 +2515,12 @@ class RulesEngine:
             return SETUP_PASS_CLOCK_COST
         if resolving == "high_pass":
             return HIGH_PASS_CLOCK_COST
+        # **2.0's other cards say their own time** (the `maneuvers 2.0`
+        # tab's `Time`): Set up, Long shot and Vertical Ball are rank
+        # O3's 2, every other card 1.
+        card = self.maneuver_catalog.get(resolving)
+        if card is not None and card.time.isdigit():
+            return int(card.time)
         return MANEUVER_CLOCK_COST
 
     def gambit_cost(
@@ -2987,6 +2993,22 @@ class RulesEngine:
             return None
         return offense_player_id if offense_takes else defense_player_id
 
+    def contest_sets_up(self, match: MatchState) -> bool:
+        """
+        Whether winning this High Ball contest **then sets up scoring**
+        (2.0's High Ball and Long shot: "must win a contest, then may
+        set up scoring"). Not after a pass into the goal zone, whose
+        set-up was offered before its contest and declined
+        (`pending_high_pass_overshoot`).
+        """
+        return (
+            self.match_plays_deck(match)
+            and not match.pending_high_pass_overshoot
+            and self.resolving_key(match, "offense") in (
+                "high_pass", "long_shot",
+            )
+        )
+
     def failed_cross_contest(self, match: MatchState) -> bool:
         """
         Whether the contest being settled follows a failed Cross gambit
@@ -2998,8 +3020,15 @@ class RulesEngine:
         if match.offense_maneuver != "setup_pass":
             return False
         winner = match.defense_maneuver
-        return winner in ("deflect", "clear") and (
-            self.gambit_cost(match, winner) == "setup_pass"
+        # Every card on Deflect's rank -- 2.0's Follow, Boot and Block
+        # too -- beats a Cross, so the rank is what is asked.
+        card = self.maneuver_catalog.get(winner) if winner else None
+        deflect = self.maneuver_catalog.get("deflect")
+        return (
+            card is not None and deflect is not None
+            and card.rank == deflect.rank
+            and card in self.maneuver_catalog.defense
+            and self.gambit_cost(match, winner) == "setup_pass"
         )
 
     def join_candidates(
@@ -3285,6 +3314,8 @@ class RulesEngine:
     def low_pass_candidates(
         self,
         match: MatchState,
+        reach: Optional[int] = 2,
+        key: Optional[str] = None,
     ) -> list[tuple[int, str]]:
         """
         A Pass has at most two destinations, as (distance,
@@ -3324,11 +3355,20 @@ class RulesEngine:
         )
 
         candidates: list[tuple[int, str]] = []
+        # **2.0's Pass, Pass and Run and Drive reach the nearest
+        # teammate each way however far** (the `maneuvers 2.0` tab names
+        # no distance): `reach` None, the whole field.
+        if reach is None:
+            reach = sum(
+                len(spaces) for spaces in match.board.spaces.values()
+            )
         # Each run stops at its first hit: the nearest teammate is the
         # only one that direction offers.
-        for distances in ((0, -1, -2), (1, 2)):
+        for distances in (
+            tuple(range(0, -reach - 1, -1)), tuple(range(1, reach + 1)),
+        ):
             for distance in distances:
-                receivers = self.low_pass_receivers(match, distance)
+                receivers = self.low_pass_receivers(match, distance, key)
                 if receivers:
                     candidates.append((distance, receivers[0]))
                     break
@@ -3373,7 +3413,16 @@ class RulesEngine:
 
         handler = self.get_player_definition(match.active_player_id)
         distances = list(SETUP_PASS_DISTANCES)
-        if self.has_role_ability(
+        if self.match_plays_deck(match):
+            # 2.0's Cross lands 0 to 3 away and its Vertical Ball 0 or
+            # 1 (the `maneuvers 2.0` tab), with no Fullback's 4: 2.0
+            # plays no role abilities.
+            distances = list(
+                maneuver_deck.VERTICAL_BALL_DISTANCES
+                if self.resolving_key(match, "offense") == "vertical_ball"
+                else maneuver_deck.CROSS_DISTANCES
+            )
+        elif self.has_role_ability(
             match, handler.player_id, PlayerRole.FULLBACK,
         ):
             distances.append(SETUP_PASS_FULLBACK_DISTANCE)
@@ -3495,17 +3544,54 @@ class RulesEngine:
             record["merges"] = True
         match.pending_effect_continuation = record
 
-    def pass_speed_bonus(self, maneuver_key: str) -> int:
+    def pass_speed_bonus(
+        self, maneuver_key: str, match: Optional[MatchState] = None,
+    ) -> int:
         """
         What a pass adds to ball speed: Pass's +1, or
         Pinpoint's +3. Both are capped at 12 by the caller, the way every
         speed change is.
+
+        **In 2.0 a Pass adds 2, and its other three passes nothing**
+        (the `maneuvers 2.0` tab): Curved Pass, Pass and Run and Reset
+        Play name no speed, and Drive takes 2 off, which its own step
+        says.
         """
-        return 3 if maneuver_key == "skilled_pass" else 1
+        if maneuver_key == "skilled_pass":
+            return 3
+        if match is not None and self.match_plays_deck(match):
+            return (
+                maneuver_deck.PASS_SPEED_BONUS
+                if maneuver_key == "low_pass"
+                else 0
+            )
+        return 1
+
+    @staticmethod
+    def match_plays_deck(match: MatchState) -> bool:
+        """
+        **Whether this match is a 2.0 match**, read off the match: one
+        dealt the maneuver decks, which `deal_maneuver_decks` deals only
+        where `maneuver_deck_applies`. The twin of that reading for the
+        rule sites handed the match and not the game -- a pass's
+        destinations, a deflection's distance -- as `has_role_ability`
+        reads the formation's roles off the match.
+        """
+        return bool(match.maneuver_decks)
+
+    def resolving_key(self, match: MatchState, side: str) -> Optional[str]:
+        """The card `side` is resolving this maneuver -- its pick, or
+        its counterpart where a skill test settled a tie -- or None."""
+        key = (
+            match.offense_maneuver if side == "offense"
+            else match.defense_maneuver
+        )
+        return None if key is None else self.resolving_maneuver(match, key)
 
     def skilled_pass_candidates(
         self,
         match: MatchState,
+        reach: int = SKILLED_PASS_REACH,
     ) -> list[tuple[int, str]]:
         """
         Pinpoint's destinations: **any** teammate within
@@ -3529,7 +3615,7 @@ class RulesEngine:
         short board narrows this without the reach knowing about it.
         """
         candidates: list[tuple[int, str]] = []
-        for distance in range(-SKILLED_PASS_REACH, SKILLED_PASS_REACH + 1):
+        for distance in range(-reach, reach + 1):
             receivers = self.low_pass_receivers(match, distance)
             if receivers:
                 candidates.append((distance, receivers[0]))
@@ -3589,12 +3675,22 @@ class RulesEngine:
             ) if match.offense_maneuver else None
         if maneuver_key == "skilled_pass":
             return self.skilled_pass_candidates(match)
-        return self.low_pass_candidates(match)
+        if not self.match_plays_deck(match):
+            return self.low_pass_candidates(match)
+        # 2.0's passes (the `maneuvers 2.0` tab): Curved Pass is any
+        # teammate within 2, Pinpoint's shape at 2; Pass, Pass and Run
+        # and Drive the nearest each way at any distance.
+        if maneuver_key == "curved_pass":
+            return self.skilled_pass_candidates(
+                match, maneuver_deck.CURVED_PASS_REACH,
+            )
+        return self.low_pass_candidates(match, None, maneuver_key)
 
     def low_pass_receivers(
         self,
         match: MatchState,
         distance: int,
+        key: Optional[str] = None,
     ) -> list[str]:
         """
         Every teammate a Pass of `distance` could be played to --
@@ -3624,12 +3720,18 @@ class RulesEngine:
         )
 
         zone, space_index = match.board.position_at_flat_index(target_flat)
-        return [
+        receivers = [
             player_id
             for player_id in match.board.spaces[zone][space_index]
             if player_id in offense_players
             and player_id != match.active_player_id
         ]
+        # **Drive** (2.0): the handler carries the ball to the teammate,
+        # and the teammate *may* take it -- so the handler is one of the
+        # choices of who ends up with it, after whoever is there.
+        if key == "drive" and receivers and match.active_player_id:
+            receivers.append(match.active_player_id)
+        return receivers
 
     def high_pass_distance_options(self, match: MatchState) -> list[int]:
         """
@@ -3644,6 +3746,17 @@ class RulesEngine:
         AI picks from, and the refusal that catches a click on a menu
         the ball has moved out from under.
         """
+        fixed = self.high_pass_fixed_distance(match)
+        if fixed is not None:
+            # **2.0's High Ball always goes 3, and Set up 2** (the
+            # `maneuvers 2.0` tab): one distance, kept while it lands
+            # short of the goal zone, as 1.0 keeps each of its own.
+            return [
+                distance for distance in (fixed,)
+                if not match.high_pass_reaches_goal_zone(
+                    match.ball.possession, distance,
+                )
+            ]
         handler = self.get_player_definition(match.active_player_id)
         max_distance = (
             FULLBACK_PASS_REACH
@@ -3653,6 +3766,15 @@ class RulesEngine:
             else 3
         )
         return match.high_pass_distances(match.ball.possession, max_distance)
+
+    def high_pass_fixed_distance(self, match: MatchState) -> Optional[int]:
+        """The one distance a 2.0 High Ball or Set up is thrown --
+        None in 1.0, where the coach chooses."""
+        if not self.match_plays_deck(match):
+            return None
+        if self.resolving_key(match, "offense") == "set_up":
+            return maneuver_deck.SET_UP_DISTANCE
+        return maneuver_deck.HIGH_BALL_DISTANCE
 
     def pass_ability_note(self, distance: int) -> str:
         """
@@ -3746,6 +3868,54 @@ class RulesEngine:
             if not match.high_pass_reaches_goal_zone(side, distance)
         )
         return (runner, reachable) if reachable else (None, ())
+
+    def dribble_advance_asked(self, match: MatchState) -> bool:
+        """
+        Whether a won Dribble asks how far: a Playmaker's in 1.0 (Law
+        6.6.4), and in 2.0 an **Advance**, whose card says up to 2 --
+        2.0's Dribble goes 1 and asks nothing (the `maneuvers 2.0`
+        tab). The offer and the restart's reading ask this one place.
+        """
+        if self.match_plays_deck(match):
+            return self.resolving_key(match, "offense") == "advance"
+        return self.has_role_ability(
+            match, match.active_player_id, PlayerRole.PLAYMAKER,
+        )
+
+    def spin_moves(
+        self, match: MatchState,
+    ) -> list[tuple[str, Zone, int, int]]:
+        """
+        **Spin's** move (2.0): every `(player, zone, space, distance)`
+        a teammate of the handler's in the handler's zone may move to
+        -- any other space up to `SPIN_MOVE_REACH` away, either way, on
+        the field. Empty where the handler has nobody in their zone, and
+        then Spin asks only the speed.
+        """
+        handler_id = match.active_player_id
+        position = match.board.meeple_position(handler_id)
+        if position is None:
+            return []
+        side = match.ball.possession
+        injured = set(match.injured_field_players(side))
+        total = sum(len(spaces) for spaces in match.board.spaces.values())
+        moves = []
+        for player_id in match.setup_for_side(side).field_players:
+            if player_id == handler_id or player_id in injured:
+                continue
+            spot = match.board.meeple_position(player_id)
+            if spot is None or spot[0] != position[0]:
+                continue
+            origin = match.board.flat_index(*spot)
+            reach = maneuver_deck.SPIN_MOVE_REACH
+            for target in range(origin - reach, origin + reach + 1):
+                if target == origin or not 0 <= target < total:
+                    continue
+                zone, space_index = match.board.position_at_flat_index(target)
+                moves.append(
+                    (player_id, zone, space_index, abs(target - origin)),
+                )
+        return moves
 
     def dribble_advance_distances(
         self, game: Optional[D12BallGame], match: MatchState,

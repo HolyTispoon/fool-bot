@@ -890,6 +890,26 @@ def finish_run_back(
             ),
         )
 
+    # **A beaten Pinpoint's Pass, owed by a 2.0 card that asks no
+    # speed** (`effects.FREE_LOW_PASS_OWED`): the point a Steal's speed
+    # choice would record it, so it is recorded here and played.
+    owed = match.pending_effect_continuation or {}
+    if owed.get("kind") == "free_low_pass_owed":
+        match.pending_effect_continuation = {
+            "kind": "free_low_pass",
+            "player_id": stays_player_id or owed.get("player_id"),
+        }
+        return StepResult(
+            narration=narration,
+            next=FollowOn(
+                FollowOnStep.CONTINUE_EFFECT,
+                {
+                    "distance_moved": distance_moved,
+                    "turnover_occurred": turnover_occurred,
+                },
+            ),
+        )
+
     # Run-back itself only ever costs exhaustion, not time -- the time
     # cost is whatever the triggering maneuver's own ball movement was,
     # stashed by `begin_run_back`.

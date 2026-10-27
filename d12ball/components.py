@@ -21,6 +21,7 @@ DATA_FOLDER = Path(__file__).resolve().parent / "data"
 PLAYERS_FILE = DATA_FOLDER / "players.json"
 BASIC_RULES_FILE = DATA_FOLDER / "basic_rules.json"
 MANEUVERS_FILE = DATA_FOLDER / "maneuvers.json"
+MANEUVERS_TWO_FILE = DATA_FOLDER / "maneuvers_2.json"
 SPECIES_FILE = DATA_FOLDER / "species.json"
 
 
@@ -1049,6 +1050,14 @@ MANEUVER_TIER_BASIC = "basic"
 # person reads is `MANEUVER_TIER_WORDS` below.
 MANEUVER_TIER_GAMBIT = "advanced"
 MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
+# **D12 Ball 2.0's other basic maneuvers** (the `maneuvers 2.0` tab):
+# each rank has three more basic cards beside the one 1.0 plays, rows 2
+# to 4 of the rank. They are a tier of their own in the catalog so that
+# nothing in 1.0 -- which asks `for_tier` for the basic or the advanced
+# card -- ever meets one; only the 2.0 deck plays them, through
+# `maneuver_deck.plays_as`. Not a gambit: `is_gambit` is false, and a
+# variant resolves as itself. See docs/design/maneuver-deck.md.
+MANEUVER_TIER_VARIANT = "variant"
 # What a tier is called where a person reads it -- a card's corner
 # label, an attachment's name. One table rather than `tier.upper()` at
 # each site. Since 2026-09-27 the word and the sheet's value agree
@@ -1058,6 +1067,7 @@ MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
 MANEUVER_TIER_WORDS = {
     MANEUVER_TIER_BASIC: "basic",
     MANEUVER_TIER_GAMBIT: "advanced",
+    MANEUVER_TIER_VARIANT: "basic",
 }
 
 
@@ -1156,10 +1166,26 @@ class ManeuverDefinition:
     defeats_rank: int
     effect: str
     time: str
+    # **The 2.0 deck's reading of the card** (`maneuvers_2.json`):
+    # `deck_index` is its row of the rank on the `maneuvers 2.0` tab --
+    # 1 the basic card, 2 to 4 the variants, 5 the advanced card, and 0
+    # for a card the 2.0 deck does not hold -- and the two-headed cards
+    # pair an offensive and a defensive row by it. `effect_two` is the
+    # tab's wording, which 2.0's faces print and which differs from the
+    # 1.0 `effect` for some cards (Pass, Dribble, High Ball, Cross,
+    # Deflect); "" where the 2.0 tab does not carry the card.
+    deck_index: int = 0
+    effect_two: str = ""
 
     @property
     def is_gambit(self) -> bool:
         return self.tier == MANEUVER_TIER_GAMBIT
+
+    @property
+    def deck_effect(self) -> str:
+        """What a 2.0 face prints: the 2.0 tab's wording where it has
+        one, the 1.0 card's otherwise."""
+        return self.effect_two or self.effect
 
 
 @dataclass(frozen=True)
@@ -6898,6 +6924,7 @@ def load_basic_ruleset(
 
 def load_maneuver_catalog(
     path: Path = MANEUVERS_FILE,
+    two_path: Optional[Path] = MANEUVERS_TWO_FILE,
 ) -> ManeuverCatalog:
     data = json.loads(path.read_text(encoding="utf-8"))
 
@@ -6930,12 +6957,77 @@ def load_maneuver_catalog(
             )
         return maneuvers
 
+    offense, defense = build("offense"), build("defense")
+    if two_path is not None and two_path.exists():
+        offense, defense = merge_edition_two(
+            offense, defense, json.loads(two_path.read_text(encoding="utf-8")),
+        )
     return ManeuverCatalog(
         data_version=data["data_version"],
         source=data["source"],
-        offense=build("offense"),
-        defense=build("defense"),
+        offense=offense,
+        defense=defense,
     )
+
+
+def merge_edition_two(
+    offense: tuple[ManeuverDefinition, ...],
+    defense: tuple[ManeuverDefinition, ...],
+    data: dict,
+) -> tuple[tuple[ManeuverDefinition, ...], tuple[ManeuverDefinition, ...]]:
+    """
+    The 2.0 tab folded into the 1.0 catalog: a row whose key the 1.0
+    tab already has gives that card its `deck_index` and `effect_two`,
+    and every other row is a **variant** (`MANEUVER_TIER_VARIANT`), a
+    card of its own. A 1.0 card keeps its tier, rank and effect, so a
+    1.0 game reads the catalog exactly as before. The 2.0 tab's basic
+    and advanced rows have to be cards 1.0 has, on the same rank -- the
+    deck's matchups and a gambit's counterpart are 1.0's -- and are
+    refused otherwise.
+    """
+    def merged(side: str, cards: tuple[ManeuverDefinition, ...]):
+        by_key = {card.key: card for card in cards}
+        out = []
+        for row in data["maneuvers"][side]:
+            known = by_key.pop(row["key"], None)
+            if row["tier"] != MANEUVER_TIER_BASIC or row["deck_index"] == 1:
+                if known is None or known.rank != row["rank"]:
+                    raise ValueError(
+                        f"2.0's {row['name']} is not 1.0's card on rank "
+                        f"{row['rank']}."
+                    )
+            if known is not None:
+                out.append(replace(
+                    known,
+                    deck_index=row["deck_index"],
+                    effect_two=row["effect"],
+                ))
+                continue
+            out.append(ManeuverDefinition(
+                name=row["name"],
+                key=row["key"],
+                rank=row["rank"],
+                tier=MANEUVER_TIER_VARIANT,
+                die_values=(),
+                defeats_rank=row["defeats_rank"],
+                effect=row["effect"],
+                time=row["time"],
+                deck_index=row["deck_index"],
+                effect_two=row["effect"],
+            ))
+        out.extend(by_key.values())
+        # Ordered by rank then tier as 1.0 orders them, the variants
+        # after the advanced card, each rank's by its row.
+        order = {
+            MANEUVER_TIER_BASIC: 0,
+            MANEUVER_TIER_GAMBIT: 1,
+            MANEUVER_TIER_VARIANT: 2,
+        }
+        return tuple(sorted(
+            out, key=lambda card: (card.rank, order[card.tier], card.deck_index),
+        ))
+
+    return merged("offense", offense), merged("defense", defense)
 
 
 def validate_assignment(

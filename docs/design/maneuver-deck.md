@@ -38,8 +38,10 @@ which is 1.0 and every save before the field. `d12ball/maneuver_deck.py` is the 
 moves made on them -- `new_deck`, `draw_cards`, `play_card` -- with the engine's `rng` handed
 in, so a seeded game deals and reshuffles the same way every time.
 
-- **A card is an id, not a maneuver.** A two-headed card is `basic_<rank>`, an advanced card
-  its maneuver key. What a card plays is `plays_as(catalog, card, side)`, because a two-headed
+- **A card is an id, not a maneuver.** A two-headed card is `basic_<rank>` for its rank's
+  first row and `basic_<rank>_<row>` for rows 2 to 4 (`basic_card_row`), an advanced card its
+  maneuver key -- so a game saved when the deck was four `basic_<rank>` alike still plays,
+  each of them the rank's first row. What a card plays is `plays_as(catalog, card, side)`, because a two-headed
   card is two maneuvers and the side decides which.
 - **The deck belongs to a team, the pick to a maneuver side.** The engine maps one onto the
   other with `maneuver_side_team`, the reading every other per-side question already uses.
@@ -51,6 +53,56 @@ in, so a seeded game deals and reshuffles the same way every time.
   fills the hand to `HAND_SIZE` whatever it held. No migration, as for every saved field.
 - **The picks are still maneuver keys** on `offense_maneuver` / `defense_maneuver`; nothing in
   the effect pipeline knew there was a deck.
+
+## The 2.0 cards
+
+**The deck is the `maneuvers 2.0` tab** (the author, 2026-10-27; rules-2.0 section 7): four
+basic maneuvers a rank on each side and the advanced one, so the twelve two-headed cards are
+twelve different pairs, offense and defense paired by the tab's row number (`deck_cards`,
+`plays_as`). The data is `maneuvers_2.json` ([rules-and-data.md](rules-and-data.md)).
+
+- **One catalog, a third tier.** `merge_edition_two` folds the tab into the 1.0 catalog: a row
+  whose key 1.0 has gives that card its `deck_index` and its 2.0 wording (`effect_two`,
+  `deck_effect`), and every other row is a card of `MANEUVER_TIER_VARIANT`. Nothing in 1.0 asks
+  for that tier -- every 1.0 reading is `for_tier(basic)` or `for_tier(advanced)` -- so a 1.0
+  game reads the catalog as it did, and a variant is never a gambit. Keys, not a second
+  catalog, because the match, the effects and every table already speak keys; a variant's key
+  is the slug of its name, and Pass, Dribble, High Ball, Cross and Deflect keep 1.0's.
+- **A card's 2.0 behaviour is read off the match.** Five cards play differently in 2.0 under
+  the same key (Pass, Dribble, High Ball, Cross, Deflect), and most of the rule sites they
+  reach are handed the match alone -- a pass's destinations, a deflection's distance. So
+  `RulesEngine.match_plays_deck` answers off `match.maneuver_decks`, which only a 2.0 game is
+  dealt, as `has_role_ability` reads the formation's roles off the match.
+- **A new card runs in its rank-mate's step** where it is that card's shape: the passes in
+  `low_pass_step` and `offer_low_pass`, Advance in `dribble_advance_step`, Set up in
+  `high_pass_step`, Vertical Ball in `setup_pass_step`, Follow, Boot and Block in
+  `deflection_step`, Pickpocket, My Turf! and Toss in `steal_step`, Control in `pressure_step`.
+  That is what makes **an advanced card's failure bite every card on the rank that beats it**
+  (rules-2.0 7.4) without a line of its own: the costs are asked in those steps. The cards with
+  no rank-mate's shape have a step each (`reset_play_step`, `drive_step`, `offer_spin`,
+  `long_shot_step`, `stay_close_step`, `stress_step`), and ask the costs their rank collects.
+  Where a 1.0 rule asked for a card by key and now means the rank -- the failed Cross's contest
+  (`failed_cross_contest`), a beaten Burst's speed choice in `effect_choice_prompt` -- it asks
+  the rank.
+- **One new question, Spin's** (`PromptKind.SPIN_MOVE`, `MoveOptions`): which teammate in the
+  handler's zone moves, and where (`RulesEngine.spin_moves`). Its answer leaves
+  `{"kind": "spin_moved"}` on `pending_effect_continuation`, which the match already saves, so a
+  restart asks the speed rather than the move again; the speed choice spends it. Drive's choice
+  of who keeps the ball is Pass's receiver pick with the handler among the receivers
+  (`low_pass_receivers(key="drive")`), and Advance asks Dribble's distance
+  (`dribble_advance_asked`). High Ball and Set up are one distance each and ask only where
+  Quantor may run onto them.
+- **The set-up after a contest** is `RulesEngine.contest_sets_up`, asked where Zytheris's shot
+  is (`rolls.after_the_contest`).
+- **A Pinpoint beaten by a card that asks no speed** is marked owed when the ball is taken
+  (`FREE_LOW_PASS_OWED`) and turned into the `free_low_pass` continuation at the end of the run
+  back (`finish_run_back`), the point a Steal's speed choice would have recorded it.
+- **The faces.** A two-headed half prints `deck_effect` under its 2.0 diagram
+  (`STRIP_MOVES_TWO`, `STRIP_ACTORS_TWO`, read by `strip_moves(roles=False)` before 1.0's), all
+  twenty-four halves at one effect size; an advanced card in a 2.0 hand is printed with
+  `render_maneuver_card(edition_two=True)` -- the tab's wording, whose "Failed:" reads as the
+  failure label (`two_point_oh_face`), a tie quoting the 2.0 basic card, no role abilities and
+  no role moves. The band still names each rank's first basic card under its badge.
 
 ## Who holds what
 
@@ -358,6 +410,6 @@ author, 2026-10-24 and 2026-10-25), and
 `/d12ball team_reference` posts it in a 2.0 game -- [cards.md](cards.md), "The 2.0 player tiles".
 
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
-print-and-play kit; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the
+print-and-play kit; the Learn to Play's 2.0 cards; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the
 author, 2026-10-18): roles in the bot's labels and board pictures, a bench player named by their
 skills.

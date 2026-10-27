@@ -910,6 +910,12 @@ def dribble_burst_with_nothing_to_ask() -> PromptFixture:
     return fixture
 
 
+def spin_move() -> PromptFixture:
+    """2.0's Spin won, its teammate not yet moved: the handler's zone
+    holds a teammate in the standard deal."""
+    return _settled("spin", "deflect")
+
+
 def steal_speed_choice() -> PromptFixture:
     fixture = _settled("low_pass", "steal")
     fixture.params = {
@@ -1133,6 +1139,7 @@ CASES: tuple[PromptCase, ...] = (
                "DribbleBurstChoiceView", dribble_burst_choice),
     owed_case("dribble burst, nothing to ask", "BEGIN_EFFECT_RESOLUTION",
               dribble_burst_with_nothing_to_ask),
+    PromptCase("spin", "SPIN_MOVE", "SpinMoveView", spin_move),
     PromptCase("steal", "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",
                steal_speed_choice),
     PromptCase("intercept", "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",

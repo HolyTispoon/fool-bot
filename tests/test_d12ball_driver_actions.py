@@ -194,6 +194,15 @@ def _first_distance(fixture: PromptFixture) -> tuple[str, dict]:
     return "", {"distance": _prompt(fixture).options.distances[0]}
 
 
+def _spin_move(fixture: PromptFixture) -> tuple[str, dict]:
+    move = _prompt(fixture).options.moves[0]
+    return "move", {
+        "player_id": move.player_id,
+        "zone": move.zone.value,
+        "space_index": move.space_index,
+    }
+
+
 def _speed_delta(fixture: PromptFixture) -> tuple[str, dict]:
     # The middle of the range, which is the current speed until the
     # ball's own limits clamp one end.
@@ -253,6 +262,7 @@ LEGAL_ACTIONS = {
     PromptKind.SPEED_DELTA_CHOICE: _speed_delta,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _first_distance,
     PromptKind.DRIBBLE_BURST_CHOICE: _first_distance,
+    PromptKind.SPIN_MOVE: _spin_move,
     PromptKind.DOUBLE_TEAM_PARTNER: _first_player,
     PromptKind.TUTORIAL_CONTINUE: lambda fixture: ("", {}),
 }
@@ -1030,6 +1040,16 @@ def _wrong_distance(fixture: PromptFixture) -> dict:
     return {"distance": 99}
 
 
+def _off_the_field_spin(fixture: PromptFixture) -> dict:
+    """SPIN_MOVE: a teammate on offer, to a space nothing offers."""
+    move = _prompt(fixture).options.moves[0]
+    return {
+        "player_id": move.player_id,
+        "zone": move.zone.value,
+        "space_index": 99,
+    }
+
+
 def _wrong_side_player(fixture: PromptFixture) -> dict:
     """SMOOTH, MIND_PULL, INJURY_TEST: a player the prompt is not
     about."""
@@ -1385,6 +1405,10 @@ REFUSED_ACTIONS = {
     (PromptKind.SPEED_DELTA_CHOICE, ""): _wrong_speed,
     (PromptKind.DRIBBLE_ADVANCE_CHOICE, ""): _three_space_advance,
     (PromptKind.DRIBBLE_BURST_CHOICE, ""): _wrong_distance,
+    # Staying is always the position's to take; a move is refused off
+    # the prompt's own list.
+    (PromptKind.SPIN_MOVE, "stay"): None,
+    (PromptKind.SPIN_MOVE, "move"): _off_the_field_spin,
 }
 
 

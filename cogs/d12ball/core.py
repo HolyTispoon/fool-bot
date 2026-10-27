@@ -109,6 +109,7 @@ from cogs.d12ball_views import (
     CoinFlipView,
     DribbleAdvanceChoiceView,
     DribbleBurstChoiceView,
+    SpinMoveView,
     HalftimeExtraTokenView,
     HighPassChoiceView,
     HomeAwaySelectionView,
@@ -172,6 +173,8 @@ FIELD_PROMPT_KINDS = frozenset({
     # Whether a Pass's passer steps forward is a question about
     # where they would stand, asked once the ball has gone (Law 6.5.3).
     PromptKind.PASSER_ADVANCE,
+    # Spin's teammate moves to a space (2.0).
+    PromptKind.SPIN_MOVE,
 })
 
 
@@ -392,6 +395,7 @@ PLAIN_PROMPT_VIEWS = {
     PromptKind.SETUP_PASS_CHOICE: SetupPassChoiceView,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: DribbleAdvanceChoiceView,
     PromptKind.DRIBBLE_BURST_CHOICE: DribbleBurstChoiceView,
+    PromptKind.SPIN_MOVE: SpinMoveView,
     PromptKind.DOUBLE_TEAM_PARTNER: DoubleTeamPartnerView,
 }
 

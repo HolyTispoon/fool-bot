@@ -71,6 +71,7 @@ from cogs.d12ball_views.runback import (
 from cogs.d12ball_views.effects import (
     DribbleAdvanceChoiceView,
     DribbleBurstChoiceView,
+    SpinMoveView,
     HighPassChoiceView,
     LowPassChoiceView,
     LowPassReceiverView,
@@ -154,6 +155,7 @@ __all__ = [
     "RunBackPlayerChoiceView",
     "DribbleAdvanceChoiceView",
     "DribbleBurstChoiceView",
+    "SpinMoveView",
     "HighPassChoiceView",
     "LowPassChoiceView",
     "LowPassReceiverView",
