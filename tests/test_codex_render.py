@@ -905,3 +905,68 @@ class LentPatrollerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AttachedSpellTests(unittest.TestCase):
+    """A spell attached to a card in the grid lies tucked under that
+    card's right edge, one stack with it, never split across a row
+    (docs/design/codex.md, "The panel")."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.engine = RulesEngine(seed=7)
+        cls.cards = cls.engine.catalog
+
+    def test_a_spell_follows_the_unit_it_is_attached_to(self) -> None:
+        match = self.engine.new_match(("bashing", "finesse"), first=1)
+        javelineer = put(match, 1, "skeleton_javelineer")
+        put(match, 1, "thieving_imp")
+        stone = put(match, 1, "soul_stone", arrived=True)
+        stone.attached = [javelineer.id]
+        stacks = render.grid_stacks(match.player(1), self.cards)
+        self.assertEqual([[lying.slug for lying in stack] for stack in stacks],
+                         [["skeleton_javelineer", "soul_stone"], ["thieving_imp"]])
+        # Its foot's left is under the unit, so no ARRIVED on it.
+        self.assertFalse(stacks[0][1].arrived)
+
+    def test_a_spell_on_a_hero_in_the_grid_follows_the_hero(self) -> None:
+        match = self.engine.new_match(("bashing", "finesse"), first=1)
+        hero_in_play(match, 1)
+        put(match, 1, "older_brother")
+        showdown = put(match, 1, "final_showdown")
+        showdown.attached_hero = f"1:{hero_ref(match.player(1).heroes[0].slug)}"
+        stacks = render.grid_stacks(match.player(1), self.cards)
+        self.assertEqual([lying.slug for lying in stacks[0]],
+                         [match.player(1).heroes[0].slug, "final_showdown"])
+
+    def test_a_spell_whose_card_is_not_in_the_grid_lies_alone(self) -> None:
+        """On a patroller, or Two Step, whose partners carry its chit."""
+        match = self.engine.new_match(("bashing", "finesse"), first=1)
+        patroller = put(match, 1, "skeleton_javelineer", patrol="elite")
+        stone = put(match, 1, "soul_stone")
+        stone.attached = [patroller.id]
+        one, two = put(match, 1, "older_brother"), put(match, 1, "tenderfoot")
+        step = put(match, 1, "two_step")
+        step.attached = [one.id, two.id]
+        stacks = render.grid_stacks(match.player(1), self.cards)
+        self.assertEqual([len(stack) for stack in stacks], [1, 1, 1, 1])
+
+    def test_a_stack_is_never_split_across_a_row(self) -> None:
+        # The worker card holds the first cell of three.
+        self.assertEqual(render.stack_places([1, 2, 1], 3), [(0, 1), (1, 0), (1, 2)])
+        self.assertEqual(render.stack_places([2], 3), [(0, 1)])
+
+    def test_the_card_lies_over_its_spell_and_is_found_there_first(self) -> None:
+        """The site's hover takes the last box that holds the mouse: the
+        unit's, where it covers its spell's edge."""
+        match = self.engine.new_match(("bashing", "finesse"), first=1)
+        javelineer = put(match, 1, "skeleton_javelineer")
+        stone = put(match, 1, "soul_stone")
+        stone.attached = [javelineer.id]
+        panel = render.render_panel(match, 1, "a", self.cards)
+        boxes = [(region["card"], region["box"]) for region in panel.regions
+                 if region.get("card") in ("skeleton_javelineer", "soul_stone")]
+        self.assertEqual([slug for slug, _ in boxes], ["soul_stone", "skeleton_javelineer"])
+        (_, spell), (_, unit) = boxes
+        self.assertEqual(spell[0], unit[2] - render.TUCK)
+        self.assertEqual(spell[1], unit[1])
