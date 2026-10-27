@@ -95,20 +95,25 @@ def _groups(counts: Counter) -> list[int]:
 
 def _by_ranks(counts: Counter) -> str:
     """The best set a hand makes from its ranks alone, its suits aside."""
-    shape = _groups(counts)
-    if shape[0] >= 4:
-        return {6: "six_of_a_kind", 5: "five_of_a_kind", 4: "four_of_a_kind"}[shape[0]]
-    if shape[:2] == [3, 3]:
+    return by_shape(_groups(counts), _in_a_row(counts))
+
+
+def by_shape(groups: list[int], in_a_row: bool) -> str:
+    """The best set a hand's matched groups (largest first) make, or its
+    six places in a row -- the ladder both decks read their ranks by."""
+    if groups[0] >= 4:
+        return {6: "six_of_a_kind", 5: "five_of_a_kind", 4: "four_of_a_kind"}[groups[0]]
+    if groups[:2] == [3, 3]:
         return "two_triples"
-    if _in_a_row(counts):
+    if in_a_row:
         return "straight"
-    if shape == [2, 2, 2]:
+    if groups == [2, 2, 2]:
         return "three_pairs"
-    if shape[0] == 3:
+    if groups[0] == 3:
         return "three_of_a_kind"
-    if shape[:2] == [2, 2]:
+    if groups[:2] == [2, 2]:
         return "two_pairs"
-    if shape[0] == 2:
+    if groups[0] == 2:
         return "one_pair"
     return "no_set"
 
@@ -152,30 +157,40 @@ class Count:
 
 def census() -> dict[str, Count]:
     """Every hand of six, by its best set: mixed, and uniform."""
-    cards = [(suit, rank) for suit in SUITS for rank in RANKS]
+    return count_hands([(suit, rank) for suit in SUITS for rank in RANKS],
+                       lambda c: RANK_INDEX[c[1]], lambda c: fate_of(*c), _by_ranks, set_of, SETS)
+
+
+def count_hands(cards, rank_of, fate, by_ranks, of_one_suit, ranking) -> dict[str, Count]:
+    """Every hand of six from `cards` -- each a tuple whose first item is its
+    suit, a card held twice listed twice -- by its best set in `ranking`.
+    `by_ranks` reads a Counter of `rank_of`s, `of_one_suit` a hand of one
+    suit. A rank's cards differ only by fate as far as a set can tell, so
+    the hands of one set of ranks are counted by multiplying, and only the
+    hands of one suit are walked."""
     fortune, doom = Counter(), Counter()
-    for suit, rank in cards:
-        (fortune if fate_of(suit, rank) == "fortune" else doom)[RANK_INDEX[rank]] += 1
+    for c in cards:
+        (fortune if fate(c) == "fortune" else doom)[rank_of(c)] += 1
 
     # Fortune count (0 to 6) -> hands, per set.
-    by_fortune = {s.key: [0] * (HAND_SIZE + 1) for s in SETS}
-    for ranks in combinations_with_replacement(range(len(RANKS)), HAND_SIZE):
+    by_fortune = {s.key: [0] * (HAND_SIZE + 1) for s in ranking}
+    for ranks in combinations_with_replacement(sorted(set(fortune) | set(doom)), HAND_SIZE):
         counts = Counter(ranks)
         if any(n > fortune[r] + doom[r] for r, n in counts.items()):
             continue
         ways = [1]
         for r, n in counts.items():
             ways = _times(ways, _fortune_choices(fortune[r], doom[r], n))
-        tally = by_fortune[_by_ranks(counts)]
+        tally = by_fortune[by_ranks(counts)]
         for k, n in enumerate(ways):
             tally[k] += n
 
     # The flushes were counted above by their ranks; move them to their own.
-    for suit in SUITS:
+    for suit in dict.fromkeys(c[0] for c in cards):
         for hand in combinations([c for c in cards if c[0] == suit], HAND_SIZE):
-            k = sum(fate_of(*c) == "fortune" for c in hand)
-            by_fortune[_by_ranks(Counter(RANK_INDEX[r] for _, r in hand))][k] -= 1
-            by_fortune[set_of(hand)][k] += 1
+            k = sum(fate(c) == "fortune" for c in hand)
+            by_fortune[by_ranks(Counter(rank_of(c) for c in hand))][k] -= 1
+            by_fortune[of_one_suit(hand)][k] += 1
 
     return {key: Count(mixed=sum(t[1:HAND_SIZE]), uniform=t[0] + t[HAND_SIZE])
             for key, t in by_fortune.items()}

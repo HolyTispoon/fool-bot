@@ -7,11 +7,15 @@ from types import SimpleNamespace
 from PIL import Image
 
 from cogs.tethysdeck_helpers import (
+    DECK_KINDS,
     build_deck,
     format_discard_text,
     format_hand_text,
     parse_card,
+    remove_cards,
 )
+from gamesaves.tethysdeck.storage import ChannelDeck
+from tethysdeck import deck_2d12
 from tethysdeck.deck import RANKS, SUITS
 from tethysdeck.strips import FACE_H, FACE_W, GAP, PER_ROW, Faces
 
@@ -27,6 +31,34 @@ class ParseCardTests(unittest.TestCase):
     def test_a_ruler_and_a_ten(self):
         self.assertEqual(parse_card("Left of 〠 Fiends"), ("fiends", "Left"))
         self.assertEqual(parse_card("10 of $ Money"), ("money", "10"))
+
+    def test_every_2d12_name_is_a_card_of_that_deck(self):
+        names = build_deck(deck_2d12.KEY)
+        self.assertEqual(len(names), 72)
+        self.assertEqual([parse_card(card) for card in names], deck_2d12.cards())
+
+    def test_a_2d12_name_carries_its_fate(self):
+        self.assertEqual(parse_card("13 of $ Money (Doom)"), deck_2d12.Card("money", 13, "doom"))
+        self.assertEqual(parse_card("2 of 〠 Fiends (Doom)"), deck_2d12.Card("fiends", 2, "doom"))
+        self.assertIn("13 of $ Money (Fortune)", build_deck(deck_2d12.KEY))
+
+    def test_a_deck_saved_before_the_2d12_deck_is_classic(self):
+        self.assertEqual(ChannelDeck(**{"deck": [], "discard": [], "hands": {}}).kind, "classic")
+        self.assertEqual(set(DECK_KINDS), {"classic", deck_2d12.KEY})
+
+
+class RemoveCardsTests(unittest.TestCase):
+    """The 2d12 deck holds some cards twice, so a hand can too."""
+
+    def test_a_card_held_twice_and_chosen_twice_goes_twice(self):
+        hand = ["13 of $ Money (Doom)", "5 of $ Money (Fortune)", "13 of $ Money (Doom)"]
+        self.assertEqual(remove_cards(hand, ["13 of $ Money (Doom)"] * 2), ["13 of $ Money (Doom)"] * 2)
+        self.assertEqual(hand, ["5 of $ Money (Fortune)"])
+
+    def test_a_card_no_longer_held_is_skipped(self):
+        hand = ["13 of $ Money (Doom)"]
+        self.assertEqual(remove_cards(hand, ["13 of $ Money (Doom)"] * 2), ["13 of $ Money (Doom)"])
+        self.assertEqual(hand, [])
 
 
 class CaptionTests(unittest.TestCase):
@@ -94,6 +126,11 @@ class StripTests(unittest.TestCase):
 
     def test_png(self):
         self.assertTrue(self.faces.row_png(self.cards[:2]).startswith(b"\x89PNG"))
+
+    def test_a_2d12_row_shows_a_card_held_twice_twice(self):
+        faces = Faces({c: Image.new("RGBA", (FACE_W, FACE_H), "white") for c in deck_2d12.faces()})
+        twice = deck_2d12.Card("money", 13, "doom")
+        self.assertEqual(faces.row([twice, twice]).size, (2 * FACE_W + GAP, FACE_H))
 
 
 if __name__ == "__main__":

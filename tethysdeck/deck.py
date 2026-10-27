@@ -49,7 +49,13 @@ DENOMINATIONS = (12, 6, 3, 1)
 
 
 def pieces(suit: str, rank: str) -> list[int]:
-    left, out = worth(suit, rank), []
+    return pieces_worth(worth(suit, rank))
+
+
+def pieces_worth(total: int) -> list[int]:
+    """The fewest pieces worth `total`, largest first -- the one reading both
+    decks make their faces of (`deck_2d12` has values up to 24)."""
+    left, out = total, []
     for value in DENOMINATIONS:
         while left >= value:
             out.append(value)
@@ -74,7 +80,12 @@ COIN_WORTH = (("gold", 3, 36), ("silver", 3, 18), ("gold", 1, 12),
 
 def money_coins(rank: str) -> list[tuple[str, int]]:
     """The fewest coins worth the card, as (metal, amount) pairs, largest first."""
-    left, coins = worth("money", rank), []
+    return coins_worth(worth("money", rank))
+
+
+def coins_worth(total: int) -> list[tuple[str, int]]:
+    """The fewest coins worth `total` dinkies, as (metal, amount) pairs, largest first."""
+    left, coins = total, []
     for metal, amount, value in COIN_WORTH:
         while left >= value:
             coins.append((metal, amount))

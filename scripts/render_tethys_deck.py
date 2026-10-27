@@ -3,6 +3,7 @@
 sheets, and the two print PDFs.
 
     python3 scripts/render_tethys_deck.py --out tethysdeck/print
+    python3 scripts/render_tethys_deck.py --deck 2d12     # into tethysdeck/print/2d12
 
 Writes under `--out`: `icons/` (every suit mark and piece, transparent
 PNG), `cards/` (every card and `back.png`), `icon_sheet.png`,
@@ -11,7 +12,9 @@ PNG), `cards/` (every card and `back.png`), `icon_sheet.png`,
 (Avery Presta 95328, six a page), each with a backs page after every
 fronts page for a duplex print, and the six-card sets twice:
 `sets_aid.png` (the player aid) and `sets_chart.png` (the chances on a log
-scale). `--only` picks some of icons, cards, sheets, pdf and sets. See
+scale). `--only` picks some of icons, cards, sheets, pdf and sets.
+`--deck 2d12` renders the 2d12 deck (`tethysdeck/deck_2d12.py`) the same
+way, with the same back, into its own folder. See
 docs/design/tethys-deck.md.
 """
 import argparse
@@ -23,17 +26,26 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
-from tethysdeck import icons  # noqa: E402
+from tethysdeck import deck_2d12, icons, sets_2d12  # noqa: E402
 from tethysdeck.back import back  # noqa: E402
-from tethysdeck.cards import card, closeup_sheet, deck_cards, deck_sheet, ladder_sheet  # noqa: E402
+from tethysdeck.cards import (  # noqa: E402
+    card, card_2d12, closeup_sheet, deck_2d12_cards, deck_cards, deck_sheet, ladder_sheet,
+)
 from tethysdeck.deck import SUITS  # noqa: E402
 from tethysdeck.print_sheets import PAGE_SIZES, avery_pages, grid_pages, write_pdf  # noqa: E402
 from tethysdeck.relief import IconSet  # noqa: E402
 from tethysdeck.sets import census  # noqa: E402
-from tethysdeck.sets_aid import faces_shown, odds_chart, player_aid  # noqa: E402
+from tethysdeck.sets_aid import (  # noqa: E402
+    CHART_NOTE_2D12, KEY_2D12, NOTES_2D12, faces_shown, odds_chart, player_aid,
+)
 
 STEPS = ("icons", "cards", "sheets", "pdf", "sets")
 CLOSEUP = [("money", "1"), ("money", "2"), ("might", "Left"), ("fiends", "1"), ("states", "Right"), ("fools", "10")]
+# The 2d12 deck's: its top card, the one five-piece face, a Might weapon pile, its
+# lowest card, a 13, and a Fools face.
+Card = deck_2d12.Card
+CLOSEUP_2D12 = [Card("money", 24, "fortune"), Card("tools", 23, "doom"), Card("might", 22, "doom"),
+                Card("fiends", 2, "doom"), Card("states", 13, "fortune"), Card("fools", 17, "fortune")]
 
 
 def icon_sheet(icon_set: IconSet) -> Image.Image:
@@ -53,14 +65,17 @@ def icon_sheet(icon_set: IconSet) -> Image.Image:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", type=Path, default=PROJECT_ROOT / "tethysdeck" / "print")
+    parser.add_argument("--out", type=Path, default=None,
+                        help="where to write; tethysdeck/print, or tethysdeck/print/2d12 for --deck 2d12")
+    parser.add_argument("--deck", choices=("classic", deck_2d12.KEY), default="classic")
     parser.add_argument("--only", default=",".join(STEPS), help="a comma-separated subset of " + ", ".join(STEPS))
     args = parser.parse_args()
     steps = {s.strip() for s in args.only.split(",")}
     unknown = steps - set(STEPS)
     if unknown:
         parser.error(f"unknown step(s): {', '.join(sorted(unknown))}")
-    out = args.out
+    two_dice = args.deck == deck_2d12.KEY
+    out = args.out or PROJECT_ROOT / "tethysdeck" / "print" / ("2d12" if two_dice else "")
     out.mkdir(parents=True, exist_ok=True)
     icon_set = IconSet()
 
@@ -73,25 +88,28 @@ def main() -> int:
 
     cards = None
     back_image = None
+    # `cards` is every different face once; `ordered` is the 72 in the deck's
+    # order, a card the deck holds twice there twice.
     if steps & {"cards", "sheets", "pdf"}:
-        cards = deck_cards(icon_set)
+        cards = deck_2d12_cards(icon_set) if two_dice else deck_cards(icon_set)
+        ordered = [cards[c] for c in deck_2d12.cards()] if two_dice else list(cards.values())
         back_image = back(icon_set)
     if "cards" in steps:
         folder = out / "cards"
         folder.mkdir(exist_ok=True)
-        for (suit, rank), image in cards.items():
-            image.save(folder / f"{suit}_{rank.lower()}.png")
+        for key, image in cards.items():
+            name = f"{key.suit}_{key.value}_{key.fate}" if two_dice else f"{key[0]}_{key[1].lower()}"
+            image.save(folder / f"{name}.png")
         back_image.save(folder / "back.png")
         print(f"cards: {len(cards)} and the back -> {folder}")
     if "sheets" in steps:
         icon_sheet(icon_set).save(out / "icon_sheet.png")
         ladder_sheet(icon_set, "might").save(out / "might_ladder.png")
         ladder_sheet(icon_set, "tools").save(out / "tools_ladder.png")
-        deck_sheet(cards).save(out / "deck_sheet.png")
-        closeup_sheet(cards, CLOSEUP).save(out / "closeup_sheet.png")
+        deck_sheet(ordered).save(out / "deck_sheet.png")
+        closeup_sheet(cards, CLOSEUP_2D12 if two_dice else CLOSEUP).save(out / "closeup_sheet.png")
         print(f"sheets -> {out}")
     if "pdf" in steps:
-        ordered = list(cards.values())
         pages = grid_pages(ordered, back_image)
         write_pdf(pages, out / "print_sheet.pdf", PAGE_SIZES["grid"])
         pages[0].save(out / "print_sheet_page1.png")
@@ -99,7 +117,16 @@ def main() -> int:
         write_pdf(pages, out / "avery_95328.pdf", PAGE_SIZES["avery"])
         pages[0].save(out / "avery_95328_page1.png")
         print(f"pdf: print_sheet.pdf and avery_95328.pdf -> {out}")
-    if "sets" in steps:
+    if "sets" in steps and two_dice:
+        counts = sets_2d12.census()
+        if cards is None:  # only the faces the aid shows
+            cards = {key: card_2d12(icon_set, key) for key in faces_shown(sets_2d12.SETS, KEY_2D12)}
+        player_aid(counts, cards, sets=sets_2d12.SETS, key=KEY_2D12, notes=NOTES_2D12,
+                   title="Tethys Poker: the 2d12 deck").save(out / "sets_aid.png")
+        odds_chart(counts, sets=sets_2d12.SETS, note=CHART_NOTE_2D12,
+                   title="Tethys Poker, the 2d12 deck: the odds").save(out / "sets_chart.png")
+        print(f"sets: sets_aid.png and sets_chart.png -> {out}")
+    elif "sets" in steps:
         counts = census()
         if cards is None:  # only the faces the aid shows
             cards = {key: card(icon_set, *key) for key in faces_shown()}

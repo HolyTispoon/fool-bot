@@ -9,6 +9,7 @@ import logging
 import discord
 
 from gamesaves.tethysdeck.storage import ChannelDeck
+from tethysdeck import deck_2d12
 
 
 LOGGER = logging.getLogger(__name__)
@@ -32,7 +33,19 @@ RANKS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Left", "Right"]
 MAX_SELECT_OPTIONS = 25
 
 
-def build_deck() -> list[str]:
+# The decks a channel may shuffle: the classic deck, and the 2d12 deck
+# (`tethysdeck/deck_2d12.py`). A channel's deck saves which it is.
+CLASSIC = "classic"
+DECK_KINDS = {
+    CLASSIC: "Foolish style",
+    deck_2d12.KEY: "2d12",
+}
+SYMBOLS = {name.lower(): symbol for symbol, name in SUITS}
+
+
+def build_deck(kind: str = CLASSIC) -> list[str]:
+    if kind == deck_2d12.KEY:
+        return [card_name_2d12(card) for card in deck_2d12.cards()]
     return [
         f"{rank} of {symbol} {name}"
         for symbol, name in SUITS
@@ -40,12 +53,35 @@ def build_deck() -> list[str]:
     ]
 
 
-def parse_card(card: str) -> tuple[str, str]:
-    """A saved card's name -- "7 of ⚔ Might" -- as the deck's (suit, rank),
-    which `tethysdeck` draws. The names are what a channel's deck saves,
-    so they stay as `build_deck` writes them and are read here."""
+def card_name_2d12(card: deck_2d12.Card) -> str:
+    """A 2d12 card's name -- "13 of $ Money (Doom)". The fate is in it
+    because a suit can hold one value under both; a card the deck holds
+    twice is the same name twice."""
+    return f"{card.value} of {SYMBOLS[card.suit]} {card.suit.title()} ({card.fate.title()})"
+
+
+def parse_card(card: str) -> tuple[str, str] | deck_2d12.Card:
+    """A saved card's name as the card `tethysdeck` draws: "7 of ⚔ Might"
+    as the classic deck's (suit, rank), "13 of $ Money (Doom)" as a
+    `deck_2d12.Card`. The names are what a channel's deck saves, so they
+    stay as `build_deck` writes them and are read here."""
     rank, suit = card.split(" of ", 1)
+    if suit.endswith(")"):
+        suit, fate = suit[:-1].rsplit(" (", 1)
+        return deck_2d12.Card(suit.split()[-1].lower(), int(rank), fate.lower())
     return suit.split()[-1].lower(), rank
+
+
+def remove_cards(hand: list[str], cards: list[str]) -> list[str]:
+    """Take `cards` out of `hand`, one apiece -- a card held twice and
+    chosen twice goes twice -- and return what was taken; a card the hand
+    no longer holds is skipped."""
+    taken = []
+    for card in cards:
+        if card in hand:
+            hand.remove(card)
+            taken.append(card)
+    return taken
 
 
 def format_cards(cards: list[str]) -> str:

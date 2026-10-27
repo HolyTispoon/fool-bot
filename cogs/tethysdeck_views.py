@@ -286,9 +286,12 @@ class DiscardSelectView(SafeView):
         self.channel_id = channel_id
         self.user_id = user_id
 
+        # By place in the hand, not by name: the 2d12 deck holds some cards
+        # twice, and a menu's values must differ.
+        shown = hand[:MAX_SELECT_OPTIONS]
         options = [
-            discord.SelectOption(label=card, value=card)
-            for card in hand[:MAX_SELECT_OPTIONS]
+            discord.SelectOption(label=card, value=str(index))
+            for index, card in enumerate(shown)
         ]
         select = discord.ui.Select(
             placeholder="Select cards to discard",
@@ -299,7 +302,8 @@ class DiscardSelectView(SafeView):
 
         async def select_callback(interaction: discord.Interaction) -> None:
             await self.cog.discard_cards(
-                interaction, self.channel_id, self.user_id, select.values,
+                interaction, self.channel_id, self.user_id,
+                [shown[int(value)] for value in select.values],
             )
 
         select.callback = select_callback

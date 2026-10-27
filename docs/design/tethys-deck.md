@@ -32,6 +32,61 @@ odds in an even number of suits -- twice the number where both the odds
 and Left are Fortune -- so four here (Money, Tools, States, Fools) and
 with the evens in two (Might, Fiends). The author kept the first two.
 
+## The 2d12 deck
+
+A second deck beside the first, not in place of it (the author,
+2026-10-27): **structure E** of the author's "2d12 Distribution Card
+Deck" document, 72 cards whose values run 2 to 24 as often as two d12
+roll each, give or take -- 13 eight times, a full third above its
+shoulders at 12 and 14, the tails one card each -- in six suits of
+twelve, each worth 156. `tethysdeck/deck_2d12.py` is it; the classic
+deck in `deck.py` is unchanged, and everything below that is not about
+the rulers or the ranks 1 to 10 holds for both. The document numbers its
+suits 1 to 6, and they are dealt to the suits in the author's order,
+Money first. There are no rulers.
+
+- **A card is its suit, value and fate** (`deck_2d12.Card`). A suit can
+  hold one value two or three times, so (suit, value) does not name a
+  card; and two cards of one suit, value and fate are the same card
+  twice -- one face, one name. Four such pairs are in the deck, so 68
+  faces make the 72.
+- **The fates are six and six a suit, each half worth 78** (the author's
+  choice, 2026-10-27, over keeping odd and even -- which in this deck
+  puts eight odd cards in one suit and four in another -- and over high
+  against low). Each suit has 16 to 32 such splits, so the module names
+  three more rules that pick one: the deck is its own mirror, Fortune at
+  a value as many as Doom at the value across 13 (`26 - v`), so an
+  all-Fortune hand is as likely as the same set all Doom, as in the
+  classic deck; a suit's repeated values split between the fates where
+  they can be, so as few cards as possible are the same card twice;
+  and each half spread like the other. The search ran once and is not
+  kept; the test holds the tables to the document and the first two
+  rules.
+- **The pieces are the same pieces**: a value up to 24 is the fewest of
+  1, 3, 6 and 12 (`deck.pieces_worth`), Money's the coins including the
+  three-silver 18 (`deck.coins_worth`). That makes four pieces on twelve
+  faces and five on one, Tools' 23, which the classic deck never needed:
+  as three are, the largest across the top and the rest in a row under
+  it, clear of the corners and of the value (`cards.SLOTS`). A 2x2 was
+  tried first; its top left crowded the corner mark and every piece came
+  out one size, which hid the denominations.
+- **The back is the classic deck's.** Nothing on it says which deck.
+
+**Tethys poker on the 2d12 deck** (`sets_2d12.py`; the author: "recount
+for E") keeps the classic deck's sets and rules with no rulers: a pair is
+two of one value, a straight six values in a row that never wraps. What
+changes is the ranking, which is the census's: six of a kind, five of a
+kind, flush, two triples, straight, three pairs, four of a kind, three of
+a kind, two pairs, one pair, no set. A flush can hold a pair or three of
+a kind and is a flush, being rarer than both; no suit holds six in a
+row, so there is no straight flush. No set (44% mixed) is commoner than
+one pair (41%) and is still last. The census is the classic deck's
+machinery (`sets.count_hands`) over the 2d12 cards, and was checked
+against a walk of all 156,238,908 hands one by one, all Fortune and all
+Doom counted apart -- equal in every set, as the mirror says. The aid
+and the chart are `sets_aid.py`'s with the 2d12 deck's sets, key cards
+and notes passed in.
+
 ## Why the cards are drawn by code, and why the pieces are pictures
 
 The first round was generated art: engraved scenes, one per card, from
@@ -317,6 +372,16 @@ hand's order; an empty hand or discard is text alone.
   and a megabyte. A row is nine cards, so a usual hand is one row and
   the whole deck eight; the cards sit on transparency, their white
   paper reading on either Discord theme.
+- **A channel chooses its deck** when it shuffles: `/tethyscards
+  new_deck deck:` the Foolish style deck (the default) or the 2d12 deck
+  (2026-10-27). The channel's saved deck records which (`ChannelDeck.kind`,
+  `"classic"` for a deck saved before there were two), and the cog draws
+  both decks' faces as it loads, each on its own: a deck whose faces fail
+  answers in words alone. A 2d12 card's name carries its fate --
+  `"13 of $ Money (Doom)"` -- because a suit can hold one value under
+  both; a card the deck holds twice is the same name twice, so the
+  discard menu's values are places in the hand rather than names, and
+  `remove_cards` takes one card per choice.
 - **The saved names are not changed.** A channel's deck in progress is
   saved as those strings in `data/tethysdeck_decks.json`, and
   `tethysdeck_helpers.parse_card` is the one way from a name to the
@@ -357,6 +422,7 @@ the same cut ([cards.md](cards.md)).
 python3 scripts/render_tethys_deck.py            # everything, into tethysdeck/print/
 python3 scripts/render_tethys_deck.py --only sheets   # just the contact sheets
 python3 scripts/render_tethys_deck.py --only sets     # the player aid and the chart
+python3 scripts/render_tethys_deck.py --deck 2d12     # the 2d12 deck, into tethysdeck/print/2d12/
 python3 scripts/generate_tethys_pieces.py generate might_axe_doom   # re-roll one piece (needs mflux)
 python3 scripts/generate_tethys_pieces.py key might_axe_doom        # key it into tethysdeck/images/
 python3 scripts/generate_tethys_pieces.py sheet                     # every picture on one sheet
@@ -370,4 +436,4 @@ Look at `deck_sheet.png` (all 72), `closeup_sheet.png` (six, large),
 `icon_sheet.png` and the two ladders after any change to a drawing;
 and `sets_aid.png` and `sets_chart.png` after any change to the sets;
 nothing printed is tested. The suite checks the rule only: the fates,
-the pieces, and the sets' census.
+the pieces, and the sets' census, for both decks.
