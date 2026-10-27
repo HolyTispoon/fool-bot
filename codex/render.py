@@ -1873,6 +1873,22 @@ def attached_host(spell: CardInstance, seat: int) -> Optional[tuple[str, Union[i
     return None
 
 
+def attached_tags(player: PlayerState, host: tuple[str, Union[int, str]],
+                  cards: Optional[CardCatalog]) -> tuple[tuple[str, Optional[str]], ...]:
+    """The spells of `player`'s attached to `host` (`attached_host`'s
+    spelling), as tags by name in each spell's colour -- "Soul Stone",
+    "Soul Stone x2" for two: what a patroller carries, since its spells
+    lie in the grid, out of reach of the holder (the author,
+    2026-10-27)."""
+    counts: dict[str, int] = {}
+    for spell in player.play:
+        if spell.patrol_slot is None and attached_host(spell, player.seat) == host:
+            counts[spell.slug] = counts.get(spell.slug, 0) + 1
+    name = cards.name if cards else (lambda slug: slug.replace("_", " ").title())
+    return tuple((cut_tag("", name(slug) + (f" x{count}" if count > 1 else ""), CARD[0]),
+                  card_color(slug, cards)) for slug, count in counts.items())
+
+
 def grid_stacks(player: PlayerState, cards: CardCatalog,
                 stats: Optional[Callable[[Union[CardInstance, HeroState]], Optional[Stats]]] = None,
                 names: Optional[Mapping[int, str]] = None) -> list[list[Lying]]:
@@ -2042,11 +2058,18 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
             # borrower while it is lent).
             hero = match.hero_on(seat, ref)
             lying = hero_lying(hero, cards, shown(hero), lender=names.get(split_lent_ref(ref)[0]))
+            # A hero lent in is another seat's: none of this side's spells
+            # are on it, though a mirror's hero shares its slug.
+            host = ("hero", hero.slug) if split_lent_ref(ref)[0] in (None, seat) else None
         else:
             instance_id = int(ref.split(":", 1)[1])
             card = match.instance(instance_id)
             lying = unit_lying(card, instance_id in partners, cards, copy_number(player, card),
                                shown(card), lender=names.get(card.owner))
+            host = ("unit", instance_id)
+        # Its spells lie in the grid, so it carries their names.
+        if host is not None:
+            lying = replace(lying, marks=lying.marks + attached_tags(player, host, cards))
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards, turned),

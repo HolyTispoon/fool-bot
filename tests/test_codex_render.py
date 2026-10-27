@@ -970,3 +970,18 @@ class AttachedSpellTests(unittest.TestCase):
         (_, spell), (_, unit) = boxes
         self.assertEqual(spell[0], unit[2] - render.TUCK)
         self.assertEqual(spell[1], unit[1])
+
+    def test_a_patroller_carries_its_spells_names(self) -> None:
+        """Its spells lie in the grid, so it is tagged with each by name,
+        two of one as "x2"; a unit in the grid carries no such tag."""
+        match = self.engine.new_match(("bashing", "finesse"), first=1)
+        patroller = put(match, 1, "skeleton_javelineer", patrol="elite")
+        for _ in range(2):
+            put(match, 1, "soul_stone").attached = [patroller.id]
+        player = match.player(1)
+        self.assertEqual([text for text, _ in render.attached_tags(player, ("unit", patroller.id),
+                                                                    self.cards)],
+                         ["Soul Stone x2"])
+        self.assertEqual(render.attached_tags(player, ("unit", patroller.id + 99), self.cards), ())
+        # The panel draws, the tag on the patroller.
+        render.render_panel(match, 1, "a", self.cards)

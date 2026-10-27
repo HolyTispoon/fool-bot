@@ -1767,7 +1767,14 @@ else the bot shows is ephemeral.
     (`attached_host`); Two Step is never stacked, its partners carrying
     its chit. A spell whose card is not in this grid -- a patroller, or
     a card on another side (Entangling Vines) -- still lies in a cell of
-    its own.
+    its own. **A patroller carries its spells' names instead**, a tag
+    each in the spell's colour, "Soul Stone x2" for two of one
+    (`attached_tags`; the author, 2026-10-27, over tucking it in the
+    patrol zone, whose holders are a card wide and packed): the slot
+    has no room for the card, so the name says what is on it. Only the
+    patroller's own side's spells -- a hero lent in is another seat's,
+    though a mirror's hero shares its slug -- and a card on another
+    side keeps the tag it had (Entangling Vines' "Entangled").
   - **A named rune -- blood, growth, corpse, focus, a feather -- is a
     swirl chit in its colour with its count**, top right under the
     stats pill (`rune_chit`, `NAMED_RUNE`), never a word (the author,
