@@ -20,10 +20,11 @@ what a fresh pull should be diffed against.
 
 The sheet's tabs are `player cards` (6660238), `basic_abilities` (1822486506),
 `spec_abilities` (123199571), `advanced_abilities` (354283038), `maneuvers` (1487033386),
-`Benches` (884760728), `matrix` (95040120), `older Field` (1743933596), and the
+`maneuvers 2.0` (1310773351), `maneuvers 2.0 proposals` (552360374), `Benches` (884760728),
+`matrix` (95040120), `older Field` (1743933596), and the
 pre-reshuffle `player cards before species reorg` (gid 0, stale -- see "The rules" in
 [design/rules-and-data.md](design/rules-and-data.md)). The code imports `player cards`,
-`basic_abilities`, `advanced_abilities`, `spec_abilities` and `maneuvers`; each abilities tab
+`basic_abilities`, `advanced_abilities`, `spec_abilities`, `maneuvers` and `maneuvers 2.0`; each abilities tab
 is the source of truth for its kind of ability and the player cards tab is what the cards
 say, linked by formula (the author, 2026-09-22).
 
@@ -154,6 +155,47 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-27 -- sheet and author, 2.0: the maneuver cards of the `maneuvers 2.0` tab
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 1.1a and section 7). The author
+asked for the 2.0 deck to be built from the sheet's new `maneuvers 2.0` tab (gid 1310773351):
+thirty maneuvers, five a rank on each side -- the rank's basic card, three more basic cards, and
+the advanced card -- numbered 1 to 5 by the tab's `Index`. The twelve two-headed cards are now
+twelve different pairs, offense and defense paired by that number (the author: pair by index),
+where they were four alike a rank. The tab also rewords five 1.0 cards for 2.0: Pass (+2 speed,
+no distance, no passer move), Dribble (+2 speed in place of the handler's change), High Ball
+(always 3, contested, then a set-up), Cross (0 to 3) and Deflect (the Fullback's extra space as
+the card's own line).
+
+**Answered by the author** (2026-10-27): the tab's blank `Mode` and `Time` on nine defensive
+cards read as Basic and 1. *My Turf!*'s "+3 to contest" is the tie's skill test. Long shot and
+Reset Play always find their player: *"There's always a striker"*, *"There's always a
+playmaker"*. Block's contest on the spot is the handler against the player who played it.
+
+**Read from the cards, for the author to confirm** -- each is the plainest reading of the tab
+and is what the bot plays:
+
+- 2.0's Pass, Pass and Run and Drive reach the nearest teammate either way at any distance:
+  the tab dropped 1.0's "up to 2 spaces", and Curved Pass is the card that says 0 to 2.
+- A pass with nobody to reach still rolls 2 forward (Law 6.5.5).
+- A handler who is the Playmaker keeps a Reset Play; a handler who is the Striker contests a Long
+  shot on their own space.
+- Spin's teammate may go to any space up to 2 away, either way, and the speed is chosen after.
+- Drive's teammate taking the ball is the coach's choice, offered beside leaving it with the
+  handler.
+- 2.0's High Ball and Long shot offer the set-up after a contest the receiver wins or nobody
+  contests, but not after a pass into the goal zone, whose set-up comes first (Law 6.7.4).
+- Follow keeps Deflect's goal-zone scoring opportunity, which Boot's card takes away.
+- Pickpocket resets the speed to 1, as every turnover does; Pickpocket, My Turf! and Toss offer
+  no change of speed, and a Pinpoint they beat still hands its Pass over once the run back is
+  done.
+- Toss goes to the nearest teammate behind the defender, a shared space counting as behind; with
+  nobody there the defender keeps it.
+- Stress with nobody behind the handler goes to their own goal zone and risks an own goal, the
+  ball left with the handler.
+- Every advanced card's failure is collected by every card on the rank that beats it.
+- The two-headed card's band still names the rank's first basic card under each rank badge.
 
 ### 2026-10-25 (later still) -- author, 2.0: a stray player goes back to their zone or takes a new role
 
