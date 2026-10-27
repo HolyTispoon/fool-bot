@@ -93,7 +93,7 @@ def _row_card(
 ) -> Optional[ManeuverDefinition]:
     """The basic maneuver on `side`'s `rank` and `row`, or `None`. Row 1
     is the 1.0 basic card whether or not the catalog has the 2.0 tab."""
-    for maneuver in catalog.side(side):
+    for maneuver in catalog.deck_side(side):
         if maneuver.rank != rank or maneuver.tier == MANEUVER_TIER_GAMBIT:
             continue
         if maneuver.deck_index == row:

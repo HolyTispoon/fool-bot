@@ -3027,7 +3027,7 @@ class RulesEngine:
         return (
             card is not None and deflect is not None
             and card.rank == deflect.rank
-            and card in self.maneuver_catalog.defense
+            and self.maneuver_catalog.side_of(card.key) == "defense"
             and self.gambit_cost(match, winner) == "setup_pass"
         )
 

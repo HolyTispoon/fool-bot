@@ -63,9 +63,11 @@ twelve different pairs, offense and defense paired by the tab's row number (`dec
 
 - **One catalog, a third tier.** `merge_edition_two` folds the tab into the 1.0 catalog: a row
   whose key 1.0 has gives that card its `deck_index` and its 2.0 wording (`effect_two`,
-  `deck_effect`), and every other row is a card of `MANEUVER_TIER_VARIANT`. Nothing in 1.0 asks
-  for that tier -- every 1.0 reading is `for_tier(basic)` or `for_tier(advanced)` -- so a 1.0
-  game reads the catalog as it did, and a variant is never a gambit. Keys, not a second
+  `deck_effect`), and every other row is a card of `MANEUVER_TIER_VARIANT`, held apart in
+  `offense_variants` / `defense_variants`. `side()` is still 1.0's six a side -- the hand, the
+  gambits withheld and the web page's reference table all read it as the side's whole set of
+  cards -- and the deck reads `deck_side()`, the side and its variants; `get` and `side_of`
+  find a variant by key like any card. A variant is never a gambit. Keys, not a second
   catalog, because the match, the effects and every table already speak keys; a variant's key
   is the slug of its name, and Pass, Dribble, High Ball, Cross and Deflect keep 1.0's.
 - **A card's 2.0 behaviour is read off the match.** Five cards play differently in 2.0 under

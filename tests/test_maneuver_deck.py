@@ -33,11 +33,17 @@ class DeckTests(unittest.TestCase):
     def test_eighteen_cards_twelve_two_headed_and_six_advanced(self) -> None:
         cards = maneuver_deck.deck_cards(MANEUVERS)
         self.assertEqual(len(cards), 18)
+        # Four two-headed cards a rank, each a different pair (the
+        # `maneuvers 2.0` tab, 2026-10-27; they were four alike).
         counts = Counter(cards)
+        two_headed = {
+            card: count for card, count in counts.items()
+            if maneuver_deck.is_basic_card(card)
+        }
+        self.assertEqual(set(two_headed.values()), {1})
         self.assertEqual(
-            {card: count for card, count in counts.items()
-             if maneuver_deck.is_basic_card(card)},
-            {"basic_1": 4, "basic_2": 4, "basic_3": 4},
+            Counter(maneuver_deck.basic_card_rank(card) for card in two_headed),
+            {1: 4, 2: 4, 3: 4},
         )
         advanced = [card for card in cards if not maneuver_deck.is_basic_card(card)]
         self.assertEqual(len(advanced), 6)

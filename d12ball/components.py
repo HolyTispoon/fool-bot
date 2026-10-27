@@ -1204,14 +1204,29 @@ class ManeuverCatalog:
     source: str
     offense: tuple[ManeuverDefinition, ...]
     defense: tuple[ManeuverDefinition, ...]
+    # **2.0's other basic cards** (`MANEUVER_TIER_VARIANT`), kept apart
+    # from `offense`/`defense` so every reading of "a side's cards" --
+    # the hand, the gambits withheld, the web page's reference table --
+    # is still 1.0's twelve. Found by key like any card; the 2.0 deck
+    # reads them through `deck_side`.
+    offense_variants: tuple[ManeuverDefinition, ...] = ()
+    defense_variants: tuple[ManeuverDefinition, ...] = ()
 
     def side(self, side: str) -> tuple[ManeuverDefinition, ...]:
         return self.offense if side == "offense" else self.defense
 
+    def deck_side(self, side: str) -> tuple[ManeuverDefinition, ...]:
+        """Every card of `side` the 2.0 deck may play: the side's own
+        and its variants."""
+        return self.side(side) + (
+            self.offense_variants if side == "offense"
+            else self.defense_variants
+        )
+
     def by_key(self) -> dict[str, ManeuverDefinition]:
         return {
             maneuver.key: maneuver
-            for maneuver in self.offense + self.defense
+            for maneuver in self.deck_side("offense") + self.deck_side("defense")
         }
 
     def get(self, key: str) -> Optional[ManeuverDefinition]:
@@ -1268,9 +1283,9 @@ class ManeuverCatalog:
         )
 
     def side_of(self, key: str) -> str:
-        if any(maneuver.key == key for maneuver in self.offense):
+        if any(maneuver.key == key for maneuver in self.deck_side("offense")):
             return "offense"
-        if any(maneuver.key == key for maneuver in self.defense):
+        if any(maneuver.key == key for maneuver in self.deck_side("defense")):
             return "defense"
         raise KeyError(f"Unknown maneuver key {key!r}.")
 
@@ -6958,76 +6973,71 @@ def load_maneuver_catalog(
         return maneuvers
 
     offense, defense = build("offense"), build("defense")
+    variants: dict[str, tuple[ManeuverDefinition, ...]] = {
+        "offense": (), "defense": (),
+    }
     if two_path is not None and two_path.exists():
-        offense, defense = merge_edition_two(
-            offense, defense, json.loads(two_path.read_text(encoding="utf-8")),
-        )
+        two = json.loads(two_path.read_text(encoding="utf-8"))
+        offense, variants["offense"] = merge_edition_two("offense", offense, two)
+        defense, variants["defense"] = merge_edition_two("defense", defense, two)
     return ManeuverCatalog(
         data_version=data["data_version"],
         source=data["source"],
         offense=offense,
         defense=defense,
+        offense_variants=variants["offense"],
+        defense_variants=variants["defense"],
     )
 
 
 def merge_edition_two(
-    offense: tuple[ManeuverDefinition, ...],
-    defense: tuple[ManeuverDefinition, ...],
+    side: str,
+    cards: tuple[ManeuverDefinition, ...],
     data: dict,
 ) -> tuple[tuple[ManeuverDefinition, ...], tuple[ManeuverDefinition, ...]]:
     """
-    The 2.0 tab folded into the 1.0 catalog: a row whose key the 1.0
-    tab already has gives that card its `deck_index` and `effect_two`,
-    and every other row is a **variant** (`MANEUVER_TIER_VARIANT`), a
-    card of its own. A 1.0 card keeps its tier, rank and effect, so a
-    1.0 game reads the catalog exactly as before. The 2.0 tab's basic
-    and advanced rows have to be cards 1.0 has, on the same rank -- the
-    deck's matchups and a gambit's counterpart are 1.0's -- and are
-    refused otherwise.
+    One side of the 2.0 tab folded into the 1.0 catalog: a row whose key
+    the 1.0 tab already has gives that card its `deck_index` and
+    `effect_two`, and every other row is a **variant**
+    (`MANEUVER_TIER_VARIANT`), a card of its own. Returns the side's 1.0
+    cards so marked, and its variants, each by rank and row. A 1.0 card
+    keeps its tier, rank and effect, so a 1.0 game reads the catalog
+    exactly as before. The 2.0 tab's row-1 and advanced rows have to be
+    cards 1.0 has, on the same rank -- the deck's matchups and a
+    gambit's counterpart are 1.0's -- and are refused otherwise.
     """
-    def merged(side: str, cards: tuple[ManeuverDefinition, ...]):
-        by_key = {card.key: card for card in cards}
-        out = []
-        for row in data["maneuvers"][side]:
-            known = by_key.pop(row["key"], None)
-            if row["tier"] != MANEUVER_TIER_BASIC or row["deck_index"] == 1:
-                if known is None or known.rank != row["rank"]:
-                    raise ValueError(
-                        f"2.0's {row['name']} is not 1.0's card on rank "
-                        f"{row['rank']}."
-                    )
-            if known is not None:
-                out.append(replace(
-                    known,
-                    deck_index=row["deck_index"],
-                    effect_two=row["effect"],
-                ))
-                continue
-            out.append(ManeuverDefinition(
-                name=row["name"],
-                key=row["key"],
-                rank=row["rank"],
-                tier=MANEUVER_TIER_VARIANT,
-                die_values=(),
-                defeats_rank=row["defeats_rank"],
-                effect=row["effect"],
-                time=row["time"],
-                deck_index=row["deck_index"],
-                effect_two=row["effect"],
-            ))
-        out.extend(by_key.values())
-        # Ordered by rank then tier as 1.0 orders them, the variants
-        # after the advanced card, each rank's by its row.
-        order = {
-            MANEUVER_TIER_BASIC: 0,
-            MANEUVER_TIER_GAMBIT: 1,
-            MANEUVER_TIER_VARIANT: 2,
-        }
-        return tuple(sorted(
-            out, key=lambda card: (card.rank, order[card.tier], card.deck_index),
+    by_key = {card.key: card for card in cards}
+    marked: dict[str, ManeuverDefinition] = {}
+    variants = []
+    for row in data["maneuvers"][side]:
+        known = by_key.get(row["key"])
+        if row["tier"] != MANEUVER_TIER_BASIC or row["deck_index"] == 1:
+            if known is None or known.rank != row["rank"]:
+                raise ValueError(
+                    f"2.0's {row['name']} is not 1.0's card on rank "
+                    f"{row['rank']}."
+                )
+        if known is not None:
+            marked[known.key] = replace(
+                known, deck_index=row["deck_index"], effect_two=row["effect"],
+            )
+            continue
+        variants.append(ManeuverDefinition(
+            name=row["name"],
+            key=row["key"],
+            rank=row["rank"],
+            tier=MANEUVER_TIER_VARIANT,
+            die_values=(),
+            defeats_rank=row["defeats_rank"],
+            effect=row["effect"],
+            time=row["time"],
+            deck_index=row["deck_index"],
+            effect_two=row["effect"],
         ))
-
-    return merged("offense", offense), merged("defense", defense)
+    return (
+        tuple(marked.get(card.key, card) for card in cards),
+        tuple(sorted(variants, key=lambda card: (card.rank, card.deck_index))),
+    )
 
 
 def validate_assignment(
