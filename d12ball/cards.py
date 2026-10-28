@@ -759,7 +759,7 @@ STRIP_GEOMETRY: dict[str, tuple[int, int]] = {
 # here; its role moves are dropped either way.
 STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     "curved_pass": (
-        Move(2, "any teammate\nup to 2", "offense", caption_at=1.6),
+        Move(2, "any teammate up to 2", "offense", caption_at=1.6),
         Move(-2, "or behind", "offense"),
     ),
     # The passer's run on the captions' one row, between "or behind"
@@ -773,9 +773,12 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     "reset_play": (
         Move(3, "to the Playmaker", "offense", caption_at=2.8),
     ),
+    # One caption for both arcs, so it runs at full size rather than
+    # squeezed into a space (the author, 2026-10-28).
     "advance": (
-        Move(1, "handler + ball", "offense", lift=10),
-        Move(2, "or 2", "offense"),
+        Move(1, "handler + ball, 1 or 2", "offense", lift=10,
+             caption_at=1.5, room=4),
+        Move(2, "", "offense"),
     ),
     # One caption line each on Spin, High Ball, Set up and Long shot,
     # run along the strip's open spaces, so the panel is a line shorter
@@ -784,9 +787,10 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
         Move(2, "a teammate in the zone moves up to 2", "offense",
              caption_at=1.0, room=6),
     ),
+    # Ahead alone since the sheet's change of 2026-10-28.
     "drive": (
-        Move(2, "handler + ball\nto nearest", "offense"),
-        Move(-2, "or behind", "offense"),
+        Move(2, "handler + ball to the nearest teammate ahead", "offense",
+             caption_at=1.0, room=6),
     ),
     "high_pass": (
         Move(3, "contested, then may set up scoring", "offense",
@@ -811,7 +815,8 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
         Move(3, "or 3", "offense"),
     ),
     "follow": (
-        Move(-1, "ball back,\ndefender follows", "defense"),
+        Move(-1, "ball back, defender follows", "defense", caption_at=-0.5,
+             room=4),
     ),
     "boot": (
         Move(-2, "ball back", "defense"),
@@ -821,7 +826,7 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
              lift=8),
     ),
     "pickpocket": (
-        Move(0, "turnover\nwhere it is", "defense", start=19, end=-19,
+        Move(0, "turnover", "defense", start=19, end=-19,
              lift=8),
     ),
     "my_turf": (
@@ -865,7 +870,7 @@ STRIP_ACTORS_TWO: dict[str, tuple[str, dict[int, str]]] = {
     "reset_play": ("H", {3: "R"}),
     "advance": ("H", {1: "H", 2: "H"}),
     "spin": ("H", {2: "R"}),
-    "drive": ("H", {2: "HR", -2: "HR"}),
+    "drive": ("H", {2: "HR"}),
     "high_pass": ("H", {3: "R"}),
     "set_up": ("H", {2: "R"}),
     "long_shot": ("H", {4: "R"}),
