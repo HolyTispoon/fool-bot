@@ -1497,6 +1497,7 @@ def draw_matchups(
     is_offense: bool,
     top: float,
     height: float,
+    rank_size: int = MATCHUP_RANK_SIZE,
 ) -> None:
     """
     Who this beats, ties and loses to -- named by **rank**, with both
@@ -1531,7 +1532,7 @@ def draw_matchups(
         pen.text(
             (cx, top + MATCHUP_RANK_CENTER),
             f"{opposing_letter}{rank}",
-            rank_font(MATCHUP_RANK_SIZE),
+            rank_font(rank_size),
             rank_color,
             anchor="mm",
         )
@@ -1570,6 +1571,7 @@ def draw_card_header(
     header_height: float = CARD_HEADER_HEIGHT,
     badge_radius: float = 46,
     corner_inset: float = 0,
+    rank_size: Optional[int] = None,
 ) -> None:
     """
     The band across the top of a face: the rank badge, and the name
@@ -1577,7 +1579,9 @@ def draw_card_header(
     `corner_inset` are the printed card's unless a shorter face asks --
     a two-headed card's half (`render_two_headed_half`), whose header
     sits higher in the card's rounded corners and so draws its badge
-    and its time chip further in.
+    and its time chip further in. `rank_size` is the badge's rank, in
+    proportion to the badge unless a face asks for larger -- 2.0's
+    cards (`EDITION_TWO_BADGE_RANK`).
 
     **A gambit's header also carries which basic maneuver it is the
     advanced version of, in words, under its own name.** The matchup
@@ -1601,9 +1605,10 @@ def draw_card_header(
         FRAME + 82 + corner_inset, header_top + header_height / 2,
     )
     pen.circle(badge_center, badge_radius, fill=CARD_FACE)
+    if rank_size is None:
+        rank_size = round(badge_radius * 38 / 46)
     pen.text(
-        badge_center, rank_label, rank_font(round(badge_radius * 38 / 46)),
-        color, anchor="mm",
+        badge_center, rank_label, rank_font(rank_size), color, anchor="mm",
     )
 
     # **No corner label** (the author, 2026-09-28). The corner read
@@ -2059,6 +2064,17 @@ def draw_card_effect(
         y += height + EFFECT_BOX_GAP
 
 
+#: **2.0's ranks are drawn larger** (the author, 2026-10-28): the badge's
+#: rank on an advanced card's header, which the 46-unit badge carries at
+#: 50 where 1.0's card draws 38 -- "O3" is 72 wide in a disc 92 across.
+#: Its matchup row draws its ranks at the two-headed band's size,
+#: `TWO_HEADED_BAND_RANK`, so the deck's ranks read as one set. The
+#: two-headed card's own sizes are `TWO_HEADED_BADGE`,
+#: `TWO_HEADED_BADGE_RANK` and `TWO_HEADED_BAND_RANK`, and the back's
+#: `EDITION_TWO_BACK_RANK`.
+EDITION_TWO_BADGE_RANK = 50
+
+
 def two_point_oh_face(maneuver: ManeuverDefinition) -> ManeuverDefinition:
     """
     An advanced card as the 2.0 deck prints it: the `maneuvers 2.0`
@@ -2112,7 +2128,10 @@ def render_maneuver_card(
         width=EDGE_WIDTH,
     )
 
-    draw_card_header(pen, catalog, maneuver, is_offense, color)
+    draw_card_header(
+        pen, catalog, maneuver, is_offense, color,
+        rank_size=EDITION_TWO_BADGE_RANK if edition_two else None,
+    )
 
     _, strip_top, _, strip_bottom = strip_panel_box(catalog, maneuver)
     strip_height = strip_bottom - strip_top
@@ -2127,7 +2146,8 @@ def render_maneuver_card(
     matchup_top = CARD_HEIGHT - FRAME - 10 - matchup_height
 
     draw_matchups(
-        pen, catalog, maneuver, is_offense, matchup_top, matchup_height
+        pen, catalog, maneuver, is_offense, matchup_top, matchup_height,
+        TWO_HEADED_BAND_RANK if edition_two else MATCHUP_RANK_SIZE,
     )
 
     draw_card_effect(
@@ -2201,6 +2221,9 @@ CYCLE_TIER_RULE_WIDTH = 3
 # than inside it, since the circle is already carrying two names.
 CYCLE_RANK_LABEL_GAP = 34
 CYCLE_RANK_FONT_SIZE = 30
+#: The back's rank labels on the 2.0 deck's back, larger (the author,
+#: 2026-10-28) -- `render_maneuver_card_back(rank_size=...)`.
+EDITION_TWO_BACK_RANK = 42
 
 # How far short of a node's edge a tie line stops, and how it is
 # drawn. Stopping outside the circle keeps the dashes from running
@@ -2421,6 +2444,7 @@ def draw_cycle_node(
     stack: list[list[str]],
     both_tiers: bool,
     cap_size: int,
+    rank_size: int = CYCLE_RANK_FONT_SIZE,
 ) -> None:
     """One rank: its disc, the rank badge outside it, and the names inside."""
     color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
@@ -2446,7 +2470,7 @@ def draw_cycle_node(
             + vertical_sign * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
         ),
         rank_label,
-        rank_font(CYCLE_RANK_FONT_SIZE),
+        rank_font(rank_size),
         color,
         anchor="mm",
     )
@@ -2524,6 +2548,7 @@ def render_maneuver_card_back(
     catalog: ManeuverCatalog,
     bleed: bool,
     tier: str = MANEUVER_TIER_GAMBIT,
+    rank_size: int = CYCLE_RANK_FONT_SIZE,
 ) -> Image.Image:
     """
     One back for all twelve in advanced mode, because a coach holding
@@ -2597,7 +2622,7 @@ def render_maneuver_card_back(
     for (maneuver, is_offense), point, stack in zip(order, points, stacks):
         draw_cycle_node(
             pen, point, center[1], maneuver, is_offense,
-            stack, both_tiers, cap_size,
+            stack, both_tiers, cap_size, rank_size,
         )
 
     draw_back_captions(pen, both_tiers)
@@ -2933,7 +2958,8 @@ def two_headed_ranks(
 #: the printed size and shrunk (the author, 2026-10-16, asking why the
 #: halves were narrower than the card).
 TWO_HEADED_HEADER = 84
-TWO_HEADED_BADGE = 32
+TWO_HEADED_BADGE = 38
+TWO_HEADED_BADGE_RANK = 42
 TWO_HEADED_LEGEND_ROOM = 40
 TWO_HEADED_LEGEND_SIZE = 22
 TWO_HEADED_GAP = 10
@@ -3026,7 +3052,7 @@ def render_two_headed_half(
     draw_card_header(
         pen, catalog, maneuver, is_offense, color,
         header_height=TWO_HEADED_HEADER, badge_radius=TWO_HEADED_BADGE,
-        corner_inset=TWO_HEADED_CORNER_INSET,
+        corner_inset=TWO_HEADED_CORNER_INSET, rank_size=TWO_HEADED_BADGE_RANK,
     )
     strip_top = two_headed_strip_top()
     draw_strip(
@@ -3053,7 +3079,7 @@ def render_two_headed_half(
 #: The band's row, laid out as the printed card's matchup row
 #: (`draw_matchups`) at a size two of them fit across a card's middle.
 TWO_HEADED_BAND_LABEL = 19
-TWO_HEADED_BAND_RANK = 36
+TWO_HEADED_BAND_RANK = 44
 TWO_HEADED_BAND_NAME = 25
 
 

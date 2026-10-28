@@ -13,9 +13,9 @@ Twelve faces and their two backs, print-ready at 2.5 x 3.5 inches (poker size):
 folder: the eighteen cards of one coach's deck (`maneuver_deck.deck_cards`)
 -- the twelve two-headed basic cards (`render_two_headed_card`, the
 offensive half upright) and the six advanced maneuvers in their 2.0
-wording (`render_maneuver_card(edition_two=True)`). 2.0 has no back of
-its own yet, so its cards take the advanced back, the one that carries
-both tiers. `--sheet` writes them as three Avery 95328 pages and their
+wording (`render_maneuver_card(edition_two=True)`). Every card takes
+the basic back, the six basic maneuvers' hexagon (the author,
+2026-10-28), with its ranks drawn larger, as every 2.0 face draws them. `--sheet` writes them as three Avery 95328 pages and their
 backs; `--hands` is 1.0's alone.
 
 **Two backs, one a tier** (the author, 2026-09-28). The six basic
@@ -46,6 +46,7 @@ from d12ball.cards import (  # noqa: E402
     BLEED,
     CARD_FACE,
     DUPLEX_COLUMNS,
+    EDITION_TWO_BACK_RANK,
     avery_95328_pages,
     avery_95328_sheet,
     duplex_order,
@@ -56,6 +57,7 @@ from d12ball.cards import (  # noqa: E402
     render_two_headed_card,
 )
 from d12ball.components import (  # noqa: E402
+    MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     MANEUVER_TIER_WORDS,
     MANEUVER_TIERS,
@@ -107,7 +109,10 @@ def render_edition_two(args, catalog, players) -> None:
             card.save(path, dpi=(300, 300))
             print(f"wrote {path}")
 
-    back = render_maneuver_card_back(catalog, args.bleed, MANEUVER_TIER_GAMBIT)
+    back = render_maneuver_card_back(
+        catalog, args.bleed, MANEUVER_TIER_BASIC,
+        rank_size=EDITION_TWO_BACK_RANK,
+    )
     if not args.sheets_only:
         back_path = args.out / "back.png"
         back.save(back_path, dpi=(300, 300))

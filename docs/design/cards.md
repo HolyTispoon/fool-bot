@@ -30,9 +30,15 @@ python3 scripts/render_maneuver_cards.py --edition 2.0 --sheet  # 2.0's eighteen
 bot's 2.0 hand shows: the twelve two-headed basic cards, offense upright
 (`render_two_headed_card`), and the six advanced cards in their 2.0 wording
 (`render_maneuver_card(edition_two=True)`), with `--sheet` as three Avery 95328 pages.
-**2.0 has no back of its own yet**: the deck is one shuffled pile, so every card needs the
-same back, and it takes the advanced back -- which names the 1.0 basic and advanced cards on
-each rank, not 2.0's other three basic cards a rank.
+**Every 2.0 card takes the basic back** (the author, 2026-10-28): the deck is one shuffled
+pile, so every card needs the same back, and the basic six's hexagon is the one chosen.
+
+**2.0 draws its ranks larger** (the author, 2026-10-28) -- the header's badge, the matchup
+row or the two-headed card's band, and the back's hexagon (`EDITION_TWO_BADGE_RANK`,
+`TWO_HEADED_BADGE` and `TWO_HEADED_BADGE_RANK`, `TWO_HEADED_BAND_RANK`,
+`EDITION_TWO_BACK_RANK`). The sizes are 2.0's alone, passed in where the 1.0 face's defaults
+stand, so every 1.0 card and hand is byte-identical; the bot's 2.0 hand draws the same faces
+and carries the larger ranks too.
 
 - **The hand replaced a paragraph per maneuver.** `build_maneuver_choice_text`
   listed each maneuver's effect and matchups next to the buttons; every word of
