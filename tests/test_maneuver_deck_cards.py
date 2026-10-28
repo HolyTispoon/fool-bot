@@ -72,7 +72,7 @@ class DeckOfTheTabTests(unittest.TestCase):
             )
         self.assertEqual(
             maneuver_deck.plays_as(MANEUVERS, "basic_1_2", "offense").key,
-            "curved_pass",
+            "pass_and_run",
         )
         self.assertEqual(
             maneuver_deck.plays_as(MANEUVERS, "basic_1_2", "defense").key,
