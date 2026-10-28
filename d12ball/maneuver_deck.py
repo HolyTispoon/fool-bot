@@ -259,8 +259,7 @@ SET_UP_DISTANCE = 2
 #: Where 2.0's Cross may land, and Vertical Ball.
 CROSS_DISTANCES = (0, 1, 2, 3)
 VERTICAL_BALL_DISTANCES = (0, 1)
-#: Follow adds 3 to ball speed; Boot knocks the ball back 2.
-FOLLOW_SPEED_GAIN = 3
+#: Boot knocks the ball back 2.
 BOOT_DISTANCE = 2
 #: Stay Close: the handler exhausts 1 and the ball loses 2 speed.
 STAY_CLOSE_EXHAUSTION = 1

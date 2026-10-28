@@ -47,7 +47,11 @@ DEFAULT_SOURCE = (
 DEFAULT_OUTPUT = PROJECT_ROOT / "d12ball" / "data" / "maneuvers_2.json"
 DEFAULT_CYCLE = PROJECT_ROOT / "d12ball" / "data" / "maneuvers.json"
 
-REQUIRED_COLUMNS = {"Index", "Rank", "Maneuver", "Type", "Effect", "Mode", "Time"}
+REQUIRED_COLUMNS = {"Rank", "Maneuver", "Type", "Effect", "Mode", "Time"}
+#: The tab's first column numbers the rows (`P1` ... `R5`). It is read by
+#: position, because its header has not stayed put: "Index" when the tab
+#: was first imported, "Q1 " on 2026-10-28.
+INDEX_COLUMN = "Index"
 EXPECTED_TYPES = {"offense", "defense"}
 EXPECTED_TIERS = {"basic", "advanced"}
 #: The rows a rank has: 1 basic, 2-4 variants, 5 advanced.
@@ -193,12 +197,17 @@ def main() -> None:
     args = parser.parse_args()
 
     reader = csv.DictReader(io.StringIO(read_source(args.source)))
-    missing_columns = sorted(REQUIRED_COLUMNS - set(reader.fieldnames or []))
-    if missing_columns:
+    fieldnames = list(reader.fieldnames or [])
+    missing_columns = sorted(REQUIRED_COLUMNS - set(fieldnames))
+    if missing_columns or not fieldnames:
         raise ValueError(
             "Spreadsheet is missing columns: " + ", ".join(missing_columns)
         )
-    maneuvers, defaults = import_maneuvers(reader, read_cycle(args.cycle))
+    first = fieldnames[0]
+    rows = (
+        {**row, INDEX_COLUMN: row.get(first, "")} for row in reader
+    )
+    maneuvers, defaults = import_maneuvers(rows, read_cycle(args.cycle))
     for line in defaults:
         print(f"Default: {line}")
     output = {

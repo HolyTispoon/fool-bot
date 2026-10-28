@@ -40,7 +40,7 @@
         "tier": "basic",
         "deck_index": 4,
         "defeats_rank": 3,
-        "effect": "Ball to the playmaker (wherever they are).",
+        "effect": "Ball to the playmaker.",
         "time": "1"
       },
       {
@@ -172,7 +172,7 @@
         "tier": "basic",
         "deck_index": 2,
         "defeats_rank": 3,
-        "effect": "Ball moves back 1 space, defender follows it. Ball speed +3.",
+        "effect": "Ball moves back 1 space, defender follows it. If reaches goal zone, may set up scoring.",
         "time": "1"
       },
       {

@@ -238,7 +238,7 @@ class DeflectRankTests(unittest.TestCase):
         speed = match.ball.speed
         effects.deflection_step(ENGINE, match, "follow", game)
         self.assertEqual(flat(match, match.challenger_id), ball_flat(match))
-        self.assertEqual(match.ball.speed, min(12, speed + 3))
+        self.assertEqual(match.ball.speed, speed)
 
     def test_boot_goes_two_and_block_nowhere(self) -> None:
         game, match = staged("high_pass", "boot")

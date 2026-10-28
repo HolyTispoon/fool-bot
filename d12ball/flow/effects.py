@@ -1875,17 +1875,15 @@ def deflection_numbers(
     if engine.match_plays_deck(match):
         # **2.0's rank D1** (the `maneuvers 2.0` tab): Deflect 1 back,
         # a space more where its player is the Fullback -- the card's
-        # own line, since 2.0 plays no role abilities -- Follow 1 and
-        # 3 *onto* the speed, Boot 2 and Block none; Clear as 1.0's.
+        # own line, since 2.0 plays no role abilities -- Follow 1, Boot
+        # 2 and Block none, the three leaving the speed alone; Clear as
+        # 1.0's.
         fullback_bonus = key == "deflect" and engine.role_of(
             match, defender.player_id,
         ) == PlayerRole.FULLBACK
         distance = {"clear": 3, "boot": maneuver_deck.BOOT_DISTANCE,
                     "block": 0}.get(key, 1)
-        speed_drop = {
-            "clear": 3, "boot": 0, "block": 0,
-            "follow": -maneuver_deck.FOLLOW_SPEED_GAIN,
-        }.get(key, 1)
+        speed_drop = {"clear": 3, "boot": 0, "block": 0, "follow": 0}.get(key, 1)
         return distance + (1 if fullback_bonus else 0), speed_drop, fullback_bonus
 
     # Role ability -- Fullback: +1 space on a deflection, which takes a
