@@ -196,6 +196,17 @@ class DribbleRankTests(unittest.TestCase):
         self.assertEqual(match.ball_carrier_id, teammate)
         self.assertEqual(match.ball.speed, max(1, speed - 2))
 
+    def test_drive_goes_ahead_alone(self) -> None:
+        _, match = staged("drive", "deflect")
+        behind = [
+            distance for distance, _ in ENGINE.pass_candidates(match, "low_pass")
+            if distance < 0
+        ]
+        self.assertTrue(behind, "the staging must have a teammate behind")
+        candidates = ENGINE.pass_candidates(match, "drive")
+        self.assertTrue(candidates)
+        self.assertTrue(all(distance > 0 for distance, _ in candidates))
+
 
 class HighBallRankTests(unittest.TestCase):
 

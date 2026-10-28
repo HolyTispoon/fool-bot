@@ -620,7 +620,7 @@ def drive_step(
 ) -> StepResult:
     """
     **Drive** (2.0): the handler carries the ball to the nearest
-    teammate ahead or behind -- the destinations a 2.0 Pass offers
+    teammate ahead -- a 2.0 Pass's destination ahead
     (`pass_candidates`) -- and the teammate may take it: `receiver_id`
     is whoever ends up with it, the handler among the choices
     (`low_pass_receivers`). Ball speed drops by 2, never below 1. The
