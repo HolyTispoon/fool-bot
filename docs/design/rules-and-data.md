@@ -52,10 +52,11 @@ anything** (the author, 2026-09-26): `import_advanced` keys the `advanced_abilit
 refuses `docs.google.com`, or the `doc-...-sheets.googleusercontent.com` host every export
 redirects to (allowing `docs.google.com` alone is not enough) -- the importers are still what
 writes the data: the Drive connector exports the workbook as `.xlsx`, and
-`scripts/import_from_workbook.py` runs all three importers on it (the author, 2026-10-02:
+`scripts/import_from_workbook.py` runs all four importers on it (the author, 2026-10-02:
 *"every time you need to get to the spreadsheet, you can just write the importer script"*). It
-writes the five tabs they read (`player cards `, `basic_abilities`, `advanced_abilities `,
-`spec_abilities`, `maneuvers`, matched with their trailing spaces ignored) as CSVs and passes
+writes the six tabs they read (`player cards `, `basic_abilities`, `advanced_abilities `,
+`spec_abilities`, `maneuvers`, `maneuvers 2.0`, matched with their trailing spaces ignored) as
+CSVs and passes
 them through `--source`, `--abilities` and `--advanced`. The importers are the same either way;
 only where the rows come from differs, and the `source` fields they write still name the
 sheet's own URLs. Three things it settles that a hand conversion got wrong:
@@ -66,6 +67,14 @@ sheet's own URLs. Three things it settles that a hand conversion got wrong:
 - **A whole number is written `6`, not `6.0`**, as the sheet's own export writes it.
 - **Each file keeps its `data_version`.** The importers default to 1, and `maneuvers.json` is
   past that; `--data-version maneuvers=15` sets a new one where a change calls for it.
+
+**D12 Ball 2.0's cards are a tab of their own**, `maneuvers 2.0`, imported by
+`scripts/import_d12ball_maneuvers_2.py` into `d12ball/data/maneuvers_2.json` -- five rows a rank
+on each side, numbered by the tab's `Index`. It has no `Defeats` column, so the importer reads
+each rank's cycle from `maneuvers.json` (the workbook script runs `maneuvers` first), and it
+fills a blank `Mode` with Basic and a blank `Time` with 1, printing each cell it filled (the
+author, 2026-10-27). How the catalog folds it in is "The 2.0 cards" in
+[maneuver-deck.md](maneuver-deck.md).
 
 It needs `openpyxl`, which the bot does not, so it is not in `requirements.txt`. Copying rows out
 of the connector by hand is not a substitute: a typo there is a data change nobody made.

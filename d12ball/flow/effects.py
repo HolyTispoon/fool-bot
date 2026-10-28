@@ -37,7 +37,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from d12ball import tutorial
+from d12ball import maneuver_deck, tutorial
 from d12ball.components import (
     BALL_SPEED_MAX,
     DRIBBLE_BURST_MAX_DISTANCE,
@@ -50,6 +50,7 @@ from d12ball.components import (
     SKILLED_PASS_REACH,
     SPECIES_TELEKINETIC,
     TeamSide,
+    Zone,
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
@@ -111,7 +112,7 @@ def send_low_pass(
     """
     actual_distance = match.move_ball_relative(offense_side, distance)
     match.ball.speed = min(
-        12, match.ball.speed + engine.pass_speed_bonus(key)
+        12, match.ball.speed + engine.pass_speed_bonus(key, match)
     )
     # The pass was aimed at somebody, and it is the same somebody a
     # Winger's set-up would hand the shot to -- so they receive it
@@ -282,6 +283,8 @@ def low_pass_step(
     charges no clock, and applying it is what spends the continuation
     that recorded it.
     """
+    if key == "drive":
+        return drive_step(engine, match, distance, receiver_id, game)
     name = engine.maneuver_name(key)
     # A pass granted by Pinpoint's cost is a continuation, and
     # applying it is what spends it -- see `continue_effect`.
@@ -297,7 +300,7 @@ def low_pass_step(
     # which is not always the same as whoever the landing space's
     # occupant list happens to start with -- see the Winger branch
     # below.
-    receivers = engine.low_pass_receivers(match, distance)
+    receivers = engine.low_pass_receivers(match, distance, key)
     if receiver_id not in receivers:
         receiver_id = receivers[0] if receivers else None
 
@@ -327,6 +330,11 @@ def low_pass_step(
     content += pay_double_team_cost(
         engine, match, key, double_team_partner, game,
     )
+    # **Pass and Run** (2.0): the passer moves a space forward once
+    # the ball has gone -- the card's own move, not a question, and
+    # paid for like every 2.0 move (rules-2.0 5.4).
+    if key == "pass_and_run":
+        content += passer_runs(engine, game, match)
     # Pass's own cost is a flat 1 time regardless of
     # distance (2026-08-16), the same as every maneuver but High
     # Pass. A pass granted by Pinpoint's cost is not this
@@ -435,7 +443,10 @@ def offer_passer_advance(
     19.5.3), or a passer on the last space before the goal zone, with
     no space in front of them to move into.
     """
-    if key == "skilled_pass":
+    # Only 1.0's Pass asks: a Pinpoint's passer never moves (Law
+    # 19.5.3), 2.0's Pass names no move, and Pass and Run's is the
+    # card's own (`passer_runs`).
+    if key != "low_pass" or engine.match_plays_deck(match):
         return None
     passer_id = match.active_player_id
     position = match.board.meeple_position(passer_id)
@@ -493,6 +504,183 @@ def answer_passer_advance(
     )
 
 
+def passer_runs(
+    engine: RulesEngine,
+    game: Optional[D12BallGame],
+    match: MatchState,
+) -> str:
+    """
+    **Pass and Run's** move (2.0): the passer moves a space forward,
+    and pays for it (rules-2.0 5.4). Returns what to add to the pass's
+    own sentence -- "" where there was no space in front of them.
+    """
+    passer_id = match.active_player_id
+    spaces = match.move_player_relative(passer_id, match.ball.possession, 1)
+    if not spaces:
+        return ""
+    passer = engine.get_player_definition(passer_id)
+    paid = engine.pay_for_move(game, match, passer_id, spaces)
+    return (
+        f" {engine.format_player_label(match, passer)} runs a space "
+        "forward." + (f"\n{paid}" if paid else "")
+    )
+
+
+def flat_offset(
+    match: MatchState, side: TeamSide, player_id: str,
+) -> Optional[int]:
+    """How many spaces `player_id` stands ahead of the ball in `side`'s
+    attacking direction -- negative behind it -- or None off the field."""
+    position = match.board.meeple_position(player_id)
+    if position is None:
+        return None
+    forward = match.unclamped_flat_index(0, side, 1)
+    ball = match.board.flat_index(match.ball.zone, match.ball.space_index)
+    return (match.board.flat_index(*position) - ball) * forward
+
+
+def role_holder(
+    engine: RulesEngine,
+    match: MatchState,
+    side: TeamSide,
+    role: PlayerRole,
+) -> Optional[str]:
+    """The fielded player of `side` holding `role` -- a 2.0 unique
+    role has one -- or None."""
+    for player_id in match.setup_for_side(side).field_players:
+        if engine.role_of(match, player_id) == role:
+            return player_id
+    return None
+
+
+def reset_play_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> StepResult:
+    """
+    **Reset Play** (2.0): the ball goes to the side's Playmaker,
+    wherever they are. Nothing is chosen -- a 2.0 side always has one
+    (rules-2.0 4.3a) -- and the speed is left alone. A handler who is
+    the Playmaker keeps the ball, since a pass cannot reach its passer.
+
+    It is rank O1, so a beaten Double Team pays here as it does inside
+    a Pass (`pay_double_team_cost`), its partner read before the ball
+    moves.
+    """
+    key = "reset_play"
+    offense_side = match.ball.possession
+    handler = engine.get_player_definition(match.active_player_id)
+    double_team_partner = None
+    if engine.gambit_cost(match, key) == "double_team":
+        double_team_partner = engine.double_team_partner(match)
+        engine.record_double_team_partner(match, double_team_partner)
+
+    playmaker_id = role_holder(engine, match, offense_side, PlayerRole.PLAYMAKER)
+    distance = (
+        None if playmaker_id is None
+        else flat_offset(match, offense_side, playmaker_id)
+    )
+    name = engine.maneuver_name(key)
+    if playmaker_id in (None, handler.player_id) or distance is None:
+        match.set_ball_carrier(handler.player_id)
+        content = (
+            f"**{name}:** {engine.format_player_label(match, handler)} is "
+            "the Playmaker and keeps the ball."
+        )
+    else:
+        actual = send_low_pass(
+            engine, match, offense_side, distance, key, playmaker_id,
+        )
+        playmaker = engine.get_player_definition(playmaker_id)
+        content = (
+            f"**{name}:** the ball "
+            f"{low_pass_movement_note(engine, match, handler, distance, actual)}"
+            f" to {engine.format_player_label(match, playmaker)}, the "
+            "Playmaker."
+        )
+    content += pay_double_team_cost(
+        engine, match, key, double_team_partner, game,
+    )
+    return StepResult(
+        narration=[content],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION, {"distance_moved": 1},
+        ),
+    )
+
+
+def drive_step(
+    engine: RulesEngine,
+    match: MatchState,
+    distance: int,
+    receiver_id: Optional[str],
+    game: Optional[D12BallGame] = None,
+) -> StepResult:
+    """
+    **Drive** (2.0): the handler carries the ball to the nearest
+    teammate ahead or behind -- the destinations a 2.0 Pass offers
+    (`pass_candidates`) -- and the teammate may take it: `receiver_id`
+    is whoever ends up with it, the handler among the choices
+    (`low_pass_receivers`). Ball speed drops by 2, never below 1. The
+    handler pays for the spaces they carried it (rules-2.0 5.4).
+
+    Rank O2, so a beaten Clear is charged inside it as inside a
+    Dribble (`pay_clear_cost`).
+    """
+    key = "drive"
+    offense_side = match.ball.possession
+    handler_id = match.active_player_id
+    handler = engine.get_player_definition(handler_id)
+    receivers = engine.low_pass_receivers(match, distance, key)
+    if receiver_id not in receivers:
+        receiver_id = receivers[0] if receivers else handler_id
+    teammates = [player for player in receivers if player != handler_id]
+
+    moved = match.move_player_relative(handler_id, offense_side, distance)
+    match.set_ball_space(*match.board.meeple_position(handler_id))
+    match.set_ball_carrier(receiver_id)
+    match.ball.speed = max(
+        1, match.ball.speed - maneuver_deck.DRIVE_SPEED_DROP,
+    )
+
+    handler_label = engine.format_player_label(match, handler)
+    if moved:
+        space_word = "space" if moved == 1 else "spaces"
+        direction = "forward" if distance > 0 else "back"
+        carry = (
+            f"{handler_label} carries the ball {moved} {space_word} "
+            f"{direction}"
+        )
+    else:
+        carry = f"{handler_label} keeps the ball on their own space"
+    if teammates:
+        teammate = engine.get_player_definition(teammates[0])
+        carry += f" to {engine.format_player_label(match, teammate)}"
+    holder = (
+        f"{handler_label} keeps it"
+        if receiver_id == handler_id
+        else f"{engine.format_player_label(match, engine.get_player_definition(receiver_id))} "
+        "takes it"
+    )
+    content = (
+        f"**{engine.maneuver_name(key)}:** {carry}, and {holder}. Ball "
+        f"speed is now {match.ball.speed}."
+        + pay_clear_cost(engine, game, match, key)
+    )
+    paid = engine.pay_for_move(game, match, handler_id, moved)
+    if paid:
+        content += f"\n{paid}"
+    return StepResult(
+        narration=[content],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION, {"distance_moved": 1},
+        ),
+    )
+
+
 def pay_clear_cost(
     engine: RulesEngine,
     game: D12BallGame,
@@ -547,6 +735,12 @@ def dribble_advance_step(
     Burst's price, which is nothing for Emberdash (5.4b).
     """
     offense_side = match.ball.possession
+    two = engine.match_plays_deck(match)
+    key = (
+        "advance"
+        if two and engine.resolving_key(match, "offense") == "advance"
+        else "dribble_advance"
+    )
     actual_distance = match.move_player_relative(
         match.active_player_id, offense_side, distance,
     )
@@ -572,14 +766,14 @@ def dribble_advance_step(
         else ""
     )
     content = (
-        f"**{engine.maneuver_name('dribble_advance')}:** "
+        f"**{engine.maneuver_name(key)}:** "
         f"{engine.format_player_label(match, handler)} and the "
         f"ball move forward {actual_distance} {space_word}"
         f"{ability_note}."
         # **Clear's cost**: beaten by a dribble, the defender who
         # played it gains 2 exhaustion, said inside this sentence
         # rather than as a message after it.
-        + pay_clear_cost(engine, game, match, "dribble_advance")
+        + pay_clear_cost(engine, game, match, key)
     )
     paid = engine.pay_for_move(
         game, match, match.active_player_id,
@@ -587,6 +781,26 @@ def dribble_advance_step(
     )
     if paid:
         content += f"\n{paid}"
+
+    if two:
+        # **2.0's Dribble adds 2 to the speed and asks nothing**, and
+        # an Advance leaves it alone (the `maneuvers 2.0` tab): 1.0's
+        # change of up to oSkill is Spin's now.
+        narration = [content]
+        if key == "dribble_advance" and match.ball.speed < BALL_SPEED_MAX:
+            match.ball.speed = min(
+                BALL_SPEED_MAX,
+                match.ball.speed + maneuver_deck.DRIBBLE_SPEED_BONUS,
+            )
+            narration.append(f"Ball speed is now **{match.ball.speed}**.")
+        return StepResult(
+            narration=narration,
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+                {"distance_moved": 1},
+            ),
+        )
 
     return StepResult(
         narration=[content],
@@ -766,15 +980,16 @@ def steal_result_text(
     challenger_label = engine.format_player_label(match, challenger)
     new_possession = match.setup_for_side(match.ball.possession)
     travel = (
-        f"then carries it {actual_distance} {space_word} forward, "
+        f", then carries it {actual_distance} {space_word} forward, "
         "toward the goal they now attack"
         if key == "intercept"
-        else f"then falls back {actual_distance} {space_word} toward "
+        else "" if key in ("pickpocket", "toss")
+        else f", then falls back {actual_distance} {space_word} toward "
         "their own goal with the ball"
     )
     under = (
         f"{challenger_label} steals the ball. "
-        f"{format_team_side_label(new_possession, game)} now has possession, "
+        f"{format_team_side_label(new_possession, game)} now has possession"
         f"{travel}."
     )
     headline = Headline(TURNOVER_HEADING, match.ball.possession, under)
@@ -808,9 +1023,14 @@ def steal_step(
     new_possession_side = match.defending_side()
     challenger_id = match.challenger_id
     name = engine.maneuver_name(key)
-    # Toward the new possessor's own goal for a Steal, toward the
-    # goal they now attack for an Intercept.
-    direction = 1 if key == "intercept" else -1
+    # Toward the new possessor's own goal for a Steal (and 2.0's My
+    # Turf!), toward the goal they now attack for an Intercept, and
+    # nowhere for 2.0's Pickpocket and Toss.
+    direction = (
+        1 if key == "intercept"
+        else 0 if key in ("pickpocket", "toss")
+        else -1
+    )
 
     reaches_goal_zone, actual_distance = take_ball_by_steal(
         match, challenger_id, new_possession_side, direction,
@@ -823,6 +1043,8 @@ def steal_step(
     paid = engine.pay_for_move(game, match, challenger_id, actual_distance)
     if paid:
         content += f"\n{paid}"
+    if key == "toss":
+        content += toss_ball(engine, match, challenger_id)
 
     # Both endings below have moved a meeple and the ball with it, so
     # `board_changed` is True either way -- which is exactly where
@@ -881,14 +1103,59 @@ def steal_step(
     # not here -- see begin_run_back's speed_choice_after.
     # No stays_player_id: begin_run_back exempts the ball carrier,
     # which take_ball_by_steal has already made the interceptor.
+    #
+    # **2.0's Pickpocket, My Turf! and Toss change no speed**, so they
+    # end on the run back; Pinpoint's unopposed Pass, which a speed
+    # choice would have recorded, is marked owed here and taken up
+    # once everyone is back (`turnovers.finish_run_back`).
+    speed_choice = key in ("steal", "intercept")
+    if not speed_choice and engine.gambit_cost(match, key) == "skilled_pass":
+        match.pending_effect_continuation = {
+            "kind": FREE_LOW_PASS_OWED,
+            "player_id": match.ball_carrier_id or challenger_id,
+        }
     return StepResult(
         narration=[content],
         headlines=(headline,),
         board_changed=True,
         next=FollowOn(
-            FollowOnStep.BEGIN_RUN_BACK, {"speed_choice_after": True},
+            FollowOnStep.BEGIN_RUN_BACK, {"speed_choice_after": speed_choice},
         ),
     )
+
+
+#: A beaten Pinpoint's Pass, owed by a 2.0 card on Steal's rank that
+#: asks no speed: marked when the ball is taken, and turned into the
+#: `free_low_pass` continuation once the run back is over.
+FREE_LOW_PASS_OWED = "free_low_pass_owed"
+
+
+def toss_ball(
+    engine: RulesEngine, match: MatchState, challenger_id: str,
+) -> str:
+    """
+    **Toss** (2.0): having taken the ball, the defender plays it to
+    the nearest teammate behind them -- toward their own goal -- one
+    sharing their space counting as behind, as a Pass's does (Law
+    6.5.2). With nobody behind them they keep it. Returns what to add
+    to the steal's sentence.
+    """
+    side = match.ball.possession
+    total = sum(len(spaces) for spaces in match.board.spaces.values())
+    for distance in range(0, -total, -1):
+        receivers = [
+            player for player in engine.low_pass_receivers(match, distance)
+            if player != challenger_id
+        ]
+        if receivers:
+            match.move_ball_relative(side, distance)
+            match.set_ball_carrier(receivers[0])
+            receiver = engine.get_player_definition(receivers[0])
+            return (
+                f" They toss it to "
+                f"{engine.format_player_label(match, receiver)}."
+            )
+    return ""
 
 
 def shove_pressured_handler(
@@ -1010,8 +1277,14 @@ def apply_pressure_turnover(
         )
 
     # Role ability -- Defender: also steals the ball on a won
-    # pressure, on top of the normal effect above.
-    stolen = engine.has_role_ability(
+    # pressure, on top of the normal effect above. **2.0's Control** is
+    # that steal as a card: a turnover where its player is a Defender
+    # (the `maneuvers 2.0` tab), read by role since 2.0 plays no role
+    # abilities.
+    control = key == "control" and engine.role_of(
+        match, defender.player_id,
+    ) == PlayerRole.DEFENDER
+    stolen = control or engine.has_role_ability(
         match, defender.player_id, PlayerRole.DEFENDER,
     )
     if stolen and not burst_cost:
@@ -1021,7 +1294,12 @@ def apply_pressure_turnover(
         content += (
             "\n\n# Turnover!\n"
             f"{engine.format_player_label(match, defender)} "
-            "steals the ball (Defender ability)! "
+            "steals the ball ("
+            + (
+                f"{engine.maneuver_name(key)}, as a Defender"
+                if control else "Defender ability"
+            )
+            + ")! "
             f"{format_team_side_label(match.setup_for_side(defense_side), game)} "
             "now has possession."
         )
@@ -1188,28 +1466,143 @@ def pressure_step(
             "on the ball."
         )
 
+    return StepResult(
+        narration=[content],
+        board_changed=True,
+        next=pressure_following(burst_cost, stolen),
+    )
+
+
+def pressure_following(burst_cost: bool, stolen: bool) -> FollowOn:
+    """What a won card of Pressure's rank leads to once its own effect
+    is said: the run back where it turned the ball over, and otherwise
+    the end of the maneuver."""
     # Fixed 1 time per the rules table, whether or not the
     # push reached the goal zone, same reasoning as a deflection.
     if burst_cost:
         # The defense has the ball and the speed step the cost
         # granted them, which is the steal's shape: run everyone
         # back first, then let them set the speed.
-        following = FollowOn(
+        return FollowOn(
             FollowOnStep.BEGIN_RUN_BACK,
             {"speed_choice_after": True, "speed_reset": False},
         )
-    elif stolen:
+    if stolen:
         # The stealing player keeps the ball and stays put --
         # everyone else who's out of position runs back. Read off
         # the carrier set in the shove, not passed in.
-        following = FollowOn(FollowOnStep.BEGIN_RUN_BACK)
-    else:
-        following = FollowOn(
-            FollowOnStep.FINISH_MANEUVER_RESOLUTION, {"distance_moved": 1},
+        return FollowOn(FollowOnStep.BEGIN_RUN_BACK)
+    return FollowOn(
+        FollowOnStep.FINISH_MANEUVER_RESOLUTION, {"distance_moved": 1},
+    )
+
+
+def stay_close_step(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> StepResult:
+    """
+    **Stay Close** (2.0): the handler exhausts 1 and the ball loses 2
+    speed, never below 1; nobody moves. Rank D3, so a beaten Burst
+    turns the ball over here as inside a Pressure
+    (`apply_pressure_turnover`).
+    """
+    key = "stay_close"
+    handler = engine.get_player_definition(match.active_player_id)
+    exhaustion = engine.apply_exhaustion(
+        game, match, handler.player_id, maneuver_deck.STAY_CLOSE_EXHAUSTION,
+    )
+    match.ball.speed = max(
+        1, match.ball.speed - maneuver_deck.STAY_CLOSE_SPEED_DROP,
+    )
+    match.set_ball_carrier(handler.player_id)
+    content = (
+        f"**{engine.maneuver_name(key)}:** "
+        f"{engine.format_player_label(match, handler)} is kept busy -- "
+        f"exhaust {maneuver_deck.STAY_CLOSE_EXHAUSTION}. Ball speed is "
+        f"now {match.ball.speed}."
+        + (f"\n{exhaustion}" if exhaustion else "")
+    )
+    turnover_text, burst_cost, stolen = apply_pressure_turnover(
+        engine, match, key, match.defending_side(), game,
+    )
+    return StepResult(
+        narration=[content + turnover_text],
+        board_changed=True,
+        next=pressure_following(burst_cost, stolen),
+    )
+
+
+def stress_step(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> StepResult:
+    """
+    **Stress** (2.0): the ball is forced back to the handler's nearest
+    teammate behind -- one sharing the handler's space counting as
+    behind, as a Pass's does (Law 6.5.2) -- and the defender follows
+    it onto that space, paying for the spaces (rules-2.0 5.4). With no
+    teammate behind the handler the ball can only go back into their
+    own goal zone, which risks an own goal (Law 11), as a Pressure on
+    the last space does; nothing moves then. Rank D3, so a beaten Burst
+    turns the ball over as inside a Pressure.
+    """
+    key = "stress"
+    offense_side = match.ball.possession
+    handler = engine.get_player_definition(match.active_player_id)
+    defender_id = match.challenger_id
+    name = engine.maneuver_name(key)
+    total = sum(len(spaces) for spaces in match.board.spaces.values())
+    receiver_id, distance = None, 0
+    for back in range(0, -total, -1):
+        receivers = engine.low_pass_receivers(match, back)
+        if receivers:
+            receiver_id, distance = receivers[0], back
+            break
+
+    if receiver_id is None:
+        match.set_ball_carrier(handler.player_id)
+        return StepResult(
+            narration=[
+                f"**{name}:** {engine.format_player_label(match, handler)} "
+                "has nobody behind them to play it back to -- the ball "
+                "reaches their own goal zone!"
+            ],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.BEGIN_OWN_GOAL_ROLL, {"distance_moved": 1},
+            ),
         )
 
+    moved = match.move_ball_relative(offense_side, distance)
+    match.set_ball_carrier(receiver_id)
+    origin = match.board.flat_index(*match.board.meeple_position(defender_id))
+    match.move_meeple(defender_id, match.ball.zone, match.ball.space_index)
+    followed = abs(
+        match.board.flat_index(match.ball.zone, match.ball.space_index)
+        - origin
+    )
+    receiver = engine.get_player_definition(receiver_id)
+    defender = engine.get_player_definition(defender_id)
+    space_word = "space" if moved == 1 else "spaces"
+    content = (
+        f"**{name}:** {engine.format_player_label(match, handler)} plays "
+        + (f"the ball {moved} {space_word} back to " if moved else "the ball to ")
+        + f"{engine.format_player_label(match, receiver)}, and "
+        f"{engine.format_player_label(match, defender)} follows it."
+    )
+    paid = engine.pay_for_move(game, match, defender_id, followed)
+    if paid:
+        content += f"\n{paid}"
+    turnover_text, burst_cost, stolen = apply_pressure_turnover(
+        engine, match, key, match.defending_side(), game,
+    )
     return StepResult(
-        narration=[content], board_changed=True, next=following,
+        narration=[content + turnover_text],
+        board_changed=True,
+        next=pressure_following(burst_cost, stolen),
     )
 
 
@@ -1479,6 +1872,20 @@ def deflection_numbers(
     right up until the Fullback was let near a Clear, which is why they
     are returned as two numbers rather than one.
     """
+    if engine.match_plays_deck(match):
+        # **2.0's rank D1** (the `maneuvers 2.0` tab): Deflect 1 back,
+        # a space more where its player is the Fullback -- the card's
+        # own line, since 2.0 plays no role abilities -- Follow 1, Boot
+        # 2 and Block none, the three leaving the speed alone; Clear as
+        # 1.0's.
+        fullback_bonus = key == "deflect" and engine.role_of(
+            match, defender.player_id,
+        ) == PlayerRole.FULLBACK
+        distance = {"clear": 3, "boot": maneuver_deck.BOOT_DISTANCE,
+                    "block": 0}.get(key, 1)
+        speed_drop = {"clear": 3, "boot": 0, "block": 0, "follow": 0}.get(key, 1)
+        return distance + (1 if fullback_bonus else 0), speed_drop, fullback_bonus
+
     # Role ability -- Fullback: +1 space on a deflection, which takes a
     # Deflect from 1 to 2 and a Clear from 3 to 4.
     fullback_bonus = engine.has_role_ability(
@@ -1517,7 +1924,9 @@ def knock_ball_back(
     actual_distance = match.move_ball_relative(
         offense_side, -deflect_distance,
     )
-    match.ball.speed = max(1, match.ball.speed - speed_drop)
+    match.ball.speed = min(
+        BALL_SPEED_MAX, max(1, match.ball.speed - speed_drop),
+    )
 
     return reaches_goal_zone, actual_distance
 
@@ -1526,6 +1935,7 @@ def deflection_step(
     engine: RulesEngine,
     match: MatchState,
     key: str,
+    game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
     Play a won Deflect -- or a Clear, which is the same card at three
@@ -1557,12 +1967,41 @@ def deflection_step(
 
     space_word = "space" if actual_distance == 1 else "spaces"
     ability_note = " (Fullback ability)" if fullback_bonus else ""
-    content = (
-        f"**{name}:** the ball moves {actual_distance} "
-        f"{space_word} back{ability_note}. Ball speed is now "
-        f"{match.ball.speed}."
+    if key == "block":
+        # **Block** (2.0): the ball goes nowhere and is contested where
+        # it is, by the handler and the challenger standing on it --
+        # the ordinary landing (Law 10.1) on a space both sides hold.
+        content = f"**{name}:** the ball is contested on the spot."
+    else:
+        content = (
+            f"**{name}:** the ball moves {actual_distance} "
+            f"{space_word} back{ability_note}. Ball speed is now "
+            f"{match.ball.speed}."
+        )
+    if key == "follow":
+        # **Follow** (2.0): the defender goes with the ball, and pays
+        # for the spaces (rules-2.0 5.4).
+        origin = match.board.flat_index(
+            *match.board.meeple_position(defender.player_id)
+        )
+        match.move_meeple(
+            defender.player_id, match.ball.zone, match.ball.space_index,
+        )
+        spaces = abs(
+            match.board.flat_index(match.ball.zone, match.ball.space_index)
+            - origin
+        )
+        content += (
+            f" {engine.format_player_label(match, defender)} follows it."
+        )
+        paid = engine.pay_for_move(game, match, defender.player_id, spaces)
+        if paid:
+            content += f"\n{paid}"
+    # Boot's card says it: a ball booted into the goal zone sets up
+    # nothing, and lands as any other deflection.
+    return deflection_lands(
+        engine, match, content, reaches_goal_zone and key != "boot",
     )
-    return deflection_lands(engine, match, content, reaches_goal_zone)
 
 
 def deflection_lands(
@@ -1688,10 +2127,17 @@ def throw_high_pass(
     actual_distance = match.move_ball_relative(offense_side, distance)
 
     ability_note = " (Fullback ability)" if fullback_bonus else ""
+    # 2.0's Set up is thrown the High Ball's way and named as itself.
+    name = (
+        engine.maneuver_name("set_up")
+        if engine.match_plays_deck(match)
+        and engine.resolving_key(match, "offense") == "set_up"
+        else "High Ball"
+    )
     if actual_distance:
         space_word = "space" if actual_distance == 1 else "spaces"
         content = (
-            f"**High Ball:** the ball moves {actual_distance} "
+            f"**{name}:** the ball moves {actual_distance} "
             f"{space_word} forward{ability_note}."
         )
     else:
@@ -1700,7 +2146,7 @@ def throw_high_pass(
         # as "moves 0 spaces forward", which reads as a bug -- and
         # a coach sees it now that the passer cannot shoot off it.
         content = (
-            "**High Ball:** the ball is thrown from the last space into "
+            f"**{name}:** the ball is thrown from the last space into "
             "the goal zone and comes straight back down on it."
         )
 
@@ -1998,7 +2444,11 @@ def high_pass_step(
     # branch it is not: a pass of 2, the goal zone's set-up and a
     # pass reaching nobody have all already returned above, and
     # none of them had a contest to skip.
-    if engine.gambit_cost(match, "high_pass") == "intercept":
+    if engine.gambit_cost(
+        match,
+        match.offense_maneuver if engine.match_plays_deck(match)
+        else "high_pass",
+    ) == "intercept":
         receiver = engine.get_player_definition(receiver_candidates[0])
         return complete_high_pass_reception(
             match,
@@ -2020,6 +2470,62 @@ def high_pass_step(
     # high_pass_receiver_candidates the same question. A long
     # High Ball still forces a skill test to keep the ball, unlike
     # any other maneuver.
+    return StepResult(
+        narration=[content],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.BEGIN_HIGH_PASS_CONTEST,
+            {"distance_moved": distance_moved},
+        ),
+    )
+
+
+def long_shot_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> StepResult:
+    """
+    **Long shot** (2.0): the ball goes to the side's Striker, wherever
+    they are, who has to win the High Ball contest to keep it -- and
+    then may take a scoring opportunity (`rolls.after_the_contest`).
+    A 2.0 side always has a Striker (rules-2.0 4.3a); a handler who is
+    the Striker throws it nowhere and still contests it on their own
+    space, which is the card's "must win a contest to receive".
+
+    Rank O3, so a beaten Intercept calls the contest off (Law 19.9.5)
+    as it does a High Ball's.
+    """
+    key = "long_shot"
+    offense_side = match.ball.possession
+    handler_id = match.active_player_id
+    striker_id = role_holder(engine, match, offense_side, PlayerRole.STRIKER)
+    if striker_id is None:
+        striker_id = handler_id
+    distance = flat_offset(match, offense_side, striker_id) or 0
+    moved = match.move_ball_relative(offense_side, distance)
+    striker = engine.get_player_definition(striker_id)
+    striker_label = engine.format_player_label(match, striker)
+    name = engine.maneuver_name(key)
+    if moved:
+        space_word = "space" if moved == 1 else "spaces"
+        direction = "forward" if distance > 0 else "back"
+        content = (
+            f"**{name}:** the ball goes {moved} {space_word} {direction} "
+            f"to {striker_label}, the Striker."
+        )
+    else:
+        content = (
+            f"**{name}:** {striker_label}, the Striker, has to win the "
+            "ball where they stand."
+        )
+    distance_moved = engine.maneuver_clock_cost(match, key)
+    if engine.gambit_cost(match, key) == "intercept":
+        return complete_high_pass_reception(
+            match, striker_id, distance_moved,
+            f"{content}\n\n**Intercept** was beaten -- the reception is "
+            f"not contested, and {striker_label} keeps the ball.",
+        )
     return StepResult(
         narration=[content],
         board_changed=True,
@@ -2170,7 +2676,7 @@ def setup_pass_step(
         space_word = "space" if actual_distance == 1 else "spaces"
         return StepResult(
             narration=[
-                f"**{engine.maneuver_name('setup_pass')}:** "
+                f"**{engine.maneuver_name(_setup_key(engine, match))}:** "
                 "the ball is picked out "
                 f"{actual_distance} {space_word} forward, with nobody "
                 "there to set up."
@@ -2194,7 +2700,7 @@ def setup_pass_step(
     )
     return StepResult(
         narration=[
-            f"**{engine.maneuver_name('setup_pass')}:** "
+            f"**{engine.maneuver_name(_setup_key(engine, match))}:** "
             f"the ball {movement} to "
             f"{engine.format_player_label(match, receiver)} "
             f"-- a scoring opportunity! Ball speed is {match.ball.speed}."
@@ -2208,6 +2714,14 @@ def setup_pass_step(
             },
         ),
     )
+
+
+def _setup_key(engine: RulesEngine, match: MatchState) -> str:
+    """The card a set-up pass is named by: 2.0's Vertical Ball, or a
+    Cross."""
+    if engine.resolving_key(match, "offense") == "vertical_ball":
+        return "vertical_ball"
+    return "setup_pass"
 
 
 def setup_pass_out_step(
@@ -2236,7 +2750,7 @@ def setup_pass_out_step(
     gaining = send_ball_out_of_play(match, game)
     return StepResult(
         narration=[
-            f"**{engine.maneuver_name('setup_pass')}:** "
+            f"**{engine.maneuver_name(_setup_key(engine, match))}:** "
             "there is nobody to pick the ball out to, "
             f"so it runs out of play. {gaining} gain possession."
         ],
@@ -2371,6 +2885,10 @@ def speed_choice_step(
     """
     match.ball.speed = target_speed
     line = f"Ball speed is now **{target_speed}**."
+    # A Spin's teammate has moved, and this is the speed after it: the
+    # record that said so is spent.
+    if (match.pending_effect_continuation or {}).get("kind") == SPIN_MOVED:
+        match.pending_effect_continuation = None
 
     if match.pending_effect_continuation is None:
         winner_key = engine.settled_maneuver_winner(match, game)
@@ -2478,7 +2996,8 @@ def offer_low_pass(
         )
         actual_distance = match.move_ball_relative(offense_side, roll)
         match.ball.speed = min(
-            BALL_SPEED_MAX, match.ball.speed + engine.pass_speed_bonus(key),
+            BALL_SPEED_MAX,
+            match.ball.speed + engine.pass_speed_bonus(key, match),
         )
         movement_note = (
             "the ball stays where it is"
@@ -2494,11 +3013,15 @@ def offer_low_pass(
                 "no teammate within three spaces to receive it"
                 if key == "skilled_pass"
                 else "no teammate within two spaces to receive it"
+                if key == "curved_pass" or not engine.match_plays_deck(match)
+                else "no teammate to receive it"
             )
             + ", and a pass can't be played to the passer -- "
             f"{movement_note}. "
             f"Ball speed is now {match.ball.speed}."
         )
+        if key == "pass_and_run":
+            content += passer_runs(engine, game, match)
         advance = offer_passer_advance(
             engine, game, match, key, {"then": "loose"},
         )
@@ -2533,22 +3056,103 @@ def offer_dribble_advance(
     spaces instead of the usual 1. Everyone else has no choice to make
     here, so they skip straight to applying the fixed 1-space advance.
     """
-    handler = engine.get_player_definition(match.active_player_id)
-    if not engine.has_role_ability(
-        match, handler.player_id, PlayerRole.PLAYMAKER,
-    ):
+    if not engine.dribble_advance_asked(match):
         return _with_lead_in(
             dribble_advance_step(engine, game, match, 1), lead_in,
         )
 
+    # 2.0's Advance asks by its card, 1.0's Playmaker by the ability.
+    two = engine.match_plays_deck(match)
+    key = "advance" if two else "dribble_advance"
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.DRIBBLE_ADVANCE_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose your "
-            f"{engine.maneuver_name('dribble_advance')} "
-            "distance (Playmaker ability):",
+            f"{engine.maneuver_name(key)} distance"
+            + ("" if two else " (Playmaker ability)") + ":",
         ),
+    )
+
+
+def offer_spin(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    A won **Spin** (2.0): a teammate in the handler's zone may move up
+    to 2 spaces (`SPIN_MOVE`), and then the handler changes the ball's
+    speed by up to their offensive skill, as 1.0's Dribble does -- the
+    speed last, because a speed choice is always the last of an effect
+    (`offer_speed_choice`). Nothing moves the handler, who keeps the
+    ball. A beaten Clear is charged here, said in front of the first
+    question, as a Dribble says it inside its move.
+    """
+    key = "spin"
+    match.set_ball_carrier(match.active_player_id)
+    clear = pay_clear_cost(engine, game, match, key).strip()
+    lead_in = "\n\n".join(filter(None, (lead_in, clear)))
+    if not engine.spin_moves(match):
+        return StepResult(
+            narration=[lead_in] if lead_in else [],
+            next=_spin_speed(match),
+        )
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=PendingPrompt(
+            PromptKind.SPIN_MOVE,
+            f"{_possession_mention(engine, game, match)}, "
+            f"**{engine.maneuver_name(key)}**: move a teammate in the "
+            "zone up to 2 spaces, or nobody:",
+        ),
+    )
+
+
+#: The record a Spin leaves once its teammate has moved or stayed, so
+#: a restart asks the speed rather than the move again -- on
+#: `pending_effect_continuation`, which the match already saves.
+SPIN_MOVED = "spin_moved"
+
+
+def _spin_speed(match: MatchState) -> FollowOn:
+    return FollowOn(
+        FollowOnStep.OFFER_SPEED_CHOICE,
+        {"player_id": match.active_player_id, "skill_type": "offense"},
+    )
+
+
+def spin_move_step(
+    engine: RulesEngine,
+    game: Optional[D12BallGame],
+    match: MatchState,
+    player_id: Optional[str] = None,
+    zone: Optional[Zone] = None,
+    space_index: Optional[int] = None,
+) -> StepResult:
+    """
+    Spin's teammate moves -- or nobody does, with `player_id` None --
+    and the speed choice follows. The move costs its spaces (rules-2.0
+    5.4).
+    """
+    match.pending_effect_continuation = {"kind": SPIN_MOVED}
+    lines = []
+    if player_id is not None:
+        origin = match.board.flat_index(*match.board.meeple_position(player_id))
+        match.move_meeple(player_id, Zone(zone), space_index)
+        spaces = abs(match.board.flat_index(Zone(zone), space_index) - origin)
+        player = engine.get_player_definition(player_id)
+        paid = engine.pay_for_move(game, match, player_id, spaces)
+        lines.append(
+            f"{engine.format_player_label(match, player)} moves to "
+            f"{space_label(Zone(zone), space_index, match.board)}."
+            + (f"\n{paid}" if paid else "")
+        )
+    return StepResult(
+        narration=lines,
+        board_changed=bool(lines),
+        next=_spin_speed(match),
     )
 
 
@@ -2619,7 +3223,25 @@ def offer_high_pass(
     clock charges once the ball has come to rest.
     """
     distances = engine.high_pass_distance_options(match)
-    if not distances:
+    fixed = engine.high_pass_fixed_distance(match)
+    if fixed is not None:
+        # **2.0's High Ball and Set up each go one distance**, so the
+        # coach is asked only where Quantor may run onto it (Law 21);
+        # otherwise the pass is thrown -- its distance, or into the goal
+        # zone where that lands past the last space.
+        runner_id = (
+            engine.pass_runner(game, match, distances)[0]
+            if distances else None
+        )
+        if runner_id is None:
+            return _with_lead_in(
+                high_pass_step(
+                    engine, match, distances[0] if distances else fixed,
+                    game=game,
+                ),
+                lead_in,
+            )
+    elif not distances:
         return _with_lead_in(
             high_pass_step(
                 engine, match, MIN_HIGH_PASS_DISTANCE, game=game,
@@ -2632,7 +3254,8 @@ def offer_high_pass(
         next=PendingPrompt(
             PromptKind.HIGH_PASS_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose your "
-            "High Ball distance:",
+            f"{engine.maneuver_name(engine.resolving_key(match, 'offense') or 'high_pass')} "
+            "distance:",
         ),
     )
 
@@ -2673,7 +3296,7 @@ def offer_setup_pass_distance(
         next=PendingPrompt(
             PromptKind.SETUP_PASS_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose where "
-            f"your **{engine.maneuver_name('setup_pass')}** lands:",
+            f"your **{engine.maneuver_name(_setup_key(engine, match))}** lands:",
         ),
     )
 
@@ -2746,10 +3369,10 @@ EFFECT_OFFERS = {
     "high_pass": offer_high_pass,
     "setup_pass": offer_setup_pass_distance,
     "deflect": lambda engine, game, match: deflection_step(
-        engine, match, "deflect",
+        engine, match, "deflect", game,
     ),
     "clear": lambda engine, game, match: deflection_step(
-        engine, match, "clear",
+        engine, match, "clear", game,
     ),
     "steal": lambda engine, game, match: steal_step(
         engine, match, "steal", game,
@@ -2763,6 +3386,50 @@ EFFECT_OFFERS = {
     "double_team": lambda engine, game, match: pressure_step(
         engine, match, "double_team", game,
     ),
+    # -- D12 Ball 2.0's other basic maneuvers (the `maneuvers 2.0` tab),
+    # each run by the step of the card on its rank and row 1 where it
+    # is that card's shape, so a beaten advanced card's cost bites it as
+    # it bites the basic card.
+    "curved_pass": lambda engine, game, match: offer_low_pass(
+        engine, game, match, key="curved_pass",
+    ),
+    "pass_and_run": lambda engine, game, match: offer_low_pass(
+        engine, game, match, key="pass_and_run",
+    ),
+    "reset_play": reset_play_step,
+    "advance": offer_dribble_advance,
+    "spin": offer_spin,
+    "drive": lambda engine, game, match: offer_low_pass(
+        engine, game, match, key="drive",
+    ),
+    "set_up": offer_high_pass,
+    "long_shot": long_shot_step,
+    "vertical_ball": offer_setup_pass_distance,
+    "follow": lambda engine, game, match: deflection_step(
+        engine, match, "follow", game,
+    ),
+    "boot": lambda engine, game, match: deflection_step(
+        engine, match, "boot", game,
+    ),
+    "block": lambda engine, game, match: deflection_step(
+        engine, match, "block", game,
+    ),
+    "pickpocket": lambda engine, game, match: steal_step(
+        engine, match, "pickpocket", game,
+    ),
+    "my_turf": lambda engine, game, match: steal_step(
+        engine, match, "my_turf", game,
+    ),
+    "toss": lambda engine, game, match: steal_step(
+        engine, match, "toss", game,
+    ),
+    "control": lambda engine, game, match: pressure_step(
+        engine, match, "control", game,
+    ),
+    "stay_close": lambda engine, game, match: stay_close_step(
+        engine, match, game,
+    ),
+    "stress": lambda engine, game, match: stress_step(engine, match, game),
 }
 
 

@@ -161,6 +161,9 @@ class PromptKind(Enum):
     SPEED_DELTA_CHOICE = "speed_delta_choice"
     DRIBBLE_ADVANCE_CHOICE = "dribble_advance_choice"
     DRIBBLE_BURST_CHOICE = "dribble_burst_choice"
+    # 2.0's Spin: which teammate in the handler's zone moves up to 2
+    # spaces, if any, before the speed choice.
+    SPIN_MOVE = "spin_move"
     # Which tied defender joins a Double Team, won or beaten (Law
     # 19.10.3): asked of the defense before the card resolves. The
     # failed Cross's push back that used to sit here went with the
@@ -499,6 +502,48 @@ class LowPassOptions:
         return {
             "shape": "low_pass",
             "passes": [option.to_dict() for option in self.passes],
+        }
+
+
+@dataclass(frozen=True)
+class TeammateMove:
+    """One move Spin offers: a teammate, the space, how far."""
+
+    player_id: str
+    zone: Zone
+    space_index: int
+    distance: int
+
+    def to_dict(self) -> dict:
+        return {
+            "player_id": self.player_id,
+            "zone": Zone(self.zone).value,
+            "space_index": self.space_index,
+            "distance": self.distance,
+        }
+
+
+@dataclass(frozen=True)
+class MoveOptions:
+    """SPIN_MOVE: every move on offer (`RulesEngine.spin_moves`), each
+    a token a space in 2.0, and staying -- `choices`' second."""
+
+    moves: tuple[TeammateMove, ...]
+    choices: tuple[str, ...] = ("move", "stay")
+
+    def offers(self, player_id: str, zone: Zone, space_index: int) -> bool:
+        return any(
+            move.player_id == player_id
+            and Zone(move.zone) == Zone(zone)
+            and move.space_index == space_index
+            for move in self.moves
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "move",
+            "moves": [move.to_dict() for move in self.moves],
+            "choices": list(self.choices),
         }
 
 
@@ -1858,13 +1903,33 @@ def effect_choice_prompt(
     # prompt restored has to be that card's -- see
     # `RulesEngine.resolving_maneuver`.
     winner_key = engine.resolving_maneuver(match, winner_key)
-    if winner_key in ("low_pass", "skilled_pass"):
+    if winner_key in (
+        "low_pass", "skilled_pass", "curved_pass", "pass_and_run", "drive",
+    ):
         return PendingPrompt(
             PromptKind.LOW_PASS_CHOICE, EFFECT_ASK, maneuver_key=winner_key,
         )
-    if winner_key == "high_pass":
+    if winner_key in ("high_pass", "set_up"):
+        # 2.0's two are thrown one distance, and asked only where
+        # Quantor may run onto it (`offer_high_pass`).
+        if engine.high_pass_fixed_distance(match) is not None:
+            distances = engine.high_pass_distance_options(match)
+            if not distances or engine.pass_runner(
+                game, match, distances,
+            )[0] is None:
+                return None
         return PendingPrompt(PromptKind.HIGH_PASS_CHOICE, EFFECT_ASK)
-    if winner_key == "setup_pass":
+    if winner_key == "spin":
+        # Spin's teammate first, then the speed: the record of the
+        # move says which (`effects.SPIN_MOVED`).
+        if continuation.get("kind") != "spin_moved" and engine.spin_moves(
+            match,
+        ):
+            return PendingPrompt(PromptKind.SPIN_MOVE, EFFECT_ASK)
+        return _speed_delta(
+            engine, game, match, match.active_player_id, "offense", winner_key,
+        )
+    if winner_key in ("setup_pass", "vertical_ball"):
         # Straight to the pass: the card sets no speed (Law 19.7.2,
         # 2026-10-03). With nowhere to throw it the pass goes out,
         # which is the effect's own step, as a Burst's nothing is.
@@ -1873,7 +1938,7 @@ def effect_choice_prompt(
         if engine.setup_pass_distances(match):
             return PendingPrompt(PromptKind.SETUP_PASS_CHOICE, EFFECT_ASK)
         return None
-    if winner_key in ("dribble_advance", "dribble_burst"):
+    if winner_key in ("dribble_advance", "dribble_burst", "advance"):
         handler = engine.get_player_definition(match.active_player_id)
         # **A Playmaker's advance has two prompts, and the carrier
         # tells them apart.** `select_ball_handler` clears
@@ -1886,10 +1951,8 @@ def effect_choice_prompt(
         # checked against this reading now, and a speed choice read
         # as a distance choice is a refused click.
         if (
-            winner_key == "dribble_advance"
-            and engine.has_role_ability(
-                match, handler.player_id, PlayerRole.PLAYMAKER,
-            )
+            winner_key in ("dribble_advance", "advance")
+            and engine.dribble_advance_asked(match)
             and match.ball_carrier_id != match.active_player_id
         ):
             return PendingPrompt(
@@ -1908,11 +1971,15 @@ def effect_choice_prompt(
                     PromptKind.DRIBBLE_BURST_CHOICE, EFFECT_ASK,
                 )
             return None
+        # 2.0's Dribble and Advance ask no speed: their effect is the
+        # move, and a crash window falls back as a Deflect's does.
+        if engine.match_plays_deck(match):
+            return None
         return _speed_delta(
             engine, game, match, match.active_player_id, "offense", winner_key,
         )
     if winner_key in ("steal", "intercept") or (
-        winner_key in ("pressure", "double_team")
+        winner_key in ("pressure", "double_team", "control", "stay_close", "stress")
         and engine.gambit_cost(match, winner_key) == "dribble_burst"
     ):
         # The defense's speed step after a steal -- the card's own,
@@ -2761,6 +2828,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.PASSER_ADVANCE: ("advance", "stay"),
+    PromptKind.SPIN_MOVE: ("move", "stay"),
     PromptKind.SMOOTH: ("take", "decline"),
     PromptKind.MIND_PULL: ("take", "decline"),
     PromptKind.FLY: ("fly", "decline"),
@@ -3199,7 +3267,7 @@ def _low_pass_options(
     return LowPassOptions(tuple(
         PassOption(
             distance,
-            tuple(engine.low_pass_receivers(match, distance)),
+            tuple(engine.low_pass_receivers(match, distance, key)),
         )
         for distance, _ in engine.pass_candidates(match, key)
     ))
@@ -3298,6 +3366,22 @@ def _dribble_advance_options(
         distances,
         _railed(game, "dribble_advance", distances),
         landings=_dribble_landings(match, distances),
+    )
+
+
+def _spin_move_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> MoveOptions:
+    return MoveOptions(
+        tuple(
+            TeammateMove(player_id, zone, space_index, distance)
+            for player_id, zone, space_index, distance
+            in engine.spin_moves(match)
+        ),
+        CHOICES[prompt.kind],
     )
 
 
@@ -3487,5 +3571,6 @@ OPTIONS = {
     PromptKind.SPEED_DELTA_CHOICE: _speed_options,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _dribble_advance_options,
     PromptKind.DRIBBLE_BURST_CHOICE: _dribble_burst_options,
+    PromptKind.SPIN_MOVE: _spin_move_options,
     PromptKind.DOUBLE_TEAM_PARTNER: _named_players,
 }

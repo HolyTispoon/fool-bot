@@ -1,5 +1,5 @@
 """
-Run the three D12 Ball import scripts on the sheet's workbook, for when
+Run the four D12 Ball import scripts on the sheet's workbook, for when
 the sheet's CSV export cannot be fetched.
 
 The import scripts read each tab as a CSV, by default straight from the
@@ -7,9 +7,10 @@ sheet's `export?format=csv&gid=...` URLs. A cloud session whose network
 policy refuses `docs.google.com`, or the `*-sheets.googleusercontent.com`
 host that export redirects to, cannot reach them -- but the Google Drive
 connector can export the whole workbook as `.xlsx`. This takes that
-workbook, writes the five tabs the importers read as CSVs, and runs
-`import_d12ball_players.py`, `import_d12ball_species.py` and
-`import_d12ball_maneuvers.py` on them. The importers are the same either
+workbook, writes the six tabs the importers read as CSVs, and runs
+`import_d12ball_players.py`, `import_d12ball_species.py`,
+`import_d12ball_maneuvers.py` and `import_d12ball_maneuvers_2.py` on
+them. The importers are the same either
 way, and the data they write names the sheet's own URLs as its source,
 so a run from here writes what a run off the sheet would.
 
@@ -66,6 +67,13 @@ IMPORTS = {
         "maneuvers.json",
         "import_d12ball_maneuvers.py",
         {"--source": "maneuvers"},
+    ),
+    # After `maneuvers`: the 2.0 importer reads its rank cycle from the
+    # file that one writes.
+    "maneuvers_2": (
+        "maneuvers_2.json",
+        "import_d12ball_maneuvers_2.py",
+        {"--source": "maneuvers 2.0"},
     ),
 }
 
@@ -138,7 +146,7 @@ def main() -> None:
         "--only",
         choices=sorted(IMPORTS),
         action="append",
-        help="Run just these importers (default: all three).",
+        help="Run just these importers (default: all four).",
     )
     parser.add_argument(
         "--data-version",

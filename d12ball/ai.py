@@ -370,6 +370,11 @@ class DinkyAI(AIStrategy):
         and a step nearer the goal is a step nearer a shot."""
         return Action(prompt.kind, options.railed or "advance")
 
+    def _spin_move(self, prompt, game, match, side, options) -> Action:
+        """Never move Spin's teammate: in 2.0 every space costs a token,
+        and where to stand is judgement Dinky makes none of."""
+        return Action(prompt.kind, "stay")
+
     def _shooter(self, prompt, game, match, side, options) -> Action:
         """The candidate with the higher offensive skill."""
         return Action(
@@ -824,6 +829,7 @@ class DinkyAI(AIStrategy):
         PromptKind.DOUBLE_TEAM_PARTNER: _double_team_partner,
         PromptKind.DRIBBLE_ADVANCE_CHOICE: _farthest,
         PromptKind.DRIBBLE_BURST_CHOICE: _farthest,
+        PromptKind.SPIN_MOVE: _spin_move,
         PromptKind.SPEED_DELTA_CHOICE: _speed,
         PromptKind.SET_UP_ATTEMPT: _take_the_shot,
         PromptKind.SHOOTER_CHOICE: _shooter,
