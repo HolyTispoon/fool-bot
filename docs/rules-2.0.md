@@ -21,7 +21,7 @@ It is played on the Discord bot only for now. Its history is in [rules-log.md](r
   rank has four basic maneuvers on each side, numbered 1 to 4 (section 7), and a two-headed
   card's top half is the offensive maneuver of its rank and number and its bottom half, upside
   down, the defensive maneuver of the same rank and number: the rank 1 cards are Pass /
-  Deflect, Curved Pass / Follow, Pass and Run / Boot and Reset Play / Block. A two-headed card
+  Deflect, Pass and Run / Follow, Curved Pass / Boot and Reset Play / Block. A two-headed card
   carries no role abilities. Across its middle is a band of matchups, read from each end by the
   half on that end: what that half beats, ties and loses to, by the other side's rank -- every
   card on a rank beats, ties and loses to the same ranks, so the rank 1 cards' offensive halves
@@ -298,9 +298,9 @@ rank alone decides.
 
 | Rank | 1 | 2 | 3 | 4 | Advanced |
 | --- | --- | --- | --- | --- | --- |
-| O1 | Pass | Curved Pass | Pass and Run | Reset Play | Pinpoint |
+| O1 | Pass | Pass and Run | Curved Pass | Reset Play | Pinpoint |
 | O2 | Dribble | Advance | Spin | Drive | Burst |
-| O3 | High Ball | Set up | Long shot | Vertical Ball | Cross |
+| O3 | High Ball | Long shot | Set up | Vertical Ball | Cross |
 | D1 | Deflect | Follow | Boot | Block | Clear |
 | D2 | Steal | Pickpocket | My Turf! | Toss | Intercept |
 | D3 | Pressure | Control | Stay Close | Stress | Double Team |
