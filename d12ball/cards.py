@@ -2223,7 +2223,9 @@ CYCLE_RANK_LABEL_GAP = 34
 CYCLE_RANK_FONT_SIZE = 30
 #: The back's rank labels on the 2.0 deck's back, larger and inside the
 #: node, above its name (the author, 2026-10-28) --
-#: `render_maneuver_card_back(rank_size=..., rank_inside=True)`.
+#: `render_maneuver_card_back(rank_size=..., rank_inside=True)`. Its
+#: caption calls the beats line an "arrow" where 1.0's says "solid"
+#: (`beats_word`, the author, 2026-10-28).
 EDITION_TWO_BACK_RANK = 42
 
 # How far short of a node's edge a tie line stops, and how it is
@@ -2553,7 +2555,9 @@ def node_rank_head(
     )
 
 
-def draw_back_captions(pen: Pen, both_tiers: bool) -> None:
+def draw_back_captions(
+    pen: Pen, both_tiers: bool, beats_word: str = "solid",
+) -> None:
     # Below the D1 rank badge under the bottom node -- the one node
     # whose spoke runs straight down into the caption block. At 24
     # (the author, 2026-09-28: it was 19 and too small), which the
@@ -2569,7 +2573,7 @@ def draw_back_captions(pen: Pen, both_tiers: bool) -> None:
     )
     pen.text(
         (CARD_WIDTH / 2, CARD_HEIGHT - 52),
-        "solid: beats what it points to · dashed: ties",
+        f"{beats_word}: beats what it points to · dashed: ties",
         font(24),
         MUTED,
         anchor="mm",
@@ -2582,6 +2586,7 @@ def render_maneuver_card_back(
     tier: str = MANEUVER_TIER_GAMBIT,
     rank_size: int = CYCLE_RANK_FONT_SIZE,
     rank_inside: bool = False,
+    beats_word: str = "solid",
 ) -> Image.Image:
     """
     One back for all twelve in advanced mode, because a coach holding
@@ -2663,7 +2668,7 @@ def render_maneuver_card_back(
             stack, both_tiers, cap_size, rank_size, rank_inside,
         )
 
-    draw_back_captions(pen, both_tiers)
+    draw_back_captions(pen, both_tiers, beats_word)
     return pen.finish(bleed, BACK_COLOR)
 
 

@@ -113,6 +113,7 @@ def render_edition_two(args, catalog, players) -> None:
     back = render_maneuver_card_back(
         catalog, args.bleed, MANEUVER_TIER_BASIC,
         rank_size=EDITION_TWO_BACK_RANK, rank_inside=True,
+        beats_word="arrow",
     )
     if not args.sheets_only:
         back_path = args.out / "back.png"
