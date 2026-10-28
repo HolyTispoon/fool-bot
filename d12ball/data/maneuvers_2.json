@@ -14,23 +14,23 @@
         "time": "1"
       },
       {
-        "name": "Pass and Run",
-        "key": "pass_and_run",
-        "rank": 1,
-        "tier": "basic",
-        "deck_index": 2,
-        "defeats_rank": 3,
-        "effect": "Ball to the nearest teammate ahead or behind, passer moves forward 1.",
-        "time": "1"
-      },
-      {
         "name": "Curved Pass",
         "key": "curved_pass",
         "rank": 1,
         "tier": "basic",
-        "deck_index": 3,
+        "deck_index": 2,
         "defeats_rank": 3,
         "effect": "Ball to a teammate 0-2 spaces away.",
+        "time": "1"
+      },
+      {
+        "name": "Pass and Run",
+        "key": "pass_and_run",
+        "rank": 1,
+        "tier": "basic",
+        "deck_index": 3,
+        "defeats_rank": 3,
+        "effect": "Ball to the nearest teammate ahead or behind, passer moves forward 1.",
         "time": "1"
       },
       {
@@ -114,23 +114,23 @@
         "time": "2"
       },
       {
-        "name": "Long shot",
-        "key": "long_shot",
-        "rank": 3,
-        "tier": "basic",
-        "deck_index": 2,
-        "defeats_rank": 2,
-        "effect": "Ball to striker, must win a contest to receive and then set up scoring.",
-        "time": "2"
-      },
-      {
         "name": "Set up",
         "key": "set_up",
         "rank": 3,
         "tier": "basic",
-        "deck_index": 3,
+        "deck_index": 2,
         "defeats_rank": 2,
         "effect": "ball forward 2 spaces, may set up scoring.",
+        "time": "2"
+      },
+      {
+        "name": "Long shot",
+        "key": "long_shot",
+        "rank": 3,
+        "tier": "basic",
+        "deck_index": 3,
+        "defeats_rank": 2,
+        "effect": "Ball to striker, must win a contest to receive and then set up scoring.",
         "time": "2"
       },
       {

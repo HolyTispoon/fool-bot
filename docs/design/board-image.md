@@ -355,6 +355,73 @@ out from everything else on the board) and then a gray ring round the number,
 and removed the ring the same day. The KICKOFF bar under the field already
 says where the kickoff is, and on boards 7 and 9 so does the 0.
 
+## The 2.0 board
+
+**A 2.0 game's board is `d12ball/zone_board_image.py`'s, not `render_match_image`'s**
+(the author, 2026-10-28). In 2.0 a role belongs to a zone, not a card
+([maneuver-deck.md](maneuver-deck.md), "Roles"), so the 1.0 board's card rows -- each
+card printing the role it was dealt as -- said the wrong thing. The 2.0 board puts
+each side's players as 2.0 player tiles ([cards.md](cards.md), "The 2.0 player tiles")
+in slots, a zone's under (or over) that zone of the field, as the printed 2.0 zone
+board does ([printed-boards.md](printed-boards.md), "The 2.0 boards").
+
+```bash
+python3 scripts/render_sample.py --edition 2.0 --board-size 9   # a fresh 2.0 board
+python3 scripts/render_sample.py --game <id>                    # a saved 2.0 game draws its 2.0 board
+```
+
+- **The field and the jumbotron are the 1.0 board's**, drawn by the same functions
+  (`draw_board`, `draw_jumbotron`); the field is drawn where the 1.0 board draws it,
+  cut out and pasted under the visitors' row, which is as tall as the tiles need.
+  Only the rows round the field and the team boards are the module's, laid out once
+  by `ZoneBoardLayout`.
+- **A tile is as large as its zone allows** (the author, 2026-10-28: "should be
+  bigger"): one width for the whole board, the widest that puts the busiest zone's
+  slots side by side, up to 300px, at the printed tile's 2.75 x 2.25 proportions. The
+  standard deal's two a zone gives the full 300 on boards 7 and 9; a coach packing a
+  zone with three shrinks every tile, down to 170, past which the slots overlap
+  rather than spill into the next zone. The canvas is as tall as that makes it. The
+  first draft fitted 150px tiles into the 1.0 board's band so the field need not
+  move, and they were too small to read.
+- **A tile is cut to its own rounded edge** (`board_tile`): the printed tile is
+  drawn on a white sheet with its outline inset, so its square white corners were
+  showing past the rounded outline (the author, 2026-10-28). The sheet's margin is
+  cropped and the corners masked at the tile's own radius, at print size, before it
+  is scaled down.
+- **A slot's role is a pill between its tile and the field** -- under the visitors'
+  tiles, over home's -- so it reads as the zone's and no tile covers it. **A unique
+  role is marked in words, not colour** (the author, 2026-10-28): every pill is the
+  same dark outline, and a unique role's has a star before its name (`draw_star`, a
+  polygon, since the bundled faces carry no star) and a heavier border. Gold, the
+  printed zone board's colour for it, read as Orange's beside an orange tile, and
+  white was no better. A role of the zone
+  nobody holds is an OPEN slot, so every zone always shows both its roles. Within a
+  zone the slots go left to right as their meeples stand; where a zone is too narrow
+  for its slots side by side they overlap rather than spill into the next zone.
+- **The meeples carry the role the match gives them**: `draw_board`, `draw_space`,
+  `draw_meeple_group` and `draw_meeple_face` take `roles` (card id to role), empty by
+  default, so every 1.0 image is byte-identical (all thirteen of the sample set,
+  SHA-256 checked, 2026-10-28). `render_field_image` takes it too, for the strip
+  under a 2.0 prompt.
+- **The bench is tiles with no slot**: nobody there holds a role. The side's name
+  heads its team board on a line of its own and the two pools sit under it, the back
+  bench starting where the bench's tiles end -- beside a coach's name the back bench
+  ran off the board.
+- **A tile's conditions are in its bottom-right corner**, where the role token lies at
+  the table: the exhaust token with its count, then Exhausted or Injured (Drained or
+  Damaged for a Cyborg), the 1.0 card's icons.
+- **The tile is drawn once a card and width per process** (`board_tile`, `_TILES`):
+  `render_player_tile` is a print-resolution portrait and type, about a tenth of a
+  second, so the first 2.0 board after a start pays for the 24 it shows and later ones
+  nothing. The advanced face is drawn where the special abilities apply.
+- **Who holds which role is handed in** (`RulesEngine.board_roles`), as `card_skills`
+  and `cyborg_ids` are: the renderer is given answers and never asks a rule. The cog's
+  `render_zone_board` gathers them; the board message takes it at the usual 1.5x and
+  the Coaching Choice at 1x, since that message re-uploads its picture with every
+  change.
+- **A module of its own** because the tile is `player_cards.py`'s and `player_cards.py`
+  imports `render.py`.
+
 ## The web page's board
 
 The web app draws the position in HTML rather than showing this PNG

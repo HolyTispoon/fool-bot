@@ -14,7 +14,6 @@ from cogs.d12ball_helpers import (
     send_new_prompt,
     build_full_image_button,
     get_team_emoji,
-    player_with_role,
     space_label,
 )
 
@@ -87,7 +86,7 @@ class LowPassChoiceView(SafeView):
             else:
                 teammate = cog.engine.get_player_definition(receivers[0])
                 label = (
-                    f"{player_with_role(teammate)} -- "
+                    f"{self.player_name(teammate, match)} -- "
                     f"{space_label(zone, space_index, match.board)}"
                 )
             button = discord.ui.Button(
@@ -248,7 +247,7 @@ class LowPassReceiverView(SafeView):
         for player_id in receivers:
             player = cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
-                label=player_with_role(player)[:80],
+                label=self.player_name(player, match)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:low_pass_receiver:{game_id}:"
@@ -336,7 +335,7 @@ def _add_runner_buttons(view, cog, options, name: str) -> None:
         space_word = "space" if distance == 1 else "spaces"
         button = discord.ui.Button(
             label=(
-                f"{distance} {space_word}, {player_with_role(runner)} "
+                f"{distance} {space_word}, {view.player_name(runner)} "
                 "runs onto it (drain 3)"
             )[:80],
             style=discord.ButtonStyle.secondary,
@@ -487,7 +486,7 @@ class DoubleTeamPartnerView(SafeView):
         for player_id in options.player_ids:
             player = cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
-                label=player_with_role(player)[:80],
+                label=self.player_name(player, match)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:double_team_partner:{game_id}:{player_id}",
             )
@@ -654,7 +653,7 @@ class PasserAdvanceView(SafeView):
         passer = cog.engine.get_player_definition(passer_id)
 
         advance_button = discord.ui.Button(
-            label=f"{player_with_role(passer)} moves forward"[:80],
+            label=f"{self.player_name(passer)} moves forward"[:80],
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:passer_advance:{game_id}:advance",
         )
@@ -662,7 +661,7 @@ class PasserAdvanceView(SafeView):
         self.add_item(advance_button)
 
         stay_button = discord.ui.Button(
-            label=f"{player_with_role(passer)} stays"[:80],
+            label=f"{self.player_name(passer)} stays"[:80],
             style=discord.ButtonStyle.secondary,
             custom_id=f"d12ball:passer_advance:{game_id}:stay",
         )
@@ -742,7 +741,7 @@ class SetUpAttemptChoiceView(SafeView):
         shooter = cog.engine.get_player_definition(shooter_id)
 
         attempt_button = discord.ui.Button(
-            label=f"{player_with_role(shooter)} takes the shot"[:80],
+            label=f"{self.player_name(shooter)} takes the shot"[:80],
             style=discord.ButtonStyle.danger,
             custom_id=f"d12ball:setup_attempt:{game_id}:attempt",
         )
@@ -950,7 +949,7 @@ class SpinMoveView(SafeView):
                 options=[
                     discord.SelectOption(
                         label=(
-                            f"{player_with_role(cog.engine.get_player_definition(move.player_id))}"
+                            f"{self.player_name(move.player_id, match)}"
                             f" to {space_label(move.zone, move.space_index, match.board)}"
                             f" ({move.distance} away)"
                         )[:100],
@@ -1264,7 +1263,7 @@ class ShooterChoiceView(SafeView):
         for player_id in candidates:
             player = cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
-                label=player_with_role(player)[:80],
+                label=self.player_name(player)[:80],
                 style=discord.ButtonStyle.danger,
                 custom_id=f"d12ball:shooter:{game_id}:{player_id}",
             )
@@ -1361,7 +1360,7 @@ class SmoothView(SafeView):
 
         player = cog.engine.get_player_definition(player_id)
         take = discord.ui.Button(
-            label=f"{player_with_role(player)} takes it over"[:80],
+            label=f"{self.player_name(player)} takes it over"[:80],
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:smooth:{game_id}:{player_id}",
         )
@@ -1374,7 +1373,7 @@ class SmoothView(SafeView):
         )
         leave = discord.ui.Button(
             label=(
-                f"{player_with_role(keeper)} keeps the ball"[:80]
+                f"{self.player_name(keeper)} keeps the ball"[:80]
                 if keeper is not None else "Leave it"
             ),
             style=discord.ButtonStyle.secondary,

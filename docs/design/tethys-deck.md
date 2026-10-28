@@ -45,16 +45,9 @@ Left and Right, each worth 12; its fates were the odd cards' fate and
 Left's fate per suit, the evens and Right the other, so every suit was six
 and six and the rulers three and three. Its sets ranked a Left and a Right
 as a pair and either after 10 in a straight. It is in the history up to
-PR #680. A channel that shuffled it before the replacement plays on with
+PR #680; the World Building sheet's "Thetys Deck" tab still tables its
+fates. A channel that shuffled it before the replacement plays on with
 its cards named in words (see "On Discord").
-
-**The World Building sheet's "Thetys Deck" tab tables the same fates**
-(2026-10-28): each suit's six Fortune and six Doom values as its inputs,
-in blue, `deck.FORTUNE` and `deck.DOOM` as they stand, with each row's
-worth and count, and under them the cards by value -- Fortune, Doom, the
-deck's count beside two d12's ways out of 144, and Doom at 26 minus the
-value, which matches Fortune in every row. The code is not read from the
-sheet; a change to the fates is made in both.
 
 ## Why the cards are drawn by code, and why the pieces are pictures
 

@@ -23,9 +23,10 @@ from d12ball.components import (  # noqa: E402
     load_basic_ruleset,
     load_player_catalog,
 )
-from d12ball.components import TeamSide  # noqa: E402
+from d12ball.components import PlayerRole, TeamSide  # noqa: E402
 from d12ball.game import (  # noqa: E402
     VALID_BOARD_SIZES,
+    Edition,
     Formation,
     GameMode,
     Team,
@@ -36,6 +37,7 @@ from d12ball.render import (  # noqa: E402
     render_field_image,
     render_match_image,
 )
+from d12ball.zone_board_image import render_zone_board  # noqa: E402
 from gamesaves.d12ball.storage import load_games  # noqa: E402
 
 
@@ -118,6 +120,17 @@ def match_from_saved_game(
     return match, f"PBD{game.game_number}", species_icons, advanced
 
 
+def match_roles(match: MatchState) -> dict[str, PlayerRole]:
+    """Each fielded card's role where the match's are the formation's
+    -- what `RulesEngine.board_roles` hands the bot's renderers, read
+    straight off the save here, since this script builds no engine."""
+    return {
+        player_id: PlayerRole(role)
+        for by_card in match.formation_roles.values()
+        for player_id, role in by_card.items()
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Render a D12 Ball board image to a file.",
@@ -197,6 +210,17 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--edition",
+        choices=[edition.value for edition in Edition],
+        default=Edition.ONE.value,
+        help=(
+            "Draw a fresh match as that edition plays it: 2.0 deals the "
+            "formation's roles and draws the 2.0 board -- the players as "
+            "tiles in their zones' role slots -- for the board and for "
+            "--coaching. A --game is drawn the way its own record says."
+        ),
+    )
+    parser.add_argument(
         "--field",
         action="store_true",
         help=(
@@ -243,10 +267,33 @@ def main() -> None:
         label = "Sample"
         species_icons = not arguments.training
         advanced = arguments.advanced
+        if Edition(arguments.edition) == Edition.TWO:
+            for side in TeamSide:
+                match.assign_formation_roles(side)
+    roles = match_roles(match)
     card_skills = advanced_card_skills(match, catalog) if advanced else {}
 
     if arguments.field:
-        image = render_field_image(match, catalog, species_icons=species_icons)
+        image = render_field_image(
+            match, catalog, species_icons=species_icons, roles=roles,
+            shooting_range=not roles,
+        )
+    elif roles:
+        # 2.0, as the bot draws it for the board and the Coaching
+        # Choice alike (`D12Ball.render_zone_board`).
+        image = render_zone_board(
+            match,
+            catalog,
+            arguments.title or (
+                f"{label} - {team_display_name(match.home.team)} vs. "
+                f"{team_display_name(match.visiting.team)}, "
+                f"{period_label(match)}"
+            ),
+            roles,
+            species_icons=species_icons,
+            advanced=advanced,
+            scale=1 if arguments.coaching else 1.5,
+        )
     elif arguments.coaching:
         side = TeamSide(arguments.coaching)
         setup = match.setup_for_side(side)

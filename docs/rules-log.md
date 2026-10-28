@@ -156,18 +156,6 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-10-28 (later) -- sheet and author, 2.0: the two-headed cards re-paired
-
-**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 1.1a, 7.1). The author
-renumbered two pairs of rows on the `maneuvers 2.0` tab, which is what pairs a two-headed
-card's halves: Pass and Run now shares a card with Follow and Curved Pass with Boot, and Long
-shot now shares a card with Control and Set up with Stay Close. It follows the pairing the
-`maneuvers 2.0 proposals` tab gave each card (its `Card` column): one theme a card -- the
-player follows the play; distance and choice; both halves read a role; the quiet card -- and
-a strong half opposite a weaker one, where Set up beside Control had made one card the best of
-its rank on both sides. Rank 2 and the plain cards are unchanged. A 2.0 game saved before
-this finds the cards of those four rows swapped at its next card played.
-
 ### 2026-10-28 -- sheet and author, 2.0: Follow amended, and the card readings confirmed
 
 **A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 7.3b). The author amended Follow

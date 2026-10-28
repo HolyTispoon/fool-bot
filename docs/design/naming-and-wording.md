@@ -21,10 +21,34 @@ position, which is what the choice usually turns on.
 | Where | Form | Built by |
 | --- | --- | --- |
 | A message | `🟠 Hellguard [FB]` -- and once the role emoji are uploaded, `🟠 Hellguard <:role_fullback_orange:id>`, the badge edged in that side's own colour | `RulesEngine.format_player_label`, via `D12Ball.player_label` / `player_id_label`; `RulesEngine.format_roster_player_for_message` inside the engine's own two message builders |
-| A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `player_with_role` |
+| A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `SafeView.player_name`, over `RulesEngine.player_name` |
 | Anywhere holding a card id rather than a definition | `Hellguard [FB]` | `RulesEngine.format_roster_player` |
 | The two both-sides autocompletes | `Hellguard [FB] (Orange)` | `RulesEngine.format_roster_player_with_team` |
 | A coach, in a message | `🟠 @coach` | `format_player_with_team`, which takes the emoji dict |
+
+**In 2.0 the role is the one the card holds in the match, never the one it
+prints** (the author, 2026-10-28: "during the game buttons etc. should show
+the role assigned, but during assignment players on the bench have no
+role"). A 2.0 role is the formation's (docs/rules-2.0.md section 4), so a
+card dealt as a Defender and standing in the Fullback's place is
+`Voltus [FB]`. `RulesEngine.player_name(match, player)` is the one place
+that reads it -- `role_of` handed to `player_with_role` as `role=` -- and
+every form above builds on it: `format_player_label`, `format_roster_player`
+and `format_roster_player_for_message` take the match, and a view names a
+player through `SafeView.player_name`, which loads the match where the
+caller has none in hand. **A 2.0 card holding no role -- on the bench or the
+back bench -- is named by its skills**, offense then defense as its tile
+prints them, `Synapse [4|3]` (decided 2026-10-18), with the game's skills
+where the caller has the game (`skills`, so an advanced score in an advanced
+game). In 1.0 `role_of` is the card's own role, so every name reads exactly
+as before. A view that calls `player_with_role` itself would name a 2.0
+player by the role they were dealt as, which is the bug this replaced: the
+buttons said `Voltus [DD]` while the Arrange team screen called him the
+Fullback.
+
+Left on the card's own role: the goal log (`format_goal_scorer`, which has
+no match and whose `GoalRecord` keeps no role) and the web app, which plays
+no 2.0.
 
 - **A coach is named the same way: their side's emoji in front, and
   the team never in words.** `format_player_with_team` read

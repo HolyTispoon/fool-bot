@@ -17,6 +17,7 @@ from typing import Callable, Optional
 from d12ball.components import (
     MatchState,
     TeamSetup,
+    TeamSide,
     load_species_abilities,
 )
 from d12ball.engine import IgnitedRoll
@@ -39,6 +40,7 @@ from d12ball.render import (
 from d12ball.role_cards import render_role_reference
 from d12ball.rules_doc import DISCORD_MESSAGE_LIMIT
 from d12ball.species_cards import render_species_reference
+from d12ball.zone_board_image import render_zone_board
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     FIELD_IMAGE_FILENAME,
@@ -622,10 +624,7 @@ class PresentationMixin:
         # marks are drawn by the renderer (`draw_marked_text`).
         home_player = format_team_side_label(match.home, game, cut=True)
         visiting_player = format_team_side_label(match.visiting, game, cut=True)
-        coaches = {
-            setup.side: format_team_coach(setup, game, cut=True)
-            for setup in (match.home, match.visiting)
-        }
+        coaches = self.board_coaches(game, match)
         period = (
             "First Half"
             if match.scoreboard.period.value == "first_half"
@@ -635,6 +634,13 @@ class PresentationMixin:
             f"PBD{game.game_number} - {home_player} vs. "
             f"{visiting_player}, {period}"
         )
+        if self.engine.maneuver_deck_applies(game):
+            # 2.0's board: the players as tiles in the slots of the
+            # roles their zones gave them (`render_zone_board`).
+            image = await asyncio.to_thread(
+                self.render_zone_board, game, match, title,
+            )
+            return image.getvalue()
         image = await asyncio.to_thread(
             render_match_image,
             match,
@@ -648,6 +654,45 @@ class PresentationMixin:
             shooting_range=self.engine.shooting_range_applies(game),
         )
         return image.getvalue()
+
+    def board_coaches(
+        self, game: D12BallGame, match: MatchState,
+    ) -> dict[TeamSide, str]:
+        """Each side the short way, over its score and its bench, cut
+        as every image cuts a name."""
+        return {
+            setup.side: format_team_coach(setup, game, cut=True)
+            for setup in (match.home, match.visiting)
+        }
+
+    def render_zone_board(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        title: str,
+        scale: Optional[float] = None,
+    ) -> io.BytesIO:
+        """
+        **2.0's board** -- `zone_board_image.render_zone_board`, each
+        player's tile in the slot of the role the match gives them
+        (`RulesEngine.board_roles`), the bench as tiles holding none --
+        with every answer it draws asked of the engine here. Run in a
+        worker thread by its callers. `scale` is the renderer's; the
+        board message keeps its default.
+        """
+        options = {} if scale is None else {"scale": scale}
+        return render_zone_board(
+            match,
+            self.player_catalog,
+            title,
+            self.engine.board_roles(match),
+            species_icons=self.engine.species_abilities_apply(game),
+            cyborg_ids=self.engine.cyborg_condition_ids(game, match),
+            advanced=self.engine.special_abilities_apply(game),
+            coaches=self.board_coaches(game, match),
+            tie_coin=self.tie_coin_brief(game, match),
+            **options,
+        )
 
     def tie_coin_brief(
         self, game: D12BallGame, match: MatchState,
@@ -802,6 +847,7 @@ class PresentationMixin:
             species_icons=self.engine.species_abilities_apply(game),
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
             shooting_range=self.engine.shooting_range_applies(game),
+            roles=self.engine.board_roles(match),
         )
         return discord.File(image, filename=FIELD_IMAGE_FILENAME)
 

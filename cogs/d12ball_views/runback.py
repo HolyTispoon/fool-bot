@@ -11,7 +11,6 @@ from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import (
     build_full_image_button,
     capitalized,
-    player_with_role,
     space_label,
     travel_space_label,
 )
@@ -75,7 +74,7 @@ class RunBackPlayerChoiceView(SafeView):
             # than one of them: two pairs in a three-space zone with
             # one space free is four candidates, and which pair they
             # come from is the whole difference.
-            name = player_with_role(player)
+            name = self.player_name(player, match)
             button = discord.ui.Button(
                 label=(
                     f"{name} — {space_label(*position, match.board)}"

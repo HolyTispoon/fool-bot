@@ -8,7 +8,7 @@ made on it. See docs/design/maneuver-deck.md and docs/rules-2.0.md.
 top half is one of the rank's four basic offensive maneuvers and the
 bottom half, upside down, the defensive maneuver on the same row of
 the rank -- the tab numbers them 1 to 4, and row 1 of rank 1 is Pass
-on offense and Deflect on defense, row 2 Pass and Run and Follow. The
+on offense and Deflect on defense, row 2 Curved Pass and Follow. The
 other six are the **advanced maneuvers**, row 5 of each rank, one card
 each, and an advanced card plays on its own side alone. Three are
 offense and three defense, so a hand of five always holds at least one

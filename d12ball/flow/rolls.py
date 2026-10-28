@@ -86,7 +86,6 @@ from d12ball.formatting import (
     format_player_with_team,
     format_team_side_label,
     is_total_modifier,
-    player_with_role,
     score_side_label,
     summed_modifier_line,
     total_modifier_line,
@@ -454,9 +453,11 @@ def score_skill_test(
             game, match, offense_player.player_id, "skill_test",
         ),
         offense_skill,
+        name=engine.player_name(match, offense_player, game=game),
     )
     defense_detail = contestant_detail(
         defense_player, "Defensive", defense_skill,
+        name=engine.player_name(match, defense_player, game=game),
     )
     _with_extras(
         engine, match, offense_detail, offense_ignite,
@@ -868,6 +869,7 @@ def score_loose_ball(
 
     offense_detail = contestant_detail(
         offense_player, "Offensive", offense_skill,
+        name=engine.player_name(match, offense_player, game=game),
         injured=offense_injured,
         cyborg=engine.has_species_ability(
             game, offense_player.player_id, SPECIES_CYBORG,
@@ -875,6 +877,7 @@ def score_loose_ball(
     )
     defense_detail = contestant_detail(
         defense_player, "Defensive", defense_skill,
+        name=engine.player_name(match, defense_player, game=game),
         injured=defense_injured,
         cyborg=engine.has_species_ability(
             game, defense_player.player_id, SPECIES_CYBORG,
@@ -1310,7 +1313,10 @@ def score_score_attempt(
     )
     defense_total = defense_roll + defense_skill_total
 
-    attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
+    attack_detail = contestant_detail(
+        shooter, "Offensive", offense_skill,
+        name=engine.player_name(match, shooter, game=game),
+    )
     if speed_modifier:
         attack_detail.append(
             f"{speed_modifier:+d} ball speed"
@@ -1350,7 +1356,9 @@ def score_score_attempt(
         attack_detail.append(clear_shot)
     with_total_modifier(attack_detail, attack_roll, attack_total)
 
-    defense_detail = shot_wall_lines(defenders, defending_setup.team)
+    defense_detail = shot_wall_lines(
+        engine, match, defenders, defending_setup.team,
+    )
     if len(defenders) > 1:
         defense_detail.append(total_modifier_line(defense_skill_total))
 
@@ -1380,6 +1388,8 @@ def score_score_attempt(
 
 
 def shot_wall_lines(
+    engine: RulesEngine,
+    match: MatchState,
     defenders: Sequence[ShotDefender],
     team: Team,
 ) -> list[str]:
@@ -1398,7 +1408,7 @@ def shot_wall_lines(
         return ["No one in the way"]
     return [
         f"{tokens.team(team)} "
-        f"{player_with_role(defender.player, badge=True, team=team)} "
+        f"{engine.player_name(match, defender.player, badge=True, team=team)} "
         f"+{defender.value}"
         + (f" (half of {defender.defense})" if defender.halved else "")
         + (SHOT_PASSED_NOTE if defender.passed else "")
@@ -1812,6 +1822,7 @@ def score_shootout_test(
         totals[side] = roll + skill + ignite.modifier + overdrive + speed
         detail = contestant_detail(
             player, "Offensive", skill, injured=injured,
+            name=engine.player_name(match, player, game=game),
             cyborg=engine.has_species_ability(
                 game, player.player_id, SPECIES_CYBORG,
             ),

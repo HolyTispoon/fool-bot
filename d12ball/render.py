@@ -29,6 +29,7 @@ from d12ball.components import (
     MatchPeriod,
     PlayerCatalog,
     PlayerDefinition,
+    PlayerRole,
     RoleProfile,
     TeamSetup,
     TeamSide,
@@ -1597,6 +1598,7 @@ def draw_space(
     space_right: int,
     species_icons: bool = False,
     cyborg_ids: frozenset[str] = frozenset(),
+    roles: Mapping[str, PlayerRole] = {},
 ) -> None:
     """
     One space: its frame and code, the visiting side's meeples on the
@@ -1658,6 +1660,7 @@ def draw_space(
         exhausted=match.exhausted,
         injured=match.injured,
         deferred=marks,
+        roles=roles,
     )
     home_bounds = draw_meeple_group(
         canvas,
@@ -1680,6 +1683,7 @@ def draw_space(
         exhausted=match.exhausted,
         injured=match.injured,
         deferred=marks,
+        roles=roles,
     )
 
     if ball_is_here:
@@ -1722,6 +1726,7 @@ def draw_board(
     species_icons: bool = False,
     cyborg_ids: frozenset[str] = frozenset(),
     shooting_range: bool = True,
+    roles: Mapping[str, PlayerRole] = {},
 ) -> dict[Zone, tuple[int, int]]:
     """The field, its goals and -- where the game has one
     (`shooting_range`, `RulesEngine.shooting_range_applies`; 2.0 has
@@ -1752,7 +1757,7 @@ def draw_board(
             draw_space(
                 canvas, draw, match, players, zone, space_index, occupants,
                 space_left, space_right, species_icons=species_icons,
-                cyborg_ids=cyborg_ids,
+                cyborg_ids=cyborg_ids, roles=roles,
             )
 
     draw_end_zone(
@@ -2223,6 +2228,7 @@ def draw_meeple_group(
     exhausted: frozenset[str] | set[str] = frozenset(),
     injured: frozenset[str] | set[str] = frozenset(),
     deferred: Optional[list] = None,
+    roles: Mapping[str, PlayerRole] = {},
 ) -> tuple[int, int]:
     """
     One team's meeples on one space: a row of tokens, with their names
@@ -2257,6 +2263,8 @@ def draw_meeple_group(
     handed, so a piece and its card never disagree. `deferred`, when
     given, collects the marks' drawing instead of doing it, for a
     caller that draws the ball afterwards and wants the marks on top.
+    `roles` is each card's role in the match where it is not the
+    card's own (2.0's), by card id.
     """
     if not occupants:
         return space_left, space_right
@@ -2302,7 +2310,7 @@ def draw_meeple_group(
         )
         draw_meeple_face(
             canvas, draw, player, token_x, token_y, token_ink,
-            species_icons=species_icons,
+            species_icons=species_icons, role=roles.get(player_id),
         )
         label = shorten_to_width(
             draw, player.name, label_font, label_width_limit,
@@ -2637,6 +2645,7 @@ def draw_meeple_face(
     token_y: int,
     ink: str,
     species_icons: bool,
+    role: Optional[PlayerRole] = None,
 ) -> None:
     """
     What is written on a meeple: the species icon on its chest over
@@ -2644,8 +2653,12 @@ def draw_meeple_face(
     and the initials alone, centred on the body and larger, when it is
     not. See draw_meeple_group for why the piece carries both, and the
     note by MEEPLE_SIZE for who decides the flag.
+
+    `role` is the role the card plays in the match where that is not
+    its own -- 2.0's, which the formation's zones hold
+    (`RulesEngine.role_of`, handed in as `roles` by the caller).
     """
-    initials = ROLE_INITIALS[player.role.value]
+    initials = ROLE_INITIALS[PlayerRole(role or player.role).value]
     center_x = token_x + MEEPLE_SIZE / 2
     icon = (
         species_icon(player.species, ink, MEEPLE_SPECIES_ICON_SIZE)
@@ -6157,6 +6170,7 @@ def draw_coaching_space(
     cyborg_ids: frozenset[str] = frozenset(),
     exhausted: frozenset[str] | set[str] = frozenset(),
     injured: frozenset[str] | set[str] = frozenset(),
+    roles: Mapping[str, PlayerRole] = {},
 ) -> None:
     """
     One space on a coach's own half: its frame and code, and that
@@ -6205,6 +6219,7 @@ def draw_coaching_space(
         cyborg_ids=cyborg_ids,
         exhausted=exhausted,
         injured=injured,
+        roles=roles,
     )
 
 
@@ -6423,6 +6438,7 @@ def render_field_image(
     species_icons: bool = False,
     cyborg_ids: frozenset[str] = frozenset(),
     shooting_range: bool = True,
+    roles: Mapping[str, PlayerRole] = {},
 ) -> BytesIO:
     """
     The field on its own -- both sides' meeples, the ball, the space
@@ -6443,6 +6459,9 @@ def render_field_image(
     2200px board holds up when Discord's client blows it up; a strip a
     third of that height is shown at its own size or smaller, and the
     upscale would only be payload.
+
+    `roles` is each meeple's role where the match's are not the cards'
+    own -- 2.0's (`RulesEngine.board_roles`).
     """
     players = player_index(catalog)
     canvas = Image.new(
@@ -6453,7 +6472,7 @@ def render_field_image(
     draw = ImageDraw.Draw(canvas)
     draw_board(
         canvas, draw, match, players, species_icons=species_icons,
-        cyborg_ids=cyborg_ids, shooting_range=shooting_range,
+        cyborg_ids=cyborg_ids, shooting_range=shooting_range, roles=roles,
     )
 
     field = canvas.crop(

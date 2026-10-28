@@ -23,27 +23,7 @@ gets a design of its own.
 python3 scripts/render_maneuver_cards.py --sheet  # d12ball/print/maneuver-cards/<tier>-{front,back}-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
 python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot sends
-python3 scripts/render_maneuver_cards.py --edition 2.0 --sheet  # 2.0's eighteen-card deck
 ```
-
-`--edition 2.0` draws one coach's 2.0 deck (`maneuver_deck.deck_cards`) with the faces the
-bot's 2.0 hand shows: the twelve two-headed basic cards, offense upright
-(`render_two_headed_card`), and the six advanced cards in their 2.0 wording
-(`render_maneuver_card(edition_two=True)`), with `--sheet` as three Avery 95328 pages.
-**Every 2.0 card takes the basic back** (the author, 2026-10-28): the deck is one shuffled
-pile, so every card needs the same back, and the basic six's hexagon is the one chosen.
-
-**2.0 draws its ranks larger** (the author, 2026-10-28) -- the header's badge, the matchup
-row or the two-headed card's band (`EDITION_TWO_BADGE_RANK`, `TWO_HEADED_BADGE` and
-`TWO_HEADED_BADGE_RANK`, `TWO_HEADED_BAND_RANK`). The sizes are 2.0's alone, passed in where
-the 1.0 face's defaults stand, so every 1.0 card and hand is byte-identical; the bot's 2.0
-hand draws the same faces and carries the larger ranks too.
-
-**The 2.0 back is the basic back in a style of its own** (`EDITION_TWO_BACK`, a `BackStyle`;
-the author, 2026-10-28): the title, the ranks and the captions larger; each rank inside its
-node, in white above the name with `NODE_RANK_GAP` between them, rather than outside it; and
-the caption reading "arrow: beats what it points to" where 1.0's reads "solid".
-`BackStyle()`'s defaults are 1.0's backs, unchanged.
 
 - **The hand replaced a paragraph per maneuver.** `build_maneuver_choice_text`
   listed each maneuver's effect and matchups next to the buttons; every word of
@@ -1280,7 +1260,6 @@ one subfolder per script, named as the kit names its own folders:
 | Folder | Written by |
 | --- | --- |
 | `d12ball/print/maneuver-cards/` | `render_maneuver_cards.py` |
-| `d12ball/print/maneuver-cards-2.0/` | `render_maneuver_cards.py --edition 2.0` (its default `--out` follows the edition) |
 | `d12ball/print/maneuver-tiles/` | `render_maneuver_tiles.py` (the hexagon in `hexagon/`) |
 | `d12ball/print/player-cards/` | `render_player_cards.py` |
 | `d12ball/print/player-cards-2.0/` | `render_player_cards.py --edition 2.0` (its default `--out` is 1.0's folder, so name this one) |
