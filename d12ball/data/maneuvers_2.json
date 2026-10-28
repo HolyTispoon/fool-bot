@@ -90,7 +90,7 @@
         "tier": "basic",
         "deck_index": 4,
         "defeats_rank": 1,
-        "effect": "Player and ball to closest teammate ahead or behind. Teammate may take the ball. Ball speed -2.",
+        "effect": "Player and ball to closest teammate ahead. Teammate may take the ball. Ball speed -2.",
         "time": "1"
       },
       {
