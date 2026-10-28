@@ -165,9 +165,9 @@ opportunity the entry below read into it is now the card's own words. Of the res
 readings below: *"everything else seems correct"*. Reset Play's "(wherever they are)" was also
 dropped from its wording, which changes nothing.
 
-The tab's first column, the row numbers, is now headed `Q1 ` rather than `Index`, so the
-importer reads it by position. The tab also has a new `Spec` column -- a species ability or
-`All` against each offensive card and each advanced card -- which nothing imports yet.
+The tab also has a new `Spec` column -- a species ability or `All` against each offensive card
+and each advanced card. It is **for the advanced game, and a future implementation** (the
+author, 2026-10-28), so nothing imports it yet.
 
 ### 2026-10-27 -- sheet and author, 2.0: the maneuver cards of the `maneuvers 2.0` tab
 
