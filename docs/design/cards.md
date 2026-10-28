@@ -23,7 +23,16 @@ gets a design of its own.
 python3 scripts/render_maneuver_cards.py --sheet  # d12ball/print/maneuver-cards/<tier>-{front,back}-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
 python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot sends
+python3 scripts/render_maneuver_cards.py --edition 2.0 --sheet  # 2.0's eighteen-card deck
 ```
+
+`--edition 2.0` draws one coach's 2.0 deck (`maneuver_deck.deck_cards`) with the faces the
+bot's 2.0 hand shows: the twelve two-headed basic cards, offense upright
+(`render_two_headed_card`), and the six advanced cards in their 2.0 wording
+(`render_maneuver_card(edition_two=True)`), with `--sheet` as three Avery 95328 pages.
+**2.0 has no back of its own yet**: the deck is one shuffled pile, so every card needs the
+same back, and it takes the advanced back -- which names the 1.0 basic and advanced cards on
+each rank, not 2.0's other three basic cards a rank.
 
 - **The hand replaced a paragraph per maneuver.** `build_maneuver_choice_text`
   listed each maneuver's effect and matchups next to the buttons; every word of
@@ -1260,6 +1269,7 @@ one subfolder per script, named as the kit names its own folders:
 | Folder | Written by |
 | --- | --- |
 | `d12ball/print/maneuver-cards/` | `render_maneuver_cards.py` |
+| `d12ball/print/maneuver-cards-2.0/` | `render_maneuver_cards.py --edition 2.0` (its default `--out` follows the edition) |
 | `d12ball/print/maneuver-tiles/` | `render_maneuver_tiles.py` (the hexagon in `hexagon/`) |
 | `d12ball/print/player-cards/` | `render_player_cards.py` |
 | `d12ball/print/player-cards-2.0/` | `render_player_cards.py --edition 2.0` (its default `--out` is 1.0's folder, so name this one) |
