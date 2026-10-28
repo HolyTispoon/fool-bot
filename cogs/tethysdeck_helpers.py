@@ -9,7 +9,7 @@ import logging
 import discord
 
 from gamesaves.tethysdeck.storage import ChannelDeck
-from tethysdeck import deck_2d12
+from tethysdeck import deck
 
 
 LOGGER = logging.getLogger(__name__)
@@ -26,50 +26,45 @@ SUITS = [  # the author's order (2026-10-09)
     ("☯", "States"),
     ("🃟", "Fools"),
 ]
-RANKS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Left", "Right"]
 
 # Discord select menus top out at 25 options, and a hand can in theory
 # hold every card in the deck.
 MAX_SELECT_OPTIONS = 25
 
-
-# The decks a channel may shuffle: the classic deck, and the 2d12 deck
-# (`tethysdeck/deck_2d12.py`). A channel's deck saves which it is.
-CLASSIC = "classic"
-DECK_KINDS = {
-    CLASSIC: "Foolish style",
-    deck_2d12.KEY: "2d12",
-}
 SYMBOLS = {name.lower(): symbol for symbol, name in SUITS}
 
 
-def build_deck(kind: str = CLASSIC) -> list[str]:
-    if kind == deck_2d12.KEY:
-        return [card_name_2d12(card) for card in deck_2d12.cards()]
-    return [
-        f"{rank} of {symbol} {name}"
-        for symbol, name in SUITS
-        for rank in RANKS
-    ]
+def build_deck() -> list[str]:
+    return [card_name(card) for card in deck.cards()]
 
 
-def card_name_2d12(card: deck_2d12.Card) -> str:
-    """A 2d12 card's name -- "13 of $ Money (Doom)". The fate is in it
-    because a suit can hold one value under both; a card the deck holds
-    twice is the same name twice."""
+def card_name(card: deck.Card) -> str:
+    """A card's name -- "13 of $ Money (Doom)". The fate is in it because
+    a suit can hold one value under both; a card the deck holds twice is
+    the same name twice."""
     return f"{card.value} of {SYMBOLS[card.suit]} {card.suit.title()} ({card.fate.title()})"
 
 
-def parse_card(card: str) -> tuple[str, str] | deck_2d12.Card:
-    """A saved card's name as the card `tethysdeck` draws: "7 of ⚔ Might"
-    as the classic deck's (suit, rank), "13 of $ Money (Doom)" as a
-    `deck_2d12.Card`. The names are what a channel's deck saves, so they
-    stay as `build_deck` writes them and are read here."""
-    rank, suit = card.split(" of ", 1)
-    if suit.endswith(")"):
-        suit, fate = suit[:-1].rsplit(" (", 1)
-        return deck_2d12.Card(suit.split()[-1].lower(), int(rank), fate.lower())
-    return suit.split()[-1].lower(), rank
+def parse_card(card: str) -> deck.Card | None:
+    """A saved card's name as the card `tethysdeck` draws. The names are
+    what a channel's deck saves, so they stay as `build_deck` writes them
+    and are read here. A name with no fate -- "7 of ⚔ Might" -- is a card
+    of the deck of 1 to 10, Left and Right that this one replaced
+    (2026-10-28), from a channel that shuffled before then: None, and
+    that channel's cards are named in words until it shuffles anew."""
+    value, suit = card.split(" of ", 1)
+    if not suit.endswith(")"):
+        return None
+    suit, fate = suit[:-1].rsplit(" (", 1)
+    return deck.Card(suit.split()[-1].lower(), int(value), fate.lower())
+
+
+def shuffled_before_replacement(state: ChannelDeck) -> bool:
+    """Whether a channel's deck is the one this deck replaced: any of its
+    cards will say, since a deck is shuffled whole."""
+    for card in [*state.deck, *state.discard, *(c for hand in state.hands.values() for c in hand)]:
+        return parse_card(card) is None
+    return False
 
 
 def remove_cards(hand: list[str], cards: list[str]) -> list[str]:

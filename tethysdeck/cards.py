@@ -1,5 +1,5 @@
 """The card faces: a white card, the fate's ink, the value as pieces spread
-over the face, the rank and the suit's mark in two corners.
+over the face, the value and the suit's mark in two corners.
 
 Poker size at 300 dpi, the same 750 x 1050 as `d12ball.cards`, so the
 deck prints on the same sheets. Fortune is violet ink with green, Doom coal ink with
@@ -8,8 +8,7 @@ orange; the paper is white either way (the author: no cream anywhere).
 from PIL import Image, ImageDraw, ImageFont
 
 from tethysdeck import icons
-from tethysdeck import deck_2d12
-from tethysdeck.deck import RANKS, SUITS, VARIANTS, coins_worth, fate_of, pieces_worth, worth
+from tethysdeck.deck import VARIANTS, Card, faces, money_coins, pieces
 from tethysdeck.relief import IconSet
 
 # The corner is the Avery 95328 die cut's own, 0.375in at 300 dpi, and every frame
@@ -39,8 +38,8 @@ SLOTS = {
     1: [((375, 470), 420, 620)],
     2: [((375, 300), 420, 330), ((375, 650), 420, 330)],
     3: [((375, 290), 420, 320), ((225, 650), 280, 320), ((525, 650), 280, 320)],
-    # Four and five pieces are the 2d12 deck's alone (the classic deck's most is three): as three
-    # is, the largest across the top and the rest in a row under it, clear of the corners and the value.
+    # Four and five pieces (twelve faces, and Tools' 23) as three: the largest across the top
+    # and the rest in a row under it, clear of the corners and the value.
     4: [((375, 300), 420, 300), ((200, 640), 165, 290), ((375, 640), 165, 290), ((550, 640), 165, 290)],
     5: [((375, 295), 420, 290), ((165, 640), 140, 290), ((305, 640), 140, 290), ((445, 640), 140, 290),
         ((585, 640), 140, 290)],
@@ -78,20 +77,9 @@ def _spread(img: Image.Image, items: list[Image.Image]) -> None:
         img.alpha_composite(im, (cx - im.width // 2, cy - im.height // 2))
 
 
-def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
-    """A classic card: a number, or a ruler worth 12 named in words."""
-    ruler = rank in ("Left", "Right")
-    return face(icon_set, suit, fate_of(suit, rank), worth(suit, rank),
-                {"Left": "L", "Right": "R"}.get(rank, rank), rank.upper() if ruler else rank, 80 if ruler else 120)
-
-
-def card_2d12(icon_set: IconSet, c: deck_2d12.Card) -> Image.Image:
-    """A 2d12 card: its value, made of pieces like any other."""
-    return face(icon_set, c.suit, c.fate, c.value, str(c.value), str(c.value), 120)
-
-
-def face(icon_set: IconSet, suit: str, fate: str, value: int, short: str, label: str, label_size: int) -> Image.Image:
-    """A face worth `value` under `fate`: `short` in the corners, `label` large under the pieces."""
+def card(icon_set: IconSet, c: Card) -> Image.Image:
+    """A card's face: its value in the corners and large under its pieces."""
+    suit, fate, label = c.suit, c.fate, str(c.value)
     p = PALETTE[fate]
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -100,7 +88,7 @@ def face(icon_set: IconSet, suit: str, fate: str, value: int, short: str, label:
     d.rounded_rectangle((30, 30, W - 31, H - 31), RADIUS - 30, outline=p["ink2"], width=2)
 
     corner = Image.new("RGBA", (130, 150), (0, 0, 0, 0))
-    ImageDraw.Draw(corner).text((65, 0), short, font=font(66), fill=p["ink"], anchor="ma")
+    ImageDraw.Draw(corner).text((65, 0), label, font=font(66), fill=p["ink"], anchor="ma")
     mark = fit(icon_set.image(suit, fate), 62, 62)
     corner.alpha_composite(mark, (34 + (62 - mark.width) // 2, 84 + (62 - mark.height) // 2))
     img.alpha_composite(corner, (42, 40))
@@ -108,29 +96,24 @@ def face(icon_set: IconSet, suit: str, fate: str, value: int, short: str, label:
 
     d.text((W // 2, 88), suit.upper(), font=font(56), fill=p["ink2"], anchor="mm")
     if suit == "money":
-        _spread(img, [coin_image(metal, amount, fate) for metal, amount in coins_worth(value)])
+        _spread(img, [coin_image(metal, amount, fate) for metal, amount in money_coins(c)])
     else:
-        values = pieces_worth(value)
+        values = pieces(c)
         items = []
         for piece, (_, room_w, room_h) in zip(values, SLOTS[len(values)]):
             size = PIECE_SIZE[piece]
             items.append(fit(icon_set.image(suit, fate, VARIANTS.get(suit, {}).get(piece)),
                              min(size, room_w), min(round(size * TALL), room_h)))
         _spread(img, items)
-    d.text((W // 2, 862), label, font=font(label_size), fill=p["ink"], anchor="mm")
+    d.text((W // 2, 862), label, font=font(120), fill=p["ink"], anchor="mm")
     d.text((W // 2, 966), fate.upper(), font=font(38), fill=p["ink2"], anchor="mm")
     return img
 
 
-def deck_cards(icon_set: IconSet) -> dict[tuple[str, str], Image.Image]:
-    """Every card, keyed by (suit, rank), in the deck's order."""
-    return {(suit, rank): card(icon_set, suit, rank) for suit in SUITS for rank in RANKS}
-
-
-def deck_2d12_cards(icon_set: IconSet) -> dict[deck_2d12.Card, Image.Image]:
-    """Every different 2d12 card once, keyed by its `Card`, in the deck's order;
-    `deck_2d12.cards()` names the 72 with their repeats."""
-    return {c: card_2d12(icon_set, c) for c in deck_2d12.faces()}
+def deck_cards(icon_set: IconSet) -> dict[Card, Image.Image]:
+    """Every different card once, keyed by its `Card`, in the deck's order;
+    `deck.cards()` names the 72 with their repeats."""
+    return {c: card(icon_set, c) for c in faces()}
 
 
 def flatten(card_image: Image.Image) -> Image.Image:
@@ -154,7 +137,7 @@ def deck_sheet(cards: list[Image.Image], scale: float = 0.2) -> Image.Image:
     return img
 
 
-def closeup_sheet(cards: dict, picks: list[tuple[str, str]], scale: float = 0.45, columns: int = 3) -> Image.Image:
+def closeup_sheet(cards: dict, picks: list[Card], scale: float = 0.45, columns: int = 3) -> Image.Image:
     cw, ch, gap = round(W * scale), round(H * scale), 16
     rows = (len(picks) + columns - 1) // columns
     img = Image.new("RGB", (columns * cw + (columns + 1) * gap, rows * ch + (rows + 1) * gap), "#5a5a5a")

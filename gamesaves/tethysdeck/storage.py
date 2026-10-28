@@ -18,9 +18,6 @@ class ChannelDeck:
     discard: list[str] = field(default_factory=list)
     hands: dict[str, list[str]] = field(default_factory=dict)
     status_message_id: Optional[int] = None
-    # Which deck the channel shuffled (`cogs.tethysdeck_helpers.DECK_KINDS`);
-    # a deck saved before there were two is the classic one.
-    kind: str = "classic"
 
 
 def load_decks() -> dict[str, ChannelDeck]:

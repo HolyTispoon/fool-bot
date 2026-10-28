@@ -286,7 +286,7 @@ class DiscardSelectView(SafeView):
         self.channel_id = channel_id
         self.user_id = user_id
 
-        # By place in the hand, not by name: the 2d12 deck holds some cards
+        # By place in the hand, not by name: the deck holds some cards
         # twice, and a menu's values must differ.
         shown = hand[:MAX_SELECT_OPTIONS]
         options = [
