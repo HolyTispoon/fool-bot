@@ -3698,13 +3698,20 @@ class RulesEngine:
         if not self.match_plays_deck(match):
             return self.low_pass_candidates(match)
         # 2.0's passes (the `maneuvers 2.0` tab): Curved Pass is any
-        # teammate within 2, Pinpoint's shape at 2; Pass, Pass and Run
-        # and Drive the nearest each way at any distance.
+        # teammate within 2, Pinpoint's shape at 2; Pass and Pass and
+        # Run the nearest each way at any distance; Drive the nearest
+        # ahead alone (the tab, 2026-10-28).
         if maneuver_key == "curved_pass":
             return self.skilled_pass_candidates(
                 match, maneuver_deck.CURVED_PASS_REACH,
             )
-        return self.low_pass_candidates(match, None, maneuver_key)
+        candidates = self.low_pass_candidates(match, None, maneuver_key)
+        if maneuver_key == "drive":
+            return [
+                (distance, receiver) for distance, receiver in candidates
+                if distance > 0
+            ]
+        return candidates
 
     def low_pass_receivers(
         self,

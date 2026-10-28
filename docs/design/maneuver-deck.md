@@ -101,7 +101,7 @@ twelve different pairs, offense and defense paired by the tab's row number (`dec
   back (`finish_run_back`), the point a Steal's speed choice would have recorded it.
 - **The faces.** A two-headed half prints `deck_effect` under its 2.0 diagram
   (`STRIP_MOVES_TWO`, `STRIP_ACTORS_TWO`, read by `strip_moves(roles=False)` before 1.0's), all
-  twenty-four halves at one effect size; an advanced card in a 2.0 hand is printed with
+  each half's effect at the largest size its own room takes, 18 to 32 (`two_headed_effect_layout`); an advanced card in a 2.0 hand is printed with
   `render_maneuver_card(edition_two=True)` -- the tab's wording, whose "Failed:" reads as the
   failure label (`two_point_oh_face`), a tie quoting the 2.0 basic card, no role abilities and
   no role moves. The band still names each rank's first basic card under its badge.
@@ -152,8 +152,10 @@ strip diagram and effect sentence (`render_two_headed_half`), **drawn at full wi
 the card** rather than drawn at the printed size and shrunk -- which made every half narrower
 than the card, the author asked why -- so its header is shorter (`TWO_HEADED_HEADER`, with the
 badge and time chip moved in off the rounded corner), its diagram panel is as tall as its own
-diagram (`strip_block_height`) and its effect is one size for all six
-(`two_headed_effect_size`). The printed card's header and strip take those as parameters whose
+diagram (`strip_block_height`) and its effect takes the largest size, up to
+`TWO_HEADED_EFFECT_MAX`, that the room under that diagram holds, centred in it
+(`two_headed_effect_layout`; the author, 2026-10-28, finding one size for all twenty-four too
+small -- it came out at 20, held there by the half with the least room). The printed card's header and strip take those as parameters whose
 defaults are the printed card's, so the 1.0 faces and hands are byte-identical (hashed before
 and after). And **nothing about roles**: no
 ability box, and the strip drawn with `draw_strip(roles=False)`, which drops the role's dashed
