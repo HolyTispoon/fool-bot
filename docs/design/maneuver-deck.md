@@ -384,8 +384,7 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   with ...", "Bring on ... in this role"; a click applies the change at once and the side comes back
   up with the picture redrawn, one `edit_message` a click as every hub step is. **Its message says
   what Arrange team is** (the author, 2026-10-28: after the deal's recommended arrangement, make it
-  clear the coach now assigns players to roles by zone): a paragraph that the roles belong to the
-  zones, a unique role on its own space and a standard role for everyone else placed there, then
+  clear the coach now assigns players to roles by zone): "Assign your players to roles.", then
   the side zone by zone -- each zone's unique role, its space and who holds it, and its standard
   role and who holds it, "nobody" where nobody does -- and the bench, holding no role. **The
   picture is the 2.0 board** (below), both sides' slots and benches, at 1x, in place of 1.0's

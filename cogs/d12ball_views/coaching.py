@@ -745,7 +745,8 @@ class CoachingArrangeView(CoachingView):
         4.3) -- so after the deal's recommended arrangement the side is
         laid out as each zone's unique role, on its space, and its
         standard role, with who holds each, and the bench as holding
-        none.
+        none, under one line asking for it. The layout says the rule;
+        a paragraph explaining it was cut (the author, same day).
         """
         game = self.cog.games.get(self.game_id)
         options = self.hub_options(game, match)
@@ -754,12 +755,7 @@ class CoachingArrangeView(CoachingView):
             return ""
         board = match.board
         lines = [
-            "**Assign your players to roles.** In 2.0 the roles belong "
-            "to the zones, not the cards: each zone has one unique role, "
-            "who stands on its own space, and everyone else you place in "
-            "the zone takes its standard role. The deal set your side up "
-            "in a recommended arrangement; change it one player at a "
-            "time.",
+            "**Assign your players to roles.**",
             "",
         ]
         for unique in arrangement.unique:
