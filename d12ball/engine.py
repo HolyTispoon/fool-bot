@@ -5456,7 +5456,7 @@ class RulesEngine:
         the one the formation's zone gave it, whatever the card was
         dealt as, and a card holding none -- on the bench, where a
         2.0 arrangement draws from -- is named by its skills, "Synapse
-        [4|3]", as this game plays them (`skills`, so `game` is asked
+        (4|3)", as this game plays them (`skills`, so `game` is asked
         for where the caller has it; without it they are the card's
         own). See "Naming a player" in
         docs/design/naming-and-wording.md.

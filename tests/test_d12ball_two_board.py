@@ -48,7 +48,7 @@ class TwoPointOhNamingTests(unittest.TestCase):
         name = self.engine.get_player_definition(card).name
         self.assertEqual(
             self.engine.player_name(self.match, card, game=self.game),
-            f"{name} [{skills.offense}|{skills.defense}]",
+            f"{name} ({skills.offense}|{skills.defense})",
         )
 
     def test_board_roles_are_the_matchs(self) -> None:
