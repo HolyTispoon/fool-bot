@@ -869,8 +869,8 @@ STRIP_ACTORS_TWO: dict[str, tuple[str, dict[int, str]]] = {
     "pass_and_run": ("H", {2: "R", -2: "R", 1: "H"}),
     "reset_play": ("H", {3: "R"}),
     "advance": ("H", {1: "H", 2: "H"}),
-    "spin": ("H", {2: "R"}),
-    "drive": ("H", {2: "HR"}),
+    "spin": ("H", {2: "T"}),
+    "drive": ("H", {2: "HT"}),
     "high_pass": ("H", {3: "R"}),
     "set_up": ("H", {2: "R"}),
     "long_shot": ("H", {4: "R"}),
@@ -1191,6 +1191,12 @@ def draw_strip_caption(
         y += geo.caption_line
 
 
+#: The strip's offensive pieces: the handler, a receiver of a pass, and
+#: a teammate a move reaches that is not a pass (Drive, Spin -- the
+#: author, 2026-10-28: "there is no receiver because it's not a pass").
+OFFENSE_TOKENS = "HRT"
+
+
 def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> None:
     """
     The pieces a space is drawn holding, spread evenly across it. One
@@ -1203,7 +1209,7 @@ def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> N
     """
     if len(who) == 1:
         draw_strip_token(
-            pen, geo, index, SIDE_COLORS["offense" if who in "HR" else "defense"],
+            pen, geo, index, SIDE_COLORS["offense" if who in OFFENSE_TOKENS else "defense"],
             who, ghost=True,
         )
         return
@@ -1213,7 +1219,7 @@ def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> N
                 pen,
                 geo,
                 index,
-                SIDE_COLORS["offense" if label in "HR" else "defense"],
+                SIDE_COLORS["offense" if label in OFFENSE_TOKENS else "defense"],
                 label,
                 ghost=True,
                 offset=offset,
@@ -1229,7 +1235,7 @@ def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> N
             pen,
             geo,
             index,
-            SIDE_COLORS["offense" if label in "HR" else "defense"],
+            SIDE_COLORS["offense" if label in OFFENSE_TOKENS else "defense"],
             label,
             ghost=True,
             offset=first + gap * position,
@@ -1301,10 +1307,10 @@ def draw_strip_legend(
     top: float,
     size: int = STRIP_LEGEND_SIZE,
     offset: float = 16,
-    receiver: bool = False,
+    pieces: str = "",
 ) -> None:
-    """The strip's legend; `receiver` adds "R receiver" where an R is
-    drawn, on the 2.0 faces (the author, 2026-10-28)."""
+    """The strip's legend; `pieces` adds "R receiver" and "T teammate"
+    where those are drawn, on the 2.0 faces (the author, 2026-10-28)."""
     pen.text(
         (geo.right, top + offset),
         f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
@@ -1315,7 +1321,8 @@ def draw_strip_legend(
     pen.text(
         (geo.left, top + offset),
         "H handler   C challenger"
-        + ("   R receiver" if receiver else ""),
+        + ("   R receiver" if "R" in pieces else "")
+        + ("   T teammate" if "T" in pieces else ""),
         font(size),
         MUTED,
         anchor="la",
@@ -1417,9 +1424,7 @@ def draw_strip(
     draw_strip_legend(
         pen, geo, top, legend_size,
         16 if legend_room == STRIP_LEGEND_ROOM else 10,
-        receiver=not roles and any(
-            "R" in actor for actor in landings.values()
-        ),
+        pieces="" if roles else "".join(landings.values()),
     )
 
 
