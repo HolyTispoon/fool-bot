@@ -2071,7 +2071,7 @@ def draw_card_effect(
 #: `TWO_HEADED_BAND_RANK`, so the deck's ranks read as one set. The
 #: two-headed card's own sizes are `TWO_HEADED_BADGE`,
 #: `TWO_HEADED_BADGE_RANK` and `TWO_HEADED_BAND_RANK`, and the back's
-#: `EDITION_TWO_BACK_RANK`.
+#: `EDITION_TWO_BACK`.
 EDITION_TWO_BADGE_RANK = 50
 
 
@@ -2221,12 +2221,40 @@ CYCLE_TIER_RULE_WIDTH = 3
 # than inside it, since the circle is already carrying two names.
 CYCLE_RANK_LABEL_GAP = 34
 CYCLE_RANK_FONT_SIZE = 30
-#: The back's rank labels on the 2.0 deck's back, larger and inside the
-#: node, above its name (the author, 2026-10-28) --
-#: `render_maneuver_card_back(rank_size=..., rank_inside=True)`. Its
-#: caption calls the beats line an "arrow" where 1.0's says "solid"
-#: (`beats_word`, the author, 2026-10-28).
-EDITION_TWO_BACK_RANK = 42
+#: Between a rank drawn inside its node and the name under it.
+NODE_RANK_GAP = 22
+
+
+class BackStyle(NamedTuple):
+    """
+    How a maneuver back draws its words: the title, the rank labels
+    and the captions. The defaults are 1.0's backs; `EDITION_TWO_BACK`
+    is the 2.0 deck's.
+    """
+
+    title_size: int = 44
+    subtitle_size: int = 21
+    rank_size: int = CYCLE_RANK_FONT_SIZE
+    #: The rank inside its node, in white above the name, rather than
+    #: outside it (`node_rank_head`).
+    rank_inside: bool = False
+    caption_size: int = 24
+    #: What the caption calls the line to what a node beats.
+    beats_word: str = "solid"
+
+
+#: **The 2.0 deck's back** (the author, 2026-10-28): larger words
+#: throughout -- the title, the ranks, the captions -- each rank inside
+#: its node above the name, and the caption calling the beats line an
+#: arrow.
+EDITION_TWO_BACK = BackStyle(
+    title_size=56,
+    subtitle_size=28,
+    rank_size=42,
+    rank_inside=True,
+    caption_size=28,
+    beats_word="arrow",
+)
 
 # How far short of a node's edge a tie line stops, and how it is
 # drawn. Stopping outside the circle keeps the dashes from running
@@ -2314,7 +2342,8 @@ def fit_node_block(
 
     `head` is a line set above the words in a face of its own that the
     search does not change -- the rank, where the back draws it inside
-    the node (`rank_inside`) -- and the words fit the room it leaves.
+    the node (`BackStyle.rank_inside`) -- and the words fit the room it
+    leaves, `NODE_RANK_GAP` below it.
     """
     words = [word for stack in stacks for word in stack]
     if head is not None:
@@ -2334,7 +2363,7 @@ def fit_node_block(
         ]
         if head is not None:
             boxes = [head_box] + boxes
-            gaps = [CYCLE_LINE_GAP] + gaps
+            gaps = [NODE_RANK_GAP] + gaps
         heights = [box[3] - box[1] for box in boxes]
         total_height = sum(heights) + sum(gaps)
         if total_height > radius * 2 - CYCLE_LABEL_MARGIN:
@@ -2363,18 +2392,18 @@ def fit_node_block(
     )
 
 
-def draw_back_title(pen: Pen) -> None:
+def draw_back_title(pen: Pen, style: BackStyle = BackStyle()) -> None:
     pen.text(
         (CARD_WIDTH / 2, 70),
         "D12 BALL",
-        font(44, bold=True),
+        font(style.title_size, bold=True),
         INK,
         anchor="mm",
     )
     pen.text(
-        (CARD_WIDTH / 2, 108),
+        (CARD_WIDTH / 2, 108 + (style.title_size - 44) * 0.6),
         "MANEUVERS",
-        font(21, bold=True),
+        font(style.subtitle_size, bold=True),
         MUTED,
         anchor="mm",
     )
@@ -2459,12 +2488,11 @@ def draw_cycle_node(
     stack: list[list[str]],
     both_tiers: bool,
     cap_size: int,
-    rank_size: int = CYCLE_RANK_FONT_SIZE,
-    rank_inside: bool = False,
+    style: BackStyle = BackStyle(),
 ) -> None:
     """One rank: its disc, the rank badge outside it, and the names
-    inside -- or, with `rank_inside`, the rank in the disc too, in white
-    above the names (`node_rank_head`)."""
+    inside -- or, with `style.rank_inside`, the rank in the disc too, in
+    white above the names (`node_rank_head`)."""
     color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
     pen.circle(point, CYCLE_NODE_RADIUS, fill=color)
 
@@ -2482,10 +2510,10 @@ def draw_cycle_node(
     vertical_sign = -1 if point[1] < center_y else 1
     rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
     head = (
-        node_rank_head(maneuver, is_offense, rank_size)
-        if rank_inside else None
+        node_rank_head(maneuver, is_offense, style.rank_size)
+        if style.rank_inside else None
     )
-    if not rank_inside:
+    if not style.rank_inside:
         pen.text(
             (
                 point[0],
@@ -2493,7 +2521,7 @@ def draw_cycle_node(
                 + vertical_sign * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
             ),
             rank_label,
-            rank_font(rank_size),
+            rank_font(style.rank_size),
             color,
             anchor="mm",
         )
@@ -2514,6 +2542,7 @@ def draw_cycle_node(
     boxes = [pen.ink_box(text, face) for text, face in lines]
     gaps = [
         CYCLE_TIER_GAP if split is not None and index == split - 1
+        else NODE_RANK_GAP if head is not None and index == 0
         else CYCLE_LINE_GAP
         for index in range(len(lines) - 1)
     ]
@@ -2549,14 +2578,15 @@ def draw_cycle_node(
 def node_rank_head(
     maneuver: ManeuverDefinition, is_offense: bool, rank_size: int,
 ) -> tuple[str, ImageFont.ImageFont]:
-    """The rank as the first line inside a back's node (`rank_inside`)."""
+    """The rank as the first line inside a back's node
+    (`BackStyle.rank_inside`)."""
     return (
         f"{'O' if is_offense else 'D'}{maneuver.rank}", rank_font(rank_size),
     )
 
 
 def draw_back_captions(
-    pen: Pen, both_tiers: bool, beats_word: str = "solid",
+    pen: Pen, both_tiers: bool, style: BackStyle = BackStyle(),
 ) -> None:
     # Below the D1 rank badge under the bottom node -- the one node
     # whose spoke runs straight down into the caption block. At 24
@@ -2567,14 +2597,14 @@ def draw_back_captions(
         "each node is one rank: basic maneuvers above advanced"
         if both_tiers
         else "each node is one rank",
-        font(24),
+        font(style.caption_size),
         MUTED,
         anchor="mm",
     )
     pen.text(
         (CARD_WIDTH / 2, CARD_HEIGHT - 52),
-        f"{beats_word}: beats what it points to · dashed: ties",
-        font(24),
+        f"{style.beats_word}: beats what it points to · dashed: ties",
+        font(style.caption_size),
         MUTED,
         anchor="mm",
     )
@@ -2584,9 +2614,7 @@ def render_maneuver_card_back(
     catalog: ManeuverCatalog,
     bleed: bool,
     tier: str = MANEUVER_TIER_GAMBIT,
-    rank_size: int = CYCLE_RANK_FONT_SIZE,
-    rank_inside: bool = False,
-    beats_word: str = "solid",
+    style: BackStyle = BackStyle(),
 ) -> Image.Image:
     """
     One back for all twelve in advanced mode, because a coach holding
@@ -2627,7 +2655,7 @@ def render_maneuver_card_back(
         outline=BACK_EDGE,
         width=EDGE_WIDTH,
     )
-    draw_back_title(pen)
+    draw_back_title(pen, style)
 
     # The basic tier gives the six positions; the gambit on each
     # rank is looked up rather than walked, because it is the same
@@ -2657,18 +2685,18 @@ def render_maneuver_card_back(
     cap_size = min(
         fit_node_block(
             pen, stack, CYCLE_NODE_RADIUS,
-            head=node_rank_head(maneuver, is_offense, rank_size)
-            if rank_inside else None,
+            head=node_rank_head(maneuver, is_offense, style.rank_size)
+            if style.rank_inside else None,
         )[2]
         for (maneuver, is_offense), stack in zip(order, stacks)
     )
     for (maneuver, is_offense), point, stack in zip(order, points, stacks):
         draw_cycle_node(
             pen, point, center[1], maneuver, is_offense,
-            stack, both_tiers, cap_size, rank_size, rank_inside,
+            stack, both_tiers, cap_size, style,
         )
 
-    draw_back_captions(pen, both_tiers, beats_word)
+    draw_back_captions(pen, both_tiers, style)
     return pen.finish(bleed, BACK_COLOR)
 
 

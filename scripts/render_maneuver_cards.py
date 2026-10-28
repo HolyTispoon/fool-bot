@@ -15,8 +15,9 @@ folder: the eighteen cards of one coach's deck (`maneuver_deck.deck_cards`)
 offensive half upright) and the six advanced maneuvers in their 2.0
 wording (`render_maneuver_card(edition_two=True)`). Every card takes
 the basic back, the six basic maneuvers' hexagon (the author,
-2026-10-28), with its ranks drawn larger and inside each node, above
-the name, and its caption calling the beats line an arrow. `--sheet` writes them as three Avery 95328 pages and their
+2026-10-28), in the 2.0 back's style (`EDITION_TWO_BACK`): larger
+words throughout, each rank inside its node above the name, and the
+caption calling the beats line an arrow. `--sheet` writes them as three Avery 95328 pages and their
 backs; `--hands` is 1.0's alone.
 
 **Two backs, one a tier** (the author, 2026-09-28). The six basic
@@ -47,7 +48,7 @@ from d12ball.cards import (  # noqa: E402
     BLEED,
     CARD_FACE,
     DUPLEX_COLUMNS,
-    EDITION_TWO_BACK_RANK,
+    EDITION_TWO_BACK,
     avery_95328_pages,
     avery_95328_sheet,
     duplex_order,
@@ -112,8 +113,7 @@ def render_edition_two(args, catalog, players) -> None:
 
     back = render_maneuver_card_back(
         catalog, args.bleed, MANEUVER_TIER_BASIC,
-        rank_size=EDITION_TWO_BACK_RANK, rank_inside=True,
-        beats_word="arrow",
+        style=EDITION_TWO_BACK,
     )
     if not args.sheets_only:
         back_path = args.out / "back.png"

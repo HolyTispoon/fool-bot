@@ -34,13 +34,16 @@ bot's 2.0 hand shows: the twelve two-headed basic cards, offense upright
 pile, so every card needs the same back, and the basic six's hexagon is the one chosen.
 
 **2.0 draws its ranks larger** (the author, 2026-10-28) -- the header's badge, the matchup
-row or the two-headed card's band, and the back's hexagon, where each rank sits inside its
-node, in white above the name (`rank_inside`), its caption reading "arrow: beats what it
-points to" where 1.0's reads "solid" (`beats_word`) (`EDITION_TWO_BADGE_RANK`,
-`TWO_HEADED_BADGE` and `TWO_HEADED_BADGE_RANK`, `TWO_HEADED_BAND_RANK`,
-`EDITION_TWO_BACK_RANK`). The sizes are 2.0's alone, passed in where the 1.0 face's defaults
-stand, so every 1.0 card and hand is byte-identical; the bot's 2.0 hand draws the same faces
-and carries the larger ranks too.
+row or the two-headed card's band (`EDITION_TWO_BADGE_RANK`, `TWO_HEADED_BADGE` and
+`TWO_HEADED_BADGE_RANK`, `TWO_HEADED_BAND_RANK`). The sizes are 2.0's alone, passed in where
+the 1.0 face's defaults stand, so every 1.0 card and hand is byte-identical; the bot's 2.0
+hand draws the same faces and carries the larger ranks too.
+
+**The 2.0 back is the basic back in a style of its own** (`EDITION_TWO_BACK`, a `BackStyle`;
+the author, 2026-10-28): the title, the ranks and the captions larger; each rank inside its
+node, in white above the name with `NODE_RANK_GAP` between them, rather than outside it; and
+the caption reading "arrow: beats what it points to" where 1.0's reads "solid".
+`BackStyle()`'s defaults are 1.0's backs, unchanged.
 
 - **The hand replaced a paragraph per maneuver.** `build_maneuver_choice_text`
   listed each maneuver's effect and matchups next to the buttons; every word of
