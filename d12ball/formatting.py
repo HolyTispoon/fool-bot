@@ -429,11 +429,11 @@ def player_with_role(
     card holds in the match, and a card holding none -- on the bench --
     is named by its skills instead, offense then defense as its tile
     prints them, in parentheses because brackets say a role: "Synapse
-    (4|3)" (the author, 2026-10-18 and 2026-10-28). Both are
+    (4/3)" (the author, 2026-10-18 and 2026-10-28). Both are
     `RulesEngine.player_name`'s to pass; nothing else asks for them.
     """
     if skills is not None:
-        return f"{player.name} ({skills[0]}|{skills[1]})"
+        return f"{player.name} ({skills[0]}/{skills[1]})"
     return f"{player.name} {role_badge(player, badge, team, role)}"
 
 

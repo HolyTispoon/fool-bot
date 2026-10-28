@@ -38,7 +38,7 @@ and `format_roster_player_for_message` take the match, and a view names a
 player through `SafeView.player_name`, which loads the match where the
 caller has none in hand. **A 2.0 card holding no role -- on the bench or the
 back bench -- is named by its skills**, offense then defense as its tile
-prints them, `Synapse (4|3)` -- in parentheses, since brackets say a role (decided 2026-10-18; the parentheses 2026-10-28) -- with the game's skills
+prints them, `Synapse (4/3)` -- in parentheses, since brackets say a role (decided 2026-10-18; the parentheses and the slash 2026-10-28) -- with the game's skills
 where the caller has the game (`skills`, so an advanced score in an advanced
 game). In 1.0 `role_of` is the card's own role, so every name reads exactly
 as before. A view that calls `player_with_role` itself would name a 2.0
