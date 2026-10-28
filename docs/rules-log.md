@@ -156,6 +156,15 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-28 (latest) -- sheet and author, 2.0: Drive goes ahead only
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 7.2i). The author amended Drive
+on the `maneuvers 2.0` tab: *"Player and ball to closest teammate ahead. Teammate may take the
+ball. Ball speed -2."* -- "ahead or behind" is now "ahead". In the author's words: *"it only
+goes ahead, not behind"*. The bot offers Drive's teammate ahead alone
+(`RulesEngine.pass_candidates`); a 2.0 game saved with a Drive waiting on its choice is offered
+the teammate ahead at its next click.
+
 ### 2026-10-28 (later) -- sheet and author, 2.0: the two-headed cards re-paired
 
 **A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 1.1a, 7.1). The author

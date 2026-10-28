@@ -326,8 +326,8 @@ Every card costs 1 time but the offensive cards of rank O3, which cost 2 (Law 16
 - **h.** *Spin:* one teammate in the handler's zone may move up to 2 spaces, either way; then
   the handler changes the ball's speed by up to their offensive skill, in either direction
   (Law 6.6.2). The handler keeps the ball.
-- **i.** *Drive:* the handler carries the ball to the nearest teammate ahead or behind, as a
-  Pass reaches one, and that teammate may take the ball or leave it with the handler -- the
+- **i.** *Drive:* the handler carries the ball to the nearest teammate ahead, as a Pass reaches
+  one ahead, and that teammate may take the ball or leave it with the handler -- the
   coach chooses. Ball speed drops by 2, never below 1.
 - **j.** *High Ball:* the ball is thrown 3 spaces forward. A teammate there has to win the High
   Ball contest to keep it (Law 10.4), and having kept it may take a scoring opportunity (Law 8).
