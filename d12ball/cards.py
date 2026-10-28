@@ -565,6 +565,8 @@ class Move(NamedTuple):
     departs the token that actually moves rather than the middle of the
     space. `caption_at` may sit between two spaces, for a caption that
     covers both. `row` and `lift` keep two arcs out of each other's way.
+    `room` is how many spaces wide a lone caption may run, where it is
+    one line along the strip rather than two under its space.
     """
 
     offset: int
@@ -576,6 +578,7 @@ class Move(NamedTuple):
     end: float = 0.0
     lift: float = 0.0
     row: int | None = None
+    room: float | None = None
 
     @property
     def caption_space(self) -> float:
@@ -756,39 +759,50 @@ STRIP_GEOMETRY: dict[str, tuple[int, int]] = {
 # here; its role moves are dropped either way.
 STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     "curved_pass": (
-        Move(2, "any teammate\nup to 2", "offense", caption_at=1.6),
+        Move(2, "any teammate up to 2", "offense", caption_at=1.6),
         Move(-2, "or behind", "offense"),
     ),
+    # The passer's run on the captions' one row, between "or behind"
+    # and "nearest ahead" (the author, 2026-10-28).
     "pass_and_run": (
-        Move(2, "nearest ahead", "offense"),
+        Move(2, "nearest ahead", "offense", caption_at=2.55),
         Move(-2, "or behind", "offense"),
-        Move(1, "passer\nruns 1", "offense", lift=-6, row=1),
+        Move(1, "passer runs 1", "offense", lift=-6, row=0,
+             caption_at=0.75),
     ),
     "reset_play": (
         Move(3, "to the Playmaker", "offense", caption_at=2.8),
     ),
+    # One caption for both arcs, so it runs at full size rather than
+    # squeezed into a space (the author, 2026-10-28).
     "advance": (
-        Move(1, "handler + ball", "offense", lift=10),
-        Move(2, "or 2", "offense"),
+        Move(1, "handler + ball, 1 or 2", "offense", lift=10,
+             caption_at=1.5, room=4),
+        Move(2, "", "offense"),
     ),
+    # One caption line each on Spin, High Ball, Set up and Long shot,
+    # run along the strip's open spaces, so the panel is a line shorter
+    # (the author, 2026-10-28).
     "spin": (
-        Move(2, "a teammate in the\nzone moves up to 2", "offense",
-             caption_at=2.2),
+        Move(2, "a teammate in the zone moves up to 2", "offense",
+             caption_at=1.0, room=6),
     ),
+    # Ahead alone since the sheet's change of 2026-10-28.
     "drive": (
-        Move(2, "handler + ball\nto nearest", "offense"),
-        Move(-2, "or behind", "offense"),
+        Move(2, "handler + ball to the nearest teammate ahead", "offense",
+             caption_at=1.0, room=6),
     ),
     "high_pass": (
-        Move(3, "contested, then\nmay set up scoring", "offense",
-             caption_at=2.8),
+        Move(3, "contested, then may set up scoring", "offense",
+             caption_at=1.8, room=6),
     ),
     "set_up": (
-        Move(2, "received\nmay set up scoring", "offense"),
+        Move(2, "received, may set up scoring", "offense", caption_at=1.6,
+             room=5),
     ),
     "long_shot": (
-        Move(4, "to the Striker, contested,\nthen may set up scoring",
-             "offense", caption_at=2.6),
+        Move(4, "to the Striker, contested, then may set up scoring",
+             "offense", caption_at=1.0, room=7),
     ),
     "vertical_ball": (
         Move(0, "same space", "offense", start=-19, end=19, lift=8),
@@ -801,7 +815,8 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
         Move(3, "or 3", "offense"),
     ),
     "follow": (
-        Move(-1, "ball back,\ndefender follows", "defense"),
+        Move(-1, "ball back, defender follows", "defense", caption_at=-0.5,
+             room=4),
     ),
     "boot": (
         Move(-2, "ball back", "defense"),
@@ -811,7 +826,7 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
              lift=8),
     ),
     "pickpocket": (
-        Move(0, "turnover\nwhere it is", "defense", start=19, end=-19,
+        Move(0, "turnover", "defense", start=19, end=-19,
              lift=8),
     ),
     "my_turf": (
@@ -820,9 +835,20 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     "toss": (
         Move(2, "to the nearest\nteammate behind", "defense", start=19),
     ),
+    # Pressure's and Control's two captions on one row, either side of
+    # the space they share, where 1.0's Pressure puts the challenger's
+    # under the handler's (the author, 2026-10-28).
+    "pressure": (
+        Move(-1, "handler + ball", "offense", start=-19, end=-19,
+             caption_at=-1.9),
+        Move(-1, "challenger", "defense", start=19, end=19, lift=26,
+             row=0, caption_at=-0.1),
+    ),
     "control": (
-        Move(-1, "handler + ball", "offense", start=-19, end=-19),
-        Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
+        Move(-1, "handler + ball", "offense", start=-19, end=-19,
+             caption_at=-1.9),
+        Move(-1, "challenger", "defense", start=19, end=19, lift=26,
+             row=0, caption_at=-0.1),
     ),
     "stay_close": (
         Move(0, "handler exhausts 1", "defense", start=19, end=-19,
@@ -831,8 +857,11 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     "stress": (
         Move(-2, "to the nearest\nteammate behind", "offense",
              start=-19, end=-19),
-        Move(-2, "challenger follows", "defense", start=19, end=19,
-             lift=26, row=1),
+        # Its caption beside the other one rather than under it, over
+        # the empty spaces ahead, so the panel is one caption row deep
+        # (the author, 2026-10-28).
+        Move(-2, "challenger\nfollows", "defense", start=19, end=19,
+             lift=26, row=0, caption_at=0.5),
     ),
 }
 STRIP_ACTORS_TWO: dict[str, tuple[str, dict[int, str]]] = {
@@ -840,8 +869,8 @@ STRIP_ACTORS_TWO: dict[str, tuple[str, dict[int, str]]] = {
     "pass_and_run": ("H", {2: "R", -2: "R", 1: "H"}),
     "reset_play": ("H", {3: "R"}),
     "advance": ("H", {1: "H", 2: "H"}),
-    "spin": ("H", {2: "R"}),
-    "drive": ("H", {2: "HR", -2: "HR"}),
+    "spin": ("H", {2: "T"}),
+    "drive": ("H", {2: "HT"}),
     "high_pass": ("H", {3: "R"}),
     "set_up": ("H", {2: "R"}),
     "long_shot": ("H", {4: "R"}),
@@ -1145,7 +1174,8 @@ def draw_strip_caption(
         for other in moves
         if other is not move and other.caption_row == move.caption_row
     ]
-    room = geo.space_width * (min(neighbours) if neighbours else 2.4) - 8
+    spaces = move.room or (min(neighbours) if neighbours else 2.4)
+    room = geo.space_width * spaces - 8
     lines = move.label.split("\n")
     for size in range(21, 13, -1):
         face = font(size, bold=True)
@@ -1161,6 +1191,12 @@ def draw_strip_caption(
         y += geo.caption_line
 
 
+#: The strip's offensive pieces: the handler, a receiver of a pass, and
+#: a teammate a move reaches that is not a pass (Drive, Spin -- the
+#: author, 2026-10-28: "there is no receiver because it's not a pass").
+OFFENSE_TOKENS = "HRT"
+
+
 def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> None:
     """
     The pieces a space is drawn holding, spread evenly across it. One
@@ -1173,7 +1209,7 @@ def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> N
     """
     if len(who) == 1:
         draw_strip_token(
-            pen, geo, index, SIDE_COLORS["offense" if who in "HR" else "defense"],
+            pen, geo, index, SIDE_COLORS["offense" if who in OFFENSE_TOKENS else "defense"],
             who, ghost=True,
         )
         return
@@ -1183,7 +1219,7 @@ def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> N
                 pen,
                 geo,
                 index,
-                SIDE_COLORS["offense" if label in "HR" else "defense"],
+                SIDE_COLORS["offense" if label in OFFENSE_TOKENS else "defense"],
                 label,
                 ghost=True,
                 offset=offset,
@@ -1199,7 +1235,7 @@ def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> N
             pen,
             geo,
             index,
-            SIDE_COLORS["offense" if label in "HR" else "defense"],
+            SIDE_COLORS["offense" if label in OFFENSE_TOKENS else "defense"],
             label,
             ghost=True,
             offset=first + gap * position,
@@ -1271,7 +1307,10 @@ def draw_strip_legend(
     top: float,
     size: int = STRIP_LEGEND_SIZE,
     offset: float = 16,
+    pieces: str = "",
 ) -> None:
+    """The strip's legend; `pieces` adds "R receiver" and "T teammate"
+    where those are drawn, on the 2.0 faces (the author, 2026-10-28)."""
     pen.text(
         (geo.right, top + offset),
         f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
@@ -1281,7 +1320,9 @@ def draw_strip_legend(
     )
     pen.text(
         (geo.left, top + offset),
-        "H handler   C challenger",
+        "H handler   C challenger"
+        + ("   R receiver" if "R" in pieces else "")
+        + ("   T teammate" if "T" in pieces else ""),
         font(size),
         MUTED,
         anchor="la",
@@ -1383,6 +1424,7 @@ def draw_strip(
     draw_strip_legend(
         pen, geo, top, legend_size,
         16 if legend_room == STRIP_LEGEND_ROOM else 10,
+        pieces="" if roles else "".join(landings.values()),
     )
 
 
@@ -2066,12 +2108,12 @@ def draw_card_effect(
 #: **2.0's ranks are drawn larger** (the author, 2026-10-28): the badge's
 #: rank on an advanced card's header, which the 46-unit badge carries at
 #: 50 where 1.0's card draws 38 -- "O3" is 72 wide in a disc 92 across.
-#: Its matchup row draws its ranks at the two-headed band's size,
-#: `TWO_HEADED_BAND_RANK`, so the deck's ranks read as one set. The
+#: Its matchup row draws its ranks at `EDITION_TWO_MATCHUP_RANK`. The
 #: two-headed card's own sizes are `TWO_HEADED_BADGE`,
 #: `TWO_HEADED_BADGE_RANK` and `TWO_HEADED_BAND_RANK`, and the back's
 #: `EDITION_TWO_BACK`.
 EDITION_TWO_BADGE_RANK = 50
+EDITION_TWO_MATCHUP_RANK = 44
 
 
 def two_point_oh_face(maneuver: ManeuverDefinition) -> ManeuverDefinition:
@@ -2146,7 +2188,7 @@ def render_maneuver_card(
 
     draw_matchups(
         pen, catalog, maneuver, is_offense, matchup_top, matchup_height,
-        TWO_HEADED_BAND_RANK if edition_two else MATCHUP_RANK_SIZE,
+        EDITION_TWO_MATCHUP_RANK if edition_two else MATCHUP_RANK_SIZE,
     )
 
     draw_card_effect(
@@ -2996,7 +3038,7 @@ TWO_HEADED_EDGE = "#8c9aa6"
 #: The shared band across the middle of a two-headed card: one row of
 #: ranks for the half above it and the same row turned for the half
 #: below, each this tall.
-TWO_HEADED_BAND_ROW = 92
+TWO_HEADED_BAND_ROW = 82
 
 #: How much of a card the cream covers where its coach cannot play it
 #: this maneuver -- an advanced card of the other side, in the hand but
@@ -3044,42 +3086,35 @@ def two_headed_half_height() -> int:
     return (CARD_HEIGHT - TWO_HEADED_BAND_ROW * 2) // 2
 
 
-_TWO_HEADED_EFFECT_SIZES: dict[tuple, int] = {}
+#: A half's effect sentence: **each half at the largest size its own
+#: room takes**, between these two (the author, 2026-10-28: the text was
+#: "way too small" with empty space under it). One size for all
+#: twenty-four came out at 20, held there by the one half with the
+#: least room, and left every other half's sentence small above white.
+TWO_HEADED_EFFECT_MAX = 32
+TWO_HEADED_EFFECT_MIN = 18
+#: The effect's measure: the card's width inside its margins.
+TWO_HEADED_EFFECT_WIDTH = CARD_WIDTH - MARGIN * 2
 
 
-def two_headed_effect_size(pen: Pen, catalog: ManeuverCatalog) -> int:
+def two_headed_effect_layout(
+    pen: Pen, maneuver: ManeuverDefinition,
+) -> tuple[ImageFont.ImageFont, list[str], float, float]:
     """
-    **One effect size for all six halves**, the largest at which every
-    basic maneuver's sentence fits under its own diagram in a half --
-    as `basic_effect_layout` sets one size for the six printed cards,
-    so the two-headed cards read as one set.
+    A half's effect sentence fitted to the room under its own diagram:
+    its face, its lines, its line step, and where the first line sits --
+    the block **centred in that room**, so a short sentence does not
+    hang under the diagram above a gap.
     """
-    basics = [
-        maneuver
-        for card in dict.fromkeys(maneuver_deck.deck_cards(catalog))
-        if maneuver_deck.is_basic_card(card)
-        for side in ("offense", "defense")
-        for maneuver in (maneuver_deck.plays_as(catalog, card, side),)
-    ]
-    key = tuple((maneuver.key, maneuver.deck_effect) for maneuver in basics)
-    if key in _TWO_HEADED_EFFECT_SIZES:
-        return _TWO_HEADED_EFFECT_SIZES[key]
-    width = CARD_WIDTH - MARGIN * 2 - 20
-    size = EFFECT_MIN_SIZE
-    for candidate in range(EFFECT_MAX_SIZE, EFFECT_MIN_SIZE - 1, -1):
-        face = font(candidate)
+    room_top = two_headed_effect_top(maneuver)
+    room = two_headed_half_height() - TWO_HEADED_GAP - room_top
+    for size in range(TWO_HEADED_EFFECT_MAX, TWO_HEADED_EFFECT_MIN - 1, -1):
+        face = font(size)
         step = line_height(pen, face)
-        if all(
-            two_headed_effect_top(maneuver)
-            + step * len(pen.wrapped(maneuver.deck_effect, face, width))
-            + TWO_HEADED_GAP
-            <= two_headed_half_height()
-            for maneuver in basics
-        ):
-            size = candidate
+        lines = pen.wrapped(maneuver.deck_effect, face, TWO_HEADED_EFFECT_WIDTH)
+        if step * len(lines) <= room:
             break
-    _TWO_HEADED_EFFECT_SIZES[key] = size
-    return size
+    return face, lines, step, room_top + max(0, room - step * len(lines)) / 2
 
 
 def two_headed_strip_top() -> float:
@@ -3113,8 +3148,8 @@ def render_two_headed_half(
     Drawn to fit half the card rather than drawn at the printed size and
     shrunk, which made the halves narrower than the card: a shorter
     header (`TWO_HEADED_HEADER`), a diagram panel as tall as its own
-    diagram, and the effect at one size for all six
-    (`two_headed_effect_size`). Drawn on a whole card's canvas, so the
+    diagram, and the effect as large as the room under that diagram
+    takes (`two_headed_effect_layout`). Drawn on a whole card's canvas, so the
     header follows the card's rounded corners, and cut to the half.
     """
     color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
@@ -3133,12 +3168,8 @@ def render_two_headed_half(
         legend_size=TWO_HEADED_LEGEND_SIZE,
     )
 
-    effect_font = font(two_headed_effect_size(pen, catalog))
-    step = line_height(pen, effect_font)
-    y = two_headed_effect_top(maneuver)
-    for line in pen.wrapped(
-        maneuver.deck_effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20,
-    ):
+    effect_font, lines, step, y = two_headed_effect_layout(pen, maneuver)
+    for line in lines:
         pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
         y += step
     return pen.finish(False, CARD_FACE).crop(
@@ -3149,8 +3180,34 @@ def render_two_headed_half(
 #: The band's row, laid out as the printed card's matchup row
 #: (`draw_matchups`) at a size two of them fit across a card's middle.
 TWO_HEADED_BAND_LABEL = 19
-TWO_HEADED_BAND_RANK = 44
-TWO_HEADED_BAND_NAME = 25
+TWO_HEADED_BAND_RANK = 30
+TWO_HEADED_BAND_NAME = 23
+#: The band's top rule: its y and its width.
+TWO_HEADED_BAND_RULE = (1, 2)
+
+
+def band_baselines(
+    pen: Pen, faces: Sequence[ImageFont.ImageFont],
+) -> list[float]:
+    """
+    Where the band's three lines sit -- the label, the rank, the name --
+    as baselines, **the gaps between the rule and each line's capitals
+    all one size** (the author, 2026-10-28: "the spaces between the
+    line, Beats, D2, Steal should be even"). Measured by cap height, so
+    a descender (High Ball's g) hangs into the gap below it rather than
+    pushing the lines apart. The row's foot keeps half a gap, so the
+    two names meeting across the middle of the card are a gap apart too.
+    """
+    rule_y, rule_width = TWO_HEADED_BAND_RULE
+    top = rule_y + rule_width / 2
+    caps = [-pen.ink_box("H", face, anchor="ls")[1] for face in faces]
+    gap = (TWO_HEADED_BAND_ROW - top - sum(caps)) / (len(caps) + 0.5)
+    baselines = []
+    y = top
+    for cap in caps:
+        y += gap + cap
+        baselines.append(y)
+    return baselines
 
 
 def render_two_headed_band(
@@ -3180,25 +3237,29 @@ def render_two_headed_band(
     label_font = font(TWO_HEADED_BAND_LABEL, bold=True)
     value_font = rank_font(TWO_HEADED_BAND_RANK)
     name_font = font(TWO_HEADED_BAND_NAME, bold=True)
+    rule_y, rule_width = TWO_HEADED_BAND_RULE
     pen.line(
-        [(MARGIN + 10, 1), (CARD_WIDTH - MARGIN - 10, 1)],
-        fill=PANEL_EDGE, width=2,
+        [(MARGIN + 10, rule_y), (CARD_WIDTH - MARGIN - 10, rule_y)],
+        fill=PANEL_EDGE, width=rule_width,
+    )
+    label_y, rank_y, name_y = band_baselines(
+        pen, (label_font, value_font, name_font),
     )
     for index, (label, (opposing_rank, (basic, _))) in enumerate(zip(
         ("BEATS", "TIES", "LOSES TO"), groups,
     )):
         cx = MARGIN + column_width * (index + 0.5)
-        pen.text((cx, 15), label, label_font, MUTED, anchor="mm")
+        pen.text((cx, label_y), label, label_font, MUTED, anchor="ms")
         pen.text(
-            (cx, 42), f"{opposing_letter}{opposing_rank}", value_font,
-            rank_color, anchor="mm",
+            (cx, rank_y), f"{opposing_letter}{opposing_rank}", value_font,
+            rank_color, anchor="ms",
         )
-        pen.text((cx, 72), basic.name, name_font, rank_color, anchor="mm")
+        pen.text((cx, name_y), basic.name, name_font, rank_color, anchor="ms")
         if index:
             pen.line(
                 [
                     (MARGIN + column_width * index, 8),
-                    (MARGIN + column_width * index, TWO_HEADED_BAND_ROW - 14),
+                    (MARGIN + column_width * index, TWO_HEADED_BAND_ROW - 10),
                 ],
                 fill=PANEL_EDGE, width=2,
             )
