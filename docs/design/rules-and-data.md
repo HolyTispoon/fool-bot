@@ -70,8 +70,7 @@ sheet's own URLs. Three things it settles that a hand conversion got wrong:
 
 **D12 Ball 2.0's cards are a tab of their own**, `maneuvers 2.0`, imported by
 `scripts/import_d12ball_maneuvers_2.py` into `d12ball/data/maneuvers_2.json` -- five rows a rank
-on each side, numbered by the tab's first column (read by position: its header was `Index`
-and became `Q1 ` on 2026-10-28). It has no `Defeats` column, so the importer reads
+on each side, numbered by the tab's `Index`. It has no `Defeats` column, so the importer reads
 each rank's cycle from `maneuvers.json` (the workbook script runs `maneuvers` first), and it
 fills a blank `Mode` with Basic and a blank `Time` with 1, printing each cell it filled (the
 author, 2026-10-27). How the catalog folds it in is "The 2.0 cards" in
