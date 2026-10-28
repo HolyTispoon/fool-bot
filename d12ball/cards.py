@@ -762,10 +762,13 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
         Move(2, "any teammate\nup to 2", "offense", caption_at=1.6),
         Move(-2, "or behind", "offense"),
     ),
+    # The passer's run on the captions' one row, between "or behind"
+    # and "nearest ahead" (the author, 2026-10-28).
     "pass_and_run": (
-        Move(2, "nearest ahead", "offense"),
+        Move(2, "nearest ahead", "offense", caption_at=2.55),
         Move(-2, "or behind", "offense"),
-        Move(1, "passer\nruns 1", "offense", lift=-6, row=1),
+        Move(1, "passer runs 1", "offense", lift=-6, row=0,
+             caption_at=0.75),
     ),
     "reset_play": (
         Move(3, "to the Playmaker", "offense", caption_at=2.8),
