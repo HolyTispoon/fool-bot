@@ -156,6 +156,19 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-28 -- sheet and author, 2.0: Follow amended, and the card readings confirmed
+
+**A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 7.3b). The author amended Follow
+on the `maneuvers 2.0` tab: *"Ball moves back 1 space, defender follows it. If reaches goal
+zone, may set up scoring."* -- its +3 to ball speed is gone, and the goal-zone scoring
+opportunity the entry below read into it is now the card's own words. Of the rest of the
+readings below: *"everything else seems correct"*. Reset Play's "(wherever they are)" was also
+dropped from its wording, which changes nothing.
+
+The tab's first column, the row numbers, is now headed `Q1 ` rather than `Index`, so the
+importer reads it by position. The tab also has a new `Spec` column -- a species ability or
+`All` against each offensive card and each advanced card -- which nothing imports yet.
+
 ### 2026-10-27 -- sheet and author, 2.0: the maneuver cards of the `maneuvers 2.0` tab
 
 **A rule changed, in 2.0 alone** ([rules-2.0.md](rules-2.0.md) 1.1a and section 7). The author

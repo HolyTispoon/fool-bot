@@ -347,8 +347,9 @@ Every card costs 1 time but the offensive cards of rank O3, which cost 2 (Law 16
 - **a.** *Deflect:* the ball moves 1 space back and its speed drops by 1; a Fullback deflects it
   2 -- the card's own line, since 2.0 plays no role abilities (4.7). It lands as the Charter's
   Deflect does, the goal-zone scoring opportunity included (Law 6.8.4, 6.8.5).
-- **b.** *Follow:* the ball moves 1 space back and its speed rises by 3, and the player who
-  played it moves onto the space it lands on. It then lands as a Deflect does.
+- **b.** *Follow:* the ball moves 1 space back and its speed does not change, and the player
+  who played it moves onto the space it lands on. It then lands as a Deflect does, the
+  goal-zone scoring opportunity included.
 - **c.** *Boot:* the ball moves 2 spaces back and its speed does not change. A ball booted into
   the goal zone sets up no scoring opportunity; it lands by the ordinary rule (Law 10.1).
 - **d.** *Block:* the ball is contested on the spot, by the handler and the player who played
