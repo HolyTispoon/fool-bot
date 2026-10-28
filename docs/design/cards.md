@@ -34,7 +34,8 @@ bot's 2.0 hand shows: the twelve two-headed basic cards, offense upright
 pile, so every card needs the same back, and the basic six's hexagon is the one chosen.
 
 **2.0 draws its ranks larger** (the author, 2026-10-28) -- the header's badge, the matchup
-row or the two-headed card's band, and the back's hexagon (`EDITION_TWO_BADGE_RANK`,
+row or the two-headed card's band, and the back's hexagon, where each rank sits inside its
+node, in white above the name (`rank_inside`) (`EDITION_TWO_BADGE_RANK`,
 `TWO_HEADED_BADGE` and `TWO_HEADED_BADGE_RANK`, `TWO_HEADED_BAND_RANK`,
 `EDITION_TWO_BACK_RANK`). The sizes are 2.0's alone, passed in where the 1.0 face's defaults
 stand, so every 1.0 card and hand is byte-identical; the bot's 2.0 hand draws the same faces

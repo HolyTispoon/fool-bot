@@ -15,7 +15,8 @@ folder: the eighteen cards of one coach's deck (`maneuver_deck.deck_cards`)
 offensive half upright) and the six advanced maneuvers in their 2.0
 wording (`render_maneuver_card(edition_two=True)`). Every card takes
 the basic back, the six basic maneuvers' hexagon (the author,
-2026-10-28), with its ranks drawn larger, as every 2.0 face draws them. `--sheet` writes them as three Avery 95328 pages and their
+2026-10-28), with its ranks drawn larger and inside each node, above
+the name. `--sheet` writes them as three Avery 95328 pages and their
 backs; `--hands` is 1.0's alone.
 
 **Two backs, one a tier** (the author, 2026-09-28). The six basic
@@ -111,7 +112,7 @@ def render_edition_two(args, catalog, players) -> None:
 
     back = render_maneuver_card_back(
         catalog, args.bleed, MANEUVER_TIER_BASIC,
-        rank_size=EDITION_TWO_BACK_RANK,
+        rank_size=EDITION_TWO_BACK_RANK, rank_inside=True,
     )
     if not args.sheets_only:
         back_path = args.out / "back.png"
