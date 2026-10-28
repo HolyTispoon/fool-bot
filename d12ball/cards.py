@@ -2066,12 +2066,12 @@ def draw_card_effect(
 #: **2.0's ranks are drawn larger** (the author, 2026-10-28): the badge's
 #: rank on an advanced card's header, which the 46-unit badge carries at
 #: 50 where 1.0's card draws 38 -- "O3" is 72 wide in a disc 92 across.
-#: Its matchup row draws its ranks at the two-headed band's size,
-#: `TWO_HEADED_BAND_RANK`, so the deck's ranks read as one set. The
+#: Its matchup row draws its ranks at `EDITION_TWO_MATCHUP_RANK`. The
 #: two-headed card's own sizes are `TWO_HEADED_BADGE`,
 #: `TWO_HEADED_BADGE_RANK` and `TWO_HEADED_BAND_RANK`, and the back's
 #: `EDITION_TWO_BACK`.
 EDITION_TWO_BADGE_RANK = 50
+EDITION_TWO_MATCHUP_RANK = 44
 
 
 def two_point_oh_face(maneuver: ManeuverDefinition) -> ManeuverDefinition:
@@ -2146,7 +2146,7 @@ def render_maneuver_card(
 
     draw_matchups(
         pen, catalog, maneuver, is_offense, matchup_top, matchup_height,
-        TWO_HEADED_BAND_RANK if edition_two else MATCHUP_RANK_SIZE,
+        EDITION_TWO_MATCHUP_RANK if edition_two else MATCHUP_RANK_SIZE,
     )
 
     draw_card_effect(
@@ -3044,42 +3044,35 @@ def two_headed_half_height() -> int:
     return (CARD_HEIGHT - TWO_HEADED_BAND_ROW * 2) // 2
 
 
-_TWO_HEADED_EFFECT_SIZES: dict[tuple, int] = {}
+#: A half's effect sentence: **each half at the largest size its own
+#: room takes**, between these two (the author, 2026-10-28: the text was
+#: "way too small" with empty space under it). One size for all
+#: twenty-four came out at 20, held there by the one half with the
+#: least room, and left every other half's sentence small above white.
+TWO_HEADED_EFFECT_MAX = 32
+TWO_HEADED_EFFECT_MIN = 18
+#: The effect's measure: the card's width inside its margins.
+TWO_HEADED_EFFECT_WIDTH = CARD_WIDTH - MARGIN * 2
 
 
-def two_headed_effect_size(pen: Pen, catalog: ManeuverCatalog) -> int:
+def two_headed_effect_layout(
+    pen: Pen, maneuver: ManeuverDefinition,
+) -> tuple[ImageFont.ImageFont, list[str], float, float]:
     """
-    **One effect size for all six halves**, the largest at which every
-    basic maneuver's sentence fits under its own diagram in a half --
-    as `basic_effect_layout` sets one size for the six printed cards,
-    so the two-headed cards read as one set.
+    A half's effect sentence fitted to the room under its own diagram:
+    its face, its lines, its line step, and where the first line sits --
+    the block **centred in that room**, so a short sentence does not
+    hang under the diagram above a gap.
     """
-    basics = [
-        maneuver
-        for card in dict.fromkeys(maneuver_deck.deck_cards(catalog))
-        if maneuver_deck.is_basic_card(card)
-        for side in ("offense", "defense")
-        for maneuver in (maneuver_deck.plays_as(catalog, card, side),)
-    ]
-    key = tuple((maneuver.key, maneuver.deck_effect) for maneuver in basics)
-    if key in _TWO_HEADED_EFFECT_SIZES:
-        return _TWO_HEADED_EFFECT_SIZES[key]
-    width = CARD_WIDTH - MARGIN * 2 - 20
-    size = EFFECT_MIN_SIZE
-    for candidate in range(EFFECT_MAX_SIZE, EFFECT_MIN_SIZE - 1, -1):
-        face = font(candidate)
+    room_top = two_headed_effect_top(maneuver)
+    room = two_headed_half_height() - TWO_HEADED_GAP - room_top
+    for size in range(TWO_HEADED_EFFECT_MAX, TWO_HEADED_EFFECT_MIN - 1, -1):
+        face = font(size)
         step = line_height(pen, face)
-        if all(
-            two_headed_effect_top(maneuver)
-            + step * len(pen.wrapped(maneuver.deck_effect, face, width))
-            + TWO_HEADED_GAP
-            <= two_headed_half_height()
-            for maneuver in basics
-        ):
-            size = candidate
+        lines = pen.wrapped(maneuver.deck_effect, face, TWO_HEADED_EFFECT_WIDTH)
+        if step * len(lines) <= room:
             break
-    _TWO_HEADED_EFFECT_SIZES[key] = size
-    return size
+    return face, lines, step, room_top + max(0, room - step * len(lines)) / 2
 
 
 def two_headed_strip_top() -> float:
@@ -3113,8 +3106,8 @@ def render_two_headed_half(
     Drawn to fit half the card rather than drawn at the printed size and
     shrunk, which made the halves narrower than the card: a shorter
     header (`TWO_HEADED_HEADER`), a diagram panel as tall as its own
-    diagram, and the effect at one size for all six
-    (`two_headed_effect_size`). Drawn on a whole card's canvas, so the
+    diagram, and the effect as large as the room under that diagram
+    takes (`two_headed_effect_layout`). Drawn on a whole card's canvas, so the
     header follows the card's rounded corners, and cut to the half.
     """
     color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
@@ -3133,12 +3126,8 @@ def render_two_headed_half(
         legend_size=TWO_HEADED_LEGEND_SIZE,
     )
 
-    effect_font = font(two_headed_effect_size(pen, catalog))
-    step = line_height(pen, effect_font)
-    y = two_headed_effect_top(maneuver)
-    for line in pen.wrapped(
-        maneuver.deck_effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20,
-    ):
+    effect_font, lines, step, y = two_headed_effect_layout(pen, maneuver)
+    for line in lines:
         pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
         y += step
     return pen.finish(False, CARD_FACE).crop(
@@ -3149,8 +3138,14 @@ def render_two_headed_half(
 #: The band's row, laid out as the printed card's matchup row
 #: (`draw_matchups`) at a size two of them fit across a card's middle.
 TWO_HEADED_BAND_LABEL = 19
-TWO_HEADED_BAND_RANK = 44
-TWO_HEADED_BAND_NAME = 25
+TWO_HEADED_BAND_RANK = 34
+TWO_HEADED_BAND_NAME = 23
+#: Where the band's three lines sit in its row: the label, the rank and
+#: the name, spread so each has air round it (the author, 2026-10-28:
+#: the rank "a bit too large and the text too close together").
+TWO_HEADED_BAND_LABEL_Y = 12
+TWO_HEADED_BAND_RANK_Y = 40
+TWO_HEADED_BAND_NAME_Y = 72
 
 
 def render_two_headed_band(
@@ -3188,12 +3183,19 @@ def render_two_headed_band(
         ("BEATS", "TIES", "LOSES TO"), groups,
     )):
         cx = MARGIN + column_width * (index + 0.5)
-        pen.text((cx, 15), label, label_font, MUTED, anchor="mm")
         pen.text(
-            (cx, 42), f"{opposing_letter}{opposing_rank}", value_font,
+            (cx, TWO_HEADED_BAND_LABEL_Y), label, label_font, MUTED,
+            anchor="mm",
+        )
+        pen.text(
+            (cx, TWO_HEADED_BAND_RANK_Y), f"{opposing_letter}{opposing_rank}",
+            value_font,
             rank_color, anchor="mm",
         )
-        pen.text((cx, 72), basic.name, name_font, rank_color, anchor="mm")
+        pen.text(
+            (cx, TWO_HEADED_BAND_NAME_Y), basic.name, name_font, rank_color,
+            anchor="mm",
+        )
         if index:
             pen.line(
                 [
