@@ -1301,7 +1301,10 @@ def draw_strip_legend(
     top: float,
     size: int = STRIP_LEGEND_SIZE,
     offset: float = 16,
+    receiver: bool = False,
 ) -> None:
+    """The strip's legend; `receiver` adds "R receiver" where an R is
+    drawn, on the 2.0 faces (the author, 2026-10-28)."""
     pen.text(
         (geo.right, top + offset),
         f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
@@ -1311,7 +1314,8 @@ def draw_strip_legend(
     )
     pen.text(
         (geo.left, top + offset),
-        "H handler   C challenger",
+        "H handler   C challenger"
+        + ("   R receiver" if receiver else ""),
         font(size),
         MUTED,
         anchor="la",
@@ -1413,6 +1417,9 @@ def draw_strip(
     draw_strip_legend(
         pen, geo, top, legend_size,
         16 if legend_room == STRIP_LEGEND_ROOM else 10,
+        receiver=not roles and any(
+            "R" in actor for actor in landings.values()
+        ),
     )
 
 
