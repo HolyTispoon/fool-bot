@@ -3015,7 +3015,7 @@ TWO_HEADED_EDGE = "#8c9aa6"
 #: The shared band across the middle of a two-headed card: one row of
 #: ranks for the half above it and the same row turned for the half
 #: below, each this tall.
-TWO_HEADED_BAND_ROW = 92
+TWO_HEADED_BAND_ROW = 82
 
 #: How much of a card the cream covers where its coach cannot play it
 #: this maneuver -- an advanced card of the other side, in the hand but
@@ -3157,14 +3157,14 @@ def render_two_headed_half(
 #: The band's row, laid out as the printed card's matchup row
 #: (`draw_matchups`) at a size two of them fit across a card's middle.
 TWO_HEADED_BAND_LABEL = 19
-TWO_HEADED_BAND_RANK = 34
+TWO_HEADED_BAND_RANK = 30
 TWO_HEADED_BAND_NAME = 23
 #: Where the band's three lines sit in its row: the label, the rank and
 #: the name, spread so each has air round it (the author, 2026-10-28:
 #: the rank "a bit too large and the text too close together").
-TWO_HEADED_BAND_LABEL_Y = 12
-TWO_HEADED_BAND_RANK_Y = 40
-TWO_HEADED_BAND_NAME_Y = 72
+TWO_HEADED_BAND_LABEL_Y = 11
+TWO_HEADED_BAND_RANK_Y = 35
+TWO_HEADED_BAND_NAME_Y = 63
 
 
 def render_two_headed_band(
@@ -3219,7 +3219,7 @@ def render_two_headed_band(
             pen.line(
                 [
                     (MARGIN + column_width * index, 8),
-                    (MARGIN + column_width * index, TWO_HEADED_BAND_ROW - 14),
+                    (MARGIN + column_width * index, TWO_HEADED_BAND_ROW - 10),
                 ],
                 fill=PANEL_EDGE, width=2,
             )
