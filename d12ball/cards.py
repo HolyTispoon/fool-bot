@@ -777,9 +777,9 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
         Move(1, "handler + ball", "offense", lift=10),
         Move(2, "or 2", "offense"),
     ),
-    # One caption line each on Spin, High Ball and Long shot, run along
-    # the strip's open spaces, so the panel is a line shorter (the
-    # author, 2026-10-28).
+    # One caption line each on Spin, High Ball, Set up and Long shot,
+    # run along the strip's open spaces, so the panel is a line shorter
+    # (the author, 2026-10-28).
     "spin": (
         Move(2, "a teammate in the zone moves up to 2", "offense",
              caption_at=1.0, room=6),
@@ -793,7 +793,8 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
              caption_at=1.8, room=6),
     ),
     "set_up": (
-        Move(2, "received\nmay set up scoring", "offense"),
+        Move(2, "received, may set up scoring", "offense", caption_at=1.6,
+             room=5),
     ),
     "long_shot": (
         Move(4, "to the Striker, contested, then may set up scoring",
