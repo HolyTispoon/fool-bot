@@ -826,9 +826,9 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     "toss": (
         Move(2, "to the nearest\nteammate behind", "defense", start=19),
     ),
-    # Pressure's two captions on one row, either side of the space they
-    # share, where 1.0's puts the challenger's under the handler's
-    # (the author, 2026-10-28).
+    # Pressure's and Control's two captions on one row, either side of
+    # the space they share, where 1.0's Pressure puts the challenger's
+    # under the handler's (the author, 2026-10-28).
     "pressure": (
         Move(-1, "handler + ball", "offense", start=-19, end=-19,
              caption_at=-1.9),
@@ -836,8 +836,10 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
              row=0, caption_at=-0.1),
     ),
     "control": (
-        Move(-1, "handler + ball", "offense", start=-19, end=-19),
-        Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
+        Move(-1, "handler + ball", "offense", start=-19, end=-19,
+             caption_at=-1.9),
+        Move(-1, "challenger", "defense", start=19, end=19, lift=26,
+             row=0, caption_at=-0.1),
     ),
     "stay_close": (
         Move(0, "handler exhausts 1", "defense", start=19, end=-19,
