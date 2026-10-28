@@ -831,8 +831,11 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     "stress": (
         Move(-2, "to the nearest\nteammate behind", "offense",
              start=-19, end=-19),
-        Move(-2, "challenger follows", "defense", start=19, end=19,
-             lift=26, row=1),
+        # Its caption beside the other one rather than under it, over
+        # the empty spaces ahead, so the panel is one caption row deep
+        # (the author, 2026-10-28).
+        Move(-2, "challenger\nfollows", "defense", start=19, end=19,
+             lift=26, row=0, caption_at=0.5),
     ),
 }
 STRIP_ACTORS_TWO: dict[str, tuple[str, dict[int, str]]] = {
