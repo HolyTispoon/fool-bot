@@ -1747,6 +1747,34 @@ else the bot shows is ephemeral.
     the turn it came, on the foot of its art against the left edge,
     opposite the damage chits (the author, 2026-10-10: it sat over the
     card's text, 44 above its foot).
+  - **A spell attached to a card in the grid lies tucked under that
+    card's right edge** (`grid_stacks`, `TUCK`; the author, 2026-10-27:
+    Soul Stone has to be by the unit it is on, not a cell along or a
+    row down, where the grid's order had put it). The card and its
+    spells are one stack -- the card first, each spell after it, each
+    `TUCK` under the card before -- centred across as many cells as it
+    has cards, and a stack never splits across a row (`stack_places`):
+    one that does not fit the rest of a row starts the next, leaving
+    the row's last cells empty. Tucked on the right, not the left,
+    because a spell's own marks -- Vortoss Emblem's fading runes, its
+    tags -- are down its right side, and what the card covers is the
+    spell's cost corner; a tucked spell shows no ARRIVED, whose place
+    is under the card, and arriving holds back only what attacks. The
+    card lies over its spells and is marked after them, so the site's
+    hover, which takes the last box under the mouse, finds the card
+    where it covers a spell's edge. A unit's spell is its `attached`, a
+    hero's its `attached_hero` naming one of the seat's own heroes
+    (`attached_host`); Two Step is never stacked, its partners carrying
+    its chit. A spell whose card is not in this grid -- a patroller, or
+    a card on another side (Entangling Vines) -- still lies in a cell of
+    its own. **A patroller carries its spells' names instead**, a tag
+    each in the spell's colour, "Soul Stone x2" for two of one
+    (`attached_tags`; the author, 2026-10-27, over tucking it in the
+    patrol zone, whose holders are a card wide and packed): the slot
+    has no room for the card, so the name says what is on it. Only the
+    patroller's own side's spells -- a hero lent in is another seat's,
+    though a mirror's hero shares its slug -- and a card on another
+    side keeps the tag it had (Entangling Vines' "Entangled").
   - **A named rune -- blood, growth, corpse, focus, a feather -- is a
     swirl chit in its colour with its count**, top right under the
     stats pill (`rune_chit`, `NAMED_RUNE`), never a word (the author,
@@ -1852,8 +1880,9 @@ else the bot shows is ephemeral.
     A player's other lasting effects --
     Moment's Peace, Free Speech, a debt -- are for the side of the
     board, not yet drawn. A modifier for good (Metamorphosis, Fox's Den
-    School), an attached spell and a changed controller are not tagged
-    yet either.
+    School) and a changed controller are not tagged yet either; an
+    attached spell is drawn tucked under its card where that card is in
+    the grid (above).
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered
