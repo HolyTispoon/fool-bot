@@ -565,6 +565,8 @@ class Move(NamedTuple):
     departs the token that actually moves rather than the middle of the
     space. `caption_at` may sit between two spaces, for a caption that
     covers both. `row` and `lift` keep two arcs out of each other's way.
+    `room` is how many spaces wide a lone caption may run, where it is
+    one line along the strip rather than two under its space.
     """
 
     offset: int
@@ -576,6 +578,7 @@ class Move(NamedTuple):
     end: float = 0.0
     lift: float = 0.0
     row: int | None = None
+    room: float | None = None
 
     @property
     def caption_space(self) -> float:
@@ -771,24 +774,27 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
         Move(1, "handler + ball", "offense", lift=10),
         Move(2, "or 2", "offense"),
     ),
+    # One caption line each on Spin, High Ball and Long shot, run along
+    # the strip's open spaces, so the panel is a line shorter (the
+    # author, 2026-10-28).
     "spin": (
-        Move(2, "a teammate in the\nzone moves up to 2", "offense",
-             caption_at=2.2),
+        Move(2, "a teammate in the zone moves up to 2", "offense",
+             caption_at=1.0, room=6),
     ),
     "drive": (
         Move(2, "handler + ball\nto nearest", "offense"),
         Move(-2, "or behind", "offense"),
     ),
     "high_pass": (
-        Move(3, "contested, then\nmay set up scoring", "offense",
-             caption_at=2.8),
+        Move(3, "contested, then may set up scoring", "offense",
+             caption_at=1.8, room=6),
     ),
     "set_up": (
         Move(2, "received\nmay set up scoring", "offense"),
     ),
     "long_shot": (
-        Move(4, "to the Striker, contested,\nthen may set up scoring",
-             "offense", caption_at=2.6),
+        Move(4, "to the Striker, contested, then may set up scoring",
+             "offense", caption_at=1.0, room=7),
     ),
     "vertical_ball": (
         Move(0, "same space", "offense", start=-19, end=19, lift=8),
@@ -819,6 +825,15 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     ),
     "toss": (
         Move(2, "to the nearest\nteammate behind", "defense", start=19),
+    ),
+    # Pressure's two captions on one row, either side of the space they
+    # share, where 1.0's puts the challenger's under the handler's
+    # (the author, 2026-10-28).
+    "pressure": (
+        Move(-1, "handler + ball", "offense", start=-19, end=-19,
+             caption_at=-1.9),
+        Move(-1, "challenger", "defense", start=19, end=19, lift=26,
+             row=0, caption_at=-0.1),
     ),
     "control": (
         Move(-1, "handler + ball", "offense", start=-19, end=-19),
@@ -1148,7 +1163,8 @@ def draw_strip_caption(
         for other in moves
         if other is not move and other.caption_row == move.caption_row
     ]
-    room = geo.space_width * (min(neighbours) if neighbours else 2.4) - 8
+    spaces = move.room or (min(neighbours) if neighbours else 2.4)
+    room = geo.space_width * spaces - 8
     lines = move.label.split("\n")
     for size in range(21, 13, -1):
         face = font(size, bold=True)
