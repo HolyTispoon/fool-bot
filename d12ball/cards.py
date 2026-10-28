@@ -3161,12 +3161,32 @@ def render_two_headed_half(
 TWO_HEADED_BAND_LABEL = 19
 TWO_HEADED_BAND_RANK = 30
 TWO_HEADED_BAND_NAME = 23
-#: Where the band's three lines sit in its row: the label, the rank and
-#: the name, spread so each has air round it (the author, 2026-10-28:
-#: the rank "a bit too large and the text too close together").
-TWO_HEADED_BAND_LABEL_Y = 11
-TWO_HEADED_BAND_RANK_Y = 35
-TWO_HEADED_BAND_NAME_Y = 63
+#: The band's top rule: its y and its width.
+TWO_HEADED_BAND_RULE = (1, 2)
+
+
+def band_baselines(
+    pen: Pen, faces: Sequence[ImageFont.ImageFont],
+) -> list[float]:
+    """
+    Where the band's three lines sit -- the label, the rank, the name --
+    as baselines, **the gaps between the rule and each line's capitals
+    all one size** (the author, 2026-10-28: "the spaces between the
+    line, Beats, D2, Steal should be even"). Measured by cap height, so
+    a descender (High Ball's g) hangs into the gap below it rather than
+    pushing the lines apart. The row's foot keeps half a gap, so the
+    two names meeting across the middle of the card are a gap apart too.
+    """
+    rule_y, rule_width = TWO_HEADED_BAND_RULE
+    top = rule_y + rule_width / 2
+    caps = [-pen.ink_box("H", face, anchor="ls")[1] for face in faces]
+    gap = (TWO_HEADED_BAND_ROW - top - sum(caps)) / (len(caps) + 0.5)
+    baselines = []
+    y = top
+    for cap in caps:
+        y += gap + cap
+        baselines.append(y)
+    return baselines
 
 
 def render_two_headed_band(
@@ -3196,27 +3216,24 @@ def render_two_headed_band(
     label_font = font(TWO_HEADED_BAND_LABEL, bold=True)
     value_font = rank_font(TWO_HEADED_BAND_RANK)
     name_font = font(TWO_HEADED_BAND_NAME, bold=True)
+    rule_y, rule_width = TWO_HEADED_BAND_RULE
     pen.line(
-        [(MARGIN + 10, 1), (CARD_WIDTH - MARGIN - 10, 1)],
-        fill=PANEL_EDGE, width=2,
+        [(MARGIN + 10, rule_y), (CARD_WIDTH - MARGIN - 10, rule_y)],
+        fill=PANEL_EDGE, width=rule_width,
+    )
+    label_y, rank_y, name_y = band_baselines(
+        pen, (label_font, value_font, name_font),
     )
     for index, (label, (opposing_rank, (basic, _))) in enumerate(zip(
         ("BEATS", "TIES", "LOSES TO"), groups,
     )):
         cx = MARGIN + column_width * (index + 0.5)
+        pen.text((cx, label_y), label, label_font, MUTED, anchor="ms")
         pen.text(
-            (cx, TWO_HEADED_BAND_LABEL_Y), label, label_font, MUTED,
-            anchor="mm",
+            (cx, rank_y), f"{opposing_letter}{opposing_rank}", value_font,
+            rank_color, anchor="ms",
         )
-        pen.text(
-            (cx, TWO_HEADED_BAND_RANK_Y), f"{opposing_letter}{opposing_rank}",
-            value_font,
-            rank_color, anchor="mm",
-        )
-        pen.text(
-            (cx, TWO_HEADED_BAND_NAME_Y), basic.name, name_font, rank_color,
-            anchor="mm",
-        )
+        pen.text((cx, name_y), basic.name, name_font, rank_color, anchor="ms")
         if index:
             pen.line(
                 [
