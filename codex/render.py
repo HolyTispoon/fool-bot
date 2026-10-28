@@ -75,7 +75,7 @@ from __future__ import annotations
 
 import io
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Mapping, Optional, Sequence, Union
@@ -155,6 +155,10 @@ CARD = (px(200), px(273))
 CELL = CARD[1]
 #: Between two columns, two rows, and the patrol zone and the grid.
 CELL_GAP = px(16)
+#: How much of a spell attached to a card in the grid lies under that
+#: card's right edge: its cost corner, never its name or the runes down
+#: its right side (docs/design/codex.md, "The panel").
+TUCK = px(56)
 #: Around the panel's edge.
 PADDING = px(20)
 #: The column of buildings, and the gap between it and the grid. The
@@ -1851,17 +1855,99 @@ def grid_lyings(player: PlayerState, cards: CardCatalog,
                 stats: Optional[Callable[[Union[CardInstance, HeroState]], Optional[Stats]]] = None,
                 names: Optional[Mapping[int, str]] = None) -> list[Lying]:
     """What `grid_cells` draws, cell by cell, before it is drawn."""
+    return [lying for stack in grid_stacks(player, cards, stats, names) for lying in stack]
+
+
+def attached_host(spell: CardInstance, seat: int) -> Optional[tuple[str, Union[int, str]]]:
+    """What an attaching spell on `seat`'s side is attached to, as the
+    grid finds it: `("unit", id)`, or `("hero", slug)` for one of the
+    seat's own heroes. `None` for Two Step, whose partners carry its
+    chit instead, and for anything not attached."""
+    if spell.slug == "two_step":
+        return None
+    if spell.attached:
+        return "unit", spell.attached[0]
+    prefix = f"{seat}:hero:"
+    if spell.attached_hero and spell.attached_hero.startswith(prefix):
+        return "hero", spell.attached_hero[len(prefix):]
+    return None
+
+
+def attached_tags(player: PlayerState, host: tuple[str, Union[int, str]],
+                  cards: Optional[CardCatalog]) -> tuple[tuple[str, Optional[str]], ...]:
+    """The spells of `player`'s attached to `host` (`attached_host`'s
+    spelling), as tags by name in each spell's colour -- "Soul Stone",
+    "Soul Stone x2" for two: what a patroller carries, since its spells
+    lie in the grid, out of reach of the holder (the author,
+    2026-10-27)."""
+    counts: dict[str, int] = {}
+    for spell in player.play:
+        if spell.patrol_slot is None and attached_host(spell, player.seat) == host:
+            counts[spell.slug] = counts.get(spell.slug, 0) + 1
+    name = cards.name if cards else (lambda slug: slug.replace("_", " ").title())
+    return tuple((cut_tag("", name(slug) + (f" x{count}" if count > 1 else ""), CARD[0]),
+                  card_color(slug, cards)) for slug, count in counts.items())
+
+
+def grid_stacks(player: PlayerState, cards: CardCatalog,
+                stats: Optional[Callable[[Union[CardInstance, HeroState]], Optional[Stats]]] = None,
+                names: Optional[Mapping[int, str]] = None) -> list[list[Lying]]:
+    """
+    The grid as stacks, in `grid_cells`'s order: a card, then every
+    spell attached to it, tucked under its right edge -- Soul Stone on
+    the unit it saves, not a cell or a row away (the author,
+    2026-10-27). A spell whose card is not in this grid -- patrolling,
+    or on another side -- is a stack of its own.
+    """
     stats = stats or (lambda body: None)
     names = names or {}
-    field = [hero_lying(hero, cards, stats(hero))
-             for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
+    field = [hero for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
     partners = partner_ids(player)
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
-    units = [unit_lying(card, card.id in partners, cards, copy_number(player, card),
-                        stats(card), lender=names.get(card.owner)) for card in lying]
-    future = [future_lying(card) for card in player.future]
-    return field + units + future
+    hosts = {("hero", hero.slug) for hero in field} | {("unit", card.id) for card in lying}
+    tucked: dict[tuple[str, Union[int, str]], list[CardInstance]] = {}
+    for card in lying:
+        host = attached_host(card, player.seat)
+        if host in hosts and host != ("unit", card.id):
+            tucked.setdefault(host, []).append(card)
+    under = {card.id for spells in tucked.values() for card in spells}
+
+    def unit(card: CardInstance) -> Lying:
+        return unit_lying(card, card.id in partners, cards, copy_number(player, card),
+                          stats(card), lender=names.get(card.owner))
+
+    def spells_on(host) -> list[Lying]:
+        # No ARRIVED on a tucked spell: its foot's left is under the
+        # card, and arriving holds back only what attacks.
+        return [replace(unit(spell), arrived=False) for spell in tucked.get(host, [])]
+
+    stacks = [[hero_lying(hero, cards, stats(hero))] + spells_on(("hero", hero.slug))
+              for hero in field]
+    stacks += [[unit(card)] + spells_on(("unit", card.id)) for card in lying if card.id not in under]
+    return stacks + [[future_lying(card)] for card in player.future]
+
+
+def stack_places(spans: Sequence[int], columns: int, first: int = 1) -> list[tuple[int, int]]:
+    """Each stack's `(row, column)`, the worker card's cell before the
+    first (`first`): a stack of `span` cells is never split across two
+    rows, so one that does not fit the rest of a row starts the next."""
+    places = []
+    at = first
+    for span in spans:
+        row, column = divmod(at, columns)
+        if column and column + span > columns:
+            row, column = row + 1, 0
+        places.append((row, column))
+        at = row * columns + column + span
+    return places
+
+
+def stack_width(stack: Sequence[Lying]) -> int:
+    """A stack's width as it lies: its first card's, and each spell's
+    after it less what the card before covers."""
+    widths = [CARD[1] if lying.exhausted else CARD[0] for lying in stack]
+    return widths[0] + sum(width - TUCK for width in widths[1:])
 
 
 def tech_codex(player: PlayerState, building: str, cards: CardCatalog,
@@ -1891,8 +1977,8 @@ def tech_codex(player: PlayerState, building: str, cards: CardCatalog,
 PATROL_HEIGHT = 2 * PATROL_PADDING + CARD[1] + BONUS_GAP + BONUS[1]
 
 
-def body_height(cells: int, columns: int) -> int:
-    rows = max(1, -(-cells // columns))
+def body_height(rows: int) -> int:
+    rows = max(1, rows)
     grid = PATROL_HEIGHT + CELL_GAP + rows * CELL + (rows - 1) * CELL_GAP
     return max(grid, BUILDING_COLUMN_HEIGHT)
 
@@ -1916,10 +2002,10 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     def shown(body):
         return shown_stats(match, body, cards, stats)
 
-    lyings = grid_lyings(player, cards, shown, names)
-    cells = [lying_card(lying, cards, turned and not lying.future) for lying in lyings]
+    stacks = grid_stacks(player, cards, shown, names)
+    places = stack_places([len(stack) for stack in stacks], columns)
     inner_width = panel_width(len(heroes(player))) - 2 * PADDING
-    height = body_height(1 + len(cells), columns)
+    height = body_height(max([row for row, _ in places], default=0) + 1)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
     o = OVERHANG
     # A dragon team's one base is drawn on both teammates' columns, marked
@@ -1972,11 +2058,18 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
             # borrower while it is lent).
             hero = match.hero_on(seat, ref)
             lying = hero_lying(hero, cards, shown(hero), lender=names.get(split_lent_ref(ref)[0]))
+            # A hero lent in is another seat's: none of this side's spells
+            # are on it, though a mirror's hero shares its slug.
+            host = ("hero", hero.slug) if split_lent_ref(ref)[0] in (None, seat) else None
         else:
             instance_id = int(ref.split(":", 1)[1])
             card = match.instance(instance_id)
             lying = unit_lying(card, instance_id in partners, cards, copy_number(player, card),
                                shown(card), lender=names.get(card.owner))
+            host = ("unit", instance_id)
+        # Its spells lie in the grid, so it carries their names.
+        if host is not None:
+            lying = replace(lying, marks=lying.marks + attached_tags(player, host, cards))
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards, turned),
@@ -1995,16 +2088,27 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     face_left = grid_left + (CELL - CARD[0]) // 2
     body.alpha_composite(coin, (round((o + BUILDING_WIDTH + face_left - coin.width) / 2),
                                 round(top + CELL - TILE[1] / 2 - coin.height / 2)))
-    for index, (lying, cell) in enumerate(zip(lyings, cells), start=1):
-        row, column = divmod(index, columns)
+    for stack, (row, column) in zip(stacks, places):
         left = grid_left + column * (CELL + CELL_GAP)
         cell_top = top + row * (CELL + CELL_GAP)
-        body.alpha_composite(cell, (left - OVERHANG, cell_top - OVERHANG))
-        # The card's own box in its square cell: across it on its side
-        # when exhausted.
-        across, along = (CARD[1], CARD[0]) if lying.exhausted else CARD
-        mark(body, (left + (CELL - across) // 2, cell_top + (CELL - along) // 2,
-                    left + (CELL + across) // 2, cell_top + (CELL + along) // 2), card=lying.slug)
+        span = len(stack) * CELL + (len(stack) - 1) * CELL_GAP
+        # The stack centred across its cells -- a lone card in its own
+        # cell, as it always was -- each card's left edge in `edges`.
+        edges = [left + (span - stack_width(stack)) // 2]
+        for lying in stack[:-1]:
+            edges.append(edges[-1] + (CARD[1] if lying.exhausted else CARD[0]) - TUCK)
+        # The last spell first, so each card lies over the one after it
+        # and the card they are attached to over them all -- and is the
+        # last marked, which the site's hover finds first.
+        for lying, edge in reversed(list(zip(stack, edges))):
+            # The card's own box: across its cell on its side when
+            # exhausted.
+            across, along = (CARD[1], CARD[0]) if lying.exhausted else CARD
+            cell = lying_card(lying, cards, turned and not lying.future)
+            body.alpha_composite(cell, (edge - (CELL - across) // 2 - OVERHANG,
+                                        cell_top - OVERHANG))
+            mark(body, (edge, cell_top + (CELL - along) // 2,
+                        edge + across, cell_top + (CELL + along) // 2), card=lying.slug)
     return body
 
 
