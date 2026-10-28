@@ -277,7 +277,7 @@ class CoachingView(SafeView):
         if with_space:
             position = match.board.meeple_position(player_id)
             where = space_label(*position, match.board) if position else where
-        return f"{self.cog.engine.format_roster_player(player_id)} - {where}"[:80]
+        return f"{self.player_name(player_id, match)} - {where}"[:80]
 
     def standing_label(
         self,
@@ -285,23 +285,22 @@ class CoachingView(SafeView):
         arrangement: ArrangementOptions,
         player_id: str,
     ) -> str:
-        """One of a 2.0 arrangement's six on a button: who, in what
-        role, where -- off the arrangement's options."""
+        """One of a 2.0 arrangement's six on a button: the role they
+        hold first -- the zone's, which is what a coach is assigning --
+        then who, then where, off the arrangement's options."""
         space = arrangement.standing_of(player_id)
-        where = (
-            ""
-            if space is None
-            else (
-                f" - {arrangement.role_of(player_id).title()}, "
-                f"{space_label(space.zone, space.space_index, match.board)}"
-                + (
-                    " (out of zone)"
-                    if player_id in arrangement.stray_ids
-                    else ""
-                )
+        name = self.player_name(player_id, match)
+        if space is None:
+            return name[:80]
+        return (
+            f"{arrangement.role_of(player_id).title()}: {name}, "
+            f"{space_label(space.zone, space.space_index, match.board)}"
+            + (
+                " (out of zone)"
+                if player_id in arrangement.stray_ids
+                else ""
             )
-        )
-        return f"{self.cog.engine.format_roster_player(player_id)}{where}"[:80]
+        )[:80]
 
 
 class CoachingOfferView(CoachingView):
@@ -737,29 +736,107 @@ class CoachingArrangeView(CoachingView):
         self.add_back_button(row=4)
 
     def note(self, match: MatchState) -> str:
-        """The side as it stands, and what is asked."""
-        options = self.hub_options(self.cog.games.get(self.game_id), match)
+        """
+        The side as it stands, zone by zone, and what is asked.
+
+        **It says what Arrange team is for** (the author, 2026-10-28):
+        in 2.0 a coach assigns players to roles, and the roles belong
+        to the zones rather than to the cards (docs/rules-2.0.md 4.2,
+        4.3) -- so after the deal's recommended arrangement the side is
+        laid out as each zone's unique role, on its space, and its
+        standard role, with who holds each, and the bench as holding
+        none, under one line asking for it. The layout says the rule;
+        a paragraph explaining it was cut (the author, same day).
+        """
+        game = self.cog.games.get(self.game_id)
+        options = self.hub_options(game, match)
         arrangement = None if options is None else options.arrangement
-        lines = []
-        for player_id in () if arrangement is None else arrangement.fielded:
-            space = arrangement.standing_of(player_id)
-            player = self.cog.engine.get_player_definition(player_id)
-            lines.append(
-                f"{arrangement.role_of(player_id).title()}: "
-                f"{self.cog.player_label(match, player)} "
-                f"({space_label(space.zone, space.space_index, match.board)}"
-                + (
-                    ", out of their zone"
-                    if player_id in arrangement.stray_ids
-                    else ""
-                )
-                + ")"
+        if arrangement is None:
+            return ""
+        board = match.board
+        lines = [
+            "**Assign your players to roles.**",
+            "",
+        ]
+        for unique in arrangement.unique:
+            zone = unique.zone
+            standard = next(
+                space.takes for space in arrangement.spaces
+                if space.zone == zone
             )
-        lines.append(
-            "Who do you want to change? Each change is made to the side "
-            "as it stands."
+            holder = next(
+                (
+                    player for role, player in arrangement.holders
+                    if role == unique.takes.value
+                ),
+                None,
+            )
+            others = [
+                player for player in arrangement.fielded
+                if player != holder
+                and arrangement.role_of(player) == standard.value
+            ]
+            lines.append(
+                f"**{destination_display_name(zone.value, board.layout.board_size)}**"
+                f" -- {unique.takes.value.title()} "
+                f"({space_label(zone, unique.space_index, board)}): "
+                + (
+                    self.standing_name(match, arrangement, holder)
+                    if holder is not None
+                    else "nobody"
+                )
+                + f" · {standard.value.title()}: "
+                + (
+                    ", ".join(
+                        self.standing_name(match, arrangement, player)
+                        for player in others
+                    )
+                    or "nobody"
+                )
+            )
+        bench = [
+            player for player in arrangement.pool
+            if player not in arrangement.fielded
+        ]
+        if bench:
+            lines.append(
+                "**Bench, holding no role:** "
+                + ", ".join(
+                    self.cog.render_text(
+                        self.cog.engine.format_player_label(
+                            match,
+                            self.cog.engine.get_player_definition(player),
+                            game,
+                        ),
+                        game,
+                    )
+                    for player in bench
+                )
+            )
+        lines.extend(
+            [
+                "",
+                "Who do you want to move, trade or reassign?",
+            ]
         )
         return "\n".join(lines)
+
+    def standing_name(
+        self,
+        match: MatchState,
+        arrangement: ArrangementOptions,
+        player_id: str,
+    ) -> str:
+        """One of the six as the note names them: the message's label,
+        and where they stand where that is not their role's zone."""
+        label = self.cog.player_id_label(match, player_id)
+        if player_id not in arrangement.stray_ids:
+            return label
+        space = arrangement.standing_of(player_id)
+        return (
+            f"{label} (out of zone, on "
+            f"{space_label(space.zone, space.space_index, match.board)})"
+        )
 
     async def pick(
         self,
@@ -840,18 +917,21 @@ class CoachingArrangePlayerView(CoachingView):
             space = edit.space
             label = (
                 f"Move to {space_label(space.zone, space.space_index, match.board)}"
-                f" - {space.takes.value.title()}"
+                f" as {space.takes.value.title()}"
             )
         elif edit.kind == "role":
-            label = f"Stay here - {edit.space.takes.value.title()}"
+            label = f"Stay here as {edit.space.takes.value.title()}"
         elif edit.kind == "trade":
-            label = "Trade with " + self.standing_label(
-                match, arrangement, edit.other,
+            label = (
+                "Trade places and roles with "
+                f"{self.player_name(edit.other, match)} "
+                f"({arrangement.role_of(edit.other).title()})"
             )
         else:
             label = (
                 "Bring on "
-                f"{self.cog.engine.format_roster_player(edit.other)}"
+                f"{self.player_name(edit.other, match)}"
+                " in this role"
             )
         return label[:80]
 
@@ -987,7 +1067,7 @@ class CoachingSubstitutionInView(CoachingView):
 
         for player_id in options.incoming_ids:
             button = discord.ui.Button(
-                label=cog.engine.format_roster_player(player_id)[:80],
+                label=self.player_name(player_id, match)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:coach_sub_on:{game_id}:{player_id}",
             )
@@ -1287,7 +1367,7 @@ class CoachingPlaceSwapView(CoachingView):
 
         for other_id in trade_with:
             button = discord.ui.Button(
-                label=self.cog.engine.format_roster_player(other_id)[:80],
+                label=self.player_name(other_id, match)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:coach_place_swap:{game_id}:{other_id}"

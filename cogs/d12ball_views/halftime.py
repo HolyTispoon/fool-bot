@@ -82,7 +82,7 @@ class HalftimeExtraTokenView(HalftimeView):
             tokens = match.exhaustion.get(player_id, 0)
             noun, _ = cog.engine.token_word_and_mark(game, player_id)
             label = (
-                f"{cog.engine.format_roster_player(player_id)} "
+                f"{self.player_name(player_id, match)} "
                 f"({tokens} {noun})"
             )
             button = discord.ui.Button(

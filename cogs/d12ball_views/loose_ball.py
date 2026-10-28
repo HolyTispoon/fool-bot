@@ -19,7 +19,6 @@ from d12ball.game import (
 from gamesaves.d12ball.service import GameResult
 from cogs.d12ball_helpers import (
     contest_noun,
-    player_with_role,
     send_new_prompt,
     space_label,
 )
@@ -79,7 +78,7 @@ class LooseBallChoiceView(SafeView):
                 f"{space_word} from the ball)"
             )
             button = discord.ui.Button(
-                label=f"{player_with_role(player)} {location_note}"[:80],
+                label=f"{self.player_name(player, match)} {location_note}"[:80],
                 style=(
                     discord.ButtonStyle.primary
                     if side == "offense"
@@ -242,7 +241,7 @@ class BallRecoveryView(SafeView):
 
             button = discord.ui.Button(
                 label=(
-                    f"{player_with_role(player)} ({distance} {space_word} "
+                    f"{self.player_name(player, match)} ({distance} {space_word} "
                     f"away{price})"
                 )[:80],
                 style=discord.ButtonStyle.primary,

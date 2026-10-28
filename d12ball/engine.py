@@ -858,6 +858,26 @@ class RulesEngine:
         except ValueError:
             return None
 
+
+    def board_roles(self, match: MatchState) -> dict[str, PlayerRole]:
+        """
+        Each fielded card's role, by card id, where the match's roles
+        are the formation's -- 2.0's -- and nothing where they are the
+        cards' own: what a board picture is handed to draw the role a
+        card holds rather than the one it prints (`render.draw_board`'s
+        `roles`, `zone_board_image.render_zone_board`). The answers are
+        `role_of`'s; the renderer never asks.
+        """
+        if not match.formation_roles:
+            return {}
+        roles: dict[str, PlayerRole] = {}
+        for setup in (match.home, match.visiting):
+            for player_id in setup.field_players:
+                role = self.role_of(match, player_id)
+                if role is not None:
+                    roles[player_id] = role
+        return roles
+
     def has_role_ability(
         self, match: MatchState, player_id: Optional[str], role: PlayerRole,
     ) -> bool:
@@ -1596,7 +1616,7 @@ class RulesEngine:
             total += value
             lines.append(
                 f"{tokens.team(team)} "
-                f"{player_with_role(player, badge=True, team=team)} "
+                f"{self.player_name(match, player, badge=True, team=team)} "
                 f"+{value} (Merge)"
             )
             contributors.append((player.name, value))
@@ -4898,7 +4918,7 @@ class RulesEngine:
         teammate = self.get_player_definition(occupants[0])
         return (
             f"{space_label(zone, space_index, match.board)}, "
-            f"{player_with_role(teammate)}"
+            f"{self.player_name(match, teammate)}"
         )
 
     def build_loose_ball_prompt(
@@ -4968,7 +4988,7 @@ class RulesEngine:
         for area in SETUP_AREAS:
             zone = zone_for_area(side, area)
             names = ", ".join(
-                f"{self.format_roster_player_for_message(player_id, setup.team)} "
+                f"{self.format_roster_player_for_message(player_id, setup.team, match)} "
                 f"({space_label(zone, space_index, match.board)})"
                 for player_id, placed_zone, space_index in placement
                 if placed_zone == zone
@@ -5056,7 +5076,7 @@ class RulesEngine:
                 _, space_index = match.board.meeple_position(player_id)
                 names.append(
                     f"{roles[player_id].title()} "
-                    f"{self.format_roster_player_for_message(player_id, setup.team)} "
+                    f"{self.format_roster_player_for_message(player_id, setup.team, match)} "
                     f"({space_label(zone, space_index, match.board)})"
                 )
             lines.append(
@@ -5203,7 +5223,7 @@ class RulesEngine:
         if sharers:
             card = sharers[0]
             return (
-                f"{player_with_role(self.get_player_definition(card))} "
+                f"{self.player_name(match, card, game=game)} "
                 "is sharing a space only an Ooze may share, and has to "
                 "move to another space before finishing."
             )
@@ -5417,7 +5437,7 @@ class RulesEngine:
         the label rather than a card the coach has to go and find.
         """
         player = self.get_player_definition(player_id)
-        name = player_with_role(player)
+        name = self.player_name(match, player, game=game)
         if match is not None and player_id in match.injured:
             word = (
                 "damaged"
@@ -5428,11 +5448,54 @@ class RulesEngine:
         offense = self.skills(game, player_id).offense
         return f"{name} +{offense}"
 
-    def format_roster_player(self, player_id: str) -> str:
+    def player_name(
+        self,
+        match: Optional[MatchState],
+        player: "PlayerDefinition | str",
+        badge: bool = False,
+        team: Optional[Team] = None,
+        game: Optional[D12BallGame] = None,
+    ) -> str:
+        """
+        **A card named with the role it plays in this match** --
+        `player_with_role` over `role_of`, the one reading of a role.
+        In 1.0 that is the card's own, "Hellguard [FB]"; in 2.0 it is
+        the one the formation's zone gave it, whatever the card was
+        dealt as, and a card holding none -- on the bench, where a
+        2.0 arrangement draws from -- is named by its skills, "Synapse
+        (4/3)", as this game plays them (`skills`, so `game` is asked
+        for where the caller has it; without it they are the card's
+        own). See "Naming a player" in
+        docs/design/naming-and-wording.md.
+
+        `player` may be a definition or a card id; `badge` and `team`
+        are `player_with_role`'s. `match` may be None only for a
+        caller with no match, which reads the card's own role.
+        """
+        if isinstance(player, str):
+            player = self.get_player_definition(player)
+        if match is None:
+            return player_with_role(player, badge, team)
+        role = self.role_of(match, player.player_id)
+        if role is None and match.formation_roles:
+            skills = self.skills(game, player.player_id)
+            return player_with_role(
+                player, skills=(skills.offense, skills.defense),
+            )
+        return player_with_role(player, badge, team, role=role)
+
+    def format_roster_player(
+        self,
+        player_id: str,
+        match: Optional[MatchState] = None,
+        game: Optional[D12BallGame] = None,
+    ) -> str:
         """
         `player_with_role` for a caller holding a card id -- "Hellguard
         [FB]", the one spelling every label in the game uses. See
         "Naming a player" in docs/design/naming-and-wording.md.
+        With the `match`, the role is the one played in it
+        (`player_name`), which in 2.0 is not the printed one.
 
         It spelled the role in parentheses until 2026-09-16, which read
         as a second form of the same thing and collided with whatever
@@ -5440,10 +5503,13 @@ class RulesEngine:
         "Hellguard (FB) (3)" and the roster listing "Hellguard (FB)
         (M2)". Brackets leave the parentheses to mean one thing.
         """
-        return player_with_role(self.get_player_definition(player_id))
+        return self.player_name(match, player_id, game=game)
 
     def format_roster_player_for_message(
-        self, player_id: str, team: Optional[Team] = None,
+        self,
+        player_id: str,
+        team: Optional[Team] = None,
+        match: Optional[MatchState] = None,
     ) -> str:
         """
         `format_roster_player` for text going into a *message*, where
@@ -5464,12 +5530,13 @@ class RulesEngine:
         one with no side to give falls back to the plain badge rather
         than being unable to call this at all.
         """
-        return player_with_role(
-            self.get_player_definition(player_id), badge=True, team=team,
-        )
+        return self.player_name(match, player_id, badge=True, team=team)
 
     def format_player_label(
-        self, match: MatchState, player: PlayerDefinition,
+        self,
+        match: MatchState,
+        player: PlayerDefinition,
+        game: Optional[D12BallGame] = None,
     ) -> str:
         """
         "🟠 Hellguard [FB]" -- a player named the way every message
@@ -5492,11 +5559,14 @@ class RulesEngine:
         team = match.team_for_player(player.player_id)
         return (
             f"{tokens.team(team)} "
-            f"{player_with_role(player, badge=True, team=team)}"
+            f"{self.player_name(match, player, badge=True, team=team, game=game)}"
         )
 
     def format_roster_player_with_team(
-        self, player_id: str, team: Team,
+        self,
+        player_id: str,
+        team: Team,
+        match: Optional[MatchState] = None,
     ) -> str:
         """
         The same, plus the team in words -- for the two autocompletes
@@ -5506,7 +5576,7 @@ class RulesEngine:
         drawn as an emoji because an autocomplete choice is plain text.
         """
         return (
-            f"{self.format_roster_player(player_id)} "
+            f"{self.format_roster_player(player_id, match)} "
             f"({team_display_name(team)})"
         )
 

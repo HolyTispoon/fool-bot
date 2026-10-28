@@ -40,7 +40,6 @@ from d12ball.formatting import (
     capitalized,
     coach_name,
     format_team_side_label,
-    player_with_role,
     role_brackets,
     role_initials,
     side_display_name,
@@ -142,6 +141,7 @@ def challenge_side(
     merging: bool = False,
     bearing: Optional[Bearing] = None,
     side: Optional[TeamSide] = None,
+    match: Optional[MatchState] = None,
 ) -> ChallengeSide:
     """
     A player as a matchup image draws them. The ability is the
@@ -176,13 +176,19 @@ def challenge_side(
     briefs below give a group's lead: the image's heading then names
     the side, with the team's emoji in front and its coach after
     (`side_coach`), in place of the team's name.
+
+    `match` asks for the role the player holds in it (`role_of`) --
+    2.0's is the formation's, not the card's.
     """
     player = engine.get_player_definition(player_id)
     profile = engine.player_catalog.effective_profile(player)
     skills = engine.skills(game, player_id)
     return ChallengeSide(
         name=player.name,
-        role=role_initials(player),
+        role=role_initials(
+            player,
+            None if match is None else engine.role_of(match, player_id),
+        ),
         team_color=TEAM_COLORS[Team(team)],
         team_label=team_display_name(team),
         skill_name="Offensive" if attacking else "Defensive",
@@ -248,6 +254,7 @@ def merging_sides(
             player_id,
             match.team_for_player(player_id),
             attacking=skill == "offense",
+            match=match,
             contribution=value,
             game=game,
             merging=True,
@@ -290,6 +297,7 @@ def maneuver_challenge_brief(
                 match.active_player_id,
                 match.team_for_player(match.active_player_id),
                 attacking=True,
+                match=match,
                 game=game,
                 bearing=BEARINGS["skill_test_attack"],
                 side=match.ball.possession,
@@ -304,6 +312,7 @@ def maneuver_challenge_brief(
                 defender_id,
                 match.team_for_player(defender_id),
                 attacking=False,
+                match=match,
                 game=game,
                 bearing=BEARINGS["skill_test_defence"],
                 side=match.defending_side(),
@@ -353,7 +362,7 @@ def maneuver_challenge_notes(
         if not text:
             continue
         notes.append(MatchupNote(
-            who=player_with_role(engine.get_player_definition(player_id)),
+            who=engine.player_name(match, player_id, game=game),
             team_color=TEAM_COLORS[match.team_for_player(player_id)],
             text=text,
         ))
@@ -440,6 +449,7 @@ def score_attempt_brief(
             shooter.player_id,
             match.team_for_player(shooter.player_id),
             attacking=True,
+            match=match,
             game=game,
             modifiers=tuple(modifiers),
             bearing=shooter_bearing,
@@ -472,6 +482,7 @@ def score_attempt_brief(
                 defender.player.player_id,
                 match.team_for_player(defender.player.player_id),
                 attacking=False,
+                match=match,
                 contribution=defender.value,
                 halved=defender.halved,
                 passed=defender.passed,

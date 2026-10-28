@@ -37,6 +37,23 @@ class TurnoverMixin:
         reading a live position -- the prompts that ask about one carry
         the field strip instead, through `send_field_prompt`.
         """
+        if self.engine.maneuver_deck_applies(game):
+            # 2.0's Coaching Choice is assigning players to the roles
+            # the zones hold, so its picture is the 2.0 board -- every
+            # zone's roles and who holds each, both sides -- rather
+            # than the half-field, at 1x since it is re-uploaded with
+            # every change (docs/design/maneuver-deck.md, "Roles").
+            png = await asyncio.to_thread(
+                self.render_zone_board,
+                game,
+                match,
+                f"Coaching Choice: {self.engine.coaching_title(match, side, game)}",
+                1,
+            )
+            return discord.File(
+                io.BytesIO(png.getvalue()),
+                filename=f"d12ball-coaching-{game.game_number}.png",
+            )
         png = await asyncio.to_thread(
             render_coaching_image,
             match,

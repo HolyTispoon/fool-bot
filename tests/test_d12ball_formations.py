@@ -1003,25 +1003,25 @@ class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
         )
         match.board.place_meeple(defender, Zone.MIDFIELD, empty)
         game.match_state = match.to_dict()
-        name = cog.engine.format_roster_player(defender)
+        name = cog.engine.format_roster_player(defender, match)
         self.assertTrue(any(
-            label.startswith(f"{name} - Defender,")
+            label.startswith(f"Defender: {name},")
             and label.endswith("(out of zone)")
             for label in self.labels(CoachingArrangeView(cog, game.game_id))
         ))
         labels = self.labels(
             CoachingArrangePlayerView(cog, game.game_id, defender),
         )
-        self.assertIn("Stay here - Midfielder", labels)
+        self.assertIn("Stay here as Midfielder", labels)
 
     def test_the_view_opens_on_the_side_as_it_stands(self) -> None:
         cog, game, match = self.build()
         labels = self.labels(CoachingArrangeView(cog, game.game_id))
         self.assertEqual(len(labels), 7)
         fullback = cog.engine.format_roster_player(
-            fielded(match, PlayerRole.FULLBACK),
+            fielded(match, PlayerRole.FULLBACK), match,
         )
-        self.assertIn(f"{fullback} - Fullback, space −4", labels)
+        self.assertIn(f"Fullback: {fullback}, space −4", labels)
 
     async def test_one_click_changes_the_side_and_shows_it_again(self) -> None:
         cog, game, match = self.build()
@@ -1029,14 +1029,17 @@ class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
         bench = match.home.team_board.bench[0]
         view = CoachingArrangePlayerView(cog, game.game_id, defender)
         labels = self.labels(view)
-        self.assertIn("Move to space 1 - Midfielder", labels)
+        self.assertIn("Move to space 1 as Midfielder", labels)
+        # A bench player holds no role, so is named by their skills.
         self.assertIn(
-            f"Bring on {cog.engine.format_roster_player(bench)}", labels,
+            f"Bring on {cog.engine.format_roster_player(bench, match, game)}"
+            " in this role",
+            labels,
         )
         click = build_interaction()
         move = next(
             item for item in view.children
-            if item.label == "Move to space 1 - Midfielder"
+            if item.label == "Move to space 1 as Midfielder"
         )
         with suppressed_cog_saves():
             await move.callback(click)

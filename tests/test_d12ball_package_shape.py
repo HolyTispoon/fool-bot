@@ -532,6 +532,9 @@ class NamingAPlayerTests(unittest.TestCase):
         plain = player_with_role(player)
 
         class FakeMatch:
+            # A 1.0 match: the roles are the cards' own.
+            formation_roles: dict = {}
+
             def team_for_player(self, player_id: str) -> Team:
                 return Team.ORANGE
 
@@ -632,6 +635,9 @@ class NamingAPlayerTests(unittest.TestCase):
         team_emoji = "<:team_orange:1>"
 
         class FakeMatch:
+            # A 1.0 match: the roles are the cards' own.
+            formation_roles: dict = {}
+
             def team_for_player(self, player_id: str) -> Team:
                 return Team.ORANGE
 

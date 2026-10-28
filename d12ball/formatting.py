@@ -323,7 +323,7 @@ def ball_space_label(match: MatchState) -> str:
     )
 
 
-def role_initials(player) -> str:
+def role_initials(player, role: Optional[PlayerRole] = None) -> str:
     """
     A role's two letters -- the `FB` in "Hellguard [FB]".
 
@@ -333,7 +333,7 @@ def role_initials(player) -> str:
     puts a role into text comes through here, so the two spellings
     below cannot come to disagree about what a Fullback is called.
     """
-    return ROLE_INITIALS[player.role.value]
+    return ROLE_INITIALS[PlayerRole(player.role if role is None else role).value]
 
 
 def role_brackets(role: PlayerRole) -> str:
@@ -347,6 +347,7 @@ def role_badge(
     player,
     badge: bool = False,
     team: Optional[Team] = None,
+    role: Optional[PlayerRole] = None,
 ) -> str:
     """
     The role as it is written after a name: `[FB]`, or the mark of
@@ -379,16 +380,23 @@ def role_badge(
     (`cogs.d12ball_helpers.DiscordTokens`): an application that has
     uploaded the six and none of the twenty-four reads exactly as it
     did before the colours existed.
+
+    `role` is the role the card is playing where that is not the one
+    it prints -- 2.0's, which the formation's zones hold
+    (`RulesEngine.player_name`, docs/design/maneuver-deck.md, "Roles").
     """
+    role = player.role if role is None else role
     if badge:
-        return tokens.role(player.role, team)
-    return role_brackets(player.role)
+        return tokens.role(role, team)
+    return role_brackets(role)
 
 
 def player_with_role(
     player,
     badge: bool = False,
     team: Optional[Team] = None,
+    role: Optional[PlayerRole] = None,
+    skills: Optional[tuple[int, int]] = None,
 ) -> str:
     """
     A card named the way every card in this game is named -- "Hellguard
@@ -416,8 +424,17 @@ def player_with_role(
     It takes a `PlayerDefinition` rather than an id because the caller
     that has an id has a catalog to resolve it with, and this module
     has neither.
+
+    **In 2.0 the role is the formation's**, so `role` is the one the
+    card holds in the match, and a card holding none -- on the bench --
+    is named by its skills instead, offense then defense as its tile
+    prints them, in parentheses because brackets say a role: "Synapse
+    (4/3)" (the author, 2026-10-18 and 2026-10-28). Both are
+    `RulesEngine.player_name`'s to pass; nothing else asks for them.
     """
-    return f"{player.name} {role_badge(player, badge, team)}"
+    if skills is not None:
+        return f"{player.name} ({skills[0]}/{skills[1]})"
+    return f"{player.name} {role_badge(player, badge, team, role)}"
 
 
 def coach_name(
@@ -875,6 +892,7 @@ def contestant_detail(
     skill: int,
     injured: bool = False,
     cyborg: bool = False,
+    name: Optional[str] = None,
 ) -> list[str]:
     """
     The lines naming one side of a contest on the dice image: who is
@@ -893,9 +911,13 @@ def contestant_detail(
     has no icon to swap; the caller answers it off
     `RulesEngine.has_species_ability` the same way it already answers
     `injured`.
+
+    `name` is the player as the match names them
+    (`RulesEngine.player_name`) -- in 2.0 with the role their zone
+    gave them -- and the card's own role where it is not given.
     """
     return [
-        player_with_role(player),
+        name or player_with_role(player),
         ("Damaged" if cyborg else "Injured") + " — no skill modifier"
         if injured
         else f"{skill_word} skill +{skill}",

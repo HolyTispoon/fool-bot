@@ -2380,7 +2380,7 @@ class CommandsMixin:
             )
         ]
         options = [
-            (player_id, self.engine.format_roster_player(player_id))
+            (player_id, self.engine.format_roster_player(player_id, match, game))
             for player_id in roster_ids
         ]
         return filter_choices(current, options)
@@ -2496,7 +2496,9 @@ class CommandsMixin:
         options = [
             (
                 player_id,
-                self.engine.format_roster_player_with_team(player_id, setup.team),
+                self.engine.format_roster_player_with_team(
+                    player_id, setup.team, match,
+                ),
             )
             for setup in (match.home, match.visiting)
             for player_id in (
@@ -2581,7 +2583,9 @@ class CommandsMixin:
         options = [
             (
                 player_id,
-                self.engine.format_roster_player_with_team(player_id, setup.team),
+                self.engine.format_roster_player_with_team(
+                    player_id, setup.team, match,
+                ),
             )
             for setup in (match.home, match.visiting)
             for player_id in setup.field_players

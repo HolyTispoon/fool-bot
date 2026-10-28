@@ -39,7 +39,6 @@ from cogs.d12ball_helpers import (
     # read as a recursive call.
     may_act_for_coach as user_may_act_for_coach,
     may_act_in_game as user_may_act_in_game,
-    player_with_role,
     send_error_fallback,
     send_new_prompt,
 )
@@ -106,6 +105,24 @@ class SafeView(GameLockedView):
         if game is None or game.match_state is None:
             return None, None
         return game, self.cog.engine.load_match_state(game)
+
+    def player_name(
+        self,
+        player: "PlayerDefinition | str",
+        match: Optional[MatchState] = None,
+    ) -> str:
+        """
+        A player on a button -- `RulesEngine.player_name`, so with the
+        role they play in this match: in 2.0 the one their zone gave
+        them rather than the one their card was dealt as, and a bench
+        card, holding none, by its skills. `match` where the caller has
+        it in hand; it is loaded otherwise. Plain text, since a label
+        cannot draw a badge.
+        """
+        game = self.cog.games.get(self.game_id)
+        if match is None:
+            game, match = self.load_match()
+        return self.cog.engine.player_name(match, player, game=game)
 
     async def require_match(
         self,
@@ -444,7 +461,7 @@ class SafeView(GameLockedView):
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=(
-                    f"⚡ Boost: {player_with_role(player)} "
+                    f"⚡ Boost: {self.player_name(player)} "
                     f"(drain {BOOST_DRAIN_COST}, +{BOOST_BONUS})"
                 )[:80],
                 style=discord.ButtonStyle.secondary,
@@ -456,7 +473,7 @@ class SafeView(GameLockedView):
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=(
-                    f"⚡ Overdrive: {player_with_role(player)} "
+                    f"⚡ Overdrive: {self.player_name(player)} "
                     f"(drain {options.overdrive_cost(player_id)}, "
                     f"+{OVERDRIVE_BONUS})"
                 )[:80],
@@ -478,7 +495,7 @@ class SafeView(GameLockedView):
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=(
-                    f"Merge: {player_with_role(player)} "
+                    f"Merge: {self.player_name(player)} "
                     f"(exhaust {MERGE_EXHAUSTION_COST}, "
                     f"+{options.merge_value(player_id)})"
                 )[:80],

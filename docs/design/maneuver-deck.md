@@ -381,9 +381,16 @@ since `has_role_ability` answers no only for a match whose roles are the formati
 - **The hub offers Arrange team in place of Formation** for a 2.0 side (`CoachingHubOptions.
   arrangement`, with `formations` empty, and the driver's `arrange` answer refusing a 1.0 side
   as `formation` refuses a 2.0 one). On Discord `CoachingArrangeView` lists the six as they stand,
-  role and space on each button, and `CoachingArrangePlayerView` one player's edits; a click
-  applies the change at once and the side comes back up with the half-field redrawn, one
-  `edit_message` a click as every hub step is. Zone Assignment and Space Positioning are not
+  role first, then the player and their space, on each button, and `CoachingArrangePlayerView` one
+  player's edits -- "Move to space −2 as Defender", "Stay here as Winger", "Trade places and roles
+  with ...", "Bring on ... in this role"; a click applies the change at once and the side comes back
+  up with the picture redrawn, one `edit_message` a click as every hub step is. **Its message says
+  what Arrange team is** (the author, 2026-10-28: after the deal's recommended arrangement, make it
+  clear the coach now assigns players to roles by zone): "Assign your players to roles.", then
+  the side zone by zone -- each zone's unique role, its space and who holds it, and its standard
+  role and who holds it, "nobody" where nobody does -- and the bench, holding no role. **The
+  picture is the 2.0 board** (below), both sides' slots and benches, at 1x, in place of 1.0's
+  half-field. Zone Assignment and Space Positioning are not
   built beside it. Dinky never arranges for its own sake -- the deal's recommended arrangement is
   its -- and sends `arrange` only to move a sharer off a unique role's space, or, where the
   window is held while a unique role stands off their space, the side as it stands again, which
@@ -413,7 +420,25 @@ their skills** rather than a role, since they hold none.
 author, 2026-10-24 and 2026-10-25), and
 `/d12ball team_reference` posts it in a 2.0 game -- [cards.md](cards.md), "The 2.0 player tiles".
 
+**The bot's 2.0 board is a zone board** (the author, 2026-10-28: "a version of the zone board for
+the discord bot that would house the players of each team above and below the board ... use the
+player tiles for 2.0, make it clear which sits on each role"). `zone_board_image.render_zone_board`
+draws the field and the jumbotron the 1.0 board does, and round them each side's players as 2.0
+tiles in slots -- a zone's slots over or under that zone of the field, the visitors' over and
+home's under, each with its role on a pill between the tile and the field, every pill the same dark outline and a unique
+role's marked in words -- a star before its name and a heavier border -- since gold (the printed
+board's) read as Orange's and white was no better (the author, 2026-10-28); an OPEN slot for a
+role of the zone nobody holds. The benches are tiles with no slot. The meeples carry the role the match gives them
+(`render.draw_board`'s `roles`), so the field and the slots agree. Who holds what is
+`RulesEngine.board_roles`, handed in; the renderer asks no rule. It is the board message's picture
+in a 2.0 game, the Coaching Choice's (at 1x, since it is re-uploaded with every change), and the
+field strip under a prompt carries the roles on its meeples -- [board-image.md](board-image.md),
+"The 2.0 board".
+
+**Every name in a 2.0 game carries the role the card holds**, and a bench card its skills --
+[naming-and-wording.md](naming-and-wording.md), "Naming a player".
+
 What is not done yet: a 2.0 hand on the web page; a printed two-headed card for the
-print-and-play kit; the Learn to Play's 2.0 cards; the Learn to Play; and the rest of **the roles of rules-2.0 section 4** (the
-author, 2026-10-18): roles in the bot's labels and board pictures, a bench player named by their
-skills.
+print-and-play kit; the Learn to Play's 2.0 cards; the Learn to Play; and of **the roles of
+rules-2.0 section 4**, the matchup image's ability line, which still prints the card's own role
+ability though 2.0 plays none (4.7), and the goal log, which names a scorer by the card's role.
