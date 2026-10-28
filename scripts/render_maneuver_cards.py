@@ -16,7 +16,7 @@ offensive half upright) and the six advanced maneuvers in their 2.0
 wording (`render_maneuver_card(edition_two=True)`). Every card takes
 the basic back, the six basic maneuvers' hexagon (the author,
 2026-10-28), with its ranks drawn larger and inside each node, above
-the name. `--sheet` writes them as three Avery 95328 pages and their
+the name, and its caption calling the beats line an arrow. `--sheet` writes them as three Avery 95328 pages and their
 backs; `--hands` is 1.0's alone.
 
 **Two backs, one a tier** (the author, 2026-09-28). The six basic
