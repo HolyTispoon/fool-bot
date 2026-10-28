@@ -23,7 +23,9 @@ from cogs.tethysdeck_helpers import (
     format_discard_text,
     format_hand_text,
     parse_card,
+    remove_cards,
     send_error_fallback,
+    shuffled_before_replacement,
 )
 from cogs.tethysdeck_views import (
     ConfirmView,
@@ -74,13 +76,13 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             "Something went wrong running that command. Please try again.",
         )
 
-    @property
-    def pictured(self) -> bool:
-        """Whether a reply shows its cards as a picture. While it does, the
-        words name only what the picture does not show (the author,
-        2026-10-11: "No need to list the cards, just showing them is
-        enough"); without the faces every card is named, as before."""
-        return self.faces is not None
+    def pictured(self, state: ChannelDeck) -> bool:
+        """Whether a reply about this channel's deck shows its cards as a
+        picture. While it does, the words name only what the picture does
+        not show (the author, 2026-10-11: "No need to list the cards, just
+        showing them is enough"); without the faces, or for a channel still
+        playing the deck this one replaced, every card is named, as before."""
+        return self.faces is not None and not shuffled_before_replacement(state)
 
     # -- shared deck logic, called by both slash commands and views --
 
@@ -134,11 +136,12 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         *,
         view: Optional[discord.ui.View] = None,
         cards: Optional[list[str]] = None,
+        state: Optional[ChannelDeck] = None,
     ) -> None:
         kwargs = {"ephemeral": True}
         if view is not None:
             kwargs["view"] = view
-        picture = await self.cards_picture(cards or [])
+        picture = await self.cards_picture(state, cards or [])
         if picture is not None:
             kwargs["file"] = picture
         if interaction.response.is_done():
@@ -146,10 +149,12 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         else:
             await interaction.response.send_message(content, **kwargs)
 
-    async def cards_picture(self, cards: list[str]) -> Optional[discord.File]:
-        """The cards as a row of the deck's own faces, or None for no cards
-        or no faces."""
-        if not cards or self.faces is None:
+    async def cards_picture(
+        self, state: Optional[ChannelDeck], cards: list[str],
+    ) -> Optional[discord.File]:
+        """The cards as a row of the deck's own faces, or None for no cards,
+        no faces, or a deck shuffled before this one replaced it."""
+        if not cards or state is None or not self.pictured(state):
             return None
         png = await asyncio.to_thread(
             self.faces.row_png, [parse_card(card) for card in cards],
@@ -217,7 +222,7 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             # The drawn cards are the last of the hand, so the picture
             # shows them; the words name them only without it.
             header = f"Drew {len(drawn)} {card_word}"
-            header += "." if self.pictured else f": {format_cards(drawn)}"
+            header += "." if self.pictured(state) else f": {format_cards(drawn)}"
         else:
             header = "The deck is empty -- nothing to draw."
 
@@ -235,14 +240,14 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         channel_id = str(interaction.channel_id)
         hand = state.hands.get(str(target_user.id), [])
         text = format_hand_text(
-            target_user, hand, header=header, listed=not self.pictured,
+            target_user, hand, header=header, listed=not self.pictured(state),
         )
 
         view = None
         if target_user.id == interaction.user.id and hand:
             view = HandView(self, channel_id, str(target_user.id))
 
-        await self.reply(interaction, text, view=view, cards=hand)
+        await self.reply(interaction, text, view=view, cards=hand, state=state)
 
     async def show_hand(
         self,
@@ -273,9 +278,7 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             return
 
         hand = state.hands.setdefault(user_id, [])
-        discarded = [card for card in cards if card in hand]
-        for card in discarded:
-            hand.remove(card)
+        discarded = remove_cards(hand, cards)
         state.discard.extend(discarded)
         if not hand:
             state.hands.pop(user_id, None)
@@ -303,8 +306,9 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             return
         await self.reply(
             interaction,
-            format_discard_text(state.discard, listed=not self.pictured),
+            format_discard_text(state.discard, listed=not self.pictured(state)),
             cards=state.discard,
+            state=state,
         )
 
     async def prompt_reset(self, interaction: discord.Interaction) -> None:

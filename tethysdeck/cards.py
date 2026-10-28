@@ -1,5 +1,5 @@
 """The card faces: a white card, the fate's ink, the value as pieces spread
-over the face, the rank and the suit's mark in two corners.
+over the face, the value and the suit's mark in two corners.
 
 Poker size at 300 dpi, the same 750 x 1050 as `d12ball.cards`, so the
 deck prints on the same sheets. Fortune is violet ink with green, Doom coal ink with
@@ -8,7 +8,7 @@ orange; the paper is white either way (the author: no cream anywhere).
 from PIL import Image, ImageDraw, ImageFont
 
 from tethysdeck import icons
-from tethysdeck.deck import RANKS, SUITS, VARIANTS, fate_of, money_coins, pieces
+from tethysdeck.deck import VARIANTS, Card, faces, money_coins, pieces
 from tethysdeck.relief import IconSet
 
 # The corner is the Avery 95328 die cut's own, 0.375in at 300 dpi, and every frame
@@ -38,7 +38,11 @@ SLOTS = {
     1: [((375, 470), 420, 620)],
     2: [((375, 300), 420, 330), ((375, 650), 420, 330)],
     3: [((375, 290), 420, 320), ((225, 650), 280, 320), ((525, 650), 280, 320)],
-    4: [((225, 300), 280, 330), ((525, 300), 280, 330), ((225, 650), 280, 330), ((525, 650), 280, 330)],
+    # Four and five pieces (twelve faces, and Tools' 23) as three: the largest across the top
+    # and the rest in a row under it, clear of the corners and the value.
+    4: [((375, 300), 420, 300), ((200, 640), 165, 290), ((375, 640), 165, 290), ((550, 640), 165, 290)],
+    5: [((375, 295), 420, 290), ((165, 640), 140, 290), ((305, 640), 140, 290), ((445, 640), 140, 290),
+        ((585, 640), 140, 290)],
 }
 TALL = 1.6
 
@@ -73,8 +77,9 @@ def _spread(img: Image.Image, items: list[Image.Image]) -> None:
         img.alpha_composite(im, (cx - im.width // 2, cy - im.height // 2))
 
 
-def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
-    fate = fate_of(suit, rank)
+def card(icon_set: IconSet, c: Card) -> Image.Image:
+    """A card's face: its value in the corners and large under its pieces."""
+    suit, fate, label = c.suit, c.fate, str(c.value)
     p = PALETTE[fate]
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -82,9 +87,8 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
     d.rounded_rectangle((18, 18, W - 19, H - 19), RADIUS - 18, outline=p["ink"], width=5)
     d.rounded_rectangle((30, 30, W - 31, H - 31), RADIUS - 30, outline=p["ink2"], width=2)
 
-    short = {"Left": "L", "Right": "R"}.get(rank, rank)
     corner = Image.new("RGBA", (130, 150), (0, 0, 0, 0))
-    ImageDraw.Draw(corner).text((65, 0), short, font=font(66), fill=p["ink"], anchor="ma")
+    ImageDraw.Draw(corner).text((65, 0), label, font=font(66), fill=p["ink"], anchor="ma")
     mark = fit(icon_set.image(suit, fate), 62, 62)
     corner.alpha_composite(mark, (34 + (62 - mark.width) // 2, 84 + (62 - mark.height) // 2))
     img.alpha_composite(corner, (42, 40))
@@ -92,26 +96,24 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
 
     d.text((W // 2, 88), suit.upper(), font=font(56), fill=p["ink2"], anchor="mm")
     if suit == "money":
-        _spread(img, [coin_image(metal, amount, fate) for metal, amount in money_coins(rank)])
+        _spread(img, [coin_image(metal, amount, fate) for metal, amount in money_coins(c)])
     else:
-        values = pieces(suit, rank)
+        values = pieces(c)
         items = []
-        for value, (_, room_w, room_h) in zip(values, SLOTS[len(values)]):
-            size = PIECE_SIZE[value]
-            items.append(fit(icon_set.image(suit, fate, VARIANTS.get(suit, {}).get(value)),
+        for piece, (_, room_w, room_h) in zip(values, SLOTS[len(values)]):
+            size = PIECE_SIZE[piece]
+            items.append(fit(icon_set.image(suit, fate, VARIANTS.get(suit, {}).get(piece)),
                              min(size, room_w), min(round(size * TALL), room_h)))
         _spread(img, items)
-    if rank in ("Left", "Right"):
-        d.text((W // 2, 862), rank.upper(), font=font(80), fill=p["ink"], anchor="mm")
-    else:
-        d.text((W // 2, 862), rank, font=font(120), fill=p["ink"], anchor="mm")
+    d.text((W // 2, 862), label, font=font(120), fill=p["ink"], anchor="mm")
     d.text((W // 2, 966), fate.upper(), font=font(38), fill=p["ink2"], anchor="mm")
     return img
 
 
-def deck_cards(icon_set: IconSet) -> dict[tuple[str, str], Image.Image]:
-    """Every card, keyed by (suit, rank), in the deck's order."""
-    return {(suit, rank): card(icon_set, suit, rank) for suit in SUITS for rank in RANKS}
+def deck_cards(icon_set: IconSet) -> dict[Card, Image.Image]:
+    """Every different card once, keyed by its `Card`, in the deck's order;
+    `deck.cards()` names the 72 with their repeats."""
+    return {c: card(icon_set, c) for c in faces()}
 
 
 def flatten(card_image: Image.Image) -> Image.Image:
@@ -123,19 +125,19 @@ def flatten(card_image: Image.Image) -> Image.Image:
 
 # --- contact sheets, for looking at the deck -------------------------------
 
-def deck_sheet(cards: dict, scale: float = 0.2) -> Image.Image:
-    """All 72, a suit a row, in rank order."""
+def deck_sheet(cards: list[Image.Image], scale: float = 0.2) -> Image.Image:
+    """All 72 in the deck's order, twelve a row -- a suit a row, either deck."""
     cw, ch, gap = round(W * scale), round(H * scale), 10
     img = Image.new("RGB", (12 * cw + 13 * gap, 6 * ch + 7 * gap), "#5a5a5a")
-    for (suit, rank), c in cards.items():
-        x = gap + RANKS.index(rank) * (cw + gap)
-        y = gap + SUITS.index(suit) * (ch + gap)
+    for i, c in enumerate(cards):
+        x = gap + (i % 12) * (cw + gap)
+        y = gap + (i // 12) * (ch + gap)
         small = c.resize((cw, ch), Image.LANCZOS)
         img.paste(small, (x, y), small)
     return img
 
 
-def closeup_sheet(cards: dict, picks: list[tuple[str, str]], scale: float = 0.45, columns: int = 3) -> Image.Image:
+def closeup_sheet(cards: dict, picks: list[Card], scale: float = 0.45, columns: int = 3) -> Image.Image:
     cw, ch, gap = round(W * scale), round(H * scale), 16
     rows = (len(picks) + columns - 1) // columns
     img = Image.new("RGB", (columns * cw + (columns + 1) * gap, rows * ch + (rows + 1) * gap), "#5a5a5a")

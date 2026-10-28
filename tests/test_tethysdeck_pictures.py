@@ -11,22 +11,53 @@ from cogs.tethysdeck_helpers import (
     format_discard_text,
     format_hand_text,
     parse_card,
+    remove_cards,
+    shuffled_before_replacement,
 )
-from tethysdeck.deck import RANKS, SUITS
+from gamesaves.tethysdeck.storage import ChannelDeck
+from tethysdeck import deck
 from tethysdeck.strips import FACE_H, FACE_W, GAP, PER_ROW, Faces
 
 
 class ParseCardTests(unittest.TestCase):
     def test_every_saved_name_is_a_card_of_the_deck(self):
-        parsed = [parse_card(card) for card in build_deck()]
-        self.assertEqual(
-            sorted(parsed),
-            sorted((suit, rank) for suit in SUITS for rank in RANKS),
-        )
+        names = build_deck()
+        self.assertEqual(len(names), 72)
+        self.assertEqual([parse_card(card) for card in names], deck.cards())
 
-    def test_a_ruler_and_a_ten(self):
-        self.assertEqual(parse_card("Left of 〠 Fiends"), ("fiends", "Left"))
-        self.assertEqual(parse_card("10 of $ Money"), ("money", "10"))
+    def test_a_name_carries_its_fate(self):
+        self.assertEqual(parse_card("13 of $ Money (Doom)"), deck.Card("money", 13, "doom"))
+        self.assertEqual(parse_card("2 of 〠 Fiends (Doom)"), deck.Card("fiends", 2, "doom"))
+        self.assertIn("13 of $ Money (Fortune)", build_deck())
+
+
+class ReplacedDeckTests(unittest.TestCase):
+    """A channel that shuffled the deck of 1 to 10, Left and Right before
+    this one replaced it plays on in words until it shuffles anew."""
+
+    def test_its_names_are_no_card_of_this_deck(self):
+        self.assertIsNone(parse_card("Left of 〠 Fiends"))
+        self.assertIsNone(parse_card("10 of $ Money"))
+
+    def test_a_channel_is_read_by_any_of_its_cards(self):
+        old = ChannelDeck(deck=[], discard=[], hands={"1": ["Left of 〠 Fiends"]})
+        self.assertTrue(shuffled_before_replacement(old))
+        self.assertFalse(shuffled_before_replacement(ChannelDeck(deck=build_deck())))
+        self.assertFalse(shuffled_before_replacement(ChannelDeck()))
+
+
+class RemoveCardsTests(unittest.TestCase):
+    """The deck holds some cards twice, so a hand can too."""
+
+    def test_a_card_held_twice_and_chosen_twice_goes_twice(self):
+        hand = ["13 of $ Money (Doom)", "5 of $ Money (Fortune)", "13 of $ Money (Doom)"]
+        self.assertEqual(remove_cards(hand, ["13 of $ Money (Doom)"] * 2), ["13 of $ Money (Doom)"] * 2)
+        self.assertEqual(hand, ["5 of $ Money (Fortune)"])
+
+    def test_a_card_no_longer_held_is_skipped(self):
+        hand = ["13 of $ Money (Doom)"]
+        self.assertEqual(remove_cards(hand, ["13 of $ Money (Doom)"] * 2), ["13 of $ Money (Doom)"])
+        self.assertEqual(hand, [])
 
 
 class CaptionTests(unittest.TestCase):
@@ -34,7 +65,7 @@ class CaptionTests(unittest.TestCase):
     none -- the picture shows them (the author, 2026-10-11). Without one
     every card is named, as before."""
 
-    HAND = ["2 of ⚔ Might", "6 of $ Money"]
+    HAND = ["7 of ⚔ Might (Doom)", "6 of $ Money (Fortune)"]
     USER = SimpleNamespace(display_name="HolyTispoon")
 
     def test_a_pictured_hand_names_no_card(self):
@@ -46,7 +77,7 @@ class CaptionTests(unittest.TestCase):
     def test_a_hand_in_words_names_every_card(self):
         self.assertEqual(
             format_hand_text(self.USER, self.HAND),
-            "HolyTispoon's hand (2 cards): 2 of ⚔ Might, 6 of $ Money",
+            "HolyTispoon's hand (2 cards): 7 of ⚔ Might (Doom), 6 of $ Money (Fortune)",
         )
 
     def test_an_empty_hand_is_the_same_either_way(self):
@@ -62,7 +93,7 @@ class CaptionTests(unittest.TestCase):
         )
         self.assertEqual(
             format_discard_text(self.HAND),
-            "Discard pile (2 cards): 2 of ⚔ Might, 6 of $ Money",
+            "Discard pile (2 cards): 7 of ⚔ Might (Doom), 6 of $ Money (Fortune)",
         )
         self.assertEqual(
             format_discard_text([], listed=False), "The discard pile is empty.",
@@ -72,11 +103,8 @@ class CaptionTests(unittest.TestCase):
 class StripTests(unittest.TestCase):
     def setUp(self):
         # A plain face per card, so the layout is tested without drawing the deck.
-        self.faces = Faces({
-            (suit, rank): Image.new("RGBA", (FACE_W, FACE_H), "white")
-            for suit in SUITS for rank in RANKS
-        })
-        self.cards = [(suit, rank) for suit in SUITS for rank in RANKS]
+        self.faces = Faces({c: Image.new("RGBA", (FACE_W, FACE_H), "white") for c in deck.faces()})
+        self.cards = deck.cards()
 
     def test_one_row_up_to_per_row(self):
         image = self.faces.row(self.cards[:3])
@@ -94,6 +122,10 @@ class StripTests(unittest.TestCase):
 
     def test_png(self):
         self.assertTrue(self.faces.row_png(self.cards[:2]).startswith(b"\x89PNG"))
+
+    def test_a_card_held_twice_shows_twice(self):
+        twice = deck.Card("money", 13, "doom")
+        self.assertEqual(self.faces.row([twice, twice]).size, (2 * FACE_W + GAP, FACE_H))
 
 
 if __name__ == "__main__":

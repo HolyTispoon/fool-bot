@@ -9,6 +9,7 @@ import logging
 import discord
 
 from gamesaves.tethysdeck.storage import ChannelDeck
+from tethysdeck import deck
 
 
 LOGGER = logging.getLogger(__name__)
@@ -25,27 +26,57 @@ SUITS = [  # the author's order (2026-10-09)
     ("☯", "States"),
     ("🃟", "Fools"),
 ]
-RANKS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Left", "Right"]
 
 # Discord select menus top out at 25 options, and a hand can in theory
 # hold every card in the deck.
 MAX_SELECT_OPTIONS = 25
 
+SYMBOLS = {name.lower(): symbol for symbol, name in SUITS}
+
 
 def build_deck() -> list[str]:
-    return [
-        f"{rank} of {symbol} {name}"
-        for symbol, name in SUITS
-        for rank in RANKS
-    ]
+    return [card_name(card) for card in deck.cards()]
 
 
-def parse_card(card: str) -> tuple[str, str]:
-    """A saved card's name -- "7 of ⚔ Might" -- as the deck's (suit, rank),
-    which `tethysdeck` draws. The names are what a channel's deck saves,
-    so they stay as `build_deck` writes them and are read here."""
-    rank, suit = card.split(" of ", 1)
-    return suit.split()[-1].lower(), rank
+def card_name(card: deck.Card) -> str:
+    """A card's name -- "13 of $ Money (Doom)". The fate is in it because
+    a suit can hold one value under both; a card the deck holds twice is
+    the same name twice."""
+    return f"{card.value} of {SYMBOLS[card.suit]} {card.suit.title()} ({card.fate.title()})"
+
+
+def parse_card(card: str) -> deck.Card | None:
+    """A saved card's name as the card `tethysdeck` draws. The names are
+    what a channel's deck saves, so they stay as `build_deck` writes them
+    and are read here. A name with no fate -- "7 of ⚔ Might" -- is a card
+    of the deck of 1 to 10, Left and Right that this one replaced
+    (2026-10-28), from a channel that shuffled before then: None, and
+    that channel's cards are named in words until it shuffles anew."""
+    value, suit = card.split(" of ", 1)
+    if not suit.endswith(")"):
+        return None
+    suit, fate = suit[:-1].rsplit(" (", 1)
+    return deck.Card(suit.split()[-1].lower(), int(value), fate.lower())
+
+
+def shuffled_before_replacement(state: ChannelDeck) -> bool:
+    """Whether a channel's deck is the one this deck replaced: any of its
+    cards will say, since a deck is shuffled whole."""
+    for card in [*state.deck, *state.discard, *(c for hand in state.hands.values() for c in hand)]:
+        return parse_card(card) is None
+    return False
+
+
+def remove_cards(hand: list[str], cards: list[str]) -> list[str]:
+    """Take `cards` out of `hand`, one apiece -- a card held twice and
+    chosen twice goes twice -- and return what was taken; a card the hand
+    no longer holds is skipped."""
+    taken = []
+    for card in cards:
+        if card in hand:
+            hand.remove(card)
+            taken.append(card)
+    return taken
 
 
 def format_cards(cards: list[str]) -> str:

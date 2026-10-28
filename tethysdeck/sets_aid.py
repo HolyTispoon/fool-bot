@@ -11,6 +11,7 @@ import math
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+from tethysdeck.deck import Card
 from tethysdeck.icons import PROJECT_ROOT
 from tethysdeck.sets import SETS, Count, total_hands
 
@@ -87,25 +88,36 @@ AID_WIDTH, MARGIN = 1240, 40
 CARD_W, CARD_H, CARD_GAP = 86, 120, 11
 ROW_H = CARD_H + 26
 # The key's two cards: which ink is which fate.
-KEY = ((("money", "1"), "Fortune card: violet"), (("money", "2"), "Doom card: coal and orange"))
+KEY = ((Card("money", 5, "fortune"), "Fortune card: violet"),
+       (Card("money", 9, "doom"), "Doom card: coal and orange"))
 COLUMNS = {"num": 52, "name": 100, "hand": 366, "mixed": 1050, "uniform": 1198}
 
 
-def faces_shown() -> set[tuple[str, str]]:
-    """The (suit, rank) of every card the player aid draws."""
-    return {key for key, _ in KEY} | {key for s in SETS for key in s.example}
+# The notes under the table: a bold lead, then the line.
+NOTES = (
+    ("Straights", "run on the values 2 to 24 and don't wrap. No suit holds six in a row, so there is no "
+     "straight flush."),
+    ("A flush", "is a flush whatever it holds, a pair or three of a kind among them."),
+    ("", "Three of a kind with a pair counts as three of a kind, and four of a kind with a pair as four of a kind."),
+    ("", "Uniform chances are for all Fortune or all Doom together; each alone is half."),
+)
+
+
+def faces_shown() -> set[Card]:
+    """Every card the player aid draws."""
+    return {card for card, _ in KEY} | {card for s in SETS for card in s.example}
 
 
 def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
     """Every set, rarest first, with a mixed example from `cards`, the
-    deck's own faces keyed by (suit, rank)."""
+    deck's own faces keyed by `Card`."""
     c = _Canvas(AID_WIDTH, 260 + ROW_H * len(SETS) + 120)
     c.text(MARGIN, 36, "Tethys Poker", 34, "bold")
     c.text(MARGIN, 88, "Your best set counts. Sets are listed from rarest to most common, and no set last.", 16, fill=INK2)
 
     y, x = 120, MARGIN
-    for key, label in KEY:
-        c.card(cards[key], x, y, 57, 80)
+    for card, label in KEY:
+        c.card(cards[card], x, y, 57, 80)
         c.text(x + 70, y + 40, label, 14, fill=INK2, anchor="lm")
         x += 70 + c.width(label, 14) + 34
     c.text(x, y + 40, "A hand is ", 14, fill=INK2, anchor="lm")
@@ -133,8 +145,8 @@ def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
         c.text(COLUMNS["num"], mid, str(i + 1), 22, "bold", fill=MUTED, anchor="lm")
         c.text(COLUMNS["name"], mid - 11, s.name, 19, "bold", fill=INK2 if last else INK, anchor="ls")
         c.text(COLUMNS["name"], mid + 15, s.rule, 13, fill=INK2, anchor="ls")
-        for j, key in enumerate(s.example):
-            c.card(cards[key], COLUMNS["hand"] + j * (CARD_W + CARD_GAP), top + 13, CARD_W, CARD_H)
+        for j, card in enumerate(s.example):
+            c.card(cards[card], COLUMNS["hand"] + j * (CARD_W + CARD_GAP), top + 13, CARD_W, CARD_H)
         count = census[s.key]
         c.text(COLUMNS["mixed"], mid, percent(count.mixed), 18, fill=INK2 if last else INK, anchor="rm")
         if count.uniform:
@@ -143,15 +155,13 @@ def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
     c.line((MARGIN, y, AID_WIDTH - MARGIN, y), INK, 2)
 
     y += 22
-    c.text(MARGIN, y, "Left and Right", 13, "bold", fill=INK2)
-    c.text(MARGIN + c.width("Left and Right ", 13, "bold"), y,
-           "pair only with each other: a Left and a Right are a pair, two Lefts are not. Either "
-           "follows 10 in a straight (6-7-8-9-10-Left). Straights don't wrap.", 13, fill=INK2)
-    c.text(MARGIN, y + 20, "Three of a kind with a pair counts as three of a kind, and four of a kind "
-           "with a pair as four of a kind.", 13, fill=INK2)
-    c.text(MARGIN, y + 40, "Uniform chances are for all Fortune or all Doom together; each alone is half.",
-           13, fill=INK2)
-    return c.done(y + 76)
+    for i, (lead, line) in enumerate(NOTES):
+        x = MARGIN
+        if lead:
+            c.text(x, y + 20 * i, lead, 13, "bold", fill=INK2)
+            x += c.width(lead + " ", 13, "bold")
+        c.text(x, y + 20 * i, line, 13, fill=INK2)
+    return c.done(y + 20 * (len(NOTES) - 1) + 36)
 
 
 # --- the chart --------------------------------------------------------------
@@ -202,7 +212,7 @@ def odds_chart(census: dict[str, Count]) -> Image.Image:
         c.text(xm, y - 13, percent(count.mixed), 12, anchor="ms")
 
     c.text(24, bottom + 50, f"All {total_hands():,} hands of six from the 72-card deck, counted exactly. "
-           "A Left pairs only with a Right. Each hand counts once, under its best set.", 12, fill=INK2)
+           "A pair is two of one value. Each hand counts once, under its best set.", 12, fill=INK2)
     c.text(24, bottom + 68, "Uniform is either all Fortune or all Doom; each one alone is half the figure shown.",
            12, fill=INK2)
     return c.done(bottom + 96)
