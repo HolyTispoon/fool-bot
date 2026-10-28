@@ -822,8 +822,7 @@ STRIP_MOVES_TWO: dict[str, tuple[Move, ...]] = {
     ),
     "control": (
         Move(-1, "handler + ball", "offense", start=-19, end=-19),
-        Move(-1, "challenger;\na Defender steals", "defense", start=19,
-             end=19, lift=26, row=1),
+        Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
     ),
     "stay_close": (
         Move(0, "handler exhausts 1", "defense", start=19, end=-19,
