@@ -143,6 +143,9 @@ class MainActionOptions:
     abilities: tuple[AbilityOption, ...] = ()
     #: Repairing the base, on a free-for-all match alone (Rulebook p. 14).
     repair: Optional[RepairOption] = None
+    #: The units that would attack but for Moment's Peace
+    #: (`RulesEngine.pacified`): shown, never chosen.
+    pacified: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         wire = {
@@ -153,6 +156,8 @@ class MainActionOptions:
         }
         if self.repair is not None:
             wire["repair"] = self.repair
+        if self.pacified:
+            wire["pacified"] = self.pacified
         return jsonable(wire)
 
 
@@ -679,7 +684,7 @@ def _main_options(engine, game, match, prompt) -> MainActionOptions:
     return MainActionOptions(
         legal.hire, legal.heroes, legal.playable, legal.buildings, legal.attackers,
         legal.end_main, legal.detect, engine.hand_rows(match, match.active),
-        legal.abilities, legal.repair,
+        legal.abilities, legal.repair, legal.pacified,
     )
 
 

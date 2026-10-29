@@ -416,6 +416,8 @@ class LegalActions:
     abilities: tuple[AbilityOption, ...] = ()
     #: Only on a free-for-all match (Rulebook p. 14).
     repair: Optional[RepairOption] = None
+    #: The units Moment's Peace keeps from attacking (`pacified`).
+    pacified: tuple[str, ...] = ()
 
 
 class RulesEngine:
@@ -2077,20 +2079,36 @@ class RulesEngine:
         """The active player's units and hero that may attack
         (`may_attack_with`)."""
         player = match.active_player
-        # Moment's Peace: "opposing units can't attack you" -- its caster's
-        # things leave the units' defenders and nothing else
-        # (`_defender_rows`), so a unit may attack while any opponent is
-        # not at peace: in a duel, not at all. Heroes still may.
-        peace = all(match.player(foe).peace for foe in self.opponents(match, match.active))
-        found = [
-            card.ref for card in player.play
-            if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card, match)
-            and not peace
-        ]
+        found = [] if self.at_peace(match) else list(self._unit_attackers(match))
         for hero in player.heroes_in_play:
             if self.may_attack_with(hero, match):
                 found.append(hero_ref(hero.slug))
         return tuple(found)
+
+    def at_peace(self, match: MatchState) -> bool:
+        """
+        Whether Moment's Peace keeps every unit of the active player's
+        from attacking: "opposing units can't attack you" -- its caster's
+        things leave the units' defenders and nothing else
+        (`_defender_rows`), so a unit may attack while any opponent is
+        not at peace: in a duel, not at all. Heroes still may.
+        """
+        return all(match.player(foe).peace for foe in self.opponents(match, match.active))
+
+    def _unit_attackers(self, match: MatchState) -> tuple[str, ...]:
+        """The active player's units that may attack, Moment's Peace
+        aside (`may_attack_with`)."""
+        return tuple(
+            card.ref for card in match.active_player.play
+            if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card, match)
+        )
+
+    def pacified(self, match: MatchState) -> tuple[str, ...]:
+        """The active player's units that would attack but for Moment's
+        Peace (`at_peace`): the panel shows them greyed, so a hasted
+        unit missing from **Attack...** says why (the author,
+        2026-10-29)."""
+        return self._unit_attackers(match) if self.at_peace(match) else ()
 
     def legal_actions(self, match: MatchState) -> LegalActions:
         player = match.active_player
@@ -2103,6 +2121,7 @@ class RulesEngine:
                 for building in (*TECH_BUILDINGS, *self.add_ons(player))
             ),
             attackers=self.attackers(match),
+            pacified=self.pacified(match),
             detect=self.detect_option(match),
             abilities=self.abilities(match),
             repair=self.repair_option(match),

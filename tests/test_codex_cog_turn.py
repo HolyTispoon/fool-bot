@@ -440,6 +440,25 @@ class PanelTests(TurnTestCase):
         self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
         self.assertTrue([item for item in back.children if (item.choice or ("",))[0] == "play"])
 
+    async def test_a_unit_moments_peace_holds_back_is_greyed_with_why(self) -> None:
+        """A unit that would attack but for the opponent's Moment's Peace
+        is on **Attack...** greyed, with the card's name, and never
+        chosen (the author, 2026-10-29); **Attack...** opens for it
+        though nothing else may attack."""
+        match = self.table.match
+        seat = match.active
+        held = put(match, seat, "older_brother")
+        for foe in self.table.cog.engine.opponents(match, seat):
+            match.player(foe).peace = True
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        attacking = (await self.table.press(view, "Attack...")).view()
+        greyed = [item for item in attacking.children if item.label.endswith(": Moment's Peace")]
+        self.assertEqual(len(greyed), 1, [item.label for item in attacking.children])
+        self.assertTrue(greyed[0].label.startswith(card_name(held.slug)), greyed[0].label)
+        self.assertTrue(greyed[0].disabled)
+        self.assertEqual([item.choice for item in attacking.children if item.choice], [])
+
     async def test_the_next_tech_building_says_why_it_waits(self) -> None:
         """A refused next tech building is on the board's row, disabled
         with why; one further up is not."""
