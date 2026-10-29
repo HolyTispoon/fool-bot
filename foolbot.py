@@ -21,7 +21,13 @@ log_mirror = botlog.install_mirror()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-EXTENSIONS = ("cogs.coins", "cogs.d12ball", "cogs.tethysdeck", "cogs.debug")
+EXTENSIONS = (
+    "cogs.coins",
+    "cogs.d12ball",
+    "cogs.tethysdeck",
+    "cogs.debug",
+    "cogs.channel_stats",
+)
 COMMAND_SYNC_VARIABLE = "FOOLBOT_COMMAND_SYNC"
 
 
@@ -33,7 +39,7 @@ def command_sync_forced() -> bool:
 
 class GameBot(gamebot.GameBot):
     """
-    fool-bot: the four extensions, data/bot_state.json, and the
+    fool-bot: the five extensions, data/bot_state.json, and the
     message-content intent, which a game channel's export needs to show
     the players' chat.
     """
