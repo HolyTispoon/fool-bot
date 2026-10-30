@@ -1392,6 +1392,9 @@ class MoreSpellAndTriggerRulingTests(unittest.TestCase):
         hero_in_play(match, 1)
         self.assertEqual(engine.attackers(match), ("hero:captain_zane",))
         self.assertNotIn(cub.ref, engine.attackers(match))
+        # Held back by the peace alone, so the panel shows it greyed.
+        self.assertEqual(engine.pacified(match), (cub.ref,))
+        self.assertEqual(engine.legal_actions(match).pacified, (cub.ref,))
 
     def test_moments_peace_2(self) -> None:
         """In 2v2, none of the other team's units can attack units, heroes,

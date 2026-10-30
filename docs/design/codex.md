@@ -3977,9 +3977,13 @@ than 66 sites; the PR of every step showed these empty:
   re-recorded, since each offered a maxed hero once.
 - **Moment's Peace removes its caster's things from the units'
   defenders, and nothing else**: a unit may attack while any opponent is
-  not at peace. **The tower** detects and damages only an attacker of
-  what its owner's side controls, and **each opponent's patrol zone**
-  protects that opponent alone. Armor refreshes on every turn for every
+  not at peace. Where every opponent is, the units it holds back are
+  on **Attack...** greyed, "Argonaut 4/4: Moment's Peace", so a hasted
+  unit missing from the list says why (`RulesEngine.pacified`, carried
+  as `MainActionOptions.pacified`, which the wire writes only where it
+  is not empty; the author, 2026-10-29). **The tower** detects and
+  damages only an attacker of what its owner's side controls, and
+  **each opponent's patrol zone** protects that opponent alone. Armor refreshes on every turn for every
   seat (Rulebook p. 19).
 
 ### The free-for-all's additions: repair and free gold

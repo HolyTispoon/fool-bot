@@ -417,8 +417,9 @@ class TurnPanelView(PanelView):
                 discord.ButtonStyle.success, self.open_hire, disabled=not hire.allowed,
             ),
             self.make_button(
-                "Attack..." if options.attackers else "Attack: nothing can attack",
-                discord.ButtonStyle.danger, self.open_attack, disabled=not options.attackers,
+                "Attack..." if options.attackers or options.pacified else "Attack: nothing can attack",
+                discord.ButtonStyle.danger, self.open_attack,
+                disabled=not (options.attackers or options.pacified),
             ),
         ] + [self.hero_button(hero) for hero in options.heroes]
         # The hand, every card once in the hand's order (`playable`), by
@@ -901,8 +902,15 @@ class TurnPanelView(PanelView):
 
     def build_attack(self, options) -> None:
         """What may attack, one button each (the engine's `attackers`),
-        and **Back**; the defender is asked next, in the same panel."""
-        attackers = [
+        and **Back**; the defender is asked next, in the same panel. A
+        unit Moment's Peace holds back (`pacified`) is there greyed, with
+        why, ahead of them (the author, 2026-10-29)."""
+        held = [
+            self.make_button(f"{self.label(ref)}: {card_name('moments_peace')}", discord.ButtonStyle.secondary,
+                             None, disabled=True)
+            for ref in options.pacified
+        ]
+        attackers = held + [
             self.make_button(self.label(ref), discord.ButtonStyle.primary,
                              self._answer(self.attack, ref), choice=("attack", ref))
             for ref in options.attackers
