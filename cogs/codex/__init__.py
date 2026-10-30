@@ -10,14 +10,17 @@ panel, the turn's rollover, the finished game, the two undos), `lobby`
 `/codex abandon`, Rematch, the channel archived, `/codex admin
 reset_channels`), `presentation` (the board, the channel, the turn
 message, a hand),
-`slash_commands` (`/codex games`, `board`, `hand`, `resume`) and
-`reference` (`/codex card`, `/codex rules`). Nothing in it decides a
+`slash_commands` (`/codex games`, `board`, `hand`, `resume`),
+`reference` (`/codex card`, `/codex rules`) and `debug` (`/codex debug
+patrol`, `damage` and `rune`, a player's or helper's corrections by
+hand). Nothing in it decides a
 rule: it asks `codex/` and renders the answer.
 """
 
 from discord.ext import commands
 
 from cogs.codex.core import CoreMixin
+from cogs.codex.debug import DebugMixin
 from cogs.codex.ending import EndingMixin
 from cogs.codex.lobby import LobbyMixin
 from cogs.codex.presentation import PresentationMixin
@@ -34,6 +37,7 @@ class Codex(
     PresentationMixin,
     SlashCommandsMixin,
     ReferenceMixin,
+    DebugMixin,
     commands.GroupCog,
     group_name="codex",
     group_description="Play Codex: one game per channel.",

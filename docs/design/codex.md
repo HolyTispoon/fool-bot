@@ -3230,6 +3230,67 @@ Like `/codex resume`'s, a repost
 after a restart, before this process has seen the turn's lines,
 carries the heading alone.
 
+### Corrections by hand
+
+`/codex debug patrol`, `/codex debug damage` and `/codex debug rune` let
+any of the game's players, or a helper, put right a board a bug left
+wrong (the author, 2026-10-30,
+after a spared Hardened Mox stayed exhausted in a patrol slot): a unit
+or hero moved into a patrol slot, between slots or out of the zone;
+damage added to or removed from a unit, hero or building card; and
+runes -- +1/+1, -1/-1, time and every named kind the cards put
+(`edits.NAMED_RUNES`, which a test holds to every rune the board draws)
+-- added to or removed from any card in play or hero. **Damage and runes
+are added and removed, never set** (the author, 2026-10-30, replacing a
+first `hp` command that set the HP): a correction is the difference a
+bug made, said as one. They are **corrections, not actions**: nobody's
+turn is spent, nothing triggers, and the model's `codex/flow/edits.py`
+makes them, through `GameService.correct` -- load, correct, save once
+-- so the cog decides nothing.
+
+Each still keeps what a position holds -- **no patroller is exhausted**
+(UMR p. 16), one patroller a slot, a card that can't patrol doesn't,
+**a +1/+1 rune added cancels a -1/-1 one** and the other way round
+(`board.add_plus_rune`, `add_minus_rune`, as every effect puts them),
++1/+1 and -1/-1 runes only on what has ATK and HP -- since a correction
+that broke one would be a bug of its own. **No correction kills**:
+damage up to lethal, or a -1/-1 rune that leaves 0 HP, is refused and
+the runes put back, because a death runs its triggers and asks, which
+only the driver may; and a fading card's or hero's last time rune is
+refused for the same reason, since the upkeep that takes it sacrifices
+the card (`board.remove_time_rune`). A squad leader moved in on another
+player's turn gets its armor then, as that turn's start would have
+given it (`SQUAD_LEADER_ARMOR`). **The zone is the unit's controller's**:
+`slot` picks the slot in it, and no correction puts a unit in another
+player's zone, which in a free-for-all is lending -- a control change
+until the borrower's upkeep (Rulebook p. 14) -- rather than a move.
+
+**A correction is journalled** (`history.EDIT`, `record_edit`) and
+replayed as written (`edits.replayed`), so every undo built on a replay
+-- the fine undo, a spell's cancel, the turn's end taken back --
+rebuilds it rather than silently losing it. It is never an undo point of
+its own (`history.NOT_ACTIONS`): it goes with the action before it, so
+an undo to a point before it takes it back, and an undo to a point after
+it keeps it. The snapshot undos restore a turn's start and take back
+every correction since. **A correction closes taking back the end of
+the turn before** (`_ended_turn`), which would lose it unsaid.
+
+Its line -- "Corrected: {player:2}'s {card:tenderfoot} patrols as
+elite." -- is a result's like any action's: it joins the turn's lines,
+the turn message is edited in place through the gate and the site gets
+it (`present`). Whoever made it is answered ephemerally with the same
+line, or with the refusal, which puts nothing in public. **Any of the
+game's players may correct it, or a helper** (the author, 2026-10-30:
+"Any player in the game should be able to change it"):
+`may_act_in_game`, the gate a button either coach may press stands on,
+read at run time; the line in the turn's log is what keeps a correction
+in the open. Each command's autocomplete lists, for those alone, what it
+may name
+(`edits.targets`) -- units and heroes to patrol, those and building
+cards to damage, every card and hero for runes -- with its HP, slot and
+runes: "kime: Hardened Mox, 1/1 HP, elite, exhausted", "ann: Might of
+Leaf and Claw, 3 growth", its value `<seat>|<ref>`.
+
 ## The end of a game
 
 Step 8 is what a game needs after its last turn ("Finishing a game" in
