@@ -1868,6 +1868,22 @@ class IndestructibleTests(KeywordCase):
         plexus = put(match, 2, "neo_plexus")
         self.assertEqual(engine.obliterate_candidates(match), (plexus.ref,))
 
+    def test_an_indestructible_patroller_is_sidelined(self) -> None:
+        """Indestructible (UMR p. 17) exhausts it, and "cards can't patrol
+        while exhausted" (p. 16): a patroller that would die leaves the
+        patrol zone, as a disabled one does."""
+        engine, game, match = purple_black()
+        mox = put(match, 1, "hardened_mox", damage=1)
+        mox.patrol_slot = "squad_leader"
+        mox.armor = 1
+        result = StepResult()
+        board.settle(engine, match, result)
+        self.assertIsNotNone(match.player(1).instance(mox.id))
+        self.assertTrue(mox.exhausted)
+        self.assertIsNone(mox.patrol_slot)
+        self.assertEqual((mox.damage, mox.armor), (0, 0))
+        self.assertTrue(any("sidelined and exhausted instead" in line for line in result.narration))
+
     def test_an_indestructible_unit_cant_be_sacrificed(self) -> None:
         engine, game, match = purple_black()
         mox = put(match, 1, "hardened_mox")

@@ -1389,24 +1389,31 @@ def died_from_fading(engine: "RulesEngine", match: MatchState, seat: int, hero: 
 def spare(engine: "RulesEngine", match: MatchState, card: CardInstance,
           result: StepResult) -> None:
     """An indestructible card that would die: exhausted, its damage and
-    the cards attached to it gone, its runes kept (UMR p. 17)."""
+    the cards attached to it gone, its runes kept (UMR p. 17) -- and
+    sidelined if it was patrolling, since "cards can't patrol while
+    exhausted" (UMR p. 16, as a disable sidelines one)."""
+    patrolling = card.patrol_slot is not None
     card.exhausted = True
     card.damage = 0
+    if patrolling:
+        sideline(match, card)
     for spell in list(match.instances()):
         if spell.slug != effects.TWO_STEP and card.id in spell.attached:
             leave_play(engine, match, spell, "discard")
+    instead = "it is sidelined and exhausted instead" if patrolling else "it is exhausted instead"
     result.narration.append(
-        f"{named(match, card.controller, card.ref)} is indestructible: it is exhausted instead."
+        f"{named(match, card.controller, card.ref)} is indestructible: {instead}."
     )
 
 
 def _spareable(match: MatchState, card: CardInstance) -> bool:
     """Whether sparing an indestructible card would change anything: damage
-    or an attachment to take off, or it is not yet exhausted."""
+    or an attachment to take off, or it is not yet exhausted or still
+    patrolling."""
     attached = any(
         spell.slug != effects.TWO_STEP and card.id in spell.attached for spell in match.instances()
     )
-    return bool(card.damage) or attached or not card.exhausted
+    return bool(card.damage) or attached or not card.exhausted or card.patrol_slot is not None
 
 
 def two_lives_saves(engine: "RulesEngine", match: MatchState, body,

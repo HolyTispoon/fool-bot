@@ -1007,7 +1007,9 @@ black's, and the rest waits for step 13.
   **Soul Stone** saves first (its damage removed, the stones sacrificed,
   nothing that pays on a death paying), then **indestructible**
   (`board.spare`: exhausted, its damage gone, the cards attached to it
-  discarded, its runes kept, and never sacrificed at all), then **can't
+  discarded, its runes kept, sidelined if it was patrolling -- "cards
+  can't patrol while exhausted" (UMR p. 16), the same reading that
+  sidelines a disabled patroller -- and never sacrificed at all), then **can't
   leave play** (Gilded Glaxx while its controller has gold). **Disable**
   (UMR p. 16) exhausts and sidelines a card and keeps it from readying
   at its next ready phase (`disabled`, cleared there). Rune damage --
