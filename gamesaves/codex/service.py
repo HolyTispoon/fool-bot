@@ -400,10 +400,10 @@ class GameService:
 
     def correct(self, game_id: str, edit: dict) -> GameResult:
         """
-        A helper's correction by hand (`codex.flow.edits`): made,
+        A player's or helper's correction by hand (`codex.flow.edits`): made,
         journalled and saved once, its line a result's like any action's
         -- the turn's question unchanged, asked again. Who may correct is
-        the frontend's: a helper alone. Refused with `RuleRefusal`, and
+        the frontend's: the game's players and helpers. Refused with `RuleRefusal`, and
         nothing written, where it can't be made.
         """
         game = self.game(game_id)

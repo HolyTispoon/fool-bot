@@ -1,9 +1,9 @@
 """
 `/codex debug patrol`, `damage` and `rune` on the faked Discord: a
-helper's correction made through the service, its line joining the
-turn's lines on the turn message, edited in place; a player refused; the
-autocomplete listing every unit and hero in play (docs/design/codex.md,
-"Corrections by hand").
+correction made through the service, its line joining the turn's lines
+on the turn message, edited in place; the game's players and helpers
+allowed and nobody else; the autocomplete listing what each may name
+(docs/design/codex.md, "Corrections by hand").
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ class DebugCommandTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.table.close)
         self.game = await self.table.started()
         self.helper = user(303, "helper", helper=True)
+        self.outsider = user(404, "outsider")
         match = self.table.cog.service.load(self.game)
         self.card = put(match, 2, "tenderfoot")
         self.table.cog.service.persist(self.game, match)
@@ -70,21 +71,23 @@ class DebugCommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("isn't patrolling", call.text())
         self.assertEqual(self.table.game_channel.since(mark), [])
 
-    async def test_a_player_is_refused(self) -> None:
+    async def test_a_player_of_the_game_may_correct_it(self) -> None:
         call = await self.patrol(self.table.basher, f"2|{self.card.ref}", "elite")
-        self.assertIn("Manage Channels", call.text())
+        self.assertIn("patrols as elite", call.text())
+        self.assertEqual(self.table.cog.service.load(self.game).patrollers(2), {"elite": self.card.ref})
+
+    async def test_somebody_else_is_refused(self) -> None:
+        call = await self.patrol(self.outsider, f"2|{self.card.ref}", "elite")
+        self.assertIn("Only the game's players", call.text())
         self.assertEqual(self.table.cog.service.load(self.game).patrollers(2), {})
 
-    async def test_the_autocomplete_lists_the_board_for_a_helper_alone(self) -> None:
+    async def test_the_autocomplete_lists_the_board_for_a_player_or_helper_alone(self) -> None:
         cog = self.table.cog
-        found = await cog.debug_patrol_autocomplete(self.table.interaction(self.helper), "tender")
-        self.assertEqual([(one.name, one.value) for one in found],
-                         [("fencer: Tenderfoot, 2/2 HP", f"2|{self.card.ref}")])
-        self.assertEqual(
-            await cog.debug_patrol_autocomplete(self.table.interaction(self.table.basher), ""),
-            [],
-        )
-
+        for who in (self.helper, self.table.fencer):
+            found = await cog.debug_patrol_autocomplete(self.table.interaction(who), "tender")
+            self.assertEqual([(one.name, one.value) for one in found],
+                             [("fencer: Tenderfoot, 2/2 HP", f"2|{self.card.ref}")])
+        self.assertEqual(await cog.debug_patrol_autocomplete(self.table.interaction(self.outsider), ""), [])
 
 if __name__ == "__main__":
     unittest.main()

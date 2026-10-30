@@ -6,9 +6,9 @@ from a unit, hero or building card; and `rune`, +1/+1, -1/-1, time or a
 named rune added to or removed from any card in play or hero. The
 corrections and their rules are the model's (`codex.flow.edits`), made
 through `GameService.correct`; the line each says joins the turn's lines
-and the board is redrawn, as an action's are (`present`). Helpers alone
-(Manage Channels), read at run time as `/codex admin`'s gate is
-(docs/design/codex.md, "Corrections by hand").
+and the board is redrawn, as an action's are (`present`). Any of the
+game's players, or a helper (Manage Channels), read at run time
+(`may_act_in_game`; docs/design/codex.md, "Corrections by hand").
 """
 
 from __future__ import annotations
@@ -21,13 +21,13 @@ from discord import app_commands
 from codex.flow import edits
 from codex.formatting import SLOT_NAMES
 from codex.game import GameStatus, RuleRefusal
-from cogs.codex.ending import HELPERS_ONLY
-from cogs.codex_helpers import is_game_helper
+from cogs.game_auth import may_act_in_game
 from cogs.codex_views import send_ephemeral
 
 LOGGER = logging.getLogger(__name__)
 
 NO_GAME_HERE = "No Codex game is being played in this channel."
+PLAYERS_ONLY = "Only the game's players, or a helper with Manage Channels, can correct its board."
 
 #: What a patrol correction may name: each slot, and out of the zone.
 SLOT_CHOICES = [
@@ -48,7 +48,7 @@ RUNE_CHOICES = [
 class DebugMixin:
     debug = app_commands.Group(
         name="debug",
-        description="Helpers: correct this channel's Codex board by hand.",
+        description="Correct this channel's Codex board by hand: its players, or a helper.",
         guild_only=True,
     )
 
@@ -95,9 +95,11 @@ class DebugMixin:
     def debug_choices(self, interaction: discord.Interaction, current: str,
                       edit: str) -> list[app_commands.Choice[str]]:
         """What the correction `edit` may name in this channel's game,
-        filtered by what has been typed -- for a helper alone."""
+        filtered by what has been typed -- for its players and helpers
+        alone."""
         game = self.game_for_channel(interaction.channel_id)
-        if game is None or game.status is not GameStatus.PLAYING or not is_game_helper(interaction.user):
+        if game is None or game.status is not GameStatus.PLAYING \
+                or not may_act_in_game(interaction.user, game):
             return []
         try:
             match = self.service.load(game)
@@ -132,8 +134,8 @@ class DebugMixin:
         if game is None or game.status is not GameStatus.PLAYING:
             await send_ephemeral(interaction, NO_GAME_HERE)
             return
-        if not is_game_helper(interaction.user):
-            await send_ephemeral(interaction, HELPERS_ONLY)
+        if not may_act_in_game(interaction.user, game):
+            await send_ephemeral(interaction, PLAYERS_ONLY)
             return
         seat, _, ref = unit.partition("|")
         if not seat.isdigit() or not ref:

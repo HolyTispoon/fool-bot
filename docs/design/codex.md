@@ -3225,7 +3225,8 @@ carries the heading alone.
 ### Corrections by hand
 
 `/codex debug patrol`, `/codex debug damage` and `/codex debug rune` let
-a helper put right a board a bug left wrong (the author, 2026-10-30,
+any of the game's players, or a helper, put right a board a bug left
+wrong (the author, 2026-10-30,
 after a spared Hardened Mox stayed exhausted in a patrol slot): a unit
 or hero moved into a patrol slot, between slots or out of the zone;
 damage added to or removed from a unit, hero or building card; and
@@ -3251,7 +3252,10 @@ only the driver may; and a fading card's or hero's last time rune is
 refused for the same reason, since the upkeep that takes it sacrifices
 the card (`board.remove_time_rune`). A squad leader moved in on another
 player's turn gets its armor then, as that turn's start would have
-given it (`SQUAD_LEADER_ARMOR`).
+given it (`SQUAD_LEADER_ARMOR`). **The zone is the unit's controller's**:
+`slot` picks the slot in it, and no correction puts a unit in another
+player's zone, which in a free-for-all is lending -- a control change
+until the borrower's upkeep (Rulebook p. 14) -- rather than a move.
 
 **A correction is journalled** (`history.EDIT`, `record_edit`) and
 replayed as written (`edits.replayed`), so every undo built on a replay
@@ -3266,10 +3270,14 @@ the turn before** (`_ended_turn`), which would lose it unsaid.
 Its line -- "Corrected: {player:2}'s {card:tenderfoot} patrols as
 elite." -- is a result's like any action's: it joins the turn's lines,
 the turn message is edited in place through the gate and the site gets
-it (`present`). The helper is answered ephemerally with the same line,
-or with the refusal, which puts nothing in public. The gate is
-`/codex admin`'s, Manage Channels read at run time; each command's
-autocomplete lists, for a helper alone, what it may name
+it (`present`). Whoever made it is answered ephemerally with the same
+line, or with the refusal, which puts nothing in public. **Any of the
+game's players may correct it, or a helper** (the author, 2026-10-30:
+"Any player in the game should be able to change it"):
+`may_act_in_game`, the gate a button either coach may press stands on,
+read at run time; the line in the turn's log is what keeps a correction
+in the open. Each command's autocomplete lists, for those alone, what it
+may name
 (`edits.targets`) -- units and heroes to patrol, those and building
 cards to damage, every card and hero for runes -- with its HP, slot and
 runes: "kime: Hardened Mox, 1/1 HP, elite, exhausted", "ann: Might of

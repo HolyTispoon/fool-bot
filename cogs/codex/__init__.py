@@ -12,7 +12,8 @@ reset_channels`), `presentation` (the board, the channel, the turn
 message, a hand),
 `slash_commands` (`/codex games`, `board`, `hand`, `resume`),
 `reference` (`/codex card`, `/codex rules`) and `debug` (`/codex debug
-patrol`, `damage` and `rune`, a helper's corrections by hand). Nothing in it decides a
+patrol`, `damage` and `rune`, a player's or helper's corrections by
+hand). Nothing in it decides a
 rule: it asks `codex/` and renders the answer.
 """
 

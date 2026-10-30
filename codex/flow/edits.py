@@ -1,6 +1,6 @@
 """
-A helper's corrections to a position (`/codex debug`), for a board a
-bug left wrong: a unit or hero moved into a patrol slot, between slots
+A player's or helper's corrections to a position (`/codex debug`), for
+a board a bug left wrong: a unit or hero moved into a patrol slot, between slots
 or out of the patrol zone; damage added to or removed from a unit, hero
 or building card; and runes -- +1/+1, -1/-1, time and every named kind --
 added to or removed from any card in play or hero. Not a rule and not an
