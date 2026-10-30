@@ -1012,7 +1012,13 @@ black's, and the rest waits for step 13.
   sidelines a disabled patroller -- and never sacrificed at all), then **can't
   leave play** (Gilded Glaxx while its controller has gold). **Disable**
   (UMR p. 16) exhausts and sidelines a card and keeps it from readying
-  at its next ready phase (`disabled`, cleared there). Rune damage --
+  at its next ready phase (`disabled`, cleared there). **No patroller is
+  ever exhausted**: each path that exhausts one sidelines it itself, and
+  `settle` sidelines any exhausted card or hero still in a slot
+  (`_exhausted_patrollers`) -- which also took out the Moxes a save from
+  before `spare` sidelined left there (the author, 2026-10-30). A lent
+  patroller sidelined goes home at once, so a lent card is never
+  exhausted on its borrower's side. Rune damage --
   Plague Spitter's -1/-1 runes -- is still combat damage for anything
   that asks (its ruling). Blackhand Dozer's base damage has a floor
   (`damage_base(by=)`).

@@ -1197,8 +1197,9 @@ def return_lent(engine: "RulesEngine", match: MatchState, seat: int, result: Ste
     """The borrower's upkeep: every card they control with `lent` set,
     and every hero lent to them, goes home to its owner -- out of the
     patrol zone and into the owner's play zone, never theirs, with no
-    Arrives trigger and nothing else changed (Rulebook p. 14). The ready
-    phase before it has already readied them as the borrower's."""
+    Arrives trigger and nothing else changed (Rulebook p. 14). None is
+    exhausted: an exhausted patroller is sidelined, which sends a lent
+    one home at once (`sideline`, `_exhausted_patrollers`)."""
     borrowed = [card for card in match.player(seat).play if card.lent]
     for card in borrowed:
         sideline(match, card)
@@ -1755,6 +1756,26 @@ def kill_bonus(engine: "RulesEngine", match: MatchState, seat: int, killer: Opti
                 )
 
 
+def _exhausted_patrollers(match: MatchState, result: StepResult) -> None:
+    """Every exhausted card and hero still in a patrol slot, sidelined
+    (UMR p. 16) -- a lent one home to its owner -- and named where it
+    stands now (`sideline`). The paths that exhaust a patroller sideline
+    it themselves (`spare`, `disable`, Boot Camp); this holds the rule
+    for any that does not, and for a game saved before `spare` did."""
+    bodies = [
+        (player.seat, body) for player in match.players
+        for body in (*player.play, *player.heroes_on_table)
+        if body.patrol_slot is not None and body.exhausted
+    ]
+    for seat, body in bodies:
+        sideline(match, body)
+        if isinstance(body, HeroState):
+            ref = hero_ref(body.slug)
+        else:
+            seat, ref = body.controller, body.ref
+        result.narration.append(f"{named(match, seat, ref)} can't patrol while exhausted: it is sidelined.")
+
+
 def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
            cause: Optional[int] = None) -> None:
     """
@@ -1769,7 +1790,12 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
     A grant that ended -- Grounded Guide gone -- can kill this way too.
     `cause` is the seat whose effect led here, for a hero's kill levels
     (`destroy`).
+
+    First, every exhausted card and hero in a patrol slot is sidelined:
+    "cards can't patrol while exhausted" (UMR p. 16), so no position
+    holds an exhausted patroller (`_exhausted_patrollers`).
     """
+    _exhausted_patrollers(match, result)
     while True:
         dead = []
         for player in match.players:
