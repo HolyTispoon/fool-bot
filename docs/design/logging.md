@@ -112,7 +112,10 @@ Things to know before changing any of it:
 - **When both bots restart together, only fool-bot lists the changes.**
   Each bot keeps its own record of the build it announced, so a deploy
   that pulled used to post the same change list twice, once per bot.
-  `deploy.ps1` restarts fool-bot first and then tells the Codex bot so
+  `deploy.ps1` restarts fool-bot first -- waiting until its notice is
+  posted, the INFO line "Posted the startup notice" in its log
+  (`update_main_bot.ps1 -WaitForStartup`, [collaboration.md](collaboration.md))
+  -- and then tells the Codex bot so
   (`run_codex_bot.ps1 -WithFoolBot`, which starts `codexbot.py
   --with-fool-bot`), and the Codex bot posts only its restart line even
   on a new build (`announce_startup(list_changes=False)`, the author,
