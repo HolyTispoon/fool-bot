@@ -1,7 +1,8 @@
 """
 A helper's corrections by hand (`codex.flow.edits`, `/codex debug`): a
-unit or hero moved into, between and out of patrol slots, and its HP
-set, each keeping the rules a position holds; journalled, so a replay
+unit or hero moved into, between and out of patrol slots, damage and
+runes added and removed, each keeping the rules a position holds and
+none killing; journalled, so a replay
 makes it again, never an undo point of its own, and taken back by an
 undo to before it (docs/design/codex.md, "Corrections by hand").
 """
@@ -73,24 +74,81 @@ class CorrectionTests(unittest.TestCase):
             self.correct(edits.patrol(2, "unit:999", "elite"))
         self.assertEqual(self.match.journal, [], "a refusal writes nothing")
 
-    def test_hp_is_set_from_one_to_the_most(self) -> None:
+    def test_damage_is_added_and_removed_and_never_kills(self) -> None:
         card = put(self.match, 1, "iron_man", damage=1)
-        self.assertEqual(self.correct(edits.set_hp(1, card.ref, 1)),
-                         ["Corrected: {player:1}'s {card:iron_man} has 1 HP of 4."])
-        self.assertEqual(card.damage, 3)
-        self.correct(edits.set_hp(1, card.ref, 4))
+        self.assertEqual(self.correct(edits.damage(1, card.ref, 2)),
+                         ["Corrected: {player:1}'s {card:iron_man} now has 3 damage, 1 HP of 4."])
+        self.correct(edits.damage(1, card.ref, -3))
         self.assertEqual(card.damage, 0)
-        for hp in (0, 5):
-            with self.assertRaisesRegex(RuleRefusal, "from 1 to 4"):
-                self.correct(edits.set_hp(1, card.ref, hp))
+        with self.assertRaisesRegex(RuleRefusal, "only 0 damage"):
+            self.correct(edits.damage(1, card.ref, -1))
+        with self.assertRaisesRegex(RuleRefusal, "would destroy it"):
+            self.correct(edits.damage(1, card.ref, 4))
+        self.assertEqual(card.damage, 0)
 
-    def test_the_targets_are_every_unit_and_hero_in_play(self) -> None:
+    def test_damage_names_no_card_without_hp(self) -> None:
+        upgrade = put(self.match, 1, "might_of_leaf_and_claw")
+        with self.assertRaisesRegex(RuleRefusal, "not a unit, hero or building card"):
+            self.correct(edits.damage(1, upgrade.ref, 1))
+
+    def test_a_named_rune_goes_on_any_card_in_play_and_comes_off(self) -> None:
+        upgrade = put(self.match, 1, "might_of_leaf_and_claw")
+        self.assertEqual(self.correct(edits.rune(1, upgrade.ref, "growth", 3)),
+                         ["Corrected: {player:1}'s {card:might_of_leaf_and_claw} now has 3 growth runes."])
+        self.correct(edits.rune(1, upgrade.ref, "growth", -3))
+        self.assertEqual(upgrade.runes, {})
+        with self.assertRaisesRegex(RuleRefusal, "has no growth runes to remove"):
+            self.correct(edits.rune(1, upgrade.ref, "growth", -1))
+
+    def test_a_plus_rune_cancels_a_minus_rune_as_the_rules_do(self) -> None:
+        card = put(self.match, 1, "iron_man")
+        card.minus_runes = 1
+        self.assertEqual(self.correct(edits.rune(1, card.ref, edits.PLUS, 2)),
+                         ["Corrected: {player:1}'s {card:iron_man} now has 1 +1/+1 rune and no -1/-1 runes."])
+        self.assertEqual((card.plus_runes, card.minus_runes), (1, 0))
+        self.correct(edits.rune(1, card.ref, edits.PLUS, -1))
+        self.assertEqual(card.plus_runes, 0)
+
+    def test_no_rune_change_kills(self) -> None:
+        card = put(self.match, 1, "tenderfoot", damage=1)
+        with self.assertRaisesRegex(RuleRefusal, "would destroy"):
+            self.correct(edits.rune(1, card.ref, edits.MINUS, 1))
+        self.assertEqual((card.minus_runes, card.plus_runes), (0, 0), "put back as it was")
+        upgrade = put(self.match, 1, "might_of_leaf_and_claw")
+        with self.assertRaisesRegex(RuleRefusal, "no ATK or HP"):
+            self.correct(edits.rune(1, upgrade.ref, edits.PLUS, 1))
+
+    def test_time_runes_but_never_a_fading_cards_last(self) -> None:
+        card = put(self.match, 1, "tenderfoot")
+        self.correct(edits.rune(1, card.ref, edits.TIME, 2))
+        self.correct(edits.rune(1, card.ref, edits.TIME, -2))
+        self.assertEqual(card.time_runes, 0)
+        _, _, scratch = new_game()
+        fading = next(slug for slug, printed in self.engine.catalog.cards.items()
+                      if printed.is_unit and self.engine.fading(put(scratch, 2, slug)))
+        faded = put(self.match, 2, fading)
+        faded.time_runes = 1
+        with self.assertRaisesRegex(RuleRefusal, "last time rune"):
+            self.correct(edits.rune(2, faded.ref, edits.TIME, -1))
+
+    def test_the_targets_are_what_each_correction_may_name(self) -> None:
         card = put(self.match, 2, "tenderfoot", patrol="elite", damage=1)
+        card.runes = {"feather": 1}
+        upgrade = put(self.match, 1, "might_of_leaf_and_claw")
         hero_in_play(self.match, 1)
-        found = {(target.seat, target.ref): target for target in edits.targets(self.engine, self.match)}
-        self.assertEqual(set(found), {(2, card.ref), (1, hero(self.match, 1))})
-        self.assertEqual((found[2, card.ref].hp, found[2, card.ref].max_hp, found[2, card.ref].slot),
-                         (1, 2, "elite"))
+        named = lambda edit: {(target.seat, target.ref) for target in edits.targets(self.engine, self.match, edit)}
+        self.assertEqual(named(edits.PATROL), {(2, card.ref), (1, hero(self.match, 1))})
+        self.assertEqual(named(edits.DAMAGE), named(edits.PATROL))
+        self.assertEqual(named(edits.RUNE), named(edits.PATROL) | {(1, upgrade.ref)})
+        found = {(target.seat, target.ref): target for target in edits.targets(self.engine, self.match, edits.RUNE)}
+        self.assertEqual((found[2, card.ref].hp, found[2, card.ref].max_hp, found[2, card.ref].slot,
+                          found[2, card.ref].runes), (1, 2, "elite", (("feather", 1),)))
+        self.assertIsNone(found[1, upgrade.ref].max_hp)
+
+    def test_every_rune_the_board_draws_may_be_named(self) -> None:
+        from codex.render import RUNE_COLORS, SINGLE_RUNES
+
+        self.assertLessEqual(set(RUNE_COLORS) | set(SINGLE_RUNES), set(edits.NAMED_RUNES))
 
 
 class JournalTests(unittest.TestCase):
@@ -132,7 +190,7 @@ class JournalTests(unittest.TestCase):
         apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
         apply(engine, game, match, PromptKind.PATROL, arguments={"assignment": {}})
         self.assertEqual(history.end_of_turn_owner(engine, game, match), 1)
-        edits.correct(engine, match, edits.set_hp(2, self.foe.ref, 1))
+        edits.correct(engine, match, edits.damage(2, self.foe.ref, 1))
         self.assertIsNone(history.end_of_turn_owner(engine, game, match))
 
 
