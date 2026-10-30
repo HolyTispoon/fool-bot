@@ -352,26 +352,21 @@ class LendingTests(unittest.TestCase):
         self.assertEqual((card.controller, card.lent, card.patrol_slot, card.damage), (3, False, None, 1))
         self.assertNotIn("{card:tenderfoot} arrives", heard)
 
-    def test_the_return_readies_nothing_the_borrowers_ready_phase_did(self) -> None:
-        card = put(self.match, 3, "tenderfoot")
-        apply(self.engine, self.game, self.match, Action(PromptKind.MAIN_ACTION, "end_main"))
-        apply(self.engine, self.game, self.match, Action(PromptKind.PATROL, arguments={
-            "assignment": {}, "lent": {"2": {"elite": card.ref}}}))
-        card.exhausted = True   # worn out on seat 1's turn
-        self.match.active = 1
-        for player in self.match.players:
-            player.tech_owed = False
-        card.exhausted = True
-        lock(self.engine, self.game, self.match) if self.match.phase == "main" else None
-        while self.match.active != 2 or self.match.phase != "main":
-            from codex.prompts import owed_step
-            owed = owed_step(self.engine, self.game, self.match)
-            if owed is None:
-                break
-            driver.advance(self.engine, self.game, self.match, StepResult(next=owed))
+    def test_a_lent_patroller_spared_on_the_next_turn_goes_home_exhausted(self) -> None:
+        """A patroller is never exhausted: "cards can't patrol while
+        exhausted" (UMR p. 16). A lent Hardened Mox that would die on
+        seat 1's turn is spared -- exhausted -- and sidelined, which sends
+        it home to its owner at once (`sideline`); the owner's again, it
+        stays exhausted through seat 2's ready phase."""
+        mox, _ = self.lend_unit("hardened_mox", slot="elite")
+        self.assertEqual((self.match.active, mox.controller, mox.exhausted), (1, 2, False))
+        board.destroy(self.engine, self.match, [(2, mox.ref)], StepResult())
+        self.assertIn(mox, self.lender.play)
+        self.assertEqual((mox.controller, mox.lent, mox.patrol_slot, mox.exhausted), (3, False, None, True))
+        self.assertEqual(self.match.patrollers(2), {})
+        lock(self.engine, self.game, self.match)
         self.assertEqual(self.match.active, 2)
-        self.assertFalse(card.exhausted)   # readied by seat 2's ready phase, as theirs
-        self.assertEqual(card.controller, 3)
+        self.assertEqual((mox.controller, mox.exhausted), (3, True))
 
     def test_the_return_keeps_a_card_as_it_was(self) -> None:
         card, _ = self.lend_unit()
@@ -525,7 +520,6 @@ class LentHeroTests(unittest.TestCase):
         self.assertEqual((self.hero.zone, self.hero.lent_to), ("command", None))
 
     def test_it_goes_home_readied_and_never_patrols_the_owners_zone(self) -> None:
-        self.hero.exhausted = True
         lock(self.engine, self.game, self.match)
         self.assertEqual(self.match.active, 2)
         self.assertEqual((self.hero.lent_to, self.hero.patrol_slot, self.hero.exhausted), (None, None, False))

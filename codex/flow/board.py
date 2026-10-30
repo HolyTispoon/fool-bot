@@ -1197,8 +1197,9 @@ def return_lent(engine: "RulesEngine", match: MatchState, seat: int, result: Ste
     """The borrower's upkeep: every card they control with `lent` set,
     and every hero lent to them, goes home to its owner -- out of the
     patrol zone and into the owner's play zone, never theirs, with no
-    Arrives trigger and nothing else changed (Rulebook p. 14). The ready
-    phase before it has already readied them as the borrower's."""
+    Arrives trigger and nothing else changed (Rulebook p. 14). None is
+    exhausted: an exhausted patroller is sidelined, which sends a lent
+    one home at once (`sideline`, `_exhausted_patrollers`)."""
     borrowed = [card for card in match.player(seat).play if card.lent]
     for card in borrowed:
         sideline(match, card)
@@ -1389,24 +1390,31 @@ def died_from_fading(engine: "RulesEngine", match: MatchState, seat: int, hero: 
 def spare(engine: "RulesEngine", match: MatchState, card: CardInstance,
           result: StepResult) -> None:
     """An indestructible card that would die: exhausted, its damage and
-    the cards attached to it gone, its runes kept (UMR p. 17)."""
+    the cards attached to it gone, its runes kept (UMR p. 17) -- and
+    sidelined if it was patrolling, since "cards can't patrol while
+    exhausted" (UMR p. 16, as a disable sidelines one)."""
+    patrolling = card.patrol_slot is not None
     card.exhausted = True
     card.damage = 0
+    if patrolling:
+        sideline(match, card)
     for spell in list(match.instances()):
         if spell.slug != effects.TWO_STEP and card.id in spell.attached:
             leave_play(engine, match, spell, "discard")
+    instead = "it is sidelined and exhausted instead" if patrolling else "it is exhausted instead"
     result.narration.append(
-        f"{named(match, card.controller, card.ref)} is indestructible: it is exhausted instead."
+        f"{named(match, card.controller, card.ref)} is indestructible: {instead}."
     )
 
 
 def _spareable(match: MatchState, card: CardInstance) -> bool:
     """Whether sparing an indestructible card would change anything: damage
-    or an attachment to take off, or it is not yet exhausted."""
+    or an attachment to take off, or it is not yet exhausted or still
+    patrolling."""
     attached = any(
         spell.slug != effects.TWO_STEP and card.id in spell.attached for spell in match.instances()
     )
-    return bool(card.damage) or attached or not card.exhausted
+    return bool(card.damage) or attached or not card.exhausted or card.patrol_slot is not None
 
 
 def two_lives_saves(engine: "RulesEngine", match: MatchState, body,
@@ -1748,6 +1756,26 @@ def kill_bonus(engine: "RulesEngine", match: MatchState, seat: int, killer: Opti
                 )
 
 
+def _exhausted_patrollers(match: MatchState, result: StepResult) -> None:
+    """Every exhausted card and hero still in a patrol slot, sidelined
+    (UMR p. 16) -- a lent one home to its owner -- and named where it
+    stands now (`sideline`). The paths that exhaust a patroller sideline
+    it themselves (`spare`, `disable`, Boot Camp); this holds the rule
+    for any that does not, and for a game saved before `spare` did."""
+    bodies = [
+        (player.seat, body) for player in match.players
+        for body in (*player.play, *player.heroes_on_table)
+        if body.patrol_slot is not None and body.exhausted
+    ]
+    for seat, body in bodies:
+        sideline(match, body)
+        if isinstance(body, HeroState):
+            ref = hero_ref(body.slug)
+        else:
+            seat, ref = body.controller, body.ref
+        result.narration.append(f"{named(match, seat, ref)} can't patrol while exhausted: it is sidelined.")
+
+
 def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
            cause: Optional[int] = None) -> None:
     """
@@ -1762,7 +1790,12 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
     A grant that ended -- Grounded Guide gone -- can kill this way too.
     `cause` is the seat whose effect led here, for a hero's kill levels
     (`destroy`).
+
+    First, every exhausted card and hero in a patrol slot is sidelined:
+    "cards can't patrol while exhausted" (UMR p. 16), so no position
+    holds an exhausted patroller (`_exhausted_patrollers`).
     """
+    _exhausted_patrollers(match, result)
     while True:
         dead = []
         for player in match.players:
