@@ -278,7 +278,16 @@ them through, and passes `-SkipPull` to the Codex bot's and the web
 app's scripts whatever it was given: the updater has just pulled, and
 their own pull, of `main` by default, would undo a `-Branch` deploy.
 It passes the Codex bot `-WithFoolBot` as well, so the change list in
-#logs is fool-bot's alone ([logging.md](logging.md)). `$ErrorActionPreference = 'Stop'` means a failed
+#logs is fool-bot's alone ([logging.md](logging.md)), and passes the
+updater `-WaitForStartup`, so the Codex bot is started only once
+fool-bot has logged in and posted its notice: fool-bot spends half a
+minute loading its cogs, far past the updater's four-second check, and
+without the wait the Codex bot's restart line landed above fool-bot's
+change list (2026-10-30). The wait reads fool-bot's stderr log for
+botlog's own lines -- the notice posted, the post failed, or the mirror
+off -- throws if the bot dies meanwhile, and gives up with a warning
+after two minutes, which is also what a notice switched off costs.
+`$ErrorActionPreference = 'Stop'` means a failed
 pull, install or bot start stops it before the web app is touched, so
 the web app is never restarted onto a tree the first half failed to
 update. The tunnel goes last: it serves nothing until the web app is

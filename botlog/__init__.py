@@ -387,6 +387,9 @@ async def announce_startup(
             return
 
         await channel.send(pending.message)
+        # update_main_bot.ps1 -WaitForStartup reads this line: deploy.ps1
+        # starts the Codex bot only once fool-bot's notice is in #logs.
+        LOGGER.info("Posted the startup notice to #%s.", channel.name)
         deploy_notice.mark_announced(pending.sha, state_file)
 
         if pending.listed:

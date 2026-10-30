@@ -64,8 +64,12 @@ if ($StopOnly) {
 }
 
 $updateArgs = @{
-    RepoPath = $resolvedRepoPath
-    Branch   = $Branch
+    RepoPath       = $resolvedRepoPath
+    Branch         = $Branch
+    # Fool-bot takes half a minute to load its cogs; without the wait
+    # the Codex bot is up first and its restart line lands above
+    # fool-bot's change list in #logs.
+    WaitForStartup = $true
 }
 if ($SkipPull) {
     $updateArgs['SkipPull'] = $true

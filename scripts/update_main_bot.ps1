@@ -10,7 +10,14 @@ param(
     # Stop it and start nothing -- the way to take the bot down on
     # purpose, since it has no Ctrl+C once it is running hidden. No pull
     # and no install either: there is nothing to start them for.
-    [switch]$StopOnly
+    [switch]$StopOnly,
+
+    # Return only once the bot has logged in and posted its startup
+    # notice to #logs (or two minutes have passed). deploy.ps1 passes
+    # it so the Codex bot's restart line lands after fool-bot's notice:
+    # loading the cogs takes the bot half a minute, far past the
+    # four-second check below.
+    [switch]$WaitForStartup
 )
 
 $ErrorActionPreference = 'Stop'
@@ -260,5 +267,40 @@ if ($botProcess.HasExited) {
 }
 
 Write-Host "Fool bot updated and running as process $($botProcess.Id)."
+
+# The lines botlog writes: the notice posted, or why there is none to
+# wait for -- the mirror off (logged before login), or the post failed.
+# A notice switched off or with nothing to say logs none of them, so
+# that case waits out the timeout and carries on.
+if ($WaitForStartup) {
+    Write-Host 'Waiting for the Fool bot to log in and post to #logs...'
+    $settledPattern = 'Posted the startup notice|Could not post the startup notice|Not posting to #'
+    $deadline = (Get-Date).AddSeconds(120)
+    $settled = $false
+    while ((Get-Date) -lt $deadline) {
+        $botProcess.Refresh()
+        if ($botProcess.HasExited) {
+            Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+            $errorTail = @()
+            if (Test-Path -LiteralPath $stderrLog) {
+                $errorTail = Get-Content -LiteralPath $stderrLog -Tail 30
+            }
+            throw "The Fool bot exited during startup.`n$($errorTail -join "`n")"
+        }
+        if ((Test-Path -LiteralPath $stderrLog) -and
+            (Select-String -LiteralPath $stderrLog -Pattern $settledPattern -Quiet)) {
+            $settled = $true
+            break
+        }
+        Start-Sleep -Seconds 2
+    }
+    if ($settled) {
+        Write-Host 'Fool bot is up.'
+    } else {
+        Write-Warning ('The Fool bot posted no startup notice within two ' +
+            'minutes; carrying on. See show_logs.cmd bot.')
+    }
+}
+
 Write-Host "Output log: $stdoutLog"
 Write-Host "Error log:  $stderrLog"
