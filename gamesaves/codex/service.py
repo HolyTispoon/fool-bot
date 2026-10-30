@@ -41,7 +41,7 @@ from typing import Any, Callable, Mapping, Optional, Union
 from codex import history
 from codex.components import MatchState
 from codex.engine import RulesEngine
-from codex.flow import driver, turn
+from codex.flow import driver, edits, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import MODES, CodexGame, GameStatus, RuleRefusal
 from codex.prompts import (
@@ -394,6 +394,30 @@ class GameService:
             board_changed=True,
             match=match,
             headlines=conceded.headlines,
+        )
+        self.announce(game, result)
+        return result
+
+    def correct(self, game_id: str, edit: dict) -> GameResult:
+        """
+        A helper's correction by hand (`codex.flow.edits`): made,
+        journalled and saved once, its line a result's like any action's
+        -- the turn's question unchanged, asked again. Who may correct is
+        the frontend's: a helper alone. Refused with `RuleRefusal`, and
+        nothing written, where it can't be made.
+        """
+        game = self.game(game_id)
+        match = self.load(game)
+        corrected = edits.correct(self.engine, match, edit)
+        self.persist(game, match)
+        following = pending(self.engine, game, match)
+        result = GameResult(
+            narration=tuple(corrected.narration),
+            prompt=following if isinstance(following, PendingPrompt) else None,
+            prompts=self.team_prompts(game, match),
+            standing=self.standing(game, match),
+            board_changed=True,
+            match=match,
         )
         self.announce(game, result)
         return result

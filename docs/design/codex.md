@@ -3222,6 +3222,42 @@ Like `/codex resume`'s, a repost
 after a restart, before this process has seen the turn's lines,
 carries the heading alone.
 
+### Corrections by hand
+
+`/codex debug patrol` and `/codex debug hp` let a helper put right a
+board a bug left wrong (the author, 2026-10-30, after a spared Hardened
+Mox stayed exhausted in a patrol slot): a unit or hero moved into a
+patrol slot, between slots or out of the zone, and its HP set. They are
+**corrections, not actions**: nobody's turn is spent, nothing triggers,
+and the model's `codex/flow/edits.py` makes them, through
+`GameService.correct` -- load, correct, save once -- so the cog decides
+nothing. Each still keeps what a position holds -- **no patroller is
+exhausted** (UMR p. 16), one patroller a slot, a card that can't patrol
+doesn't, HP from 1 to its most -- since a correction that broke one would
+be a bug of its own; setting HP to 0 is refused rather than run as a
+death outside the driver, which would have to trigger and ask. A squad
+leader moved in on another player's turn gets its armor then, as that
+turn's start would have given it (`SQUAD_LEADER_ARMOR`).
+
+**A correction is journalled** (`history.EDIT`, `record_edit`) and
+replayed as written (`edits.replayed`), so every undo built on a replay
+-- the fine undo, a spell's cancel, the turn's end taken back --
+rebuilds it rather than silently losing it. It is never an undo point of
+its own (`history.NOT_ACTIONS`): it goes with the action before it, so
+an undo to a point before it takes it back, and an undo to a point after
+it keeps it. The snapshot undos restore a turn's start and take back
+every correction since. **A correction closes taking back the end of
+the turn before** (`_ended_turn`), which would lose it unsaid.
+
+Its line -- "Corrected: {player:2}'s {card:tenderfoot} patrols as
+elite." -- is a result's like any action's: it joins the turn's lines,
+the turn message is edited in place through the gate and the site gets
+it (`present`). The helper is answered ephemerally with the same line,
+or with the refusal, which puts nothing in public. The gate is
+`/codex admin`'s, Manage Channels read at run time; the autocomplete
+lists every unit and hero in play for a helper alone, "kime: Hardened
+Mox, 1/1 HP, elite, exhausted", its value `<seat>|<ref>`.
+
 ## The end of a game
 
 Step 8 is what a game needs after its last turn ("Finishing a game" in

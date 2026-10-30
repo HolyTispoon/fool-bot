@@ -96,6 +96,14 @@ KEPT_KINDS = frozenset({"tech_choice"})
 #: them alone is no action to number.
 OPENING_KINDS = frozenset({"tech_choice", "tech_confirm", "upkeep_order"})
 
+#: A helper's correction by hand (`codex.flow.edits`): journalled so a
+#: replay makes it again, but no action of the turn's -- never an undo
+#: point of its own, taken back with the action it follows.
+EDIT = "edit"
+
+#: The entries that begin no action: the opening's, and a correction.
+NOT_ACTIONS = OPENING_KINDS | {EDIT}
+
 #: What a position between two actions asks: the main phase's menu, or
 #: the patrol's once the main phase has ended -- nothing of an action
 #: under way (a target, a defender, a mode). The fine undo goes back to
@@ -179,6 +187,12 @@ def record(match: MatchState, action: "Action", outcomes: Iterable[Sequence[str]
         "action": action.to_dict(),
         "outcomes": [list(order) for order in outcomes],
     })
+
+
+def record_edit(match: MatchState, edit: dict) -> None:
+    """Write a correction into the journal (`EDIT`): what it was, with
+    nothing drawn."""
+    match.journal.append({"action": dict(edit), "outcomes": []})
 
 
 def _restore(match: MatchState, data: dict, snapshots: list[dict]) -> None:
@@ -276,6 +290,16 @@ def replay(
     for index, entry in enumerate(actions):
         if until is not None and until(match):
             break
+        if entry["action"]["kind"] == EDIT:
+            from codex.flow import edits
+
+            try:
+                applied = edits.replayed(engine, game, match, entry)
+            except RuleRefusal as refused:
+                raise ValueError(f"a journalled correction no longer applies: {refused}") from refused
+            if each is not None:
+                each(index, match, applied)
+            continue
         applied = driver.apply(
             engine, game, match, Action.from_dict(entry["action"]),
             outcomes=entry.get("outcomes", ()),
@@ -326,8 +350,9 @@ def _ended_turn(match: MatchState) -> Optional[int]:
     """The index of the ended turn's snapshot whose end may be taken
     back, its journal kept: the turn before this one's start, while this
     turn's journal holds nothing but its opening (`OPENING_KINDS`) --
-    the other player has taken no action of the turn. `None` otherwise,
-    and once the game is over."""
+    the other player has taken no action of the turn, and no correction
+    has been made (`EDIT`), which taking the end back would lose
+    unsaid. `None` otherwise, and once the game is over."""
     if match.winner is not None:
         return None
     current = _snapshot_index(match, match.turn)
@@ -551,7 +576,7 @@ def _replayed(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Op
         waiting = run.result.next
         between = isinstance(waiting, PendingPrompt) and waiting.kind in BETWEEN_ACTIONS
         last = index + 1 == len(journal)
-        boundary = last or (between and journal[index + 1]["action"]["kind"] not in OPENING_KINDS)
+        boundary = last or (between and journal[index + 1]["action"]["kind"] not in NOT_ACTIONS)
         records.append(_Replayed(
             tuple(line for group in run.groups for line in group.lines) + tuple(run.result.narration),
             run.drew,
@@ -578,7 +603,7 @@ def _points(match: MatchState, records: Sequence[_Replayed]) -> tuple[UndoPoint,
     starts = [0] + [
         index for index in range(1, len(journal))
         if records[index - 1].position_after is not None
-        and journal[index]["action"]["kind"] not in OPENING_KINDS
+        and journal[index]["action"]["kind"] not in NOT_ACTIONS
     ]
     boundaries = [*starts, len(journal)]
 
@@ -594,7 +619,7 @@ def _points(match: MatchState, records: Sequence[_Replayed]) -> tuple[UndoPoint,
     points = []
     number = 0
     for start, end in zip(boundaries, boundaries[1:]):
-        if all(entry["action"]["kind"] in OPENING_KINDS for entry in journal[start:end]):
+        if all(entry["action"]["kind"] in NOT_ACTIONS for entry in journal[start:end]):
             continue
         if _comparable(position_at(start)) == _comparable(position_at(end)):
             continue
