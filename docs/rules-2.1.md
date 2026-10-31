@@ -4,8 +4,8 @@
 deck of twenty-four maneuver cards in place of how a coach chooses a maneuver, each card a
 basic maneuver with a role special, and any card playable as the other side's maneuver of its
 rank for an extra card (sections 1 to 3, and 7); roles that belong to the formation rather than
-to the players, whose only abilities are the cards' specials (section 4); a coin tossed afresh
-to settle every tie, with moving on the board costing exhaustion a space (section 5); and no
+to the players, whose only abilities are the cards' specials (section 4); a coin whose face
+settles every tie and is tossed again after it, with moving on the board costing exhaustion a space (section 5); and no
 shooting range (section 6). There are no advanced maneuvers.**
 Everything the Charter does not change here plays exactly as it says. D12 Ball 1.0 is the
 Charter unchanged. The edition is chosen at setup, beside the mode, and either edition goes
@@ -237,11 +237,13 @@ is rolled again, so nothing is paid for a re-roll (Law 6.4.4, 10.2.2 and the re-
   injured is still lost with nothing rolled (Law 15.4.2a). Only an equal total on the dice goes to
   the coin.
 
-**5.2** **The coin is tossed afresh for every tie it settles.** Its face after a toss decides
-nothing about the next tie.
+**5.2** **The coin is flipped at the start of the game**, before the first turn, and lands on
+Fortune or Doom. **After every tie it settles, it is tossed again**, and its new face holds until
+the next tie -- so both coaches always know how the next tie will go. The face is public, shown
+on every turn.
 
-**5.3** **A tied shootout test is no goal for either side** (Law 17.4.3); the coin is not
-tossed for it.
+**5.3** **A tied shootout test is no goal for either side** (Law 17.4.3); the coin neither
+settles it nor is tossed for it.
 
 **5.4** **Moving costs exhaustion: a player who moves on the board during play exhausts 1 for
 every space they travel**, whoever moved them and whichever card did -- the handler of a won

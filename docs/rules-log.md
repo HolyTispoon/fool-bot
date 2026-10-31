@@ -178,9 +178,13 @@ file was `rules-2.1.md`, and sections 4 and 6 stand as they were). The author re
 - **A flip**: on their turn a coach may discard an extra card, of their choosing, to play any
   card as the same rank's maneuver on the other side, without its special.
 - Matchups are by rank, as before; the tab has no Defeats column, by intent.
-- **The coin is tossed fresh for every tie it breaks** -- skill tests, contests for the ball and,
-  new, score attempts (2.0 excluded them): Fortune to the offense, Doom to the defense. A tied
-  shootout test is no goal for either side.
+- **The coin breaks every tie** -- skill tests, contests for the ball and, new, score attempts
+  (2.0 excluded them): Fortune to the offense, Doom to the defense. A tied shootout test is no
+  goal for either side. **It is tossed again after every tie it breaks** (the author, correcting
+  the first reading the same day: *"The coin is tossed after any tie so players always know how
+  it'll be resolved next and it has to be presented in turn messages"*): flipped before the first
+  turn, its face settles the next tie and shows on every turn message and the board. It is no
+  longer tossed after an advanced card, which 2.1 has none of.
 
 The tab's rank effects differ from 2.0's in one number: **a Pass adds 1 to the speed** (2.0's
 added 2), and **a Steal changes no speed** (2.0's Steal changed it by up to the defensive skill;
