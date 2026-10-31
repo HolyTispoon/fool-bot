@@ -2537,51 +2537,104 @@ class RulesEngine:
     def may_be_attacked(self, match: MatchState, attacker: str, target: str, against: Optional[int] = None) -> bool:
         """
         Whether the active player's `attacker` may attack `target` on the
-        other side: a building always; a flier only by a flier or an
+        other side, whatever the patrol zone says (`unattackable_why`).
+        """
+        return not self.unattackable_why(match, attacker, target, against=against)
+
+    def unattackable_why(self, match: MatchState, attacker: str, target: str, against: Optional[int] = None) -> str:
+        """
+        Why the active player's `attacker` may not attack `target` on the
+        other side, as a word about the target -- `""` where it may: a
+        building always; a flier (`"flying"`) only by a flier or an
         anti-air attacker (UMR p. 16); an invisible card not patrolling
-        only by somebody with a detector (UMR p. 17).
+        (`"invisible"`) only by somebody with a detector (UMR p. 17);
+        and the cards that are unattackable outright or by some
+        attackers. The defender's button says it beside the target's
+        name, so a target the attacker can't reach says why itself
+        (the author, 2026-10-31).
         """
         seat = match.active
         other = self.defending_seat(match, against)
         body = self.body(match, other, target)
+        hitting = self.body(match, seat, attacker)
+
+        def reaches_fliers() -> bool:
+            return (self.has_keyword(hitting, "Flying", match)
+                    or self.has_keyword(hitting, "Anti-air", match))
+
         if target == "base" and self.base_flies(match, other):
             # Lawbringer Gryphon: "Your base gains flying. (Ground forces
             # without anti-air can't attack it.)" (step 13)
-            hitting = self.body(match, seat, attacker)
-            return (self.has_keyword(hitting, "Flying", match)
-                    or self.has_keyword(hitting, "Anti-air", match))
+            return "" if reaches_fliers() else "flying"
         if body is None:
-            return True
+            return ""
         if (
             self.has_keyword(body, "Invisible", match)
             and body.patrol_slot is None
             and not self.detected_by(match, seat, target, other)
         ):
-            return False
-        if self.has_keyword(body, "Flying", match):
-            hitting = self.body(match, seat, attacker)
-            if not (self.has_keyword(hitting, "Flying", match)
-                    or self.has_keyword(hitting, "Anti-air", match)):
-                return False
+            return "invisible"
+        if self.has_keyword(body, "Flying", match) and not reaches_fliers():
+            return "flying"
         if (
             isinstance(body, CardInstance) and self.text_slug(body) in effects.UNATTACKABLE_BY_TECH_0
-            and self.is_tech_0_unit(self.body(match, seat, attacker))
+            and self.is_tech_0_unit(hitting)
         ):
             # "Tiny Basilisk is unattackable ... by tech 0 units."
-            return False
+            return "unattackable by tech 0 units"
         if self.has_keyword(body, "Unattackable", match):
             # Liberty Gryphon beside an Illusion of another name (step 13).
-            return False
+            return "unattackable"
         if (
             isinstance(body, CardInstance) and self.text_slug(body) in effects.UNATTACKABLE_WITH_CUTE_ANIMAL
-            and isinstance(self.body(match, seat, attacker), CardInstance)
+            and isinstance(hitting, CardInstance)
             and any(unit is not body and effects.CUTE_ANIMAL in self.subtype_of(unit)
                     for unit in self._units_of(match, other))
         ):
             # Masked Raccoon: "Unattackable by units if you have another
             # Cute Animal." -- a hero may still attack it.
-            return False
-        return True
+            return "unattackable by units"
+        return ""
+
+    def target_flies(self, match: MatchState, seat: int, ref: str) -> bool:
+        """Whether `ref` on `seat`'s side has flying: a flier, or a base
+        Lawbringer Gryphon gives it to."""
+        if ref == "base":
+            return self.base_flies(match, seat)
+        body = self.body(match, seat, ref)
+        return body is not None and self.has_keyword(body, "Flying", match)
+
+    def barred_defenders(self, match: MatchState, attacker: str) -> tuple[tuple[int, str, str], ...]:
+        """
+        Everything with HP on the opponents' sides the active player's
+        `attacker` may not attack, as `(seat, ref, why_not)`, in each
+        opponent's order -- for a frontend to show beside the legal
+        defenders, disabled (the author, 2026-10-31). `why_not` is said
+        only where nothing about the target says it: Moment's Peace. A
+        target behind the patrol zone says nothing, since the patroller
+        in the way is offered beside it, and one the attacker can't
+        reach or pay for says so in its own description (`unattackable_why`,
+        `attack_toll`). A dragon team's one base is listed once.
+        """
+        legal = {(foe, ref) for foe in self.opponents(match, match.active)
+                 for ref, _ in self.defender_rows(match, attacker, against=foe)}
+        bases = {match.base_seat(foe) for foe, ref in legal if ref == "base"}
+        peace_binds = self._peace_binds(match, attacker)
+        found: list[tuple[int, str, str]] = []
+        for foe in self.opponents(match, match.active):
+            for ref in self._standing(match, foe):
+                if (foe, ref) in legal:
+                    continue
+                if ref == "base":
+                    if match.base_seat(foe) in bases:
+                        continue
+                    bases.add(match.base_seat(foe))
+                    peaceful = any(match.player(mate).peace for mate in self.dragon_of(match, foe))
+                else:
+                    peaceful = match.player(foe).peace
+                why_not = self.catalog.name("moments_peace") if peace_binds and peaceful else ""
+                found.append((foe, ref, why_not))
+        return tuple(found)
 
     def base_flies(self, match: MatchState, seat: int) -> bool:
         """Lawbringer Gryphon: `seat`'s base has flying while he is in play
@@ -2792,7 +2845,9 @@ class RulesEngine:
     def _foe_rows(self, match: MatchState, attacker: str, against: Optional[int] = None) -> tuple[tuple[str, str], ...]:
         """
         `legal_defenders`, each with why it is legal -- the priority that
-        makes it so (UMR p. 10), for a frontend to say beside it: the
+        makes it so (UMR p. 10), which the tests read; no frontend shows
+        it, since a button says what the target is, never why it may be
+        attacked (`prompts.defender_note`, the author, 2026-10-31): the
         squad leader alone while one stops this attacker, then any
         patroller that stops it, then anything of theirs with HP it can
         attack, with why the patrol zone does not hold it -- or, for a

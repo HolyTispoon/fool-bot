@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 from codex import tokens
 from codex.seats import seat_numbers as seats_numbers
 from codex.components import PATROL_SLOTS, MatchState
-from codex.formatting import base_owner, side_verb
+from codex.formatting import base_owner, side_verb, slot_name
 from codex import effects
 from codex.engine import (
     AbilityOption,
@@ -162,23 +162,45 @@ class MainActionOptions:
 
 
 @dataclass(frozen=True)
+class BarredDefender:
+    """A thing with HP the attacker may not attack, shown disabled beside
+    the defenders (`RulesEngine.barred_defenders`)."""
+    ref: str
+    seat: int
+    #: What the target is, as `DefenderOptions.notes` says it -- which
+    #: says why it can't be attacked where that is the reason.
+    note: str = ""
+    #: Why not, where `note` does not say it -- "" behind the patrol
+    #: zone, since the patroller in the way is offered beside it.
+    why_not: str = ""
+
+    def to_dict(self) -> dict:
+        return {"ref": self.ref, "seat": self.seat, "note": self.note, "why_not": self.why_not}
+
+
+@dataclass(frozen=True)
 class DefenderOptions:
     attacker: str
     defenders: tuple[str, ...]
-    #: Why each of `defenders` is legal, in the same order: "squad
-    #: leader", "patroller", "flying" -- or ""
-    #: where there is no patrol to get past (`defender_rows`).
-    why: tuple[str, ...] = ()
+    #: What each of `defenders` is, as far as attacking it goes, in the
+    #: same order (`defender_note`): its patrol slot, "flying", what it
+    #: costs to attack -- or "". Never why it may be attacked (the
+    #: author, 2026-10-31).
+    notes: tuple[str, ...] = ()
     #: The seat each of `defenders` is on, in the same order -- a ref
     #: alone names nothing at a table of several (`TargetRow` does the
     #: same). Written only where there is more than one such seat.
     seats: tuple[int, ...] = ()
+    #: What the attacker may not attack, disabled after the defenders.
+    barred: tuple[BarredDefender, ...] = ()
 
     def to_dict(self) -> dict:
         data = {
             "attacker": self.attacker, "defenders": list(self.defenders),
-            "why": list(self.why),
+            "notes": list(self.notes),
         }
+        if self.barred:
+            data["barred"] = [one.to_dict() for one in self.barred]
         if len(set(self.seats)) > 1:
             data["seats"] = list(self.seats)
         return data
@@ -795,15 +817,46 @@ def _overpower_options(engine, game, match, prompt) -> OverpowerOptions:
 
 
 def _defender_options(engine, game, match, prompt) -> DefenderOptions:
+    attacker = match.attacking
     found = [
-        (foe, ref, why)
+        (foe, ref)
         for foe in engine.opponents(match, match.active)
-        for ref, why in engine.defender_rows(match, match.attacking, against=foe)
+        for ref, _ in engine.defender_rows(match, attacker, against=foe)
     ]
     return DefenderOptions(
-        match.attacking, tuple(ref for _, ref, _ in found), tuple(why for _, _, why in found),
-        tuple(foe for foe, _, _ in found),
+        attacker, tuple(ref for _, ref in found),
+        tuple(defender_note(engine, match, attacker, foe, ref) for foe, ref in found),
+        tuple(foe for foe, _ in found),
+        tuple(
+            BarredDefender(ref, foe, defender_note(engine, match, attacker, foe, ref), why_not)
+            for foe, ref, why_not in engine.barred_defenders(match, attacker)
+        ),
     )
+
+
+def defender_note(engine, match, attacker: str, seat: int, ref: str) -> str:
+    """
+    What a target on `seat`'s side is, as far as `attacker` attacking it
+    goes, for the defender's button: its patrol slot, "flying", why the
+    attacker can't reach it ("invisible", "unattackable by units"), and
+    what attacking it costs -- "squad leader, flying", "1 gold to
+    attack". Only the target is described, never the attacker, and
+    never why it may be attacked: "flying" beside a defender's name was
+    read as the defender's, not the attacker's (the author, 2026-10-31).
+    """
+    notes = []
+    slot = next((slot for slot, one in match.patrollers(seat).items() if one == ref), None)
+    if slot is not None:
+        notes.append(slot_name(slot))
+    if engine.target_flies(match, seat, ref):
+        notes.append("flying")
+    unattackable = engine.unattackable_why(match, attacker, ref, against=seat)
+    if unattackable and unattackable != "flying":
+        notes.append(unattackable)
+    toll = engine.attack_toll(match, ref, against=seat)
+    if toll:
+        notes.append(f"{toll} gold to attack")
+    return ", ".join(notes)
 
 
 def _patrol_options(engine, game, match, prompt) -> PatrolOptions:
