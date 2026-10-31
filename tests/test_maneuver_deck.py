@@ -1,7 +1,7 @@
 """
-D12 Ball 2.0's maneuver deck (`d12ball/maneuver_deck.py`): the eighteen
-cards, the hand of five, the discard and the reshuffle -- and whole 2.0
-games through the driver, with the save reloaded after every click, as
+D12 Ball 2.1's maneuver deck (`d12ball/maneuver_deck.py`): the
+twenty-four cards, the flip, the hand of five, the discard and the
+reshuffle -- and whole 2.1 games through the driver, with the save reloaded after every click, as
 `test_driver_full_game` plays 1.0. See docs/design/maneuver-deck.md.
 """
 
@@ -30,91 +30,105 @@ def two_point_oh(mode: GameMode = GameMode.ADVANCED) -> D12BallGame:
 
 class DeckTests(unittest.TestCase):
 
-    def test_eighteen_cards_twelve_two_headed_and_six_advanced(self) -> None:
+    def test_twenty_four_cards_four_a_basic_maneuver(self) -> None:
         cards = maneuver_deck.deck_cards(MANEUVERS)
-        self.assertEqual(len(cards), 18)
-        # Four two-headed cards a rank, each a different pair (the
-        # `maneuvers 2.0` tab, 2026-10-27; they were four alike).
-        counts = Counter(cards)
-        two_headed = {
-            card: count for card, count in counts.items()
-            if maneuver_deck.is_basic_card(card)
-        }
-        self.assertEqual(set(two_headed.values()), {1})
-        self.assertEqual(
-            Counter(maneuver_deck.basic_card_rank(card) for card in two_headed),
-            {1: 4, 2: 4, 3: 4},
+        self.assertEqual(len(cards), 24)
+        self.assertEqual(len(set(cards)), 24)
+        per_maneuver = Counter(
+            MANEUVERS.deck_card(card).maneuver for card in cards
         )
-        advanced = [card for card in cards if not maneuver_deck.is_basic_card(card)]
-        self.assertEqual(len(advanced), 6)
-        self.assertTrue(all(MANEUVERS.definition(card).is_gambit for card in advanced))
+        self.assertEqual(set(per_maneuver.values()), {4})
+        self.assertEqual(
+            set(per_maneuver),
+            {m.key for side in ("offense", "defense")
+             for m in MANEUVERS.side(side) if not m.is_gambit},
+        )
+        # No advanced maneuvers.
+        self.assertFalse(any(
+            MANEUVERS.definition(MANEUVERS.deck_card(card).maneuver).is_gambit
+            for card in cards
+        ))
 
-    def test_a_two_headed_card_plays_its_rank_on_either_side(self) -> None:
-        for rank in (1, 2, 3):
-            card = maneuver_deck.basic_card_id(rank)
-            for side in ("offense", "defense"):
-                maneuver = maneuver_deck.plays_as(MANEUVERS, card, side)
-                self.assertEqual(maneuver.rank, rank)
-                self.assertFalse(maneuver.is_gambit)
-                self.assertIn(maneuver, MANEUVERS.side(side))
+    def test_a_card_is_keyed_by_its_index_not_its_name(self) -> None:
+        # P3 is named after 1.0's advanced pass, and plays a Pass.
+        card = MANEUVERS.deck_card("P3")
+        self.assertEqual(card.name, "Pinpoint")
+        self.assertEqual(card.maneuver, "low_pass")
+        self.assertEqual(MANEUVERS.deck_card("P4").name, "Reset")
 
-    def test_an_advanced_card_plays_on_its_own_side_alone(self) -> None:
-        for side, other in (("offense", "defense"), ("defense", "offense")):
-            for maneuver in MANEUVERS.side(side):
-                if not maneuver.is_gambit:
-                    continue
-                self.assertEqual(
-                    maneuver_deck.plays_as(MANEUVERS, maneuver.key, side),
-                    maneuver,
-                )
-                self.assertIsNone(
-                    maneuver_deck.plays_as(MANEUVERS, maneuver.key, other),
-                )
+    def test_a_card_plays_its_own_maneuver_or_flips_to_the_other_sides(self) -> None:
+        self.assertEqual(
+            maneuver_deck.plays_as(MANEUVERS, "P1", "offense"), ("low_pass", False),
+        )
+        self.assertEqual(
+            maneuver_deck.plays_as(MANEUVERS, "P1", "defense"), ("deflect", True),
+        )
+        self.assertEqual(
+            maneuver_deck.plays_as(MANEUVERS, "F2", "offense"), ("low_pass", True),
+        )
+        self.assertEqual(
+            maneuver_deck.plays_as(MANEUVERS, "S4", "offense"),
+            ("dribble_advance", True),
+        )
+        self.assertEqual(
+            maneuver_deck.plays_as(MANEUVERS, "H1", "defense"), ("pressure", True),
+        )
 
-    def test_any_hand_of_five_holds_a_card_either_side_can_play(self) -> None:
-        from itertools import combinations
-        cards = maneuver_deck.deck_cards(MANEUVERS)
-        for hand in combinations(cards, maneuver_deck.HAND_SIZE):
-            for side in ("offense", "defense"):
-                self.assertTrue(any(
-                    maneuver_deck.plays_as(MANEUVERS, card, side)
-                    for card in hand
-                ), (hand, side))
+    def test_each_ranks_specials_name_every_role_once(self) -> None:
+        from d12ball.components import PlayerRole
+        by_rank: dict = {}
+        for card in MANEUVERS.deck_cards:
+            by_rank.setdefault((card.side, card.rank), []).extend(card.roles)
+        for key, roles in by_rank.items():
+            self.assertEqual(sorted(roles), sorted(PlayerRole), key)
+
+    def test_every_special_the_rules_read_is_a_card(self) -> None:
+        for index in maneuver_deck.SPECIAL_INDEXES:
+            self.assertIsNotNone(MANEUVERS.deck_card(index), index)
+        self.assertEqual(
+            set(maneuver_deck.SPECIAL_INDEXES),
+            set(maneuver_deck.deck_cards(MANEUVERS)),
+        )
 
     def test_a_new_deck_deals_five(self) -> None:
         deck = maneuver_deck.new_deck(MANEUVERS, random.Random(1))
         self.assertEqual(len(deck["hand"]), 5)
-        self.assertEqual(len(deck["draw"]), 13)
+        self.assertEqual(len(deck["draw"]), 19)
         self.assertEqual(deck["discard"], [])
 
     def test_drawing_the_last_card_shuffles_the_discard_into_a_new_deck(self) -> None:
         rng = random.Random(2)
-        deck = {"draw": ["basic_1"],
-                "hand": ["basic_2", "basic_2", "basic_3", "basic_3", "intercept"],
-                "discard": ["clear", "basic_1"]}
-        reshuffles = maneuver_deck.play_card(deck, "intercept", rng)
+        deck = {"draw": ["P1"],
+                "hand": ["B1", "B2", "H1", "H2", "S1"],
+                "discard": ["F1", "R1"]}
+        reshuffles = maneuver_deck.play_cards(deck, ["S1"], rng)
         self.assertEqual(reshuffles, 1)
-        self.assertEqual(
-            sorted(deck["hand"]), ["basic_1", "basic_2", "basic_2", "basic_3", "basic_3"],
-        )
+        self.assertEqual(sorted(deck["hand"]), ["B1", "B2", "H1", "H2", "P1"])
         # The card just played was on the discard when the last card was
         # drawn, so it is in the new deck with the rest.
-        self.assertEqual(sorted(deck["draw"]), ["basic_1", "clear", "intercept"])
+        self.assertEqual(sorted(deck["draw"]), ["F1", "R1", "S1"])
         self.assertEqual(deck["discard"], [])
 
-    def test_a_play_with_cards_left_is_one_card_in_and_one_out(self) -> None:
+    def test_a_play_is_one_card_in_and_one_out(self) -> None:
         deck = maneuver_deck.new_deck(MANEUVERS, random.Random(3))
         card = deck["hand"][0]
-        self.assertEqual(maneuver_deck.play_card(deck, card, random.Random(3)), 0)
+        self.assertEqual(maneuver_deck.play_cards(deck, [card], random.Random(3)), 0)
         self.assertEqual(len(deck["hand"]), 5)
         self.assertEqual(deck["discard"], [card])
-        self.assertEqual(len(deck["draw"]), 12)
+        self.assertEqual(len(deck["draw"]), 18)
 
+    def test_a_flip_discards_two_and_draws_two(self) -> None:
+        deck = maneuver_deck.new_deck(MANEUVERS, random.Random(3))
+        played, extra = deck["hand"][:2]
+        maneuver_deck.play_cards(deck, [played, extra], random.Random(3))
+        self.assertEqual(len(deck["hand"]), 5)
+        self.assertEqual(deck["discard"], [played, extra])
+        self.assertEqual(len(deck["draw"]), 17)
 
     def test_halftime_reshuffles_everything_and_deals_five(self) -> None:
         deck = maneuver_deck.new_deck(MANEUVERS, random.Random(4))
         for _ in range(6):
-            maneuver_deck.play_card(deck, deck["hand"][0], random.Random(4))
+            maneuver_deck.play_cards(deck, [deck["hand"][0]], random.Random(4))
         fresh = maneuver_deck.reshuffled(deck, random.Random(5))
         self.assertEqual(len(fresh["hand"]), 5)
         self.assertEqual(fresh["discard"], [])
@@ -122,20 +136,6 @@ class DeckTests(unittest.TestCase):
             Counter(fresh["draw"] + fresh["hand"]),
             Counter(maneuver_deck.deck_cards(MANEUVERS)),
         )
-
-    def test_both_halves_of_a_two_headed_card_share_one_band(self) -> None:
-        from d12ball.cards import matchup_rank_groups, two_headed_ranks
-        for rank in (1, 2, 3):
-            defense = maneuver_deck.plays_as(
-                MANEUVERS, maneuver_deck.basic_card_id(rank), "defense",
-            )
-            self.assertEqual(
-                two_headed_ranks(MANEUVERS, rank),
-                tuple(
-                    group_rank for group_rank, _ in
-                    matchup_rank_groups(MANEUVERS, defense, False)
-                ),
-            )
 
 
 class EditionSettingTests(unittest.TestCase):
@@ -178,9 +178,9 @@ class EngineTests(unittest.TestCase):
         self.engine.deal_maneuver_decks(game, match)
         self.assertEqual(match.maneuver_decks, {})
 
-    def test_two_point_oh_has_no_coin(self) -> None:
+    def test_two_point_one_has_no_gambits_and_no_gambit_coin(self) -> None:
         game = two_point_oh()
-        self.assertTrue(self.engine.gambits_apply(game))
+        self.assertFalse(self.engine.gambits_apply(game))
         self.assertFalse(self.engine.coin_applies(game))
         self.assertIsNone(self.engine.coin_holder(game, build_match()))
 
@@ -192,33 +192,40 @@ class EngineTests(unittest.TestCase):
         two = two_point_oh()
         self.engine.deal_maneuver_decks(two, match)
         home = match.maneuver_decks["home"]
-        maneuver_deck.play_card(home, home["hand"][0], self.engine.rng)
+        maneuver_deck.play_cards(home, [home["hand"][0]], self.engine.rng)
         self.assertTrue(self.engine.reshuffle_maneuver_decks(two, match))
         for deck in match.maneuver_decks.values():
             self.assertEqual(deck["discard"], [])
             self.assertEqual(len(deck["hand"]), 5)
-            self.assertEqual(len(deck["draw"]), 13)
+            self.assertEqual(len(deck["draw"]), 19)
 
-    def test_the_hand_is_what_the_cards_play_on_the_side(self) -> None:
+    def test_the_hand_plays_its_own_cards_and_flips_the_others(self) -> None:
         game = two_point_oh()
         match = build_match()
         match.maneuver_decks = {
-            "home": {"draw": [], "hand": ["basic_1", "basic_1", "skilled_pass", "clear"],
-                     "discard": []},
-            "visiting": {"draw": [], "hand": ["basic_2", "double_team", "intercept", "clear"],
-                         "discard": []},
+            side: {"draw": [], "hand": ["P1", "P2", "F3", "S1", "R2"], "discard": []}
+            for side in ("home", "visiting")
         }
-        offense_team = match.ball.possession
-        hands = {
-            TeamSide.HOME: match.maneuver_decks["home"]["hand"],
-            TeamSide.VISITING: match.maneuver_decks["visiting"]["hand"],
-        }
+        plays = self.engine.card_plays(game, match, "offense")
+        self.assertEqual(
+            [(p.card_id, p.maneuver_key, p.flip) for p in plays],
+            [("P1", "low_pass", False), ("P2", "low_pass", False),
+             ("F3", "low_pass", True), ("S1", "dribble_advance", True),
+             ("R2", "high_pass", True)],
+        )
+        # A flip may discard any other card in the hand.
+        self.assertEqual(plays[2].extra_ids, ("P1", "P2", "S1", "R2"))
         keys = [m.key for m in self.engine.maneuver_hand(game, match, "offense")]
-        expected = {
-            TeamSide.HOME: ["low_pass", "skilled_pass"],
-            TeamSide.VISITING: ["dribble_advance"],
-        }[TeamSide(offense_team)]
-        self.assertEqual(keys, expected, hands)
+        self.assertEqual(keys, ["low_pass", "dribble_advance", "high_pass"])
+
+    def test_a_lone_card_of_the_other_side_cannot_flip(self) -> None:
+        game = two_point_oh()
+        match = build_match()
+        match.maneuver_decks = {
+            side: {"draw": [], "hand": ["F1"], "discard": []}
+            for side in ("home", "visiting")
+        }
+        self.assertEqual(self.engine.card_plays(game, match, "offense"), ())
 
 
 def maneuver_deck_copy(match: MatchState) -> dict:
@@ -241,7 +248,7 @@ def _deck_invariants(test: unittest.TestCase, match: MatchState) -> None:
 class DeckPolicy(Policy):
     """The full-game policy, but for the shot. It shoots whenever one
     is offered, which in 1.0 is only in range; 2.0 has no range
-    (docs/rules-2.0.md section 6), so a shot is offered every turn and
+    (docs/rules-2.1.md section 6), so a shot is offered every turn and
     that policy would never play a card. This one shoots a turn in
     three, off the engine's own stream, and otherwise plays the turn
     as the policy does."""
@@ -320,15 +327,28 @@ class WholeGameTests(unittest.TestCase):
             driver.apply(engine, game, match, Action(prompt.kind, choice, arguments))
         hand = prompt.options.hands[0]
         missing = next(
-            m.key for m in MANEUVERS.side(hand.side)
-            if m.key not in hand.maneuver_keys
+            card for card in maneuver_deck.deck_cards(MANEUVERS)
+            if card not in hand.held
         )
+        key, _ = maneuver_deck.plays_as(MANEUVERS, missing, hand.side)
         run = driver.apply(engine, game, match, Action(
             PromptKind.MANEUVER_ACTION, "",
-            {"side": hand.side, "maneuver_key": missing},
+            {"side": hand.side, "maneuver_key": key, "card_id": missing},
         ))
         self.assertIsInstance(run, driver.Refusal)
         self.assertEqual(len(hand.held), 5)
+        # No card at all is refused too, and so is a flip with no extra.
+        for arguments in (
+            {"maneuver_key": hand.cards[0].maneuver_key},
+            *(
+                {"maneuver_key": play.maneuver_key, "card_id": play.card_id}
+                for play in hand.cards if play.flip
+            ),
+        ):
+            run = driver.apply(engine, game, match, Action(
+                PromptKind.MANEUVER_ACTION, "", {"side": hand.side, **arguments},
+            ))
+            self.assertIsInstance(run, driver.Refusal, arguments)
 
 
 if __name__ == "__main__":

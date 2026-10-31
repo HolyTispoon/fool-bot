@@ -2,7 +2,7 @@
 A rule reads a role through `RulesEngine.role_of`, never off the card.
 
 In 1.0 a player's role is their card's; in 2.0 it is the formation's,
-assigned by the coach (docs/rules-2.0.md, section 4). The two can only
+assigned by the coach (docs/rules-2.1.md, section 4). The two can only
 be told apart in one place, so every rule that asks "which role is
 this card playing" asks `role_of` -- or `has_role_ability`, which
 asks it -- and nothing in the rules reads `PlayerDefinition.role`

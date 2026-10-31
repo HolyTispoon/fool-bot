@@ -234,7 +234,7 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
 
 ### 2.0: a new play is a run back
 
-**D12 Ball 2.0 keeps no arrangement to reset to** (rules-2.0 4.9, the author, 2026-10-24): a new
+**D12 Ball 2.0 keeps no arrangement to reset to** (rules-2.1 4.9, the author, 2026-10-24): a new
 play runs everybody back instead, free, and its Coaching Choice comes after, on the side as it
 stands. A time out's and halftime's window opens with the unique roles back on their spaces and
 everybody else where they stand, for the coach to put right (4.9d, the author, 2026-10-25), and a
@@ -264,7 +264,7 @@ a 1.0 match, and a 2.0 match saved before its roles, reset as they always have.
   so the restart's tail -- the kickoff and any pickup -- runs after the window as it does after a
   1.0 reset, and the board pinned (`new_play`) once everybody is down. The kickoff fill waits for
   the window (`run_back_passes`), since the window can change who the Playmaker is.
-- **A time out's and halftime's window sends the unique roles back** (rules-2.0 4.9d, the
+- **A time out's and halftime's window sends the unique roles back** (rules-2.1 4.9d, the
   author, 2026-10-25: *"Opening a window means there will be a new play and so players with
   unique roles snap back and the coach has to put everyone else back into a position"*). As a
   2.0 window that positions anybody opens, `MatchState.return_unique_roles` stands the
@@ -273,7 +273,7 @@ a 1.0 match, and a 2.0 match saved before its roles, reset as they always have.
   After a new play's run back it moves nobody, so it is one rule for every occasion rather than
   a time-out step. A 2.0 `finish_time_out` resets nothing after the windows -- it ends the play
   (`end_the_play`) and the board is pinned as 1.0's reset is.
-- **Everybody else keeps their role, and must end in its zone** (rules-2.0 4.9d, the author,
+- **Everybody else keeps their role, and must end in its zone** (rules-2.1 4.9d, the author,
   2026-10-25: *"The coach needs to put them back in a spot in their zone or else give them a new
   role"*). `MatchState.arrangement_strays` names who stands outside the zone of their role; the
   options carry them with the role they keep (`ArrangementOptions.strays`, `role_of`), so Discord

@@ -37,12 +37,8 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
-from d12ball.cards import (
-    maneuver_hand_combinations,
-    render_deck_hand,
-    render_discard_piles,
-    render_maneuver_hands,
-)
+from d12ball.cards import maneuver_hand_combinations, render_maneuver_hands
+from d12ball.deck_faces import render_deck_hand, render_discard_piles
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow import driver
 from d12ball.flow.turn import injured_word_and_emoji
@@ -109,7 +105,6 @@ from cogs.d12ball_views import (
     CoinFlipView,
     DribbleAdvanceChoiceView,
     DribbleBurstChoiceView,
-    SpinMoveView,
     HalftimeExtraTokenView,
     HighPassChoiceView,
     HomeAwaySelectionView,
@@ -174,7 +169,6 @@ FIELD_PROMPT_KINDS = frozenset({
     # where they would stand, asked once the ball has gone (Law 6.5.3).
     PromptKind.PASSER_ADVANCE,
     # Spin's teammate moves to a space (2.0).
-    PromptKind.SPIN_MOVE,
 })
 
 
@@ -395,7 +389,6 @@ PLAIN_PROMPT_VIEWS = {
     PromptKind.SETUP_PASS_CHOICE: SetupPassChoiceView,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: DribbleAdvanceChoiceView,
     PromptKind.DRIBBLE_BURST_CHOICE: DribbleBurstChoiceView,
-    PromptKind.SPIN_MOVE: SpinMoveView,
     PromptKind.DOUBLE_TEAM_PARTNER: DoubleTeamPartnerView,
 }
 
@@ -1084,8 +1077,8 @@ class CoreMixin:
         self, game: D12BallGame, match: MatchState,
     ) -> Optional[discord.File]:
         """
-        Both coaches' 2.0 discard piles, face up, as one picture
-        (`cards.render_discard_piles`) -- home's first, each under its
+        Both coaches' 2.1 discard piles, face up, as one picture
+        (`deck_faces.render_discard_piles`) -- home's first, each under its
         side and coach in its team's colour. `None` while nothing has
         been discarded yet, so the first maneuver carries no picture of
         two empty piles.
@@ -1113,8 +1106,8 @@ class CoreMixin:
         self, held: Sequence[str], side: str,
     ) -> discord.File:
         """
-        A 2.0 coach's own five cards, turned for `side`, as a picture
-        for their eyes alone (`cards.render_deck_hand`). Drawn in a
+        A 2.1 coach's own five cards, this side's first, as a picture
+        for their eyes alone (`deck_faces.render_deck_hand`). Drawn in a
         worker thread, like every render; each card face is drawn once
         and kept, so after the first few hands this is a paste.
         """

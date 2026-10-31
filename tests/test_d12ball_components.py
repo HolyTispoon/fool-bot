@@ -3894,7 +3894,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace(followup=SimpleNamespace(
             send=mock.AsyncMock(),
         ))
-        # The passer's step is asked of the edition (rules-2.0 5.4).
+        # The passer's step is asked of the edition (rules-2.1 5.4).
         game = SimpleNamespace(
             match_state=None, edition=Edition.ONE, tutorial=False,
         )

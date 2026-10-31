@@ -1400,40 +1400,6 @@ def _fly(asked: Asked) -> list:
     ]
 
 
-def _spin_move(asked: Asked) -> list:
-    """
-    2.0's Spin: each move the prompt offers (`MoveOptions.moves`), its
-    space lit with its price, and nobody. The web page plays no 2.0
-    game, so this is here for the kind to have its controls.
-    """
-    return [
-        section(
-            None,
-            [
-                button(
-                    f"{asked.label(move['player_id'])} -- "
-                    + travel_space_label(
-                        Zone(move["zone"]),
-                        move["space_index"],
-                        move["distance"],
-                        asked.match.board,
-                    ),
-                    asked.kind,
-                    "move",
-                    place=on_space(move["zone"], move["space_index"]),
-                    chip=f"move · {_spaces(move['distance']).lower()}",
-                    cost=asked.cost(move["player_id"], move["distance"]),
-                    player_id=move["player_id"],
-                    zone=move["zone"],
-                    space_index=move["space_index"],
-                )
-                for move in asked.options["moves"]
-            ]
-            + [button("Nobody moves", asked.kind, "stay")],
-        )
-    ]
-
-
 def _run_back_space(asked: Asked) -> list:
     """
     Where the player the prompt named runs back to: each space of
@@ -2565,7 +2531,6 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.DOUBLE_TEAM_PARTNER: _double_team_partner,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _distance,
     PromptKind.DRIBBLE_BURST_CHOICE: _distance,
-    PromptKind.SPIN_MOVE: _spin_move,
     PromptKind.LOW_PASS_CHOICE: _low_pass,
     PromptKind.SPEED_DELTA_CHOICE: _speed,
     PromptKind.MANEUVER_ACTION: _maneuver,

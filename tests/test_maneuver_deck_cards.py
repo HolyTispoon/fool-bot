@@ -1,42 +1,52 @@
 """
-D12 Ball 2.0's maneuver cards as the `maneuvers 2.0` tab prints them
-(docs/rules-2.0.md section 7): the deck of twelve different two-headed
-cards, and what each new card -- and each card whose 2.0 wording
-differs from 1.0's -- does when it wins, staged on a 2.0 match and run
-through the effect steps. Whole 2.0 games through the driver are
-`test_maneuver_deck.WholeGameTests`, which deal these cards.
+D12 Ball 2.1's maneuver cards as the `maneuvers 2.1` tab prints them
+(docs/rules-2.1.md sections 2 and 7): which card's special a player
+plays -- the one reading, `RulesEngine.card_special` -- and what each of
+the twenty-four specials does when its card wins, staged on a 2.1 match
+and run through the effect steps. Whole 2.1 games through the driver
+are `test_maneuver_deck.WholeGameTests`, which deal these cards.
 """
 
 from __future__ import annotations
 
 import unittest
-from collections import Counter
-from unittest import mock
 
 from d12ball import maneuver_deck
 from d12ball.components import PlayerRole, TeamSide
 from d12ball.flow import effects
-from d12ball.flow.result import FollowOn, FollowOnStep
+from d12ball.flow.result import FollowOnStep
 from d12ball.flow.rolls import score_skill_test
 from d12ball.game import Edition, GameMode
 from d12ball.prompts import PendingPrompt, PromptKind, effect_choice_prompt
 
-from prompt_fixtures import ENGINE, MANEUVERS, build_game, build_match, challenge
+from prompt_fixtures import ENGINE, build_game, build_match, challenge
 
 
-def staged(offense: str, defense: str, board_size: int = 9):
-    """A 2.0 match under way -- decks and roles dealt, a challenger
-    sent -- with these two cards played."""
+def staged(offense_card: str, defense_card: str, board_size: int = 9):
+    """A 2.1 match under way -- decks and roles dealt, a challenger
+    sent onto the ball -- with these two cards played as themselves."""
     game = build_game(edition=Edition.TWO, mode=GameMode.TRAINING)
     match = build_match(board_size)
     ENGINE.deal_maneuver_decks(game, match)
     ENGINE.deal_formation_roles(game, match)
     challenge(match)
-    # A challenger is sent onto the ball's space (Law 6.1).
     match.move_meeple(match.challenger_id, match.ball.zone, match.ball.space_index)
-    match.offense_maneuver = offense
-    match.defense_maneuver = defense
+    for side, card_id in (("offense", offense_card), ("defense", defense_card)):
+        card = ENGINE.maneuver_catalog.deck_card(card_id)
+        key = (
+            card.maneuver if card.side == side
+            else maneuver_deck.plays_as(ENGINE.maneuver_catalog, card_id, side)[0]
+        )
+        setattr(match, f"{side}_maneuver", key)
+        match.maneuver_cards[side] = [card_id]
     return game, match
+
+
+def make(match, player_id: str, role: PlayerRole) -> None:
+    """Give `player_id` the role a special names, for the test alone."""
+    for by_card in match.formation_roles.values():
+        if player_id in by_card:
+            by_card[player_id] = role.value
 
 
 def holder(match, side: TeamSide, role: PlayerRole) -> str:
@@ -54,100 +64,131 @@ def ball_flat(match) -> int:
     return match.board.flat_index(match.ball.zone, match.ball.space_index)
 
 
-class DeckOfTheTabTests(unittest.TestCase):
+class SpecialReadingTests(unittest.TestCase):
 
-    def test_twelve_different_two_headed_cards_paired_by_row(self) -> None:
-        cards = maneuver_deck.deck_cards(MANEUVERS)
-        self.assertEqual(len(cards), 18)
-        two_headed = [card for card in cards if maneuver_deck.is_basic_card(card)]
-        self.assertEqual(len(two_headed), 12)
-        self.assertEqual(len(set(two_headed)), 12)
-        for card in two_headed:
-            offense = maneuver_deck.plays_as(MANEUVERS, card, "offense")
-            defense = maneuver_deck.plays_as(MANEUVERS, card, "defense")
-            self.assertEqual(offense.rank, defense.rank)
-            self.assertEqual(offense.deck_index, defense.deck_index)
-            self.assertEqual(
-                offense.deck_index, maneuver_deck.basic_card_row(card),
-            )
+    def test_a_special_needs_its_role_on_the_player_making_the_maneuver(self) -> None:
+        _, match = staged("P3", "F4")
+        make(match, match.active_player_id, PlayerRole.PLAYMAKER)
+        make(match, match.challenger_id, PlayerRole.WINGER)
+        self.assertEqual(ENGINE.card_special(match, "offense"), "P3")
+        # F4 names the Playmaker, and the challenger is a Winger.
+        self.assertIsNone(ENGINE.card_special(match, "defense"))
+        make(match, match.challenger_id, PlayerRole.PLAYMAKER)
+        self.assertEqual(ENGINE.card_special(match, "defense"), "F4")
+
+    def test_a_flipped_card_plays_no_special(self) -> None:
+        _, match = staged("P3", "F1")
+        make(match, match.challenger_id, PlayerRole.PLAYMAKER)
+        # P3 flipped to play Deflect, with an extra card discarded.
+        match.defense_maneuver = "deflect"
+        match.maneuver_cards["defense"] = ["P3", "B1"]
+        self.assertIsNone(ENGINE.card_special(match, "defense"))
+
+    def test_one_point_oh_plays_no_specials(self) -> None:
+        _, match = staged("P1", "F1")
+        match.maneuver_cards = {}
+        self.assertIsNone(ENGINE.card_special(match, "offense"))
+
+    def test_the_plays_mark_a_live_special(self) -> None:
+        game, match = staged("P1", "F1")
+        hand = match.maneuver_decks[match.ball.possession.value]["hand"]
+        hand[:] = ["P1", "P2", "P3", "P4", "F1"]
+        make(match, match.active_player_id, PlayerRole.WINGER)
+        live = {
+            play.card_id for play in ENGINE.card_plays(game, match, "offense")
+            if play.special
+        }
+        self.assertEqual(live, {"P1"})
+
+    def test_the_reveal_names_the_card(self) -> None:
+        from d12ball.flow.turn import _chose
+        _, match = staged("P3", "F1")
+        make(match, match.active_player_id, PlayerRole.PLAYMAKER)
         self.assertEqual(
-            maneuver_deck.plays_as(MANEUVERS, "basic_1_2", "offense").key,
-            "pass_and_run",
+            _chose(ENGINE, match, "offense", "Pass"),
+            "**Pinpoint (P3)**, a Pass, its special in play",
         )
+        match.maneuver_cards["defense"] = ["P2", "B1"]
+        match.defense_maneuver = "deflect"
         self.assertEqual(
-            maneuver_deck.plays_as(MANEUVERS, "basic_1_2", "defense").key,
-            "follow",
+            _chose(ENGINE, match, "defense", "Deflect"),
+            "**Pass and Run (P2) played as Deflect**",
         )
 
-    def test_a_deck_saved_with_four_alike_still_plays(self) -> None:
-        # `basic_1` is row 1, the id every card had before the tab.
-        self.assertEqual(
-            maneuver_deck.plays_as(MANEUVERS, "basic_1", "offense").key,
-            "low_pass",
-        )
 
-    def test_one_point_oh_never_meets_a_variant(self) -> None:
-        for side in ("offense", "defense"):
-            for tier in ("basic", "advanced"):
-                for card in MANEUVERS.for_tier(side, tier):
-                    self.assertNotEqual(card.tier, "variant")
-            self.assertEqual(len(MANEUVERS.for_tier(side, "basic")), 3)
+class PassTests(unittest.TestCase):
 
-    def test_every_card_the_deck_plays_has_an_effect(self) -> None:
-        for card in dict.fromkeys(maneuver_deck.deck_cards(MANEUVERS)):
-            for side in ("offense", "defense"):
-                maneuver = maneuver_deck.plays_as(MANEUVERS, card, side)
-                if maneuver is not None:
-                    self.assertIn(maneuver.key, effects.EFFECT_OFFERS)
-
-    def test_a_variant_costs_the_time_its_card_says(self) -> None:
-        _, match = staged("set_up", "steal")
-        self.assertEqual(ENGINE.maneuver_clock_cost(match, "set_up"), 2)
-        self.assertEqual(ENGINE.maneuver_clock_cost(match, "curved_pass"), 1)
-
-
-class PassRankTests(unittest.TestCase):
-
-    def test_pass_adds_two_and_asks_no_step(self) -> None:
-        game, match = staged("low_pass", "pressure")
+    def test_pass_adds_one_and_asks_no_step(self) -> None:
+        game, match = staged("P1", "R1")
         distance, _ = ENGINE.pass_candidates(match, "low_pass")[0]
         speed = match.ball.speed
         result = effects.low_pass_step(
             ENGINE, match, distance, key="low_pass", game=game,
         )
-        self.assertEqual(match.ball.speed, min(12, speed + 2))
+        self.assertEqual(match.ball.speed, min(12, speed + 1))
         self.assertNotIsInstance(result.next, PendingPrompt)
 
-    def test_curved_pass_reaches_any_teammate_within_two(self) -> None:
-        _, match = staged("curved_pass", "pressure")
-        self.assertEqual(
-            ENGINE.pass_candidates(match, "curved_pass"),
-            ENGINE.skilled_pass_candidates(match, 2),
+    def test_p1_a_wingers_pass_sets_up_scoring(self) -> None:
+        game, match = staged("P1", "R1")
+        make(match, match.active_player_id, PlayerRole.WINGER)
+        distance, receiver = ENGINE.pass_candidates(match, "low_pass")[0]
+        result = effects.low_pass_step(
+            ENGINE, match, distance, receiver, key="low_pass", game=game,
+        )
+        self.assertEqual(result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE)
+
+    def test_p2_a_midfielder_or_striker_may_run_forward(self) -> None:
+        for role, asked in (
+            (PlayerRole.MIDFIELDER, True), (PlayerRole.STRIKER, True),
+            (PlayerRole.WINGER, False),
+        ):
+            with self.subTest(role=role):
+                game, match = staged("P2", "R1")
+                make(match, match.active_player_id, role)
+                distance, receiver = ENGINE.pass_candidates(match, "low_pass")[0]
+                result = effects.low_pass_step(
+                    ENGINE, match, distance, receiver, key="low_pass", game=game,
+                )
+                self.assertEqual(
+                    isinstance(result.next, PendingPrompt)
+                    and result.next.kind is PromptKind.PASSER_ADVANCE,
+                    asked,
+                )
+
+    def test_p3_a_playmaker_reaches_any_teammate_within_two(self) -> None:
+        _, match = staged("P3", "R1")
+        make(match, match.active_player_id, PlayerRole.PLAYMAKER)
+        offered = {d for d, _ in ENGINE.pass_candidates(match, "low_pass")}
+        self.assertTrue(
+            {d for d, _ in ENGINE.skilled_pass_candidates(match, 2)} <= offered,
+        )
+        self.assertTrue(
+            {d for d, _ in ENGINE.low_pass_candidates(match, None)} <= offered,
         )
 
-    def test_pass_and_run_moves_the_passer_and_not_the_speed(self) -> None:
-        game, match = staged("pass_and_run", "pressure")
-        passer = match.active_player_id
-        before, speed = flat(match, passer), match.ball.speed
-        distance, _ = ENGINE.pass_candidates(match, "pass_and_run")[0]
-        effects.low_pass_step(
-            ENGINE, match, distance, key="pass_and_run", game=game,
-        )
-        self.assertEqual(abs(flat(match, passer) - before), 1)
-        self.assertEqual(match.ball.speed, speed)
+    def test_p4_a_fullback_or_defender_may_pass_to_the_playmaker(self) -> None:
+        _, match = staged("P4", "R1")
+        playmaker = holder(match, TeamSide(match.ball.possession), PlayerRole.PLAYMAKER)
+        if playmaker == match.active_player_id:
+            # The deal's Playmaker is on the ball: hand the role on.
+            other = next(
+                p for p in match.setup_for_side(match.ball.possession).field_players
+                if p != playmaker
+            )
+            make(match, other, PlayerRole.PLAYMAKER)
+            playmaker = other
+        make(match, match.active_player_id, PlayerRole.DEFENDER)
+        offered = dict(ENGINE.pass_candidates(match, "low_pass"))
+        distance, _ = ENGINE.playmaker_pass(match)
+        self.assertIn(distance, offered)
+        self.assertIn(playmaker, ENGINE.low_pass_receivers(match, distance))
 
-    def test_reset_play_puts_the_ball_with_the_playmaker(self) -> None:
-        game, match = staged("reset_play", "pressure")
-        playmaker = holder(match, TeamSide.HOME, PlayerRole.PLAYMAKER)
-        effects.reset_play_step(ENGINE, game, match)
-        self.assertEqual(match.ball_carrier_id, playmaker)
-        self.assertEqual(ball_flat(match), flat(match, playmaker))
 
-
-class DribbleRankTests(unittest.TestCase):
+class DribbleTests(unittest.TestCase):
 
     def test_dribble_goes_one_and_adds_two(self) -> None:
-        game, match = staged("dribble_advance", "deflect")
+        game, match = staged("B1", "F1")
+        make(match, match.active_player_id, PlayerRole.WINGER)
         speed = match.ball.speed
         result = effects.begin_effect_resolution(
             ENGINE, game, match, "dribble_advance",
@@ -155,198 +196,243 @@ class DribbleRankTests(unittest.TestCase):
         self.assertNotIsInstance(result.next, PendingPrompt)
         self.assertEqual(match.ball.speed, min(12, speed + 2))
 
-    def test_advance_asks_one_or_two_and_leaves_the_speed(self) -> None:
-        game, match = staged("advance", "deflect")
-        result = effects.begin_effect_resolution(ENGINE, game, match, "advance")
+    def test_b1_a_striker_may_attempt_scoring(self) -> None:
+        game, match = staged("B1", "F1")
+        make(match, match.active_player_id, PlayerRole.STRIKER)
+        result = effects.dribble_advance_step(ENGINE, game, match, 1)
+        self.assertEqual(result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE)
+        self.assertEqual(result.next.kwargs["shooter_id"], match.active_player_id)
+
+    def test_b2_a_midfielder_or_playmaker_may_advance_two(self) -> None:
+        game, match = staged("B2", "F1")
+        make(match, match.active_player_id, PlayerRole.MIDFIELDER)
+        result = effects.begin_effect_resolution(ENGINE, game, match, "dribble_advance")
         self.assertIs(result.next.kind, PromptKind.DRIBBLE_ADVANCE_CHOICE)
         handler, speed = match.active_player_id, match.ball.speed
         before = flat(match, handler)
         effects.dribble_advance_step(ENGINE, game, match, 2)
         self.assertEqual(abs(flat(match, handler) - before), 2)
-        self.assertEqual(match.ball.speed, speed)
+        self.assertEqual(match.ball.speed, min(12, speed + 2))
 
-    def test_spin_moves_a_teammate_then_asks_the_speed(self) -> None:
-        game, match = staged("spin", "deflect")
-        result = effects.begin_effect_resolution(ENGINE, game, match, "spin")
-        self.assertIs(result.next.kind, PromptKind.SPIN_MOVE)
-        player_id, zone, space_index, _ = ENGINE.spin_moves(match)[0]
-        result = effects.spin_move_step(
-            ENGINE, game, match, player_id, zone, space_index,
-        )
-        self.assertEqual(
-            match.board.meeple_position(player_id), (zone, space_index),
-        )
+    def test_b3_a_fullback_or_defender_sets_the_speed_by_defensive_skill(self) -> None:
+        game, match = staged("B3", "F1")
+        make(match, match.active_player_id, PlayerRole.FULLBACK)
+        result = effects.dribble_advance_step(ENGINE, game, match, 1)
         self.assertEqual(result.next.step, FollowOnStep.OFFER_SPEED_CHOICE)
-        # A restart now asks the speed, not the move again.
-        self.assertIs(
-            effect_choice_prompt(ENGINE, game, match).kind,
-            PromptKind.SPEED_DELTA_CHOICE,
-        )
+        self.assertEqual(result.next.kwargs["skill_type"], "defense")
+        # A restart asks the same speed choice.
+        restored = effect_choice_prompt(ENGINE, game, match)
+        self.assertIs(restored.kind, PromptKind.SPEED_DELTA_CHOICE)
+        self.assertEqual(restored.skill_type, "defense")
 
-    def test_drive_carries_the_ball_and_the_teammate_may_take_it(self) -> None:
-        game, match = staged("drive", "deflect")
+    def test_b4_a_wingers_teammate_on_the_space_may_take_it(self) -> None:
+        game, match = staged("B4", "F1")
         handler = match.active_player_id
-        distance, teammate = ENGINE.pass_candidates(match, "drive")[0]
-        self.assertIn(
-            handler, ENGINE.low_pass_receivers(match, distance, "drive"),
+        make(match, handler, PlayerRole.WINGER)
+        side = match.ball.possession
+        destination = match.relative_move_destination(handler, side, 1)
+        teammate = next(
+            p for p in match.setup_for_side(side).field_players if p != handler
         )
-        speed = match.ball.speed
-        effects.drive_step(ENGINE, match, distance, teammate, game)
-        self.assertEqual(flat(match, handler), flat(match, teammate))
-        self.assertEqual(match.ball_carrier_id, teammate)
-        self.assertEqual(match.ball.speed, max(1, speed - 2))
-
-    def test_drive_goes_ahead_alone(self) -> None:
-        _, match = staged("drive", "deflect")
-        behind = [
-            distance for distance, _ in ENGINE.pass_candidates(match, "low_pass")
-            if distance < 0
-        ]
-        self.assertTrue(behind, "the staging must have a teammate behind")
-        candidates = ENGINE.pass_candidates(match, "drive")
-        self.assertTrue(candidates)
-        self.assertTrue(all(distance > 0 for distance, _ in candidates))
+        match.move_meeple(teammate, *destination)
+        effects.dribble_advance_step(ENGINE, game, match, 1)
+        self.assertIsNone(match.ball_carrier_id)
+        self.assertIn(teammate, match.turn_handler_candidates())
+        self.assertIn(handler, match.turn_handler_candidates())
 
 
-class HighBallRankTests(unittest.TestCase):
+class HighBallTests(unittest.TestCase):
 
-    def test_high_ball_and_set_up_are_one_distance_each(self) -> None:
-        _, match = staged("high_pass", "steal")
+    def test_high_ball_goes_three_and_sets_up_after_its_contest(self) -> None:
+        game, match = staged("H1", "S1")
+        make(match, match.active_player_id, PlayerRole.WINGER)
         self.assertEqual(ENGINE.high_pass_distance_options(match), [3])
+        self.assertFalse(ENGINE.high_pass_asks(game, match))
         self.assertTrue(ENGINE.contest_sets_up(match))
-        _, match = staged("set_up", "steal")
-        self.assertEqual(ENGINE.high_pass_distance_options(match), [2])
-        self.assertFalse(ENGINE.contest_sets_up(match))
 
-    def test_long_shot_goes_to_the_striker_and_is_contested(self) -> None:
-        game, match = staged("long_shot", "steal")
-        striker = holder(match, TeamSide.HOME, PlayerRole.STRIKER)
+    def test_h1_a_fullback_or_defender_may_throw_four(self) -> None:
+        game, match = staged("H1", "S1")
+        make(match, match.active_player_id, PlayerRole.DEFENDER)
+        self.assertEqual(ENGINE.high_pass_distance_options(match), [3, 4])
+        self.assertTrue(ENGINE.high_pass_asks(game, match))
+
+    def test_h2_a_playmaker_may_throw_to_the_striker(self) -> None:
+        game, match = staged("H2", "S1")
+        make(match, match.active_player_id, PlayerRole.PLAYMAKER)
+        self.assertTrue(ENGINE.long_shot_offered(match))
+        striker = holder(match, TeamSide(match.ball.possession), PlayerRole.STRIKER)
         result = effects.long_shot_step(ENGINE, game, match)
         self.assertEqual(ball_flat(match), flat(match, striker))
         self.assertEqual(result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST)
         self.assertTrue(ENGINE.contest_sets_up(match))
 
-    def test_cross_lands_up_to_three_and_vertical_ball_up_to_one(self) -> None:
-        _, match = staged("vertical_ball", "steal")
-        self.assertTrue(set(ENGINE.setup_pass_distances(match)) <= {0, 1})
-        _, match = staged("setup_pass", "steal")
-        self.assertIn(2, ENGINE.setup_pass_distances(match))
-
-
-class DeflectRankTests(unittest.TestCase):
-
-    def test_a_fullbacks_deflect_goes_a_space_further(self) -> None:
-        _, match = staged("high_pass", "deflect")
-        fullback = holder(match, TeamSide.VISITING, PlayerRole.FULLBACK)
-        defender = ENGINE.get_player_definition(fullback)
-        self.assertEqual(
-            effects.deflection_numbers(ENGINE, match, defender, "deflect")[0],
-            2,
+    def test_h2_long_shot_through_the_driver(self) -> None:
+        from d12ball.flow import driver
+        from d12ball.flow.driver import Action
+        game, match = staged("H2", "S1")
+        make(match, match.active_player_id, PlayerRole.PLAYMAKER)
+        match.skill_test_winner = "high_pass"
+        prompt = PendingPrompt(PromptKind.HIGH_PASS_CHOICE, "")
+        from d12ball.prompts import with_options
+        prompt = with_options(ENGINE, game, match, prompt)
+        self.assertTrue(prompt.options.long_shot)
+        step = driver._answer_high_pass_choice(
+            ENGINE, game, match, prompt, "long_shot",
         )
+        self.assertEqual(step.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST)
+        # Refused where the special is not in play.
+        make(match, match.active_player_id, PlayerRole.WINGER)
+        prompt = with_options(ENGINE, game, match, PendingPrompt(PromptKind.HIGH_PASS_CHOICE, ""))
+        self.assertFalse(prompt.options.long_shot)
 
-    def test_follow_takes_the_defender_with_the_ball(self) -> None:
-        game, match = staged("high_pass", "follow")
-        speed = match.ball.speed
-        effects.deflection_step(ENGINE, match, "follow", game)
-        self.assertEqual(flat(match, match.challenger_id), ball_flat(match))
-        self.assertEqual(match.ball.speed, speed)
+    def test_h3_a_midfielder_may_throw_two_with_no_contest(self) -> None:
+        game, match = staged("H3", "S1")
+        make(match, match.active_player_id, PlayerRole.MIDFIELDER)
+        self.assertEqual(ENGINE.high_pass_distance_options(match), [2, 3])
+        self.assertEqual(ENGINE.uncontested_throws(match), (2,))
 
-    def test_boot_goes_two_and_block_nowhere(self) -> None:
-        game, match = staged("high_pass", "boot")
+    def test_h4_a_winger_or_striker_may_throw_none_or_one(self) -> None:
+        game, match = staged("H4", "S1")
+        make(match, match.active_player_id, PlayerRole.STRIKER)
+        self.assertEqual(ENGINE.high_pass_distance_options(match), [0, 1, 3])
+        result = effects.high_pass_step(ENGINE, match, 0, game=game)
+        # At 0 the passer keeps it and may set up scoring.
+        self.assertEqual(match.ball_carrier_id, match.active_player_id)
+        self.assertEqual(result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE)
+
+
+class DeflectTests(unittest.TestCase):
+
+    def test_deflect_goes_one_and_takes_one_off(self) -> None:
+        game, match = staged("H1", "F2")
+        make(match, match.challenger_id, PlayerRole.WINGER)
+        before, speed = ball_flat(match), match.ball.speed
+        effects.deflection_step(ENGINE, match, "deflect", game)
+        self.assertEqual(abs(ball_flat(match) - before), 1)
+        self.assertEqual(match.ball.speed, max(1, speed - 1))
+
+    def test_f1_a_fullbacks_deflect_goes_a_space_further(self) -> None:
+        game, match = staged("H1", "F1")
+        make(match, match.challenger_id, PlayerRole.FULLBACK)
         before = ball_flat(match)
-        effects.deflection_step(ENGINE, match, "boot", game)
+        effects.deflection_step(ENGINE, match, "deflect", game)
         self.assertEqual(abs(ball_flat(match) - before), 2)
-        game, match = staged("high_pass", "block")
-        before = ball_flat(match)
-        result = effects.deflection_step(ENGINE, match, "block", game)
+
+    def test_f2_a_defender_or_midfielder_follows_the_ball(self) -> None:
+        game, match = staged("H1", "F2")
+        make(match, match.challenger_id, PlayerRole.DEFENDER)
+        effects.deflection_step(ENGINE, match, "deflect", game)
+        self.assertEqual(flat(match, match.challenger_id), ball_flat(match))
+
+    def test_f3_a_winger_or_striker_sets_up_scoring_wherever_it_lands(self) -> None:
+        game, match = staged("H1", "F3")
+        make(match, match.challenger_id, PlayerRole.STRIKER)
+        defense = match.defending_side()
+        result = effects.deflection_step(ENGINE, match, "deflect", game)
+        self.assertEqual(result.next.step, FollowOnStep.BEGIN_SHOOTER_CHOICE)
+        self.assertEqual(result.next.kwargs["candidates"], [match.challenger_id])
+        self.assertEqual(match.ball.possession, defense)
+
+    def test_f4_a_playmaker_contests_it_on_the_spot(self) -> None:
+        game, match = staged("H1", "F4")
+        make(match, match.challenger_id, PlayerRole.PLAYMAKER)
+        before, speed = ball_flat(match), match.ball.speed
+        result = effects.deflection_step(ENGINE, match, "deflect", game)
         self.assertEqual(ball_flat(match), before)
+        self.assertEqual(match.ball.speed, speed)
         self.assertEqual(result.next.step, FollowOnStep.BEGIN_LOOSE_BALL)
 
 
-class StealRankTests(unittest.TestCase):
+class StealTests(unittest.TestCase):
 
-    def test_pickpocket_turns_it_over_where_it_is(self) -> None:
-        game, match = staged("low_pass", "pickpocket")
-        before = ball_flat(match)
-        result = effects.steal_step(ENGINE, match, "pickpocket", game)
+    def test_steal_falls_back_and_changes_no_speed(self) -> None:
+        game, match = staged("P1", "S3")
+        make(match, match.challenger_id, PlayerRole.WINGER)
+        result = effects.steal_step(ENGINE, match, "steal", game)
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
-        self.assertEqual(ball_flat(match), before)
-        self.assertEqual(result.next.step, FollowOnStep.BEGIN_RUN_BACK)
+        self.assertEqual(match.ball.speed, 1)
         self.assertFalse(result.next.kwargs["speed_choice_after"])
 
-    def test_toss_hands_it_to_the_nearest_teammate_behind(self) -> None:
-        game, match = staged("low_pass", "toss")
-        thief = match.challenger_id
-        effects.steal_step(ENGINE, match, "toss", game)
+    def test_s1_a_playmaker_sets_the_speed_by_offensive_skill(self) -> None:
+        game, match = staged("P1", "S1")
+        make(match, match.challenger_id, PlayerRole.PLAYMAKER)
+        result = effects.steal_step(ENGINE, match, "steal", game)
+        self.assertTrue(result.next.kwargs["speed_choice_after"])
+        restored = effect_choice_prompt(ENGINE, game, match)
+        self.assertIs(restored.kind, PromptKind.SPEED_DELTA_CHOICE)
+        self.assertEqual(restored.skill_type, "offense")
+
+    def test_s2_a_midfielder_keeps_it_where_it_is(self) -> None:
+        game, match = staged("P1", "S2")
+        make(match, match.challenger_id, PlayerRole.MIDFIELDER)
+        before = ball_flat(match)
+        effects.steal_step(ENGINE, match, "steal", game)
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
-        self.assertNotEqual(match.ball_carrier_id, thief)
-        self.assertEqual(ball_flat(match), flat(match, match.ball_carrier_id))
+        self.assertEqual(ball_flat(match), before)
+        self.assertEqual(flat(match, match.challenger_id), before)
 
-    def test_a_pickpocket_that_beats_a_pinpoint_owes_its_pass(self) -> None:
-        game, match = staged("skilled_pass", "pickpocket")
-        effects.steal_step(ENGINE, match, "pickpocket", game)
-        self.assertEqual(
-            match.pending_effect_continuation["kind"],
-            effects.FREE_LOW_PASS_OWED,
-        )
-
-    def test_my_turf_adds_three_for_a_defender_or_midfielder(self) -> None:
-        game, match = staged("dribble_advance", "my_turf")
-        match.ball.speed = 1
-        offense = ENGINE.get_player_definition(match.active_player_id)
-        for role, bonus in (
-            (PlayerRole.DEFENDER, True),
-            (PlayerRole.MIDFIELDER, True),
-            (PlayerRole.STRIKER, False),
-        ):
+    def test_s3_a_fullback_or_defender_adds_three_to_the_test(self) -> None:
+        for role, bonus in ((PlayerRole.DEFENDER, True), (PlayerRole.WINGER, False)):
             with self.subTest(role=role):
-                defense = ENGINE.get_player_definition(
-                    holder(match, TeamSide.VISITING, role),
+                game, match = staged("P1", "S3")
+                make(match, match.challenger_id, role)
+                contestants, *_ = score_skill_test(
+                    ENGINE, game, match,
+                    ENGINE.get_player_definition(match.active_player_id),
+                    ENGINE.get_player_definition(match.challenger_id),
                 )
-                with mock.patch.object(ENGINE.rng, "randint", return_value=5):
-                    sides, *_ = score_skill_test(
-                        ENGINE, game, match, offense, defense,
-                    )
+                defense_detail = contestants[1][2]
                 self.assertEqual(
-                    "+3 My Turf!" in sides[1][2], bonus, sides[1][2],
+                    any("My Turf!" in line for line in defense_detail), bonus,
+                    defense_detail,
                 )
 
+    def test_s4_a_winger_or_striker_tosses_it_behind(self) -> None:
+        game, match = staged("P1", "S4")
+        make(match, match.challenger_id, PlayerRole.WINGER)
+        origin = flat(match, match.challenger_id)
+        effects.steal_step(ENGINE, match, "steal", game)
+        self.assertEqual(flat(match, match.challenger_id), origin)
+        self.assertNotEqual(match.ball_carrier_id, match.challenger_id)
 
-class PressureRankTests(unittest.TestCase):
 
-    def test_control_steals_for_a_defender_alone(self) -> None:
-        for role, stolen in (
-            (PlayerRole.DEFENDER, True), (PlayerRole.MIDFIELDER, False),
-        ):
-            with self.subTest(role=role):
-                game, match = staged("dribble_advance", "control")
-                match.challenger_id = holder(match, TeamSide.VISITING, role)
-                match.move_meeple(
-                    match.challenger_id, match.ball.zone, match.ball.space_index,
-                )
-                effects.pressure_step(ENGINE, match, "control", game)
-                self.assertEqual(
-                    match.ball.possession == TeamSide.VISITING, stolen,
-                )
+class PressureTests(unittest.TestCase):
 
-    def test_stay_close_exhausts_the_handler_and_slows_the_ball(self) -> None:
-        game, match = staged("dribble_advance", "stay_close")
-        match.ball.speed = 5
+    def test_r1_a_defenders_pressure_turns_it_over_with_nobody_moving(self) -> None:
+        game, match = staged("B1", "R1")
+        make(match, match.challenger_id, PlayerRole.DEFENDER)
+        handler, before = match.active_player_id, ball_flat(match)
+        result = effects.pressure_step(ENGINE, match, "pressure", game)
+        self.assertEqual(match.ball.possession, TeamSide.VISITING)
+        self.assertEqual(ball_flat(match), before)
+        self.assertEqual(flat(match, handler), before)
+        self.assertEqual(result.next.step, FollowOnStep.BEGIN_RUN_BACK)
+
+    def test_r2_a_fullback_or_playmaker_sends_it_behind_and_follows(self) -> None:
+        game, match = staged("B1", "R2")
+        make(match, match.challenger_id, PlayerRole.FULLBACK)
         handler = match.active_player_id
-        before = match.exhaustion.get(handler, 0)
-        effects.stay_close_step(ENGINE, match, game)
-        self.assertEqual(match.exhaustion.get(handler, 0), before + 1)
-        self.assertEqual(match.ball.speed, 3)
-
-    def test_stress_plays_it_back_and_the_defender_follows(self) -> None:
-        game, match = staged("dribble_advance", "stress")
-        handler = match.active_player_id
-        result = effects.stress_step(ENGINE, match, game)
-        if result.next.step is FollowOnStep.BEGIN_OWN_GOAL_ROLL:
-            self.assertEqual(match.ball_carrier_id, handler)
-            return
-        self.assertNotEqual(match.ball_carrier_id, handler)
+        effects.pressure_step(ENGINE, match, "pressure", game)
         self.assertEqual(flat(match, match.challenger_id), ball_flat(match))
+        self.assertNotEqual(match.ball_carrier_id, handler)
+
+    def test_r3_a_midfielders_pressure_exhausts_the_handler_too(self) -> None:
+        for role, extra in ((PlayerRole.MIDFIELDER, 1), (PlayerRole.WINGER, 0)):
+            with self.subTest(role=role):
+                game, match = staged("B1", "R3")
+                make(match, match.challenger_id, role)
+                handler = match.active_player_id
+                effects.pressure_step(ENGINE, match, "pressure", game)
+                # The shove is a space, a token; R3's Midfielder adds one.
+                self.assertEqual(match.exhaustion.get(handler, 0), 1 + extra)
+
+    def test_r4_a_striker_or_winger_contests_it_in_place(self) -> None:
+        game, match = staged("B1", "R4")
+        make(match, match.challenger_id, PlayerRole.STRIKER)
+        before = ball_flat(match)
+        result = effects.pressure_step(ENGINE, match, "pressure", game)
+        self.assertEqual(ball_flat(match), before)
+        self.assertEqual(result.next.step, FollowOnStep.BEGIN_LOOSE_BALL)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,11 @@
 """
-D12 Ball 2.0's coin (docs/rules-2.0.md, section 5): a tied roll goes to
-the side the coin favours rather than being rolled again, the coin is
-flipped at the first turn and tossed again after a maneuver an advanced
-card was played in -- and moving on the board costs a token a space
-(rules-2.0 5.4), where a card costs nothing. 1.0 is untouched. See
-docs/design/maneuver-deck.md, "The coin" and "Moving costs".
+D12 Ball 2.1's coin (docs/rules-2.1.md, section 5): every tie -- a skill
+test's, a contest for the ball's, a shot's -- goes to the side a fresh
+toss favours rather than being rolled again or scoring, and a tied
+shootout test scores for nobody -- and moving on the board costs a
+token a space (rules-2.1 5.4), where a card costs nothing. 1.0 is
+untouched. See docs/design/maneuver-deck.md, "The coin" and "Moving
+costs".
 """
 
 import pathlib
@@ -16,7 +17,6 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from d12ball.components import MatchState, PlayerRole, TeamSide
 from d12ball.flow import effects, rolls
-from d12ball.flow.turn import owe_coin_toss, settle_tie_coin
 from d12ball.game import CoinFace, Edition, GameMode
 from d12ball.prompts import PromptKind, PendingPrompt
 
@@ -38,6 +38,11 @@ def level(original):
         )
         return contestants, 7, 7, offense_ignite, defense_ignite
     return tied
+
+
+def tossed(face: CoinFace):
+    """The coin's next toss, fixed."""
+    return mock.patch.object(ENGINE, "flip_coin", return_value=face)
 
 
 class TieCoinTests(unittest.TestCase):
@@ -68,10 +73,10 @@ class TieCoinTests(unittest.TestCase):
     # -- The skill test ------------------------------------------------
 
     def test_fortune_gives_a_tied_skill_test_to_the_offense(self) -> None:
-        self.match.tie_coin = CoinFace.FORTUNE.value
         self.stage_skill_test()
         before = dict(self.match.exhaustion)
-        _, result = self.tied_skill_test()
+        with tossed(CoinFace.FORTUNE):
+            _, result = self.tied_skill_test()
         self.assertEqual(self.match.skill_test_winner, "dribble_advance")
         self.assertIn("It's a tie (7-7)", result.narration[0])
         self.assertIn("Fortune", result.narration[0])
@@ -80,9 +85,9 @@ class TieCoinTests(unittest.TestCase):
         self.assertEqual(dict(self.match.exhaustion), before)
 
     def test_doom_gives_it_to_the_defense(self) -> None:
-        self.match.tie_coin = CoinFace.DOOM.value
         self.stage_skill_test()
-        _, result = self.tied_skill_test()
+        with tossed(CoinFace.DOOM):
+            _, result = self.tied_skill_test()
         self.assertEqual(self.match.skill_test_winner, "steal")
         self.assertIn("Doom", result.narration[0])
 
@@ -95,12 +100,16 @@ class TieCoinTests(unittest.TestCase):
         self.assertIsNone(self.match.skill_test_winner)
         self.assertEqual(self.match.exhaustion.get(self.handler), 1)
 
-    def test_a_save_from_before_the_coin_flips_it_at_the_tie(self) -> None:
+    def test_the_coin_is_tossed_afresh_at_every_tie(self) -> None:
+        # Doom at the last tie decides nothing about this one.
+        self.match.tie_coin = CoinFace.DOOM.value
         self.stage_skill_test()
-        _, result = self.tied_skill_test()
-        self.assertIn(self.match.tie_coin, {"fortune", "doom"})
-        self.assertIn("The coin is flipped", result.narration[0])
-        self.assertIsNotNone(self.match.skill_test_winner)
+        with tossed(CoinFace.FORTUNE) as flip:
+            _, result = self.tied_skill_test()
+        flip.assert_called_once()
+        self.assertEqual(self.match.tie_coin, "fortune")
+        self.assertIn("The coin is tossed", result.narration[0])
+        self.assertEqual(self.match.skill_test_winner, "dribble_advance")
 
     # -- The contest for the ball ---------------------------------------
 
@@ -111,20 +120,51 @@ class TieCoinTests(unittest.TestCase):
         ):
             with self.subTest(face=face):
                 self.setUp()
-                self.match.tie_coin = face.value
                 self.match.pending_loose_ball = True
                 self.match.loose_ball_offense_player = self.handler
                 self.match.loose_ball_defense_player = self.challenger
                 before = dict(self.match.exhaustion)
                 with mock.patch.object(
                     rolls, "score_loose_ball", level(rolls.score_loose_ball),
-                ):
+                ), tossed(face):
                     _, result = rolls.loose_ball_test_step(
                         ENGINE, self.game, self.match,
                     )
                 self.assertEqual(self.match.ball.possession, winner_side)
                 self.assertIn("It's a tie (7-7)", result.narration[0])
                 self.assertEqual(dict(self.match.exhaustion), before)
+
+    # -- The shot ---------------------------------------------------------
+
+    def tied_shot(self):
+        def level_shot(*args, **kwargs):
+            contestants, _, _, ignite = original(*args, **kwargs)
+            return contestants, 9, 9, ignite
+        original = rolls.score_score_attempt
+        self.match.select_ball_handler(self.handler)
+        self.match.pending_action = "shoot"
+        with mock.patch.object(rolls, "score_score_attempt", level_shot):
+            return rolls.score_attempt_step(ENGINE, self.game, self.match)
+
+    def test_a_tied_shot_scores_on_fortune_and_misses_on_doom(self) -> None:
+        for face, scored in ((CoinFace.FORTUNE, True), (CoinFace.DOOM, False)):
+            with self.subTest(face=face):
+                self.setUp()
+                with tossed(face):
+                    dice, result = self.tied_shot()
+                self.assertIs(dice.scored, scored)
+                self.assertIn("It's a tie (9-9)", result.narration[0])
+                self.assertIn(
+                    "the attack wins it" if scored else "the defense wins it",
+                    result.narration[0],
+                )
+
+    def test_a_tied_shot_still_scores_in_one_point_oh(self) -> None:
+        self.game.edition = Edition.ONE
+        with mock.patch.object(ENGINE, "flip_coin") as flip:
+            dice, _ = self.tied_shot()
+        self.assertTrue(dice.scored)
+        flip.assert_not_called()
 
     # -- A card costs nothing; moving costs a token a space ------------
 
@@ -140,24 +180,6 @@ class TieCoinTests(unittest.TestCase):
 
     def tokens(self, player_id: str) -> int:
         return self.match.exhaustion.get(player_id, 0)
-
-    def test_revealing_the_cards_costs_nothing(self) -> None:
-        self.stage_skill_test()
-        self.match.offense_maneuver = "high_pass"
-        self.match.defense_maneuver = "steal"
-        owe_coin_toss(ENGINE, self.game, self.match)
-        self.assertEqual(self.tokens(self.handler), 0)
-        self.assertEqual(self.tokens(self.challenger), 0)
-        # Basic cards owe the coin nothing.
-        self.assertFalse(self.match.tie_coin_owed)
-
-    def test_an_unchallenged_advanced_card_owes_a_toss(self) -> None:
-        self.match.select_ball_handler(self.handler)
-        self.match.maneuver_uncontested = True
-        self.match.offense_maneuver = "skilled_pass"
-        owe_coin_toss(ENGINE, self.game, self.match)
-        self.assertEqual(self.tokens(self.handler), 0)
-        self.assertTrue(self.match.tie_coin_owed)
 
     def test_entering_the_skill_test_is_free_in_two_point_oh(self) -> None:
         self.stage_skill_test()
@@ -268,35 +290,18 @@ class TieCoinTests(unittest.TestCase):
                 )
                 self.assertEqual(self.tokens(self.handler), paid)
 
-    # -- Flipped and tossed ----------------------------------------------
+    # -- Shown -------------------------------------------------------------
 
-    def test_flipped_at_the_first_turn_and_tossed_only_when_owed(self) -> None:
-        line = settle_tie_coin(ENGINE, self.game, self.match)
-        self.assertIn("The coin is flipped", line)
-        face = self.match.tie_coin
-        self.assertIn(face, {"fortune", "doom"})
-        self.assertEqual(settle_tie_coin(ENGINE, self.game, self.match), "")
-        self.assertEqual(self.match.tie_coin, face)
-
-        self.match.tie_coin_owed = True
-        line = settle_tie_coin(ENGINE, self.game, self.match)
-        self.assertIn("tossed again", line)
-        self.assertFalse(self.match.tie_coin_owed)
+    def test_the_turn_message_never_shows_the_coin(self) -> None:
+        # Tossed at each tie, so its last face says nothing of the next.
+        self.match.tie_coin = CoinFace.DOOM.value
+        self.assertNotIn("{coin:", ENGINE.build_turn_prompt(self.game, self.match))
 
     def test_one_point_oh_has_no_tie_coin(self) -> None:
         self.game.edition = Edition.ONE
-        self.assertEqual(settle_tie_coin(ENGINE, self.game, self.match), "")
-        self.assertIsNone(self.match.tie_coin)
-
-    # -- Shown -------------------------------------------------------------
-
-    def test_the_turn_message_shows_the_coin_once_flipped(self) -> None:
-        self.assertNotIn("{coin:", ENGINE.build_turn_prompt(self.game, self.match))
+        self.assertIsNone(ENGINE.tie_coin_face(self.game, self.match))
         self.match.tie_coin = CoinFace.DOOM.value
-        prompt = ENGINE.build_turn_prompt(self.game, self.match)
-        self.assertIn("{coin:doom} **Doom**: defense wins ties.", prompt)
-        self.game.edition = Edition.ONE
-        self.assertNotIn("{coin:", ENGINE.build_turn_prompt(self.game, self.match))
+        self.assertIsNone(ENGINE.tie_coin_face(self.game, self.match))
 
     def test_the_board_is_drawn_with_the_coin(self) -> None:
         from d12ball.render import render_match_image
@@ -306,20 +311,17 @@ class TieCoinTests(unittest.TestCase):
             tie_coin=("coin_gold_3_fortune", ENGINE.tie_coin_caption(self.match)),
         ).getvalue()
         self.assertTrue(png.startswith(b"\x89PNG"))
-        self.assertEqual(
-            ENGINE.tie_coin_caption(self.match), "Offense wins ties",
-        )
+        self.assertEqual(ENGINE.tie_coin_caption(self.match), "Last toss")
 
     # -- Saved -------------------------------------------------------------
 
-    def test_saved_only_once_flipped(self) -> None:
+    def test_saved_only_once_tossed(self) -> None:
         self.assertNotIn("tie_coin", self.match.to_dict())
         self.match.tie_coin = CoinFace.DOOM.value
-        self.match.tie_coin_owed = True
         saved = self.match.to_dict()
+        self.assertNotIn("tie_coin_owed", saved)
         restored = MatchState.from_dict(saved, ENGINE.basic_ruleset)
         self.assertEqual(restored.tie_coin, "doom")
-        self.assertTrue(restored.tie_coin_owed)
 
 
 if __name__ == "__main__":

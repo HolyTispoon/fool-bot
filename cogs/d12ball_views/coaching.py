@@ -417,7 +417,7 @@ class CoachingHubView(CoachingView):
         if options.arrangement is not None:
             # A 2.0 side has no formations: it names its three unique
             # roles and places three more, and the shape is what that
-            # makes (docs/rules-2.0.md 4.3).
+            # makes (docs/rules-2.1.md 4.3).
             self.add_action(
                 "Arrange team",
                 f"d12ball:coach_arrange:{game_id}",
@@ -443,7 +443,7 @@ class CoachingHubView(CoachingView):
             enabled=options.may_substitute,
         )
         # A 2.0 side's trades and moves are Arrange team's
-        # (docs/rules-2.0.md 4.6), so it has neither of these.
+        # (docs/rules-2.1.md 4.6), so it has neither of these.
         if positioning and options.arrangement is None:
             self.add_action(
                 "Zone Assignment",
@@ -698,7 +698,7 @@ class CoachingFormationView(CoachingView):
 
 class CoachingArrangeView(CoachingView):
     """
-    **A 2.0 side's arrangement, as it stands** (docs/rules-2.0.md 4.3,
+    **A 2.0 side's arrangement, as it stands** (docs/rules-2.1.md 4.3,
     4.6a): a button per player of the six, naming their role and space,
     and each opening the changes that start with them
     (`CoachingArrangePlayerView`). A coach never fills the arrangement
@@ -741,7 +741,7 @@ class CoachingArrangeView(CoachingView):
 
         **It says what Arrange team is for** (the author, 2026-10-28):
         in 2.0 a coach assigns players to roles, and the roles belong
-        to the zones rather than to the cards (docs/rules-2.0.md 4.2,
+        to the zones rather than to the cards (docs/rules-2.1.md 4.2,
         4.3) -- so after the deal's recommended arrangement the side is
         laid out as each zone's unique role, on its space, and its
         standard role, with who holds each, and the bench as holding

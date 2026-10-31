@@ -156,6 +156,16 @@ def _player_action(fixture: PromptFixture) -> tuple[str, dict]:
 
 def _maneuver_action(fixture: PromptFixture) -> tuple[str, dict]:
     hand = _prompt(fixture).options.hands[0]
+    if hand.cards:
+        play = next((play for play in hand.cards if not play.flip), hand.cards[0])
+        arguments = {
+            "side": hand.side,
+            "maneuver_key": play.maneuver_key,
+            "card_id": play.card_id,
+        }
+        if play.flip:
+            arguments["extra_card_id"] = play.extra_ids[0]
+        return "", arguments
     return "", {"side": hand.side, "maneuver_key": hand.maneuver_keys[0]}
 
 
@@ -192,15 +202,6 @@ def _low_pass(fixture: PromptFixture) -> tuple[str, dict]:
 
 def _first_distance(fixture: PromptFixture) -> tuple[str, dict]:
     return "", {"distance": _prompt(fixture).options.distances[0]}
-
-
-def _spin_move(fixture: PromptFixture) -> tuple[str, dict]:
-    move = _prompt(fixture).options.moves[0]
-    return "move", {
-        "player_id": move.player_id,
-        "zone": move.zone.value,
-        "space_index": move.space_index,
-    }
 
 
 def _speed_delta(fixture: PromptFixture) -> tuple[str, dict]:
@@ -262,7 +263,6 @@ LEGAL_ACTIONS = {
     PromptKind.SPEED_DELTA_CHOICE: _speed_delta,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _first_distance,
     PromptKind.DRIBBLE_BURST_CHOICE: _first_distance,
-    PromptKind.SPIN_MOVE: _spin_move,
     PromptKind.DOUBLE_TEAM_PARTNER: _first_player,
     PromptKind.TUTORIAL_CONTINUE: lambda fixture: ("", {}),
 }
@@ -1040,16 +1040,6 @@ def _wrong_distance(fixture: PromptFixture) -> dict:
     return {"distance": 99}
 
 
-def _off_the_field_spin(fixture: PromptFixture) -> dict:
-    """SPIN_MOVE: a teammate on offer, to a space nothing offers."""
-    move = _prompt(fixture).options.moves[0]
-    return {
-        "player_id": move.player_id,
-        "zone": move.zone.value,
-        "space_index": 99,
-    }
-
-
 def _wrong_side_player(fixture: PromptFixture) -> dict:
     """SMOOTH, MIND_PULL, INJURY_TEST: a player the prompt is not
     about."""
@@ -1173,7 +1163,7 @@ def _formation_off_the_board(fixture: PromptFixture) -> dict:
 
 def _arrangement_on_a_one_point_oh_side(fixture: PromptFixture) -> dict:
     """The fixtures are 1.0 games, whose sides change formation and are
-    never arranged by their roles (docs/rules-2.0.md 4.3)."""
+    never arranged by their roles (docs/rules-2.1.md 4.3)."""
     side = _coaching_side(fixture)
     fielded = fixture.match.setup_for_side(side).field_players
     return {
@@ -1401,14 +1391,14 @@ REFUSED_ACTIONS = {
     (PromptKind.SHOOTOUT_TEST, "pass"): _wrong_pass,
     (PromptKind.LOW_PASS_CHOICE, ""): _wrong_receiver,
     (PromptKind.HIGH_PASS_CHOICE, ""): _wrong_distance,
+    # A 1.0 High Ball offers no Long shot: only 2.1's H2 Playmaker does.
+    (PromptKind.HIGH_PASS_CHOICE, "long_shot"): lambda fixture: {},
     (PromptKind.SETUP_PASS_CHOICE, ""): _wrong_distance,
     (PromptKind.SPEED_DELTA_CHOICE, ""): _wrong_speed,
     (PromptKind.DRIBBLE_ADVANCE_CHOICE, ""): _three_space_advance,
     (PromptKind.DRIBBLE_BURST_CHOICE, ""): _wrong_distance,
     # Staying is always the position's to take; a move is refused off
     # the prompt's own list.
-    (PromptKind.SPIN_MOVE, "stay"): None,
-    (PromptKind.SPIN_MOVE, "move"): _off_the_field_spin,
 }
 
 
