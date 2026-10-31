@@ -257,7 +257,7 @@
       "rank": 2,
       "number": 1,
       "maneuver": "steal",
-      "effect": "Turnover. Defender and ball move back 1 space. Ball skill modifer for skill tests.",
+      "effect": "Turnover. Defender and ball move back 1 space. Ball skill modifier for skill tests.",
       "special": "If defender is PM, can manipulate ball speed up to oSkill.",
       "roles": [
         "playmaker"
@@ -272,7 +272,7 @@
       "rank": 2,
       "number": 2,
       "maneuver": "steal",
-      "effect": "Turnover. Defender and ball move back 1 space. Ball skill modifer for skill tests.",
+      "effect": "Turnover. Defender and ball move back 1 space. Ball skill modifier for skill tests.",
       "special": "If defender is MF, don't move back with ball.",
       "roles": [
         "midfielder"
@@ -287,7 +287,7 @@
       "rank": 2,
       "number": 3,
       "maneuver": "steal",
-      "effect": "Turnover. Defender and ball move back 1 space. Ball skill modifer for skill tests.",
+      "effect": "Turnover. Defender and ball move back 1 space. Ball skill modifier for skill tests.",
       "special": "If defender is FB or DD, gain +3 for a skill test.",
       "roles": [
         "fullback",
@@ -303,7 +303,7 @@
       "rank": 2,
       "number": 4,
       "maneuver": "steal",
-      "effect": "Turnover. Defender and ball move back 1 space. Ball skill modifer for skill tests.",
+      "effect": "Turnover. Defender and ball move back 1 space. Ball skill modifier for skill tests.",
       "special": "If defender is WG or SK, ball to nearest teammate behind while defender stays in place.",
       "roles": [
         "winger",
