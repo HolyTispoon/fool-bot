@@ -74,7 +74,7 @@ def ref_label(engine, match, seat: int, ref: str, note: str = "") -> str:
     is the HP it has left (`building_hp_left`, the author, 2026-10-15).
     A `note` -- why a defender is legal -- goes in brackets after it,
     in the one bracket a building's HP is already in: "Base (20 HP,
-    flying)", "Iron Man 3/4 (patroller)". A name, never a rule.
+    attacker flies over the patrol)", "Iron Man 3/4 (patroller)". A name, never a rule.
     """
     label = _ref_label(engine, match, seat, ref, note)
     if note and engine.building_hp_left(match, seat, ref) is None:
