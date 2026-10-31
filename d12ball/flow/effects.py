@@ -2054,25 +2054,6 @@ def deflection_lands(
     ):
         candidates = [match.challenger_id]
 
-    if candidates and engine.match_plays_deck(match):
-        # **2.1's Deflect "may set up scoring"**: offered, not taken for
-        # them -- the ball changes hands only if they shoot, and a
-        # decline lands it by the ordinary rule (`loose_on_decline`).
-        return StepResult(
-            narration=[
-                content,
-                "The ball reaches the goal zone -- a scoring opportunity!",
-            ],
-            board_changed=True,
-            next=FollowOn(
-                FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
-                {
-                    "shooter_id": candidates[0],
-                    "distance_moved": 1,
-                    "loose_on_decline": True,
-                },
-            ),
-        )
     if candidates:
         # The challenger, standing right where the ball ends up, gets a
         # shot at the goal it's now next to -- that's a turnover before the

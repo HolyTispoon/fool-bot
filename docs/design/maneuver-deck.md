@@ -115,14 +115,16 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
     does once it is answered (the deflection's landing, or the end of the maneuver) -- one of
     `MATCH_EXPLICIT_FIELDS`, written only while asked, cleared with the maneuver
     (`effects.offer_follow`, `answer_follow`, `prompts.follow_prompt`). Dinky follows.
-  - **A deflection's set-up** -- the Deflect's in the goal zone (Law 6.8.5) and F3 Boot's anywhere
-    -- is the ordinary attempt-or-decline offer (`SET_UP_ATTEMPT`) with `loose_on_decline`: the
-    shooter is the defense's player, so the ball stays the offense's while they choose and changes
-    hands, speed 1, only when they shoot (`arrivals.take_scoring_opportunity` flips possession for
-    a shooter without the ball), and a decline lands the ball by the ordinary rule. The offer is
-    the shooter's own question (`PLAYERS_OWN_QUESTIONS`), and its buttons are gated to the
-    shooter's coach (`SafeView.may_act_for_player_side`) -- the same answer as before wherever
-    the shooter has the ball. 1.0's deflection set-up is unchanged.
+  - **F3 Boot's set-up** anywhere is the ordinary attempt-or-decline offer (`SET_UP_ATTEMPT`)
+    with `loose_on_decline`: the shooter is the defense's player, so the ball stays the offense's
+    while they choose and changes hands, speed 1, only when they shoot
+    (`arrivals.take_scoring_opportunity` flips possession for a shooter without the ball), and a
+    decline lands the ball by the ordinary rule. The offer is the shooter's own question
+    (`PLAYERS_OWN_QUESTIONS`), and its buttons are gated to the shooter's coach
+    (`SafeView.may_act_for_player_side`) -- the same answer as before wherever the shooter has
+    the ball. **The Deflect's own set-up in the goal zone is not a "may"** (the sheet's Effect,
+    corrected 2026-10-31: "If reaches goal zone, set up scoring"): possession flips and the
+    challenger shoots, as in 1.0 (`deflection_lands`).
   - The rest already were: the passes' and High Ball's extra destinations and distances beside
     the card's own, P1's and B1's and H4's shots, P2's step, B2's distance, B3's and S1's speed
     (staying the same is one of the speeds), B4's handler choice.

@@ -341,6 +341,19 @@ class DeflectTests(unittest.TestCase):
                 )
                 self.assertEqual(landed.next.step, FollowOnStep.BEGIN_LOOSE_BALL)
 
+    def test_a_deflect_into_the_goal_zone_sets_up_scoring_not_may(self) -> None:
+        # The rank's Effect, corrected 2026-10-31: "If reaches goal zone,
+        # set up scoring" -- taken, not offered: the ball changes hands
+        # and the challenger shoots, as in 1.0.
+        game, match = staged("H1", "F1")
+        make(match, match.challenger_id, PlayerRole.WINGER)
+        defense = match.defending_side()
+        result = effects.deflection_lands(ENGINE, match, "", True)
+        self.assertEqual(result.next.step, FollowOnStep.BEGIN_SHOOTER_CHOICE)
+        self.assertEqual(result.next.kwargs["candidates"], [match.challenger_id])
+        self.assertEqual(match.ball.possession, defense)
+        self.assertEqual(match.ball.speed, 1)
+
     def test_f3_a_winger_or_striker_may_set_up_scoring_wherever_it_lands(self) -> None:
         from d12ball.flow import arrivals
         game, match = staged("H1", "F3")
