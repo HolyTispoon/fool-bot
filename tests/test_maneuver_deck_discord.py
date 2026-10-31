@@ -1,5 +1,5 @@
 """
-D12 Ball 2.0 on Discord: the public maneuver prompt carries no cards,
+D12 Ball 2.1 on Discord: the public maneuver prompt carries no cards,
 only one hand button; pressing it shows a coach their own five cards, ephemerally, with the maneuvers they can play under it; and a
 pick from there plays the card. The rules are `test_maneuver_deck`'s;
 this is the frontend over them.
@@ -10,7 +10,7 @@ from unittest import mock
 
 from cogs.d12ball_helpers import HAND_BUTTON_LABEL
 from cogs.d12ball_views import ManeuverActionPromptView
-from cogs.d12ball_views.turn import ManeuverHandView
+from cogs.d12ball_views.turn import FlipExtraView, ManeuverHandView
 from d12ball.components import TeamSide
 from d12ball.game import Edition, GameMode
 from d12ball.prompts import PromptKind
@@ -81,10 +81,12 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             )
             hand_view = sent[0].kwargs["view"]
             self.assertIsInstance(hand_view, ManeuverHandView)
-            self.assertEqual(
-                sorted(item.label for item in hand_view.children),
-                sorted(m.name for m in cog.engine.maneuver_hand(game, match, side)),
-            )
+            # One button a way to play a card: its own, or flipped.
+            plays = cog.engine.card_plays(game, match, side)
+            self.assertEqual(len(hand_view.children), len(plays))
+            for item, play in zip(hand_view.children, plays):
+                self.assertIn(play.card_id, item.label)
+                self.assertEqual(item.label.startswith("\u21c5"), play.flip)
 
     async def test_somebody_coaching_neither_side_is_refused(self) -> None:
         cog, game = self.build()
@@ -124,12 +126,44 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             )
             view = ManeuverHandView(cog, game.game_id, options_hand)
             interaction = build_interaction(user_id=coaches[side])
+            play = next(play for play in options_hand.cards if not play.flip)
             with suppressed_cog_saves():
-                await view.pick(interaction, side, options_hand.maneuver_keys[0])
+                await view.pick(
+                    interaction, side, play.maneuver_key, play.card_id,
+                )
         match = cog.engine.load_match_state(game)
         for deck in match.maneuver_decks.values():
             self.assertEqual(len(deck["hand"]), 5)
             self.assertEqual(len(deck["discard"]), 1)
+
+
+    async def test_a_flip_asks_its_extra_card_and_discards_both(self) -> None:
+        cog, game = self.build()
+        match = cog.engine.load_match_state(game)
+        team = cog.engine.maneuver_side_team(match, "offense")
+        deck = match.maneuver_decks[team.value]
+        # A hand with a defensive card the offense can only flip.
+        others = [card for card in deck["draw"] if card.startswith("F")]
+        deck["draw"] = [c for c in deck["draw"] if c != others[0]] + deck["hand"][:1]
+        deck["hand"][0] = others[0]
+        game.match_state = match.to_dict()
+        options_hand = next(
+            hand for hand in ManeuverActionPromptView(cog, game.game_id)
+            .prompt_options(game, match, PromptKind.MANEUVER_ACTION).hands
+            if hand.side == "offense"
+        )
+        flip = next(play for play in options_hand.cards if play.flip)
+        extras = FlipExtraView(cog, game.game_id, "offense", flip)
+        self.assertEqual(len(extras.children), len(flip.extra_ids))
+        coach = HOME_COACH if team == TeamSide.HOME else VISITING_COACH
+        with suppressed_cog_saves():
+            await extras.pick(
+                build_interaction(user_id=coach), "offense",
+                flip.maneuver_key, flip.card_id, flip.extra_ids[0],
+            )
+        match = cog.engine.load_match_state(game)
+        self.assertEqual(match.maneuver_cards["offense"], [flip.card_id, flip.extra_ids[0]])
+        self.assertEqual(match.offense_maneuver, "low_pass")
 
 
 class DiscardPictureTests(unittest.IsolatedAsyncioTestCase):

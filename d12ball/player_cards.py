@@ -48,7 +48,7 @@ ability prints their role's sentence on both faces.
 `edition=Edition.TWO`: a tile smaller than a card, on its side
 (`render_player_tile`, 2026-10-25), which names no role, since in
 2.0 the formation's zones hold the roles and a role token laid on the
-card says who holds which (docs/rules-2.0.md section 4,
+card says who holds which (docs/rules-2.1.md section 4,
 `d12ball/role_tokens.py`).
 """
 from dataclasses import dataclass
@@ -1167,7 +1167,7 @@ def render_player_tile(
 ) -> Image.Image:
     """
     **A D12 Ball 2.0 player tile**, either face. It names no role -- in
-    2.0 the formation's zones hold the roles (docs/rules-2.0.md section
+    2.0 the formation's zones hold the roles (docs/rules-2.1.md section
     4); the zone board says them beside the tile, and a role token laid
     on it may too (`TILE_TOKEN_SPOT`). The front is the skills panel and
     the species; the advanced face, under its ribbon, is the player's

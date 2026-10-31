@@ -665,9 +665,12 @@ class ManeuverPicking:
         interaction: discord.Interaction,
         side: str,
         maneuver_key: str,
+        card_id: Optional[str] = None,
+        extra_card_id: Optional[str] = None,
     ) -> None:
         """
-        One coach's pick, answered **ephemerally** -- which is the whole
+        One coach's pick -- in 2.1 a card, and a flipped card's extra
+        discard -- answered **ephemerally** -- which is the whole
         of what keeps it secret now that the buttons are public. The
         prompt itself is untouched, so the other coach sees no change of
         any kind. A second pick is a change, and the reply names the
@@ -692,21 +695,28 @@ class ManeuverPicking:
         # is worth saying at all, and whether both sides have answered
         # -- and `maneuver_pick_refusal`'s three reasons, asked by the
         # driver after the authorisation above.
+        arguments = {"side": side, "maneuver_key": maneuver_key}
+        if card_id is not None:
+            arguments["card_id"] = card_id
+        if extra_card_id is not None:
+            arguments["extra_card_id"] = extra_card_id
         result = await self.apply(
             interaction,
             game,
-            Action(
-                PromptKind.MANEUVER_ACTION,
-                "",
-                {"side": side, "maneuver_key": maneuver_key},
-            ),
+            Action(PromptKind.MANEUVER_ACTION, "", arguments),
         )
         if result is None:
             return
 
+        chosen = f"**{self.cog.engine.maneuver_name(maneuver_key)}**"
+        if card_id is not None:
+            chosen = card_pick_words(
+                self.cog.maneuver_catalog, self.cog.engine, card_id,
+                maneuver_key, extra_card_id,
+            )
         await interaction.response.send_message(
             ("You changed your maneuver to " if changing else "You chose ")
-            + f"**{self.cog.engine.maneuver_name(maneuver_key)}**.",
+            + f"{chosen}.",
             ephemeral=True,
         )
 
@@ -1088,32 +1098,61 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
         await self.cog.present(interaction, game, result)
 
 
+def card_label(catalog, card_id: str) -> str:
+    """A 2.1 card as a button or a reply names it: "P3 Pinpoint"."""
+    card = catalog.deck_card(card_id)
+    return card_id if card is None else f"{card.index} {card.name}"
+
+
+def card_pick_words(catalog, engine, card_id, maneuver_key, extra_card_id) -> str:
+    """What the coach is told they chose: the card, and a flip's
+    maneuver and the card it discarded."""
+    label = f"**{card_label(catalog, card_id)}**"
+    if extra_card_id is None:
+        return label
+    return (
+        f"{label} as **{engine.maneuver_name(maneuver_key)}**, "
+        f"discarding **{card_label(catalog, extra_card_id)}**"
+    )
+
+
 def describe_secret_hand(hand, named: bool = False) -> str:
     """
-    What a 2.0 coach reads over their own hand -- `named` with its side
-    where the clicker is shown both.
+    What a 2.1 coach reads over their own hand -- `named` with its side
+    where the clicker is shown both. A star marks a card whose special
+    the player making the maneuver would play; a card of the other side
+    plays as this side's maneuver of its rank by discarding an extra
+    card (docs/rules-2.1.md 2.3).
     """
     count = (
         f"{hand.deck_count} in your deck, {hand.discard_count} in your "
         "discard."
     )
     title = f"Your hand on {hand.side}" if named else "Your hand"
+    key = (
+        " \u2605 marks a card whose special is in play; \u21c5 plays a "
+        "card as your side's maneuver of its rank, discarding an extra "
+        "card, with no special."
+    )
     if hand.picked:
         return (
             f"{title} ({count}) You have picked; press another card to "
-            "change it while the other side is still choosing."
+            f"change it while the other side is still choosing.{key}"
         )
-    return f"{title} ({count}) Play one:"
+    return f"{title} ({count}) Play one:{key}"
 
 
 class ManeuverHandView(ManeuverPicking, SafeView):
     """
-    **A 2.0 coach's secret hand**, sent ephemerally by the prompt's
-    hand button: one button a maneuver the hand can play on this side
-    -- two copies of a card are one button -- each a pick exactly as
-    the 1.0 prompt's card buttons are (`ManeuverPicking.pick`). Never
-    persistent: it answers one press of the public button, and the
-    public button sends a fresh one after a restart.
+    **A 2.1 coach's secret hand**, sent ephemerally by the prompt's
+    hand button: one button a way to play a card on this side, off
+    `ManeuverHand.cards` and nothing else -- a card of this side as
+    itself, starred where its special is in play, and a card of the
+    other side flipped (\u21c5), which asks which extra card to discard
+    (`FlipExtraView`) before it is a pick. Each pick is the 1.0
+    prompt's pick exactly (`ManeuverPicking.pick`). Never persistent:
+    it answers one press of the public button, and the public button
+    sends a fresh one after a restart.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str, hand) -> None:
@@ -1121,23 +1160,44 @@ class ManeuverHandView(ManeuverPicking, SafeView):
         self.cog = cog
         self.game_id = game_id
         buttons = []
-        for key in hand.maneuver_keys:
-            maneuver = cog.maneuver_catalog.definition(key)
-            button = discord.ui.Button(
-                label=maneuver.name,
-                style=(
+        for play in hand.cards:
+            label = card_label(cog.maneuver_catalog, play.card_id)
+            if play.flip:
+                label = (
+                    f"\u21c5 {label} as "
+                    f"{cog.engine.maneuver_name(play.maneuver_key)}"
+                )
+                style = discord.ButtonStyle.secondary
+            else:
+                if play.special:
+                    label = f"\u2605 {label}"
+                style = (
                     discord.ButtonStyle.danger
                     if hand.side == "offense"
-                    else discord.ButtonStyle.success
-                ),
-            )
+                    else discord.ButtonStyle.primary
+                )
+            button = discord.ui.Button(label=label[:80], style=style)
 
             async def callback(
                 interaction: discord.Interaction,
-                chosen_key: str = key,
+                chosen=play,
                 chosen_side: str = hand.side,
             ) -> None:
-                await self.pick(interaction, chosen_side, chosen_key)
+                if chosen.flip:
+                    await interaction.response.send_message(
+                        f"Play **{card_label(self.cog.maneuver_catalog, chosen.card_id)}** "
+                        f"as **{self.cog.engine.maneuver_name(chosen.maneuver_key)}**: "
+                        "choose the extra card to discard.",
+                        view=FlipExtraView(
+                            self.cog, self.game_id, chosen_side, chosen,
+                        ),
+                        ephemeral=True,
+                    )
+                    return
+                await self.pick(
+                    interaction, chosen_side, chosen.maneuver_key,
+                    chosen.card_id,
+                )
 
             button.callback = callback
             buttons.append(button)
@@ -1145,6 +1205,36 @@ class ManeuverHandView(ManeuverPicking, SafeView):
             for button in row:
                 button.row = index
                 self.add_item(button)
+
+
+class FlipExtraView(ManeuverPicking, SafeView):
+    """
+    **The extra card a flip discards** (docs/rules-2.1.md 2.3): one
+    button a card of `play.extra_ids`, the list the hand's options
+    carry, each the pick of the flipped card with that card discarded.
+    Ephemeral, like the hand it was opened from.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, side: str, play) -> None:
+        super().__init__(timeout=15 * 60)
+        self.cog = cog
+        self.game_id = game_id
+        for extra in play.extra_ids:
+            button = discord.ui.Button(
+                label=f"Discard {card_label(cog.maneuver_catalog, extra)}"[:80],
+                style=discord.ButtonStyle.secondary,
+            )
+
+            async def callback(
+                interaction: discord.Interaction, discarded: str = extra,
+            ) -> None:
+                await self.pick(
+                    interaction, side, play.maneuver_key, play.card_id,
+                    discarded,
+                )
+
+            button.callback = callback
+            self.add_item(button)
 
 
 class GambitAnswerView(SafeView):

@@ -229,6 +229,9 @@ def resolve_maneuver(
     defense_key = match.defense_maneuver
     offense_name = engine.maneuver_name(offense_key)
     defense_name = engine.maneuver_name(defense_key)
+    # 2.1 names the card each side played, beside the maneuver it plays.
+    offense_chose = _chose(engine, match, "offense", offense_name)
+    defense_chose = _chose(engine, match, "defense", defense_name)
     offense_display = format_player_with_team(
         game,
         engine.possession_player_number(game, match),
@@ -238,17 +241,11 @@ def resolve_maneuver(
         engine.defending_player_number(game, match),
     )
 
-    owe_coin_toss(engine, game, match)
-
     if match.maneuver_uncontested:
         # Nothing to reveal against and nothing to rank: the offense's
         # pick is the winner, and its effect runs the same pipeline a
         # decisive win always does -- the clock charged as it
         # succeeds, like any other win (Law 6.1.4, 16.2.4).
-        # In 2.0 an advanced card may be played against no challenge,
-        # and resolves as the basic maneuver on its rank
-        # (`resolving_maneuver`; the author, 2026-10-16) -- said, since
-        # the coach played one card and another resolves.
         resolving_key = engine.resolving_maneuver(match, offense_key)
         resolving_name = engine.maneuver_name(resolving_key)
         plays_as = (
@@ -259,7 +256,7 @@ def resolve_maneuver(
         clock = charge_maneuver_clock(engine, match, offense_key)
         return StepResult(
             narration=[
-                f"{offense_display} chose **{offense_name}**, "
+                f"{offense_display} chose {offense_chose}, "
                 f"unchallenged.{plays_as}\n\n## {succeeds}"
                 + (f"\n{clock}" if clock else "")
             ],
@@ -271,8 +268,8 @@ def resolve_maneuver(
         )
 
     reveal = (
-        f"{offense_display} chose **{offense_name}**.\n"
-        f"{defense_display} chose **{defense_name}**."
+        f"{offense_display} chose {offense_chose}.\n"
+        f"{defense_display} chose {defense_chose}."
     )
 
     # Who wins is settled_maneuver_winner's alone to say; what is
@@ -667,10 +664,17 @@ def maneuver_pick_refusal(
     match: MatchState,
     side: str,
     maneuver_key: str,
+    card_id: Optional[str] = None,
+    extra_card_id: Optional[str] = None,
 ) -> Optional[str]:
     """
     Why this pick cannot be taken, or None -- **everything except who
     is allowed to make it**.
+
+    **In 2.1 a pick is a card** (`card_id`), and a flipped card names
+    the extra card it discards (`extra_card_id`); both are refused
+    against `RulesEngine.card_plays`, the list the buttons are built
+    from, as is the maneuver the card is said to play.
 
     Authorization is a fact about a Discord user and stays in
     `SafeView` (see docs/design/permissions.md), and it is answered
@@ -710,7 +714,7 @@ def maneuver_pick_refusal(
     if mine is not None and not unconfirmed:
         if match.maneuver_uncontested or theirs_down:
             return "You have already chosen your maneuver."
-        if mine == maneuver_key:
+        if mine == maneuver_key and card_id is None:
             return (
                 "You have already chosen "
                 f"**{engine.maneuver_name(mine)}**."
@@ -724,6 +728,12 @@ def maneuver_pick_refusal(
             "current prompt."
         )
 
+    if engine.maneuver_deck_applies(game):
+        return _card_pick_refusal(
+            engine, game, match, side, maneuver_key, card_id, extra_card_id,
+        )
+    if card_id is not None or extra_card_id is not None:
+        return "This game plays no maneuver cards."
     playable = {
         maneuver.key
         for maneuver in engine.maneuver_hand(game, match, side)
@@ -737,6 +747,84 @@ def maneuver_pick_refusal(
     return None
 
 
+def _card_pick_refusal(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: str,
+    maneuver_key: str,
+    card_id: Optional[str],
+    extra_card_id: Optional[str],
+) -> Optional[str]:
+    """A 2.1 pick refused against the hand's own plays."""
+    if card_id is None:
+        return "Pick a card from your hand."
+    play = next(
+        (play for play in engine.card_plays(game, match, side)
+         if play.card_id == card_id),
+        None,
+    )
+    if play is None:
+        return "That card isn't in your hand for this turn. Use your hand."
+    if play.maneuver_key != maneuver_key:
+        return "That card does not play that maneuver. Use your hand."
+    if play.flip and extra_card_id not in play.extra_ids:
+        return (
+            "Playing a card as the other side's maneuver discards an "
+            "extra card from your hand: choose one."
+        )
+    if not play.flip and extra_card_id is not None:
+        return "That card plays as itself and discards nothing extra."
+    current = match.maneuver_cards.get(side)
+    wanted = [card_id] + ([extra_card_id] if play.flip else [])
+    if current == wanted:
+        return "You have already chosen that card."
+    return None
+
+
+def _chose(
+    engine: RulesEngine, match: MatchState, side: str, name: str,
+) -> str:
+    """What a side chose, as the reveal says it: the maneuver in 1.0,
+    and in 2.1 the card that played it -- flipped, or with its special
+    in play."""
+    label = engine.played_card_label(match, side)
+    if not label:
+        return f"**{name}**"
+    cards = match.maneuver_cards.get(side) or []
+    if len(cards) > 1:
+        return f"**{label}**"
+    special = (
+        ", its special in play"
+        if engine.card_special(match, side) is not None else ""
+    )
+    return f"**{label}**, a {name}{special}"
+
+
+def settle_tie_coin(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    **D12 Ball 2.1's coin, flipped at the start of the game** (rules-2.1
+    5.2): at the first turn, before anybody is asked anything, so the
+    face that settles the first tie is known before it. Says the face
+    and what it means, since the coin is public; "" where it has already
+    been flipped -- after that it is tossed only after a tie
+    (`rolls.coin_settles_tie`) -- and in 1.0.
+    """
+    if not engine.tie_coin_applies(game) or match.tie_coin is not None:
+        return ""
+    face = engine.flip_coin()
+    match.tie_coin = face.value
+    return (
+        f"The coin is flipped: {tokens.coin(face)} "
+        f"**{COIN_FACE_WORDS[face]}** -- "
+        f"{engine.tie_coin_caption(match).lower()}."
+    )
+
+
 def maneuver_pick_step(
     engine: RulesEngine,
     game: D12BallGame,
@@ -744,9 +832,12 @@ def maneuver_pick_step(
     *,
     side: str,
     maneuver_key: str,
+    card_id: Optional[str] = None,
+    extra_card_id: Optional[str] = None,
 ) -> StepResult:
     """
-    One coach's pick, written down.
+    One coach's pick, written down -- in 2.1 with the card behind it,
+    and the extra card a flip discards (`MatchState.maneuver_cards`).
 
     **"Someone has picked, you can't see what" is only worth saying
     while the other side is still choosing**, which is a rule about the
@@ -776,7 +867,15 @@ def maneuver_pick_step(
         else match.defense_maneuver
     )
     confirming = match.pick_unconfirmed == side
-    if previous is not None:
+    if card_id is not None:
+        match.maneuver_cards[side] = [card_id] + (
+            [extra_card_id] if extra_card_id is not None else []
+        )
+    if previous is not None and previous == maneuver_key and card_id is not None:
+        # Another card for the same maneuver: the card changed, and the
+        # pick with it, but there is no maneuver to change.
+        pass
+    elif previous is not None:
         match.change_maneuver(side, maneuver_key)
     elif side == "offense":
         match.choose_offense_maneuver(maneuver_key)
@@ -817,11 +916,12 @@ def play_maneuver_cards(
     match: MatchState,
 ) -> list[str]:
     """
-    **D12 Ball 2.0: the cards just revealed leave their hands** (the
+    **D12 Ball 2.1: the cards just revealed leave their hands** (the
     author, 2026-10-16). Each card played goes to its coach's discard
-    pile and the coach draws back up to five; drawing the last card of
-    a deck shuffles the discard into a new one, which is said out loud
-    because it is public. Nothing in 1.0.
+    pile -- with the extra card a flip discards -- and the coach draws
+    back up to five; drawing the last card of a deck shuffles the
+    discard into a new one, which is said out loud because it is
+    public. Nothing in 1.0.
 
     Played at the reveal -- the moment both picks are in, or the
     offense's alone against no challenge -- because that is when a
@@ -836,22 +936,17 @@ def play_maneuver_cards(
         sides.append("defense")
     lines = []
     for side in sides:
-        key = (
-            match.offense_maneuver if side == "offense"
-            else match.defense_maneuver
-        )
         team_side = engine.maneuver_side_team(match, side)
         deck = engine.maneuver_deck(match, team_side)
-        if deck is None or key is None:
-            continue
-        card_id = maneuver_deck.card_for_maneuver(
-            engine.maneuver_catalog, deck[maneuver_deck.HAND], side, key,
-        )
-        if card_id is None:
+        cards = [
+            card_id for card_id in match.maneuver_cards.get(side, [])
+            if deck is not None and card_id in deck[maneuver_deck.HAND]
+        ]
+        if deck is None or not cards:
             # `maneuver_pick_refusal` read the same hand, so a pick
             # with no card behind it is a hand edited by hand.
             continue
-        if maneuver_deck.play_card(deck, card_id, engine.rng):
+        if maneuver_deck.play_cards(deck, cards, engine.rng):
             coach = format_player_with_team(
                 game, _maneuver_side_number(engine, game, match, side),
             )
@@ -860,72 +955,6 @@ def play_maneuver_cards(
                 "their discard pile into a new one."
             )
     return lines
-
-
-def owe_coin_toss(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-) -> None:
-    """
-    **D12 Ball 2.0: an advanced card just revealed owes the coin a
-    toss** once this maneuver is over (rules-2.0 5.3,
-    `settle_tie_coin`) -- on either side, challenged or not. Nothing
-    in 1.0, which has no tie coin.
-
-    At the reveal, in `resolve_maneuver`, which runs once a maneuver.
-    A card costs nothing to play: 2.0 charges the moves it leads to
-    instead (rules-2.0 5.4, `RulesEngine.pay_for_move`).
-    """
-    if not engine.tie_coin_applies(game):
-        return
-    keys = [match.offense_maneuver]
-    if not match.maneuver_uncontested:
-        keys.append(match.defense_maneuver)
-    if any(
-        key is not None and engine.maneuver_catalog.definition(key).is_gambit
-        for key in keys
-    ):
-        match.tie_coin_owed = True
-
-
-def settle_tie_coin(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-) -> str:
-    """
-    **D12 Ball 2.0's coin, flipped and tossed** (rules-2.0 5.2, 5.3):
-    flipped before the first turn, and tossed again at the first turn
-    after a maneuver an advanced card was played in -- which is after
-    that maneuver is fully resolved, every contest it led to included,
-    since only a maneuver leads to a tied roll. A 2.0 game saved before
-    the coin is flipped at its next turn the same way. Says the face
-    and what it means, since the coin is public; "" where nothing was
-    thrown.
-    """
-    if not engine.tie_coin_applies(game):
-        return ""
-    if match.tie_coin is not None and not match.tie_coin_owed:
-        return ""
-    first = match.tie_coin is None
-    face = engine.flip_coin()
-    match.tie_coin = face.value
-    match.tie_coin_owed = False
-    winner = (
-        "the offense" if engine.tie_coin_winner(match) == "offense"
-        else "the defense"
-    )
-    word = COIN_FACE_WORDS[face]
-    thrown = (
-        "The coin is flipped"
-        if first
-        else "An advanced maneuver was played, so the coin is tossed again"
-    )
-    return (
-        f"{thrown}: {tokens.coin(face)} **{word}**. "
-        f"While it shows {word}, {winner} wins a tied roll."
-    )
 
 
 def _maneuver_side_number(
@@ -1512,7 +1541,8 @@ def start_turn(
         )
     carrying = match.ball_carrier_id in eligible_handlers
 
-    # 2.0's coin, before the turn's first question (rules-2.0 5.2, 5.3).
+    # 2.1's coin, flipped before the first turn's first question
+    # (rules-2.1 5.2); after that it is tossed only after a tie.
     coin = settle_tie_coin(engine, game, match)
     if coin:
         narration.append(coin)

@@ -1,6 +1,6 @@
 """
 D12 Ball 2.0's roles: a role belongs to the formation, assigned to a
-player, and no role plays an ability (docs/rules-2.0.md, section 4;
+player, and no role plays an ability (docs/rules-2.1.md, section 4;
 "Roles" in docs/design/maneuver-deck.md).
 """
 
@@ -24,7 +24,7 @@ from roster import benched, fielded
 from test_driver_full_game import RULESET, build_engine, build_game, build_match
 
 ROLES = tuple(PlayerRole)
-# The recommended arrangement's columns (docs/rules-2.0.md 4.5).
+# The recommended arrangement's columns (docs/rules-2.1.md 4.5).
 ARRANGEMENT_ROLES = (
     PlayerRole.FULLBACK, PlayerRole.DEFENDER, PlayerRole.PLAYMAKER,
     PlayerRole.MIDFIELDER, PlayerRole.STRIKER, PlayerRole.WINGER,
@@ -69,7 +69,7 @@ class SavedRolesTests(unittest.TestCase):
 
 
 class StandardDealTests(unittest.TestCase):
-    """The 2.0 deal (docs/rules-2.0.md 4.5)."""
+    """The 2.0 deal (docs/rules-2.1.md 4.5)."""
 
     def test_one_point_oh_deals_no_roles(self) -> None:
         engine, _, match = kickoff(Edition.ONE)
@@ -130,7 +130,7 @@ class StandardDealTests(unittest.TestCase):
             card = fielded(match, role)
             with self.subTest(role=role):
                 self.assertFalse(engine.has_role_ability(match, card, role))
-        # The Fullback's High Ball reaches 3, not 4 (docs/rules-2.0.md 4.7a).
+        # The Fullback's High Ball reaches 3, not 4 (docs/rules-2.1.md 4.7a).
         match.active_player_id = fielded(match, PlayerRole.FULLBACK)
         self.assertNotIn(4, engine.high_pass_distance_options(match))
 
@@ -143,12 +143,12 @@ class StandardDealTests(unittest.TestCase):
 
 
 class RecommendedArrangementTests(unittest.TestCase):
-    """docs/rules-2.0.md 4.5 names each team's recommended six, and the
+    """docs/rules-2.1.md 4.5 names each team's recommended six, and the
     standard deal is what sets it up -- so the table is the deal's,
     and a roster change in the sheet shows up here until it is."""
 
     def test_the_rules_table_is_the_standard_deal(self) -> None:
-        text = (PROJECT_ROOT / "docs" / "rules-2.0.md").read_text(
+        text = (PROJECT_ROOT / "docs" / "rules-2.1.md").read_text(
             encoding="utf-8",
         )
         section = text[text.index("**4.5**"):text.index("**4.6**")]
@@ -175,7 +175,7 @@ class RecommendedArrangementTests(unittest.TestCase):
 
 
 class CarriedRolesTests(unittest.TestCase):
-    """A role moves with the place (docs/rules-2.0.md 4.6)."""
+    """A role moves with the place (docs/rules-2.1.md 4.6)."""
 
     def test_a_substitute_takes_the_outgoing_players_role(self) -> None:
         engine, _, match = kickoff(Edition.TWO)
@@ -213,7 +213,7 @@ class CarriedRolesTests(unittest.TestCase):
 
 
 class KickoffTests(unittest.TestCase):
-    """The Playmaker takes the kickoff (docs/rules-2.0.md 4.4)."""
+    """The Playmaker takes the kickoff (docs/rules-2.1.md 4.4)."""
 
     def crowd_the_kickoff(self, match: MatchState) -> str:
         """A teammate onto the Playmaker's space, as an Ooze may stand,

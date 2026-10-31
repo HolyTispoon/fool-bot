@@ -1,5 +1,5 @@
 """
-D12 Ball 2.0's new play runs everybody back (docs/rules-2.0.md 4.9, the
+D12 Ball 2.0's new play runs everybody back (docs/rules-2.1.md 4.9, the
 author, 2026-10-24): every fielded player goes back to their own zone --
 the Fullback, the Playmaker and the Striker to their own spaces,
 everyone else to an open space of their zone, their coach choosing --

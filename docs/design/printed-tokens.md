@@ -157,7 +157,7 @@ same 19 mm, so a paper token sits in a jumbotron silo like a printed one.
 `d12ball/print/role-tokens/`) draws a token a coach lays on a player's
 card to say which role they hold. In 2.0 a role is the formation's, not
 the player's, and moves from card to card in a Coaching Choice
-(rules-2.0 section 4), while the printed card still says its 1.0 role --
+(rules-2.1 section 4), while the printed card still says its 1.0 role --
 so the role has to be a loose piece (the author, 2026-10-24). The
 players on the field are standees for the same reason
 ([standees.md](standees.md)).

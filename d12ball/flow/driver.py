@@ -670,7 +670,6 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.SPEED_DELTA_CHOICE: "That maneuver has already resolved.",
     PromptKind.DRIBBLE_ADVANCE_CHOICE: "That maneuver has already resolved.",
     PromptKind.DRIBBLE_BURST_CHOICE: "That maneuver has already resolved.",
-    PromptKind.SPIN_MOVE: "That maneuver has already resolved.",
 }
 
 #: `MOVED_ON`, the sentence for a kind `STALE_CLICK` does not name, and
@@ -989,7 +988,7 @@ def _answer_coaching_hub(
     So `choice` names which it is, and those that change something
     return the note the hub puts back above its own buttons. A 2.0
     side is offered `arrange` where a 1.0 side is offered `formation`
-    (docs/rules-2.0.md 4.3), and in place of `swap` and `reposition`
+    (docs/rules-2.1.md 4.3), and in place of `swap` and `reposition`
     too (4.6), and each is refused where the prompt does not offer it.
 
     **Its sub-menus are not prompts and never were.** They are steps of
@@ -1096,7 +1095,7 @@ def _arrangement(
     [{"player_id": id, "zone": zone, "space_index": n}, ...],
     "strays": [id, ...]}` into the holders keyed by role, the
     placements `arrange_side` takes, and the players who keep their
-    role outside its zone (docs/rules-2.0.md 4.9d; absent, nobody). A
+    role outside its zone (docs/rules-2.1.md 4.9d; absent, nobody). A
     shape that is not that is refused here; whether the arrangement is
     legal is `MatchState.arrange_side`'s.
     """
@@ -1338,9 +1337,12 @@ def _answer_maneuver_action(
     *,
     side: str,
     maneuver_key: Optional[str] = None,
+    card_id: Optional[str] = None,
+    extra_card_id: Optional[str] = None,
 ) -> StepResult:
     """
-    One coach's maneuver, picked -- or, with the choice `"gambit"`, a
+    One coach's maneuver, picked -- in 2.1 by its card (`card_id`),
+    and a flipped card's extra discard (`extra_card_id`) -- or, with the choice `"gambit"`, a
     gambit declared, and with `"confirm"` a pick a gambit put back in
     question confirmed as it stands (Law 19.3). The card is the empty
     choice's argument (`REQUIRED_ARGUMENTS`); the other two name only
@@ -1368,12 +1370,13 @@ def _answer_maneuver_action(
     if choice == "confirm":
         return turn.confirm_maneuver_step(engine, game, match, side=side)
     refusal = turn.maneuver_pick_refusal(
-        engine, game, match, side, maneuver_key,
+        engine, game, match, side, maneuver_key, card_id, extra_card_id,
     )
     if refusal is not None:
         raise RuleRefusal(refusal)
     return turn.maneuver_pick_step(
         engine, game, match, side=side, maneuver_key=maneuver_key,
+        card_id=card_id, extra_card_id=extra_card_id,
     )
 
 
@@ -1764,14 +1767,23 @@ def _answer_high_pass_choice(
     prompt: PendingPrompt,
     choice: str,
     *,
-    distance: int,
+    distance: Optional[int] = None,
     runner: bool = False,
 ) -> StepResult:
     """
     A won High Ball, thrown as far as the coach chose -- one of the
     distances that land short of the goal zone, and the tutorial's where it rails
     one. `runner` is Quantor running onto it (`_run_onto`).
+
+    **2.1's specials** (rules-2.1 7.3): the choice `"long_shot"` is H2's
+    throw to the Striker, refused unless the prompt offers it, and a
+    distance under 2 is H4's Vertical Ball, which `high_pass_step` hands
+    to its own step.
     """
+    if choice == "long_shot":
+        if not prompt.options.long_shot:
+            _refuse("This High Ball cannot go to the Striker.")
+        return effects.long_shot_step(engine, game, match)
     if distance not in prompt.options.distances:
         _refuse(
             f"A {distance}-space pass would reach the goal zone "
@@ -1899,40 +1911,14 @@ def _answer_dribble_advance_choice(
     *,
     distance: int,
 ) -> StepResult:
-    """A Playmaker's won Dribble, or 2.0's Advance: one space or two."""
+    """A Playmaker's won Dribble, or 2.1's B2 Advance: one space or two."""
     if distance not in prompt.options.distances:
-        key = engine.resolving_key(match, "offense") or "dribble_advance"
         _refuse(
-            f"A {engine.maneuver_name(key)} is one space "
+            f"A {engine.maneuver_name('dribble_advance')} is one space "
             "or two."
         )
     _rail(prompt.options.railed, distance)
     return effects.dribble_advance_step(engine, game, match, distance)
-
-
-def _answer_spin_move(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    prompt: PendingPrompt,
-    choice: str,
-    *,
-    player_id: Optional[str] = None,
-    zone: Optional[str] = None,
-    space_index: Optional[int] = None,
-) -> StepResult:
-    """
-    2.0's won Spin: a teammate in the handler's zone moves to one of
-    the spaces the prompt offers (`MoveOptions.moves`), or nobody does,
-    and the speed choice follows.
-    """
-    if choice == "stay":
-        return effects.spin_move_step(engine, game, match)
-    if not prompt.options.offers(player_id, Zone(zone), space_index):
-        _refuse("That move is not on offer.")
-    return effects.spin_move_step(
-        engine, game, match, player_id, Zone(zone), space_index,
-    )
 
 
 def _answer_dribble_burst_choice(
@@ -2012,7 +1998,6 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.SPEED_DELTA_CHOICE: _answer_speed_delta_choice,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _answer_dribble_advance_choice,
     PromptKind.DRIBBLE_BURST_CHOICE: _answer_dribble_burst_choice,
-    PromptKind.SPIN_MOVE: _answer_spin_move,
 }
 
 
@@ -2043,8 +2028,8 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
     PromptKind.LOOSE_BALL_PICK: {"send": ("player_id",)},
     PromptKind.MANEUVER_CHALLENGE: {"send": ("player_id",)},
     PromptKind.MANEUVER_ACTION: {"": ("maneuver_key",)},
+    PromptKind.HIGH_PASS_CHOICE: {"": ("distance",)},
     PromptKind.FLY: {"fly": ("zone", "space_index")},
-    PromptKind.SPIN_MOVE: {"move": ("player_id", "zone", "space_index")},
     # Overdrive is declared by a player, on every roll it can be
     # declared on -- and so is Gearclaw's Boost (Law 21); a pass on
     # them is a side's.

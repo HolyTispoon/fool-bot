@@ -1,31 +1,27 @@
 """
-D12 Ball 2.0's maneuver deck: each coach's eighteen cards, the hand of
-five drawn from them, and the discard pile -- as data and the few moves
-made on it. See docs/design/maneuver-deck.md and docs/rules-2.0.md.
+D12 Ball 2.1's maneuver deck: each coach's twenty-four cards, the hand
+of five drawn from them, and the discard pile -- as data and the few
+moves made on them. See docs/design/maneuver-deck.md and
+docs/rules-2.1.md.
 
-**The cards.** Twelve are **two-headed basic cards**, four a rank,
-**each a different pair** (the `maneuvers 2.0` tab, 2026-10-27): the
-top half is one of the rank's four basic offensive maneuvers and the
-bottom half, upside down, the defensive maneuver on the same row of
-the rank -- the tab numbers them 1 to 4, and row 1 of rank 1 is Pass
-on offense and Deflect on defense, row 2 Pass and Run and Follow. The
-other six are the **advanced maneuvers**, row 5 of each rank, one card
-each, and an advanced card plays on its own side alone. Three are
-offense and three defense, so a hand of five always holds at least one
-card either side can play.
+**The cards.** Twenty-four single-faced cards, four for each basic
+maneuver -- P1 to P4 Pass, B1 to B4 Dribble, H1 to H4 High Ball on
+offense, F1 to F4 Deflect, S1 to S4 Steal, R1 to R4 Pressure on defense
+(the `maneuvers 2.1` tab, 2026-10-31). Every card plays its rank's
+basic maneuver; what tells the four apart is a **special**, a role
+interaction its player plays when they hold one of the roles it names
+(`RulesEngine.card_special`). There are no advanced maneuvers.
 
-**A card is named by an id**, never by what it plays: a basic card is
-`basic_<rank>` for row 1 -- the id every two-headed card had when the
-deck was four copies of it, so a game saved then still plays -- and
-`basic_<rank>_<row>` for rows 2 to 4; an advanced card is its maneuver
-key (`skilled_pass`, `intercept`). Which maneuver a card plays is
-`plays_as`, asked with the side it is played on, because a two-headed
-card is two maneuvers and the side decides which.
+**A card is named by its index**, the sheet's `Index` ("P3"), never by
+its name: two names are 1.0 cards' names. `plays_as` is what a card
+plays on a side -- its own maneuver on its own side, and **flipped**,
+on the other side, the maneuver of the same rank there, which costs an
+extra card from the hand and plays no special (rules-2.1 2.3).
 
 **A deck is a plain dict of three lists** -- `draw`, `hand`, `discard`
 -- because it is saved as it stands (`MatchState.maneuver_decks`). The
 draw pile is face down and in order: its first entry is the next card
-drawn. Nothing here decides who may play what; `RulesEngine.maneuver_hand`
+drawn. Nothing here decides who may play what; `RulesEngine.card_plays`
 asks `plays_as` over the hand.
 
 No Discord, no Pillow and no `async` (the model's purity rules), and
@@ -35,141 +31,93 @@ every shuffle is the engine's `rng`, handed in.
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass
 from typing import Optional
 
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
-    MANEUVER_TIER_GAMBIT,
+    DeckCard,
     ManeuverCatalog,
-    ManeuverDefinition,
 )
 
 #: The cards a coach holds at a time.
 HAND_SIZE = 5
-
-#: Two-headed cards a rank: the tab's rows 1 to 4. A catalog loaded
-#: without the 2.0 tab -- a test's -- has row 1 alone, and its deck
-#: carries this many copies of it, as every deck did before the tab.
-BASIC_COPIES = 4
-
-#: The rows of a rank that are two-headed cards.
-TWO_HEADED_ROWS = (1, 2, 3, 4)
-
-#: A two-headed basic card's id is this and its rank, and `_<row>` past
-#: the first row.
-BASIC_CARD_PREFIX = "basic_"
 
 #: The three piles a deck is saved as.
 DRAW = "draw"
 HAND = "hand"
 DISCARD = "discard"
 
+@dataclass(frozen=True)
+class CardPlay:
+    """
+    One way a 2.1 coach may play a card from their hand this maneuver
+    (`RulesEngine.card_plays`): the card, the maneuver it plays on the
+    side, whether that is a flip, the cards a flip may discard with it,
+    and whether its special is live -- the player making the maneuver
+    holds a role it names. A pick answers with `card_id` and, for a
+    flip, one of `extra_ids`.
+    """
 
-def basic_card_id(rank: int, row: int = 1) -> str:
-    """The id of the two-headed basic card on `rank`'s `row`."""
-    if row == 1:
-        return f"{BASIC_CARD_PREFIX}{rank}"
-    return f"{BASIC_CARD_PREFIX}{rank}_{row}"
+    card_id: str
+    maneuver_key: str
+    flip: bool = False
+    extra_ids: tuple[str, ...] = ()
+    special: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "card_id": self.card_id,
+            "maneuver_key": self.maneuver_key,
+            "flip": self.flip,
+            "extra_ids": list(self.extra_ids),
+            "special": self.special,
+        }
 
 
-def is_basic_card(card_id: str) -> bool:
-    """Whether `card_id` is a two-headed basic card."""
-    return card_id.startswith(BASIC_CARD_PREFIX)
-
-
-def basic_card_rank(card_id: str) -> int:
-    """The rank a two-headed basic card carries on both halves."""
-    return int(card_id[len(BASIC_CARD_PREFIX):].split("_")[0])
-
-
-def basic_card_row(card_id: str) -> int:
-    """Which row of its rank a two-headed card is -- 1 for `basic_<rank>`."""
-    parts = card_id[len(BASIC_CARD_PREFIX):].split("_")
-    return int(parts[1]) if len(parts) > 1 else 1
-
-
-def _row_card(
-    catalog: ManeuverCatalog, side: str, rank: int, row: int,
-) -> Optional[ManeuverDefinition]:
-    """The basic maneuver on `side`'s `rank` and `row`, or `None`. Row 1
-    is the 1.0 basic card whether or not the catalog has the 2.0 tab."""
-    for maneuver in catalog.deck_side(side):
-        if maneuver.rank != rank or maneuver.tier == MANEUVER_TIER_GAMBIT:
-            continue
-        if maneuver.deck_index == row:
-            return maneuver
-        if row == 1 and maneuver.tier == MANEUVER_TIER_BASIC:
-            return maneuver
-    return None
+#: The other side, for a flipped card.
+OTHER_SIDE = {"offense": "defense", "defense": "offense"}
 
 
 def deck_cards(catalog: ManeuverCatalog) -> list[str]:
     """
-    The eighteen cards of one coach's deck, unshuffled: each rank's
-    two-headed cards, rows 1 to 4, then the six advanced maneuvers.
-    Read off the catalog, so the ranks, the rows and the advanced keys
-    are the data's. A row is a card only where both sides have it, so a
-    catalog without the 2.0 tab deals `BASIC_COPIES` of row 1.
+    The twenty-four cards of one coach's deck, unshuffled, by index:
+    offense then defense, each rank's cards 1 to 4. Read off the
+    catalog, so the cards are the data's.
     """
-    ranks = sorted({
-        maneuver.rank
-        for maneuver in catalog.for_tier("offense", MANEUVER_TIER_BASIC)
-    })
-    cards = []
-    for rank in ranks:
-        rows = [
-            row for row in TWO_HEADED_ROWS
-            if all(
-                _row_card(catalog, side, rank, row) is not None
-                for side in ("offense", "defense")
-            )
-        ]
-        if rows == [1]:
-            rows = [1] * BASIC_COPIES
-        cards.extend(basic_card_id(rank, row) for row in rows)
-    for side in ("offense", "defense"):
-        cards.extend(
-            maneuver.key
-            for maneuver in sorted(
-                catalog.for_tier(side, MANEUVER_TIER_GAMBIT),
-                key=lambda item: item.rank,
-            )
-        )
-    return cards
+    return [card.index for card in catalog.deck_cards]
+
+
+def basic_on(
+    catalog: ManeuverCatalog, side: str, rank: int,
+) -> Optional[str]:
+    """The key of the basic maneuver on `side`'s `rank`, or None."""
+    for maneuver in catalog.for_tier(side, MANEUVER_TIER_BASIC):
+        if maneuver.rank == rank:
+            return maneuver.key
+    return None
 
 
 def plays_as(
     catalog: ManeuverCatalog, card_id: str, side: str,
-) -> Optional[ManeuverDefinition]:
+) -> tuple[Optional[str], bool]:
     """
-    The maneuver `card_id` plays on `side` ("offense" or "defense"), or
-    `None` where it cannot be played there -- an advanced card on the
-    other side's. A two-headed card plays the basic maneuver of its
-    rank and row on whichever side it is turned to.
+    The maneuver `card_id` plays on `side` ("offense" or "defense"),
+    and whether that is a **flip** -- the card turned to play the other
+    side's maneuver of its rank (rules-2.1 2.3). `(None, False)` for a
+    card the catalog does not have.
     """
-    if is_basic_card(card_id):
-        return _row_card(
-            catalog, side, basic_card_rank(card_id), basic_card_row(card_id),
-        )
-    maneuver = catalog.get(card_id)
-    if maneuver is None or maneuver not in catalog.side(side):
-        return None
-    return maneuver
+    card = catalog.deck_card(card_id)
+    if card is None:
+        return None, False
+    if card.side == side:
+        return card.maneuver, False
+    return basic_on(catalog, side, card.rank), True
 
 
-def card_for_maneuver(
-    catalog: ManeuverCatalog, hand: list[str], side: str, key: str,
-) -> Optional[str]:
-    """
-    Which card in `hand` plays maneuver `key` on `side`, or `None` where
-    none does. Two copies of a basic card are the same card to play,
-    so the first is as good as any.
-    """
-    for card_id in hand:
-        maneuver = plays_as(catalog, card_id, side)
-        if maneuver is not None and maneuver.key == key:
-            return card_id
-    return None
+def card_of(catalog: ManeuverCatalog, card_id: str) -> Optional[DeckCard]:
+    """The card behind an index, or None."""
+    return catalog.deck_card(card_id)
 
 
 def new_deck(catalog: ManeuverCatalog, rng: random.Random) -> dict:
@@ -206,14 +154,16 @@ def draw_cards(deck: dict, rng: random.Random, count: int) -> int:
     return reshuffles
 
 
-def play_card(deck: dict, card_id: str, rng: random.Random) -> int:
+def play_cards(deck: dict, card_ids: list[str], rng: random.Random) -> int:
     """
-    `card_id` played out of the hand onto the discard pile, and the
-    hand drawn back up to five. Returns how many times the discard was
-    shuffled into a new deck by that draw.
+    `card_ids` played out of the hand onto the discard pile -- the card,
+    and the extra card a flip discards with it -- and the hand drawn
+    back up to five. Returns how many times the discard was shuffled
+    into a new deck by that draw.
     """
-    deck[HAND].remove(card_id)
-    deck[DISCARD].append(card_id)
+    for card_id in card_ids:
+        deck[HAND].remove(card_id)
+        deck[DISCARD].append(card_id)
     return draw_cards(deck, rng, HAND_SIZE - len(deck[HAND]))
 
 
@@ -236,34 +186,91 @@ def pile_counts(deck: dict) -> tuple[int, int]:
     return len(deck[DRAW]), len(deck[DISCARD])
 
 
-# -- What the 2.0 cards say, as numbers -------------------------------
+# -- The cards whose specials the rules read, by index ----------------
 #
-# Each is a number printed on a card of the `maneuvers 2.0` tab, held
-# here beside the deck rather than in the flow so the engine's readings
-# and the effects read one value. See docs/rules-2.0.md section 7.
+# A rule site asks `RulesEngine.card_special(match, side) == PINPOINT`,
+# as it asks a maneuver by its key. The indexes are the sheet's, and
+# `tests/test_maneuver_deck_cards.py` holds each to a card in the data.
 
-#: 2.0's Pass and Dribble each add 2 to ball speed.
-PASS_SPEED_BONUS = 2
+#: P1 Pass: a Winger's completed Pass may set up scoring.
+WINGER_PASS = "P1"
+#: P2 Pass and Run: a Midfielder or Striker may run forward 1.
+PASS_AND_RUN = "P2"
+#: P3 Pinpoint: a Playmaker may pick a teammate up to 2 spaces away.
+PINPOINT = "P3"
+#: P4 Reset: a Fullback or Defender may pass to the Playmaker.
+RESET = "P4"
+#: B1 Dribble: a Striker may attempt scoring.
+DRIBBLE_SHOT = "B1"
+#: B2 Advance: a Midfielder or Playmaker may advance 1 more space.
+ADVANCE = "B2"
+#: B3 Spin: a Fullback or Defender may change the speed by up to
+#: their defensive skill.
+SPIN = "B3"
+#: B4 Drive: a Winger's teammate sharing the space may take the ball.
+DRIVE = "B4"
+#: H1 High Ball: a Fullback or Defender may throw it 4.
+LONG_HIGH_BALL = "H1"
+#: H2 Long shot: a Playmaker may throw it to the Striker instead.
+LONG_SHOT = "H2"
+#: H3 Set up: a Midfielder may throw it 2 with no contest instead.
+SET_UP = "H3"
+#: H4 Vertical Ball: a Winger or Striker may throw it 0 or 1 instead.
+VERTICAL_BALL = "H4"
+#: F1 Deflect: a Fullback's goes a space further.
+FULLBACK_DEFLECT = "F1"
+#: F2 Follow: a Defender or Midfielder may follow the ball.
+FOLLOW = "F2"
+#: F3 Boot: a Winger or Striker may set up scoring.
+BOOT = "F3"
+#: F4 Block: a Playmaker contests the ball on the spot.
+BLOCK = "F4"
+#: S1 Steal: a Playmaker may change the speed by up to their
+#: offensive skill.
+STEAL_SPEED = "S1"
+#: S2 Pickpocket: a Midfielder does not move back with the ball.
+PICKPOCKET = "S2"
+#: S3 My Turf!: a Fullback or Defender adds 3 to the skill test.
+MY_TURF = "S3"
+#: S4 Toss: a Winger or Striker plays the ball to the nearest teammate
+#: behind, staying in place.
+TOSS = "S4"
+#: R1 Pressure: a Defender's is a turnover, and nobody moves.
+PRESSURE_STEAL = "R1"
+#: R2 Control: a Fullback or Playmaker sends the ball to the handler's
+#: nearest teammate behind, and follows it.
+CONTROL = "R2"
+#: R3 Stay Close: a Midfielder's handler exhausts 1.
+STAY_CLOSE = "R3"
+#: R4 Stress: a Striker or Winger contests the ball where it is.
+STRESS = "R4"
+
+SPECIAL_INDEXES = (
+    WINGER_PASS, PASS_AND_RUN, PINPOINT, RESET,
+    DRIBBLE_SHOT, ADVANCE, SPIN, DRIVE,
+    LONG_HIGH_BALL, LONG_SHOT, SET_UP, VERTICAL_BALL,
+    FULLBACK_DEFLECT, FOLLOW, BOOT, BLOCK,
+    STEAL_SPEED, PICKPOCKET, MY_TURF, TOSS,
+    PRESSURE_STEAL, CONTROL, STAY_CLOSE, STRESS,
+)
+
+
+# -- What the 2.1 cards say, as numbers -------------------------------
+#
+# Each is a number printed on the `maneuvers 2.1` tab, held here beside
+# the deck so the engine's readings and the effects read one value.
+
+#: Pass adds 1 to ball speed and Dribble 2 (the rank's Effect).
+PASS_SPEED_BONUS = 1
 DRIBBLE_SPEED_BONUS = 2
-#: Curved Pass reaches any teammate up to 2 spaces away, either way.
-CURVED_PASS_REACH = 2
-#: Advance carries the ball up to 2 spaces forward.
-ADVANCE_DISTANCES = (1, 2)
-#: Spin moves a teammate in the handler's zone up to 2 spaces.
-SPIN_MOVE_REACH = 2
-#: Drive takes 2 off the ball's speed.
-DRIVE_SPEED_DROP = 2
-#: 2.0's High Ball always goes 3 spaces, and Set up 2.
+#: P3: a teammate up to 2 spaces away, either way.
+PINPOINT_REACH = 2
+#: The basic High Ball's one distance, and the specials' others.
 HIGH_BALL_DISTANCE = 3
+LONG_HIGH_BALL_DISTANCE = 4
 SET_UP_DISTANCE = 2
-#: Where 2.0's Cross may land, and Vertical Ball.
-CROSS_DISTANCES = (0, 1, 2, 3)
 VERTICAL_BALL_DISTANCES = (0, 1)
-#: Boot knocks the ball back 2.
-BOOT_DISTANCE = 2
-#: Stay Close: the handler exhausts 1 and the ball loses 2 speed.
+#: R3: the handler exhausts 1.
 STAY_CLOSE_EXHAUSTION = 1
-STAY_CLOSE_SPEED_DROP = 2
-#: My Turf!: a Defender's or a Midfielder's bonus in the tie's skill
-#: test.
+#: S3: added to the skill test.
 MY_TURF_BONUS = 3

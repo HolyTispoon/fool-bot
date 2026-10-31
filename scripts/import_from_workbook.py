@@ -9,7 +9,7 @@ host that export redirects to, cannot reach them -- but the Google Drive
 connector can export the whole workbook as `.xlsx`. This takes that
 workbook, writes the six tabs the importers read as CSVs, and runs
 `import_d12ball_players.py`, `import_d12ball_species.py`,
-`import_d12ball_maneuvers.py` and `import_d12ball_maneuvers_2.py` on
+`import_d12ball_maneuvers.py` and `import_d12ball_maneuver_cards.py` on
 them. The importers are the same either
 way, and the data they write names the sheet's own URLs as its source,
 so a run from here writes what a run off the sheet would.
@@ -68,12 +68,12 @@ IMPORTS = {
         "import_d12ball_maneuvers.py",
         {"--source": "maneuvers"},
     ),
-    # After `maneuvers`: the 2.0 importer reads its rank cycle from the
-    # file that one writes.
-    "maneuvers_2": (
-        "maneuvers_2.json",
-        "import_d12ball_maneuvers_2.py",
-        {"--source": "maneuvers 2.0"},
+    # After `maneuvers`: the 2.1 importer reads each rank's basic card
+    # from the file that one writes.
+    "maneuver_cards": (
+        "maneuver_cards.json",
+        "import_d12ball_maneuver_cards.py",
+        {"--source": "maneuvers 2.1"},
     ),
 }
 
