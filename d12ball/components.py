@@ -2117,13 +2117,16 @@ class MatchState:
     maneuver_decks: dict[str, dict[str, list[str]]] = field(
         default_factory=dict,
     )
-    # D12 Ball 2.1's coin (docs/rules-2.1.md, section 5): the face its
-    # last toss landed on. **It is tossed afresh at every tie it
-    # settles** (`d12ball.flow.rolls.coin_settles_tie`), so the face
-    # decides nothing after that tie; it is kept for the board's
-    # jumbotron, which shows the last toss. None in a 1.0 game and
-    # before the first tie, and saved explicitly, only once tossed, so
-    # a 1.0 match is written exactly as before (`MATCH_EXPLICIT_FIELDS`).
+    # D12 Ball 2.1's coin (docs/rules-2.1.md, section 5): the face it
+    # shows, which settles the next tie -- the offense's on Fortune, the
+    # defense's on Doom. Flipped at the first turn
+    # (`d12ball.flow.turn.settle_tie_coin`) and tossed again after every
+    # tie it settles (`d12ball.flow.rolls.coin_settles_tie`), so a coach
+    # always knows how the next tie goes; the turn message and the
+    # board show it. None in a 1.0 game and before the first flip, and
+    # saved explicitly, only once flipped, so a 1.0 match is written
+    # exactly as before (`MATCH_EXPLICIT_FIELDS`). It outlives every
+    # maneuver, so `reset_maneuver` leaves it alone.
     tie_coin: Optional[str] = None
     # **D12 Ball 2.1's cards behind this maneuver's picks**, by side
     # ("offense", "defense"): `[card]`, or `[card, extra]` for a card

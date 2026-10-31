@@ -801,6 +801,30 @@ def _chose(
     return f"**{label}**, a {name}{special}"
 
 
+def settle_tie_coin(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    **D12 Ball 2.1's coin, flipped at the start of the game** (rules-2.1
+    5.2): at the first turn, before anybody is asked anything, so the
+    face that settles the first tie is known before it. Says the face
+    and what it means, since the coin is public; "" where it has already
+    been flipped -- after that it is tossed only after a tie
+    (`rolls.coin_settles_tie`) -- and in 1.0.
+    """
+    if not engine.tie_coin_applies(game) or match.tie_coin is not None:
+        return ""
+    face = engine.flip_coin()
+    match.tie_coin = face.value
+    return (
+        f"The coin is flipped: {tokens.coin(face)} "
+        f"**{COIN_FACE_WORDS[face]}** -- "
+        f"{engine.tie_coin_caption(match).lower()}."
+    )
+
+
 def maneuver_pick_step(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1516,6 +1540,12 @@ def start_turn(
             "The team in possession has no player in the ball's space."
         )
     carrying = match.ball_carrier_id in eligible_handlers
+
+    # 2.1's coin, flipped before the first turn's first question
+    # (rules-2.1 5.2); after that it is tossed only after a tie.
+    coin = settle_tie_coin(engine, game, match)
+    if coin:
+        narration.append(coin)
 
     # **A declared last possession becomes this side's here** (Law
     # 16.3.2, the author, 2026-09-28): "the next time an offensive

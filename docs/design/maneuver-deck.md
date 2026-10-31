@@ -185,8 +185,11 @@ the other side. Offense is 1.0's red; **defense is navy, #0B2545** (the author) 
 face alone, so the 1.0 cards are byte-identical (hashed before and after, every face, back and
 hand). Each face is drawn once and kept (`lru_cache`). The print run is
 `scripts/render_maneuver_cards.py --edition 2.0`, into `maneuver-cards-2.1/`, every card on the
-2.x back (`EDITION_TWO_BACK`). There are no matchups on the face: the back's hexagon carries the
-cycle, and rank alone decides.
+2.x back (`EDITION_TWO_BACK`). **The matchup row sits above the flip strip** (the author,
+2026-10-31: "Need the matchup row"): BEATS / TIES / LOSES TO over the other side's rank badge in
+that side's colour and the basic maneuver on it, read off the rank as 1.0's row is
+(`matchup_rank_groups`, `draw_matchup_row`) -- every card of a rank reads the same row, and no
+advanced card is named, since 2.1 has none.
 
 **The discard piles are face up** (the author): the public 2.x prompt carries both coaches'
 piles as one picture (`deck_faces.render_discard_piles`, `D12Ball.build_discard_file`) once
@@ -204,24 +207,31 @@ message. A 1.0 halftime is unchanged, which the windows golden pins.
 
 ## The coin
 
-**2.1's coin is tossed afresh to settle every tie** (rules-2.1 section 5; the author, 2026-10-20
-and 2026-10-31) -- a skill test's, a contest for the ball's and, new in 2.1, a score attempt's:
-Fortune gives the tie to the offense (at a shot, the attack scores), Doom to the defense. A tied
-shootout test scores for nobody, as it already did. It is not 1.0's gambit coin, which
-`coin_applies` gates and 2.1 has none of.
+**2.1's coin settles every tie, and is tossed again after it** (rules-2.1 section 5; the author,
+2026-10-20 and 2026-10-31: *"The coin is tossed after any tie so players always know how it'll be
+resolved next and it has to be presented in turn messages"*). A skill test's, a contest for the
+ball's and, new in 2.1, a score attempt's tie goes to the face the coin shows -- Fortune to the
+offense (at a shot, the attack scores), Doom to the defense -- and then the coin is tossed, and
+its new face holds until the next tie. A tied shootout test scores for nobody and leaves the coin
+alone. It is not 1.0's gambit coin, which `coin_applies` gates and 2.1 has none of.
 
-- **One function settles them**: `rolls.coin_settles_tie` tosses (`engine.flip_coin`, the
-  engine's `rng`), says the face and who wins, and is asked where 1.0 re-rolls a tied test or
-  contest (`skill_test_step`, `loose_ball_test_step`) and where 1.0 scores a tied shot
-  (`score_attempt_step`). `RulesEngine.tie_coin_applies` is the gate, the deck's answer under
-  its own name.
-- **No standing face.** 2.0 flipped the coin at the first turn and tossed it after an advanced
-  card; with no advanced cards and a toss at every tie, the turn-start toss, `settle_tie_coin`,
-  `owe_coin_toss` and `tie_coin_owed` are gone, and the turn message no longer shows a face that
-  would say nothing about the next tie. **`MatchState.tie_coin` keeps the last toss**, saved
-  only once tossed, for the board's jumbotron, which draws the coin with "Last toss" under it
-  (`draw_jumbotron_coin`, `RulesEngine.tie_coin_caption`); before the first tie the jumbotron is
-  drawn exactly as 1.0's.
+- **`MatchState.tie_coin` is the face it shows**, saved only once flipped (`MATCH_EXPLICIT_FIELDS`),
+  so a 1.0 match is written as before. `RulesEngine.tie_coin_applies` is the gate, the deck's
+  answer under its own name, and `tie_coin_winner` the one reading of whom the face favours.
+- **Flipped at the first turn** (`turn.settle_tie_coin`, in `start_turn`), before anybody is
+  asked anything, and never again there: 2.0 tossed it at a turn's start after an advanced card,
+  and with no advanced cards the turn-start toss and `tie_coin_owed` are gone.
+- **Settled and tossed in one place**, `rolls.coin_settles_tie`: it reads the face, says who wins
+  and why, tosses (`engine.flip_coin`, the engine's `rng`) and says the new face and what it means
+  -- asked where 1.0 re-rolls a tied test or contest (`skill_test_step`, `loose_ball_test_step`)
+  and where 1.0 scores a tied shot (`score_attempt_step`). A tie met before any flip flips it
+  first, and says so.
+- **The face is always in view** (the author, 2026-10-20 and 2026-10-31): every turn message
+  carries it (`build_turn_prompt`, "Doom: defense wins ties.") and the board draws the game's own
+  coin showing it on the jumbotron, with the same words under it (`draw_jumbotron_coin`). The
+  engine answers both -- `tie_coin_face` and `tie_coin_caption` -- and the cog hands the renderer
+  the picture's name and the caption (`D12Ball.tie_coin_brief`), so the renderer reads no rule.
+  With no coin the jumbotron is drawn exactly as before, byte for byte.
 
 ## Moving costs
 

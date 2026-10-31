@@ -263,24 +263,35 @@ def coin_settles_tie(
     defense_word: str = "defense",
 ) -> tuple[str, str]:
     """
-    **D12 Ball 2.1: a tie goes to the side the coin favours**
-    (rules-2.1 5.1; the author, 2026-10-20 and 2026-10-31) -- the
-    offense on Fortune, the defense on Doom -- **and the coin is tossed
-    afresh for every tie it settles**: a skill test's, a contest for
-    the ball's and a shot's. Nothing is rolled again, so nobody pays
-    for it. Returns the winning side ("offense" or "defense") and the
-    tie's lines, headed like `pay_contest_tie`'s; `offense_word` and
-    `defense_word` are what the lines call the two (a shot's "attack").
-    The face is kept on the match for the board's jumbotron.
+    **D12 Ball 2.1: a tie goes to the side the coin shows** (rules-2.1
+    5.1; the author, 2026-10-20 and 2026-10-31) -- the offense on
+    Fortune, the defense on Doom -- **and the coin is tossed again after
+    the tie**, so both coaches always know how the next one goes: the
+    face is on every turn message and the board. Settles a skill
+    test's, a contest for the ball's and a shot's tie; nothing is rolled
+    again, so nobody pays for it. Returns the winning side ("offense" or
+    "defense") and the tie's lines, headed like `pay_contest_tie`'s;
+    `offense_word` and `defense_word` are what the lines call the two (a
+    shot's "attack").
+
+    A coin never flipped -- a tie before the first turn's flip
+    (`turn.settle_tie_coin`) -- is flipped here first, and said.
     """
-    face = engine.flip_coin()
-    match.tie_coin = face.value
+    flipped = ""
+    if match.tie_coin is None:
+        match.tie_coin = engine.flip_coin().value
+        flipped = "The coin is flipped. "
+    face = CoinFace(match.tie_coin)
     outcome = engine.tie_coin_winner(match)
     side = offense_word if outcome == "offense" else defense_word
+    after = engine.flip_coin()
+    match.tie_coin = after.value
     return outcome, (
         f"## **It's a tie ({offense_total}-{defense_total})!**\n"
-        f"The coin is tossed: {tokens.coin(face)} "
-        f"**{COIN_FACE_WORDS[face]}**, so the {side} wins it."
+        f"{flipped}The coin shows {tokens.coin(face)} "
+        f"**{COIN_FACE_WORDS[face]}**, so the {side} wins it. It is tossed "
+        f"again: {tokens.coin(after)} **{COIN_FACE_WORDS[after]}** -- "
+        f"{engine.tie_coin_caption(match).lower()} from now."
     )
 
 

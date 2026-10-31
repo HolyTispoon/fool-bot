@@ -51,6 +51,7 @@ from d12ball.cards import (
     fitted_bold_font,
     font,
     line_height,
+    matchup_rank_groups,
     rank_font,
 )
 from d12ball.components import DeckCard, ManeuverCatalog, PlayerCatalog
@@ -81,6 +82,7 @@ SECTION_GAP = 22
 BOX_PAD = 18
 BOX_HEADING = 24
 FLIP_HEIGHT = 92
+MATCHUP_HEIGHT = 118
 
 
 def card_color(card: DeckCard) -> str:
@@ -189,7 +191,8 @@ def draw_face(pen: Pen, catalog: ManeuverCatalog, card: DeckCard) -> None:
     # The spec ability's space: empty until advanced mode is written,
     # labelled, with the ability's name where the tab gives one.
     spec_top = box_top + box_height + SECTION_GAP
-    spec_bottom = flip_top - SECTION_GAP
+    matchup_top = flip_top - MATCHUP_HEIGHT
+    spec_bottom = matchup_top - SECTION_GAP
     pen.rect(
         (inner_left, spec_top, inner_right, spec_bottom),
         radius=16, outline=MUTED, width=2,
@@ -204,6 +207,8 @@ def draw_face(pen: Pen, catalog: ManeuverCatalog, card: DeckCard) -> None:
             font(20), MUTED, anchor="ra",
         )
 
+    draw_matchup_row(pen, catalog, card, matchup_top)
+
     pen.rect_in_card(
         (FRAME, flip_top, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME), FLIP_GREEN,
         inset=EDGE_WIDTH / 2,
@@ -214,6 +219,43 @@ def draw_face(pen: Pen, catalog: ManeuverCatalog, card: DeckCard) -> None:
         (CARD_WIDTH / 2, flip_top + FLIP_HEIGHT / 2 - 4), flip_text,
         flip_face, "#ffffff", anchor="mm",
     )
+
+
+def draw_matchup_row(
+    pen: Pen, catalog: ManeuverCatalog, card: DeckCard, top: float,
+) -> None:
+    """
+    **What the card beats, ties and loses to** (the author, 2026-10-31:
+    "Need the matchup row"), by rank as 1.0's row reads (`matchup_rank_groups`)
+    -- the other side's rank badge in its own colour and the basic
+    maneuver on it, since 2.1 has no advanced cards to name beside it.
+    Every card of a rank reads the same row, as rank alone decides.
+    """
+    maneuver = catalog.definition(card.maneuver)
+    is_offense = card.side == "offense"
+    other = maneuver_deck.OTHER_SIDE[card.side]
+    letter = "D" if is_offense else "O"
+    color = SIDE_COLORS[other]
+    groups = matchup_rank_groups(catalog, maneuver, is_offense)
+    left, right = MARGIN, CARD_WIDTH - MARGIN
+    column = (right - left) / 3
+    pen.line([(left + 10, top + 4), (right - 10, top + 4)], fill=MUTED, width=2)
+    for index, (label, (rank, _)) in enumerate(
+        zip(("BEATS", "TIES", "LOSES TO"), groups)
+    ):
+        cx = left + column * (index + 0.5)
+        name = catalog.display_name(maneuver_deck.basic_on(catalog, other, rank))
+        pen.text((cx, top + 24), label, font(18, bold=True), MUTED, anchor="mm")
+        pen.text((cx, top + 58), f"{letter}{rank}", rank_font(36), color, anchor="mm")
+        name_face = fitted_bold_font(
+            pen, name, column - 14, max_size=24, min_size=16,
+        ) or font(16, bold=True)
+        pen.text((cx, top + 94), name, name_face, color, anchor="mm")
+        if index:
+            pen.line(
+                [(left + column * index, top + 16), (left + column * index, top + MATCHUP_HEIGHT - 10)],
+                fill=MUTED, width=2,
+            )
 
 
 @lru_cache(maxsize=None)
