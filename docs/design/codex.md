@@ -2630,29 +2630,32 @@ ends." and **Lock patrol**).
   under the prompt's ask (the view's `caption`, which `panel_caption`
   reads, as the tech and patrol views' are); **Undo** the choices
   `history.undo_targets` says are open. The attacker is named the same
-  way over the defender's buttons, and each is labelled with why it is
-  legal -- "squad
-  leader, stops the attacker", "patroller", "attacker flies over the
-  patrol", "attacker is unstoppable vs. a base", in brackets
-  after its name -- and nothing where the defender has no patrol at
-  all, the button the name alone (the author, 2026-10-15) -- which is the engine's
-  (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
-  A building among them is green and the rest blurple, and every
+  way over the defender's buttons. **Each button describes its target,
+  never the attacker, and never says why it may be attacked** (the
+  author, 2026-10-31): its patrol slot, "flying", what makes it
+  unattackable by this attacker ("invisible", "unattackable by tech 0
+  units", "unattackable by units"), and a toll ("1 gold to attack"), in
+  brackets after its name -- "Gargoyle 3/3 (lookout, flying)" -- and
+  the name alone where none applies. Until then each was labelled with
+  why it was legal -- "flying", "stealth vs. units", "unblocked" -- and
+  "Base (20 HP, flying)" read as the base flying, not the attacker. The
+  note is the model's (`prompts.defender_note`, carried as
+  `DefenderOptions.notes`), over the engine's readings
+  (`unattackable_why`, `target_flies`, `attack_toll`); the reasons
+  `defender_rows` still carries are the priority that made a row
+  legal, read by the tests and shown nowhere. **What the attacker may
+  not attack is shown too, grey and disabled, after the defenders**
+  (`RulesEngine.barred_defenders`, carried as `DefenderOptions.barred`),
+  so a full panel gives those up first: each with its note, which says
+  why where the target is the reason, and a `why_not` only where
+  nothing about the target says it -- Moment's Peace. A target behind
+  the patrol zone says nothing more, since the patroller in its way is
+  offered beside it; a dragon team's one base is listed once.
+  A building among the legal ones is green and the rest blurple, and every
   building's label, here and on any other button, carries the HP it has
   left -- "Tech I (5 HP)", "Base (17 HP)", the base capitalised on a
   button though not in the narration -- read from `building_hp_left`;
-  a building's reason shares its HP's bracket, "Base (20 HP, attacker
-  flies over the patrol)". The reasons are kept short for a button
-  (the author, 2026-10-15), but **a reason is never a bare keyword**:
-  "flying" beside a defender's name read as the defender flying, not
-  the attacker (the author, 2026-10-31). So a reason that is the
-  attacker's says so -- "attacker has stealth", "attacker has stealth
-  vs. units", "attacker is unstoppable by tech 0 units", "attacker is
-  an unstoppable Demon" -- one that is the defender's names its place,
-  "patroller", and a patroller the attacker is forced to take says
-  why, "squad leader, stops the attacker"; where patrollers stand and
-  none can stop the attacker for no keyword of its own, "no patroller
-  can stop the attacker".
+  a building's note shares its HP's bracket, "Base (20 HP, flying)".
   **Nothing the turn panel asks is a menu any more**: the tower's
   detection and the three choices inside an attack -- obliterate's tie,
   sparkshot's neighbour, overpower's excess -- are buttons too, what

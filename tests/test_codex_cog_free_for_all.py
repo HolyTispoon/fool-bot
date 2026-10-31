@@ -235,7 +235,7 @@ class TurnTests(unittest.IsolatedAsyncioTestCase):
         others = [one for one in (1, 2, 3) if one != seat]
         prompt = PendingPrompt(PromptKind.CHOOSE_DEFENDER, "Choose a defender.", seat,
                                DefenderOptions(attacker="unit:1", defenders=("base", "base"),
-                                               why=("", ""), seats=tuple(others)))
+                                               notes=("", ""), seats=tuple(others)))
         view = TurnPanelView(self.table.cog, self.game.game_id, prompt, match)
         self.assertEqual(labels(view), [
             *(f"{self.game.seat_name(one)}'s Base (20 HP)" for one in others), "Cancel the attack",

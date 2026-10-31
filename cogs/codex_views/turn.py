@@ -338,7 +338,8 @@ class TurnPanelView(PanelView):
     attack, one button each, and **Back**; **Hire worker** into the
     hand, a button per card; **Level up...** into the levels the hero
     may reach, a button each with its cost, and **Back**. For `CHOOSE_DEFENDER`, a button per legal
-    defender, each with why it is legal, and **Cancel**.
+    defender, each with what it is as far as attacking it goes, then
+    what may not be attacked, disabled, and **Cancel**.
     """
 
     def __init__(self, cog, game_id: str, prompt, match, mode: str = "actions",
@@ -986,15 +987,20 @@ class TurnPanelView(PanelView):
     # -- The defender ------------------------------------------------------
 
     def build_defenders(self, options) -> None:
-        """The legal defenders, a button each labelled with why it is
-        legal (`DefenderOptions.why`, the engine's) -- a building green,
-        so the buildings read apart from the units and heroes (the
-        author, 2026-10-15) -- and **Cancel**. Against several opponents
-        -- a free-for-all, a dragon team's two -- every button says whose
-        it is, "ann's Base (20 HP)", since several bases read alike (the
-        author, 2026-10-22); a duel's one opponent goes unnamed."""
+        """The legal defenders, a button each labelled with what the
+        target is as far as attacking it goes (`DefenderOptions.notes`,
+        the model's: its patrol slot, "flying", a toll) -- a building
+        green, so the buildings read apart from the units and heroes (the
+        author, 2026-10-15) -- then what the attacker may not attack,
+        grey and disabled, with why not where its note does not say it
+        (`DefenderOptions.barred`, the author, 2026-10-31), and
+        **Cancel**. The disabled ones come last, so a full panel gives
+        them up first. Against several opponents -- a free-for-all, a
+        dragon team's two -- every button says whose it is, "ann's Base
+        (20 HP)", since several bases read alike (the author,
+        2026-10-22); a duel's one opponent goes unnamed."""
         engine = self.cog.engine
-        whys = options.why or ("",) * len(options.defenders)
+        notes = options.notes or ("",) * len(options.defenders)
         seats = options.seats
         if not seats and options.defenders:
             # A duel's rows name no seat: they are all its one opponent's.
@@ -1003,10 +1009,14 @@ class TurnPanelView(PanelView):
             # which `sole_opponent` refuses (the review of 2026-10-15).
             seats = (engine.sole_opponent(self.match, self.seat),) * len(options.defenders)
         named = len(engine.opponents(self.match, self.seat)) > 1
+
+        def labelled(ref: str, side: int, note: str) -> str:
+            label = self.label(ref, side, note)
+            return self.owned(side, label) if named else label
+
         defenders = [
             self.make_button(
-                self.owned(side, self.label(ref, side, why)) if named
-                else self.label(ref, side, why),
+                labelled(ref, side, note),
                 discord.ButtonStyle.success if engine.is_building_ref(self.match, side, ref)
                 else discord.ButtonStyle.primary,
                 # On a table the same ref can stand on two sides: the click
@@ -1014,9 +1024,17 @@ class TurnPanelView(PanelView):
                 self._answer(self.defend, ref, side if options.seats else None),
                 choice=("defend", ref),
             )
-            for ref, why, side in zip(options.defenders, whys, seats)
-        ] or [self.make_button("Nothing can be attacked", discord.ButtonStyle.secondary,
-                               None, disabled=True)]
+            for ref, note, side in zip(options.defenders, notes, seats)
+        ]
+        defenders += [
+            self.make_button(
+                labelled(one.ref, one.seat, ", ".join(filter(None, (one.note, one.why_not)))),
+                discord.ButtonStyle.secondary, None, disabled=True,
+            )
+            for one in options.barred
+        ]
+        defenders = defenders or [self.make_button("Nothing can be attacked", discord.ButtonStyle.secondary,
+                                                   None, disabled=True)]
         row = self.place(defenders, 0, until=ROWS - 1)
         self.button("Cancel the attack", discord.ButtonStyle.secondary, self.cancel_attack, row=row)
 
@@ -1100,7 +1118,7 @@ class TurnPanelView(PanelView):
         owner's name shortened, never the thing, where the two would
         pass a button's 80 characters: a display name may be 32 and a
         card's name 34, and what is cut off the end is the damage or
-        why it is legal."""
+        the target's note."""
         whose = self.whose(seat)
         room = BUTTON_LABEL_MAX - len(label) - 1
         if len(whose) > room and whose.endswith("'s"):

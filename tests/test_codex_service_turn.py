@@ -1,8 +1,8 @@
 """
 What step 4 asked of the Codex model and service for the turn on
 Discord (docs/codex-bot.md, step 4): the panel's readings carried on
-the prompt -- the hand the picture numbers, why each defender is legal
--- the end of the turn closed as its own group with its own position
+the prompt -- the hand the picture numbers, what each defender is and
+what may not be attacked -- the end of the turn closed as its own group with its own position
 (`draw_after`), and the undos as service methods that save once -- the
 fine undo's result the turn as it now reads.
 """
@@ -69,9 +69,9 @@ class PromptReadingTests(unittest.TestCase):
             {""},
         )
         put(match, 2 if seat == 1 else 1, "tenderfoot", patrol="elite")
-        self.assertEqual([why for _, why in engine.defender_rows(match, attacker.ref)], ["patroller, stops the attacker"])
+        self.assertEqual([why for _, why in engine.defender_rows(match, attacker.ref)], ["patroller"])
         leader = put(match, 2 if seat == 1 else 1, "iron_man", patrol="squad_leader")
-        self.assertEqual(engine.defender_rows(match, attacker.ref), ((leader.ref, "squad leader, stops the attacker"),))
+        self.assertEqual(engine.defender_rows(match, attacker.ref), ((leader.ref, "squad leader"),))
         self.assertEqual(
             engine.legal_defenders(match, attacker.ref),
             tuple(ref for ref, _ in engine.defender_rows(match, attacker.ref)),
@@ -134,6 +134,44 @@ class TurnHeadingTests(unittest.TestCase):
         match.player(1).play.remove(third)
         self.assertEqual(copy_number(match.player(1), second), 2)
 
+    def test_a_defenders_note_describes_the_target_alone(self) -> None:
+        """A defender's note is what the target is as far as attacking it
+        goes -- its patrol slot, flying -- never the attacker's keyword
+        and never why it may be attacked: a flier attacking past an empty
+        patrol says nothing of the base (the author, 2026-10-31)."""
+        from codex.prompts import defender_note
+        from codex_positions import new_game
+
+        engine, _, match = new_game()
+        flier = put(match, 1, "eggship").ref
+        lookout = put(match, 2, "eggship", patrol="lookout")
+        note = lambda ref: defender_note(engine, match, flier, 2, ref)
+        self.assertEqual(note(lookout.ref), "lookout, flying")
+        ground = put(match, 2, "older_brother", patrol="squad_leader")
+        self.assertEqual(note(ground.ref), "squad leader")
+        self.assertEqual(note("base"), "")
+
+    def test_what_may_not_be_attacked_is_barred_with_why_not_where_nothing_says_it(self) -> None:
+        """Behind the squad leader, a flier the ground attacker can't
+        reach and the base are barred, each with no reason of its own --
+        the flier's note says "flying", and the squad leader is offered;
+        under Moment's Peace every one says so."""
+        from codex.prompts import defender_note
+        from codex_positions import new_game
+
+        engine, _, match = new_game()
+        attacker = put(match, 1, "older_brother").ref
+        leader = put(match, 2, "older_brother", patrol="squad_leader")
+        ship = put(match, 2, "eggship")
+        self.assertEqual(engine.legal_defenders(match, attacker), (leader.ref,))
+        self.assertEqual(engine.barred_defenders(match, attacker),
+                         ((2, ship.ref, ""), (2, "base", "")))
+        self.assertEqual(defender_note(engine, match, attacker, 2, ship.ref), "flying")
+        match.player(2).peace = True
+        self.assertEqual({why for _, _, why in engine.barred_defenders(match, attacker)},
+                         {"Moment's Peace"})
+        self.assertEqual(len(engine.barred_defenders(match, attacker)), 3)
+
     def test_a_buildings_reason_shares_its_hp_bracket(self) -> None:
         """A building names the HP it has left, and why it may be
         attacked goes in the same bracket; anything else gets a bracket
@@ -145,8 +183,7 @@ class TurnHeadingTests(unittest.TestCase):
         guard = put(match, 2, "older_brother", patrol="squad_leader")
         match.set_base(2, 17)
         self.assertEqual(ref_label(engine, match, 2, "base"), "Base (17 HP)")
-        self.assertEqual(ref_label(engine, match, 2, "base", "attacker flies over the patrol"),
-                         "Base (17 HP, attacker flies over the patrol)")
+        self.assertEqual(ref_label(engine, match, 2, "base", "flying"), "Base (17 HP, flying)")
         self.assertEqual(ref_label(engine, match, 2, guard.ref, "squad leader"),
                          "Older Brother 2/2 (squad leader)")
 

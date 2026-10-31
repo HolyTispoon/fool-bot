@@ -626,8 +626,9 @@ class PanelTests(TurnTestCase):
         self.assertEqual(view.children, last)
 
     async def test_an_attack_asks_its_defender_in_the_same_panel(self) -> None:
-        """The attacker first, then the legal defenders, each with why it
-        is legal; Cancel takes the attacker back."""
+        """The attacker first, then the legal defenders, each with what
+        it is as far as attacking it goes; Cancel takes the attacker
+        back."""
         match = self.table.match
         seat = match.active
         attacker = put(match, seat, "older_brother")
@@ -655,6 +656,30 @@ class PanelTests(TurnTestCase):
         cancelled = await self.table.press(defending, "Cancel the attack")
         self.assertIs(cancelled.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertIsNone(self.table.match.attacking)
+
+    async def test_what_may_not_be_attacked_is_shown_disabled(self) -> None:
+        """Each button describes its target -- its patrol slot, flying --
+        and never the attacker; what the attacker may not attack follows,
+        grey and disabled: the flier, which says why itself, and the base
+        behind the squad leader, which says nothing more, since the
+        squad leader is offered beside it (the author, 2026-10-31)."""
+        match = self.table.match
+        seat = match.active
+        other = self.table.cog.engine.sole_opponent(match, seat)
+        attacker = put(match, seat, "older_brother")
+        put(match, other, "older_brother", patrol="squad_leader")
+        put(match, other, "eggship")
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        opened = await self.table.press(view, "Attack...")
+        defending = (await self.table.press(opened.view(), ("attack", attacker.ref))).view()
+        buttons = [item for item in defending.children if isinstance(item, discord.ui.Button)]
+        self.assertEqual(
+            [(item.label, item.disabled) for item in buttons],
+            [("Older Brother 2/2 (squad leader)", False), ("Eggship 4/3 (flying)", True),
+             ("Base (20 HP)", True), ("Cancel the attack", False)],
+        )
+        self.assertEqual(buttons[1].style, discord.ButtonStyle.secondary)
 
     async def test_the_hand_never_reaches_the_channel(self) -> None:
         """Every line the channel is sent or edited to is the header, the
