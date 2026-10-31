@@ -85,6 +85,7 @@ from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
     double_team_partner_prompt,
+    follow_prompt,
     passer_advance_prompt,
     speed_choice_ask,
 )
@@ -1409,6 +1410,83 @@ def pressure_following(burst_cost: bool, stolen: bool) -> FollowOn:
     )
 
 
+def offer_follow(
+    engine: RulesEngine,
+    game: Optional[D12BallGame],
+    match: MatchState,
+    player_id: str,
+    then: dict,
+) -> Optional[PendingPrompt]:
+    """
+    **2.1's "defender may follow"** (F2 Follow, R2 Control; rules-2.1
+    7.4, the author, 2026-10-31: "Any time a card says 'may' it's
+    optional"): ask whether `player_id` moves onto the ball's space,
+    recording the question and what the maneuver does once it is
+    answered (`MatchState.pending_follow`) -- `None` where they already
+    stand there and there is nothing to ask.
+    """
+    position = match.board.meeple_position(player_id)
+    target = (match.ball.zone, match.ball.space_index)
+    if position is None or tuple(position) == target:
+        return None
+    spaces = abs(
+        match.board.flat_index(*target) - match.board.flat_index(*position)
+    )
+    match.pending_follow = {
+        "player_id": player_id,
+        "zone": Zone(target[0]).value,
+        "space_index": target[1],
+        "spaces": spaces,
+        **then,
+    }
+    return follow_prompt(engine, game, match)
+
+
+def answer_follow(
+    engine: RulesEngine,
+    game: Optional[D12BallGame],
+    match: MatchState,
+    follow: bool,
+) -> StepResult:
+    """
+    The defender follows the ball onto its space, paying for the spaces
+    (rules-2.1 5.4), or stays -- which says nothing -- and the maneuver
+    goes on to what it was owed: a deflection's landing, or its end.
+    """
+    pending = match.pending_follow or {}
+    match.pending_follow = None
+    player_id = pending.get("player_id")
+    lines: list[str] = []
+    if follow and player_id is not None:
+        zone, space_index = Zone(pending["zone"]), pending["space_index"]
+        origin = match.board.flat_index(*match.board.meeple_position(player_id))
+        match.move_meeple(player_id, zone, space_index)
+        spaces = abs(match.board.flat_index(zone, space_index) - origin)
+        player = engine.get_player_definition(player_id)
+        paid = engine.pay_for_move(game, match, player_id, spaces)
+        lines.append(
+            f"{engine.format_player_label(match, player)} follows the ball."
+            + (f"\n{paid}" if paid else "")
+        )
+    if pending.get("then") == "deflection":
+        landed = deflection_lands(
+            engine, match, "\n".join(lines),
+            bool(pending.get("reaches_goal_zone")),
+        )
+        return StepResult(
+            narration=[line for line in landed.narration if line],
+            board_changed=True,
+            next=landed.next,
+        )
+    return StepResult(
+        narration=lines,
+        board_changed=bool(lines),
+        next=FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION, {"distance_moved": 1},
+        ),
+    )
+
+
 def _card_name(
     engine: RulesEngine, match: MatchState, side: str, key: str,
 ) -> str:
@@ -1503,24 +1581,17 @@ def control_step(
 
     moved = match.move_ball_relative(offense_side, distance)
     match.set_ball_carrier(receiver_id)
-    origin = match.board.flat_index(*match.board.meeple_position(defender_id))
-    match.move_meeple(defender_id, match.ball.zone, match.ball.space_index)
-    followed = abs(
-        match.board.flat_index(match.ball.zone, match.ball.space_index)
-        - origin
-    )
     receiver = engine.get_player_definition(receiver_id)
-    defender = engine.get_player_definition(defender_id)
     space_word = "space" if moved == 1 else "spaces"
     content = (
         f"**{name}:** {engine.format_player_label(match, handler)} plays "
         + (f"the ball {moved} {space_word} back to " if moved else "the ball to ")
-        + f"{engine.format_player_label(match, receiver)}, and "
-        f"{engine.format_player_label(match, defender)} follows it."
+        + f"{engine.format_player_label(match, receiver)}."
     )
-    paid = engine.pay_for_move(game, match, defender_id, followed)
-    if paid:
-        content += f"\n{paid}"
+    # "Defender may follow": asked (`answer_follow`).
+    asked = offer_follow(engine, game, match, defender_id, {"then": "finish"})
+    if asked is not None:
+        return StepResult(narration=[content], board_changed=True, next=asked)
     return StepResult(
         narration=[content],
         board_changed=True,
@@ -1901,31 +1972,22 @@ def deflection_step(
         f"{match.ball.speed}."
     )
     if special == maneuver_deck.FOLLOW:
-        # **F2 Follow** (2.1): the defender goes with the ball, and pays
-        # for the spaces (rules-2.1 5.4).
-        origin = match.board.flat_index(
-            *match.board.meeple_position(defender.player_id)
+        # **F2 Follow** (2.1): "defender may follow" -- asked, and the
+        # deflection lands once it is answered (`answer_follow`).
+        asked = offer_follow(
+            engine, game, match, defender.player_id,
+            {"then": "deflection", "reaches_goal_zone": reaches_goal_zone},
         )
-        match.move_meeple(
-            defender.player_id, match.ball.zone, match.ball.space_index,
-        )
-        spaces = abs(
-            match.board.flat_index(match.ball.zone, match.ball.space_index)
-            - origin
-        )
-        content += (
-            f" {engine.format_player_label(match, defender)} follows it."
-        )
-        paid = engine.pay_for_move(game, match, defender.player_id, spaces)
-        if paid:
-            content += f"\n{paid}"
+        if asked is not None:
+            return StepResult(
+                narration=[content], board_changed=True, next=asked,
+            )
     if special == maneuver_deck.BOOT:
         # **F3 Boot's Winger or Striker** (2.1): "may set up scoring"
         # wherever the ball lands, not only in the goal zone -- the
-        # deflection's own set-up (Law 6.8.5), with the player who
-        # played the card shooting from where the ball came to rest.
-        match.ball.possession = match.defending_side()
-        match.ball.speed = 1
+        # deflection's own set-up (Law 6.8.5), offered: the player who
+        # played the card shoots from where the ball came to rest, and
+        # the ball changes hands only if they do (`loose_on_decline`).
         return StepResult(
             narration=[
                 content,
@@ -1934,8 +1996,12 @@ def deflection_step(
             ],
             board_changed=True,
             next=FollowOn(
-                FollowOnStep.BEGIN_SHOOTER_CHOICE,
-                {"candidates": [defender.player_id]},
+                FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
+                {
+                    "shooter_id": defender.player_id,
+                    "distance_moved": 1,
+                    "loose_on_decline": True,
+                },
             ),
         )
     return deflection_lands(engine, match, content, reaches_goal_zone)
@@ -1988,6 +2054,25 @@ def deflection_lands(
     ):
         candidates = [match.challenger_id]
 
+    if candidates and engine.match_plays_deck(match):
+        # **2.1's Deflect "may set up scoring"**: offered, not taken for
+        # them -- the ball changes hands only if they shoot, and a
+        # decline lands it by the ordinary rule (`loose_on_decline`).
+        return StepResult(
+            narration=[
+                content,
+                "The ball reaches the goal zone -- a scoring opportunity!",
+            ],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
+                {
+                    "shooter_id": candidates[0],
+                    "distance_moved": 1,
+                    "loose_on_decline": True,
+                },
+            ),
+        )
     if candidates:
         # The challenger, standing right where the ball ends up, gets a
         # shot at the goal it's now next to -- that's a turnover before the

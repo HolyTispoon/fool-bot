@@ -233,6 +233,7 @@ LEGAL_ACTIONS = {
     PromptKind.LOOSE_BALL_PICK: _loose_ball_pick,
     PromptKind.SET_UP_ATTEMPT: lambda fixture: ("take", {}),
     PromptKind.PASSER_ADVANCE: lambda fixture: ("advance", {}),
+    PromptKind.FOLLOW_BALL: lambda fixture: ("follow", {}),
     PromptKind.SHOOTER_CHOICE: _shooter_choice,
     PromptKind.SMOOTH: lambda fixture: ("take", {}),
     PromptKind.OWN_GOAL_ROLL: _own_goal,
@@ -1323,6 +1324,8 @@ REFUSED_ACTIONS = {
     # Either answer is always the position's to take.
     (PromptKind.PASSER_ADVANCE, "advance"): None,
     (PromptKind.PASSER_ADVANCE, "stay"): None,
+    (PromptKind.FOLLOW_BALL, "follow"): None,
+    (PromptKind.FOLLOW_BALL, "stay"): None,
     (PromptKind.SHOOTER_CHOICE, ""): _wrong_shooter,
     (PromptKind.SMOOTH, "take"): _wrong_side_player,
     (PromptKind.SMOOTH, "decline"): _wrong_side_player,

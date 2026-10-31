@@ -707,6 +707,61 @@ class PasserAdvanceView(SafeView):
         await self.cog.present(interaction, game, result)
 
 
+class FollowBallView(SafeView):
+    """
+    2.1's F2 Follow or R2 Control: whether the defender follows the ball
+    onto its space, or stays ("defender may follow"; rules-2.1 7.4). The
+    defender is the prompt's, read back off `MatchState.pending_follow`
+    by the driver; the view holds them only to name them and gate the
+    click to their coach.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.player_id = player_id
+        player = cog.engine.get_player_definition(player_id)
+        for choice, label, style in (
+            ("follow", f"{self.player_name(player)} follows", discord.ButtonStyle.primary),
+            ("stay", f"{self.player_name(player)} stays", discord.ButtonStyle.secondary),
+        ):
+            button = discord.ui.Button(
+                label=label[:80], style=style,
+                custom_id=f"d12ball:follow_ball:{game_id}:{choice}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction, chosen: str = choice,
+            ) -> None:
+                await self._answer(interaction, chosen)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def _answer(self, interaction: discord.Interaction, choice: str) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if not self.may_act_for_player_side(
+            interaction, game, match, self.player_id,
+        ):
+            await interaction.response.send_message(
+                "Only the defender's coach can choose.", ephemeral=True,
+            )
+            return
+        result = await self.apply(
+            interaction, game, Action(PromptKind.FOLLOW_BALL, choice),
+        )
+        if result is None:
+            return
+        await interaction.response.edit_message(view=None)
+        lines = " ".join(result.answer)
+        if lines:
+            await send_new_prompt(interaction, lines)
+        await self.cog.present(interaction, game, result)
+
+
 class SetUpAttemptChoiceView(SafeView):
     """
     Whether to take an offered scoring-opportunity shot -- a High
@@ -775,7 +830,9 @@ class SetUpAttemptChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.may_act_for_possession(interaction, game, match):
+        if not self.may_act_for_player_side(
+            interaction, game, match, self.shooter_id,
+        ):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -807,7 +864,9 @@ class SetUpAttemptChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.may_act_for_possession(interaction, game, match):
+        if not self.may_act_for_player_side(
+            interaction, game, match, self.shooter_id,
+        ):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,

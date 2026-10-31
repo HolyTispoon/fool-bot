@@ -388,6 +388,26 @@ class SafeView(GameLockedView):
             self.cog.engine.defending_user_id(game, match),
         )
 
+    def may_act_for_player_side(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+    ) -> bool:
+        """
+        `may_act_for` the coach of `player_id`'s side -- the gate on a
+        question put to one player, which is not always the side with
+        the ball: a 2.1 deflection's set-up and a follow are the
+        defense's.
+        """
+        return self.may_act_for(
+            interaction,
+            self.cog.engine.side_controller_id(
+                game, match.side_for_player(player_id),
+            ),
+        )
+
     def prompt_options(
         self,
         game: Optional[D12BallGame],

@@ -157,6 +157,9 @@ class PromptKind(Enum):
     # Whether a Pass's passer moves 1 space forward once the ball
     # has gone (Law 6.5.3, 6.5.5).
     PASSER_ADVANCE = "passer_advance"
+    # 2.1's F2 Follow and R2 Control: whether the defender follows the
+    # ball (rules-2.1 7.4), or stays.
+    FOLLOW_BALL = "follow_ball"
     HIGH_PASS_CHOICE = "high_pass_choice"
     SETUP_PASS_CHOICE = "setup_pass_choice"
     SPEED_DELTA_CHOICE = "speed_delta_choice"
@@ -1627,6 +1630,34 @@ def passer_advance_prompt(
     )
 
 
+def follow_prompt(
+    engine: "RulesEngine",
+    game: Optional[D12BallGame],
+    match: MatchState,
+) -> Optional[PendingPrompt]:
+    """
+    Whether 2.1's F2 or R2 defender follows the ball ("defender may
+    follow"; rules-2.1 7.4), read off `MatchState.pending_follow`, which
+    holds the question until the coach answers. Shared by the live
+    offer (`effects.offer_follow`) and a restart. The move costs its
+    spaces (rules-2.1 5.4), so the ask says how many.
+    """
+    outstanding = match.pending_follow
+    if not outstanding:
+        return None
+    player = engine.get_player_definition(outstanding["player_id"])
+    spaces = outstanding.get("spaces", 1)
+    noun, _ = engine.token_word_and_mark(game, player.player_id)
+    cost = f" for {spaces} {noun}" if engine.moving_costs(game) and spaces else ""
+    return PendingPrompt(
+        PromptKind.FOLLOW_BALL,
+        f"{engine.format_player_label(match, player)} may follow the ball "
+        f"to {space_label(Zone(outstanding['zone']), outstanding['space_index'], match.board)}"
+        f"{cost}, or stay where they are:",
+        player_id=player.player_id,
+    )
+
+
 def shooter_mention(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -2167,6 +2198,11 @@ PLAYERS_OWN_QUESTIONS = frozenset({
     PromptKind.SPEED_DELTA_CHOICE,
     PromptKind.RUN_BACK_PLAYER,
     PromptKind.RUN_BACK_SPACE,
+    # The shooter's: the side with the ball, but for a 2.1 deflection's
+    # set-up, offered to the defense's player who played the card.
+    PromptKind.SET_UP_ATTEMPT,
+    # The follower's: the defense's, for 2.1's F2 and R2.
+    PromptKind.FOLLOW_BALL,
 })
 
 #: The two questions put to the defense: who challenges, and which of
@@ -2438,6 +2474,12 @@ def _pending(
             PromptKind.OWN_GOAL_ROLL,
             "Either player can roll for the own goal.",
         )
+
+    follow = follow_prompt(engine, game, match)
+    if follow is not None:
+        # Ahead of the effect branch, as the passer's step is: the
+        # maneuver is still live and would otherwise be offered again.
+        return follow
 
     passer_advance = passer_advance_prompt(engine, game, match)
     if passer_advance is not None:
@@ -2814,6 +2856,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.PASSER_ADVANCE: ("advance", "stay"),
+    PromptKind.FOLLOW_BALL: ("follow", "stay"),
     # A 2.1 High Ball is thrown a distance, or by H2's special to the
     # Striker wherever they are (`DistanceOptions.long_shot`).
     PromptKind.HIGH_PASS_CHOICE: ("", "long_shot"),
@@ -3550,6 +3593,7 @@ OPTIONS = {
     PromptKind.SKILL_TEST: _roll_options,
     PromptKind.LOW_PASS_CHOICE: _low_pass_options,
     PromptKind.PASSER_ADVANCE: _decision_options,
+    PromptKind.FOLLOW_BALL: _decision_options,
     PromptKind.HIGH_PASS_CHOICE: _high_pass_options,
     PromptKind.SETUP_PASS_CHOICE: _setup_pass_options,
     PromptKind.SPEED_DELTA_CHOICE: _speed_options,

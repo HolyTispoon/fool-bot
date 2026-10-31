@@ -414,6 +414,7 @@ def dispatch_arrival_resume(
             distance_moved=resume.get("distance_moved", 1),
             lead_in=resume.get("lead_in", ""),
             contest_on_decline=resume.get("contest_on_decline", False),
+            loose_on_decline=resume.get("loose_on_decline", False),
         )
 
     if kind == "own_goal":
@@ -627,6 +628,7 @@ def offer_scoring_attempt_choice(
     distance_moved: int,
     lead_in: str,
     contest_on_decline: bool = False,
+    loose_on_decline: bool = False,
 ) -> StepResult:
     """
     Offer the offense a chance to attempt a scoring-opportunity shot
@@ -643,6 +645,13 @@ def offer_scoring_attempt_choice(
     pass into the goal zone and an ordinary 2-space one have left the
     match in
     the same state.
+
+    `loose_on_decline` is **a 2.1 deflection's set-up** (rules-2.1
+    7.4a): the shooter is the *defense's* player who played the card,
+    so the ball is still the offense's while they are asked -- it
+    changes hands only if they shoot (`take_scoring_opportunity`) --
+    and declining lands the ball where it lies by the ordinary rule
+    (Law 10.1), as the deflection otherwise would have.
     """
     # **A scoring opportunity is an arrival too**, and one the rules
     # name outright among what a pull pre-empts -- so the offer goes
@@ -657,6 +666,7 @@ def offer_scoring_attempt_choice(
             "distance_moved": distance_moved,
             "lead_in": lead_in,
             "contest_on_decline": contest_on_decline,
+            "loose_on_decline": loose_on_decline,
         },
     )
     if taken is not None:
@@ -685,6 +695,8 @@ def offer_scoring_attempt_choice(
         "distance_moved": distance_moved,
         "contest_on_decline": contest_on_decline,
     }
+    if loose_on_decline:
+        match.pending_scoring_opportunity["loose_on_decline"] = True
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=scoring_opportunity_prompt(engine, game, match),
@@ -711,7 +723,17 @@ def decline_scoring_attempt(
     records it is what `pending_prompt` reads, so a match that still
     held it would be asked the same question again on the next click.
     """
+    loose = (match.pending_scoring_opportunity or {}).get("loose_on_decline")
     match.pending_scoring_opportunity = None
+    if loose:
+        # A 2.1 deflection's set-up let go: the ball lands where it lies.
+        return StepResult(
+            narration=[lead_in] if lead_in else [],
+            next=FollowOn(
+                FollowOnStep.BEGIN_LOOSE_BALL,
+                {"distance_moved": distance_moved},
+            ),
+        )
     if contest:
         return begin_high_pass_contest(
             engine,
@@ -1515,6 +1537,14 @@ def take_scoring_opportunity(
     asked the same question again on the next click.
     """
     match.pending_scoring_opportunity = None
+    # **A set-up offered to the side without the ball** -- a 2.1
+    # deflection's (`loose_on_decline`) -- changes hands as it is taken,
+    # as Law 6.8.5's does: possession flips and the speed resets, so the
+    # shot reads the right attacking and defending sides.
+    shooter_side = match.side_for_player(shooter_id)
+    if shooter_side is not None and shooter_side != match.ball.possession:
+        match.ball.possession = shooter_side
+        match.ball.speed = 1
     match.active_player_id = shooter_id
     match.pending_action = "shoot"
     match.pending_shot_is_set_up = True

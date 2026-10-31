@@ -1070,6 +1070,7 @@ DECISION_YES: Mapping[PromptKind, tuple[str, str]] = {
     PromptKind.SET_UP_ATTEMPT: ("goal+player", "shoot"),
     PromptKind.COACHING_OFFER: ("bench", "coach"),
     PromptKind.PASSER_ADVANCE: ("player", "move forward"),
+    PromptKind.FOLLOW_BALL: ("player", "follow the ball"),
 }
 
 
@@ -1147,6 +1148,20 @@ def _passer_advance(asked: Asked) -> list:
     return _decision(asked, {
         "advance": f"{passer} moves forward",
         "stay": f"{passer} stays",
+    })
+
+
+def _follow_ball(asked: Asked) -> list:
+    """
+    Whether 2.1's F2 or R2 defender follows the ball (rules-2.1 7.4):
+    the yes lights the defender, and both answers name them, as the
+    Discord buttons do. The web page plays no 2.x game, so this is here
+    for the kind to have its controls.
+    """
+    player = asked.label(asked.prompt["player_id"])
+    return _decision(asked, {
+        "follow": f"{player} follows the ball",
+        "stay": f"{player} stays",
     })
 
 
@@ -2517,6 +2532,7 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.FLY: _fly,
     PromptKind.SET_UP_ATTEMPT: _decision,
     PromptKind.PASSER_ADVANCE: _passer_advance,
+    PromptKind.FOLLOW_BALL: _follow_ball,
     PromptKind.COACHING_OFFER: _decision,
     PromptKind.BALL_HANDLER_SELECTION: _players,
     PromptKind.RUN_BACK_PLAYER: _players,

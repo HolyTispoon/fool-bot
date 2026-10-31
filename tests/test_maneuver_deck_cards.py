@@ -17,7 +17,9 @@ from d12ball.flow import effects
 from d12ball.flow.result import FollowOnStep
 from d12ball.flow.rolls import score_skill_test
 from d12ball.game import Edition, GameMode
-from d12ball.prompts import PendingPrompt, PromptKind, effect_choice_prompt
+from d12ball.prompts import (
+    PendingPrompt, PromptKind, effect_choice_prompt, pending_prompt,
+)
 
 from prompt_fixtures import ENGINE, build_game, build_match, challenge
 
@@ -318,20 +320,63 @@ class DeflectTests(unittest.TestCase):
         effects.deflection_step(ENGINE, match, "deflect", game)
         self.assertEqual(abs(ball_flat(match) - before), 2)
 
-    def test_f2_a_defender_or_midfielder_follows_the_ball(self) -> None:
-        game, match = staged("H1", "F2")
-        make(match, match.challenger_id, PlayerRole.DEFENDER)
-        effects.deflection_step(ENGINE, match, "deflect", game)
-        self.assertEqual(flat(match, match.challenger_id), ball_flat(match))
+    def test_f2_a_defender_or_midfielder_may_follow_the_ball(self) -> None:
+        for follow in (True, False):
+            with self.subTest(follow=follow):
+                game, match = staged("H1", "F2")
+                make(match, match.challenger_id, PlayerRole.DEFENDER)
+                origin = flat(match, match.challenger_id)
+                result = effects.deflection_step(ENGINE, match, "deflect", game)
+                # "May follow" is asked, and a restart asks it again.
+                self.assertIs(result.next.kind, PromptKind.FOLLOW_BALL)
+                self.assertIs(
+                    pending_prompt(ENGINE, game, match).kind,
+                    PromptKind.FOLLOW_BALL,
+                )
+                landed = effects.answer_follow(ENGINE, game, match, follow)
+                self.assertIsNone(match.pending_follow)
+                self.assertEqual(
+                    flat(match, match.challenger_id),
+                    ball_flat(match) if follow else origin,
+                )
+                self.assertEqual(landed.next.step, FollowOnStep.BEGIN_LOOSE_BALL)
 
-    def test_f3_a_winger_or_striker_sets_up_scoring_wherever_it_lands(self) -> None:
+    def test_f3_a_winger_or_striker_may_set_up_scoring_wherever_it_lands(self) -> None:
+        from d12ball.flow import arrivals
+        game, match = staged("H1", "F3")
+        make(match, match.challenger_id, PlayerRole.STRIKER)
+        offense, defense = match.ball.possession, match.defending_side()
+        result = effects.deflection_step(ENGINE, match, "deflect", game)
+        self.assertEqual(result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE)
+        self.assertEqual(result.next.kwargs["shooter_id"], match.challenger_id)
+        # Offered: the ball is still the offense's while they choose.
+        self.assertEqual(match.ball.possession, offense)
+        offered = arrivals.offer_scoring_attempt_choice(
+            ENGINE, game, match, lead_in="", **result.next.kwargs,
+        )
+        self.assertIs(offered.next.kind, PromptKind.SET_UP_ATTEMPT)
+        from d12ball.prompts import asked_sides
+        self.assertEqual(asked_sides(match, offered.next), (defense,))
+        # Declined, the ball lands by the ordinary rule.
+        declined = arrivals.decline_scoring_attempt(ENGINE, game, match, 1)
+        self.assertEqual(declined.next.step, FollowOnStep.BEGIN_LOOSE_BALL)
+        self.assertEqual(match.ball.possession, offense)
+
+    def test_f3_shot_taken_changes_hands(self) -> None:
+        from d12ball.flow import arrivals
         game, match = staged("H1", "F3")
         make(match, match.challenger_id, PlayerRole.STRIKER)
         defense = match.defending_side()
-        result = effects.deflection_step(ENGINE, match, "deflect", game)
-        self.assertEqual(result.next.step, FollowOnStep.BEGIN_SHOOTER_CHOICE)
-        self.assertEqual(result.next.kwargs["candidates"], [match.challenger_id])
+        effects.deflection_step(ENGINE, match, "deflect", game)
+        arrivals.offer_scoring_attempt_choice(
+            ENGINE, game, match, shooter_id=match.challenger_id,
+            distance_moved=1, lead_in="", loose_on_decline=True,
+        )
+        arrivals.take_scoring_opportunity(
+            ENGINE, game, match, shooter_id=match.challenger_id,
+        )
         self.assertEqual(match.ball.possession, defense)
+        self.assertEqual(match.ball.speed, 1)
 
     def test_f4_a_playmaker_contests_it_on_the_spot(self) -> None:
         game, match = staged("H1", "F4")
@@ -408,13 +453,24 @@ class PressureTests(unittest.TestCase):
         self.assertEqual(flat(match, handler), before)
         self.assertEqual(result.next.step, FollowOnStep.BEGIN_RUN_BACK)
 
-    def test_r2_a_fullback_or_playmaker_sends_it_behind_and_follows(self) -> None:
-        game, match = staged("B1", "R2")
-        make(match, match.challenger_id, PlayerRole.FULLBACK)
-        handler = match.active_player_id
-        effects.pressure_step(ENGINE, match, "pressure", game)
-        self.assertEqual(flat(match, match.challenger_id), ball_flat(match))
-        self.assertNotEqual(match.ball_carrier_id, handler)
+    def test_r2_a_fullback_or_playmaker_sends_it_behind_and_may_follow(self) -> None:
+        for follow in (True, False):
+            with self.subTest(follow=follow):
+                game, match = staged("B1", "R2")
+                make(match, match.challenger_id, PlayerRole.FULLBACK)
+                handler = match.active_player_id
+                origin = flat(match, match.challenger_id)
+                result = effects.pressure_step(ENGINE, match, "pressure", game)
+                self.assertNotEqual(match.ball_carrier_id, handler)
+                if result.next.kind is PromptKind.FOLLOW_BALL:
+                    finished = effects.answer_follow(ENGINE, game, match, follow)
+                    self.assertEqual(
+                        finished.next.step, FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+                    )
+                    self.assertEqual(
+                        flat(match, match.challenger_id),
+                        ball_flat(match) if follow else origin,
+                    )
 
     def test_r3_a_midfielders_pressure_exhausts_the_handler_too(self) -> None:
         for role, extra in ((PlayerRole.MIDFIELDER, 1), (PlayerRole.WINGER, 0)):

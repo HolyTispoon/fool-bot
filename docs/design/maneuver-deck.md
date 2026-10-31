@@ -107,12 +107,28 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   reading (`effect_choice_prompt`) reads it off `card_special` and the position: B3's and S1's
   speed choice carry their skill type, B2's distance is Dribble's, H1 to H4 are High Ball's
   distance prompt with more distances and H2's choice, P2 is the passer's step.
-- **What the readings are** -- each the plainest reading of the tab, listed in the PR for the
-  author to confirm: a "may" that replaces the card's own throw or pass is offered beside it;
-  F2's follow and R2's are always made, as 2.0's Follow and Stress were; F3's set-up is the
-  deflection's own, taken by the player who played it from where the ball lies; F4 and R4 are a
-  contest between handler and challenger on the ball's space, the speed left alone; B1's shot is
-  a scoring opportunity (Law 8); B4's teammate is the turn's own handler choice.
+- **"May" is optional** (the author, 2026-10-31: *"Any time a card says 'may' it's optional"*).
+  Every "may" is asked, through a prompt the restart reading rebuilds:
+  - **F2's and R2's follow** is `PromptKind.FOLLOW_BALL` ("follow" or "stay"), the defense's
+    question (`asked_sides` by the player, `FollowBallView` gated to their coach). Its record is
+    `MatchState.pending_follow` -- who, the space, the spaces it costs, and what the maneuver
+    does once it is answered (the deflection's landing, or the end of the maneuver) -- one of
+    `MATCH_EXPLICIT_FIELDS`, written only while asked, cleared with the maneuver
+    (`effects.offer_follow`, `answer_follow`, `prompts.follow_prompt`). Dinky follows.
+  - **A deflection's set-up** -- the Deflect's in the goal zone (Law 6.8.5) and F3 Boot's anywhere
+    -- is the ordinary attempt-or-decline offer (`SET_UP_ATTEMPT`) with `loose_on_decline`: the
+    shooter is the defense's player, so the ball stays the offense's while they choose and changes
+    hands, speed 1, only when they shoot (`arrivals.take_scoring_opportunity` flips possession for
+    a shooter without the ball), and a decline lands the ball by the ordinary rule. The offer is
+    the shooter's own question (`PLAYERS_OWN_QUESTIONS`), and its buttons are gated to the
+    shooter's coach (`SafeView.may_act_for_player_side`) -- the same answer as before wherever
+    the shooter has the ball. 1.0's deflection set-up is unchanged.
+  - The rest already were: the passes' and High Ball's extra destinations and distances beside
+    the card's own, P1's and B1's and H4's shots, P2's step, B2's distance, B3's and S1's speed
+    (staying the same is one of the speeds), B4's handler choice.
+- **What the readings are**, listed in the PR for the author: F4 and R4 are a contest between
+  handler and challenger on the ball's space, the speed left alone; B1's shot is a scoring
+  opportunity (Law 8); B4's teammate is the turn's own handler choice.
 
 ## The flip
 

@@ -128,6 +128,7 @@ from cogs.d12ball_views import (
     RunBackChoiceView,
     RunBackPlayerChoiceView,
     ScoreAttemptView,
+    FollowBallView,
     PasserAdvanceView,
     SetUpAttemptChoiceView,
     ShooterChoiceView,
@@ -168,7 +169,8 @@ FIELD_PROMPT_KINDS = frozenset({
     # Whether a Pass's passer steps forward is a question about
     # where they would stand, asked once the ball has gone (Law 6.5.3).
     PromptKind.PASSER_ADVANCE,
-    # Spin's teammate moves to a space (2.0).
+    # Whether 2.1's F2 or R2 defender follows the ball (rules-2.1 7.4).
+    PromptKind.FOLLOW_BALL,
 })
 
 
@@ -412,6 +414,7 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.LOOSE_BALL_PICK,
     PromptKind.LOW_PASS_CHOICE,
     PromptKind.PASSER_ADVANCE,
+    PromptKind.FOLLOW_BALL,
     PromptKind.SPEED_DELTA_CHOICE,
     PromptKind.SET_UP_ATTEMPT,
     PromptKind.SHOOTER_CHOICE,
@@ -1480,6 +1483,8 @@ class CoreMixin:
             return LowPassChoiceView(self, game_id)
         if kind is PromptKind.PASSER_ADVANCE:
             return PasserAdvanceView(self, game_id, prompt.player_id)
+        if kind is PromptKind.FOLLOW_BALL:
+            return FollowBallView(self, game_id, prompt.player_id)
         if kind is PromptKind.SPEED_DELTA_CHOICE:
             return SpeedDeltaChoiceView(self, game_id, prompt.player_id)
         if kind is PromptKind.SET_UP_ATTEMPT:

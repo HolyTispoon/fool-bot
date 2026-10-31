@@ -665,6 +665,7 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.DOUBLE_TEAM_PARTNER: "That partner has already been chosen.",
     PromptKind.LOW_PASS_CHOICE: "That maneuver has already resolved.",
     PromptKind.PASSER_ADVANCE: "The passer has already moved or stayed.",
+    PromptKind.FOLLOW_BALL: "The defender has already followed or stayed.",
     PromptKind.HIGH_PASS_CHOICE: "That maneuver has already resolved.",
     PromptKind.SETUP_PASS_CHOICE: "That maneuver has already resolved.",
     PromptKind.SPEED_DELTA_CHOICE: "That maneuver has already resolved.",
@@ -873,6 +874,18 @@ def _answer_set_up_attempt(
         shooter_id=prompt.player_id,
         maneuver_cost=prompt.distance_moved,
     )
+
+
+def _answer_follow_ball(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> StepResult:
+    """2.1's F2 or R2 defender follows the ball, or stays (rules-2.1
+    7.4), and the maneuver carries on with what it was owed."""
+    return effects.answer_follow(engine, game, match, follow=choice == "follow")
 
 
 def _answer_passer_advance(
@@ -1971,6 +1984,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.LOOSE_BALL_PICK: _answer_loose_ball_pick,
     PromptKind.SET_UP_ATTEMPT: _answer_set_up_attempt,
     PromptKind.PASSER_ADVANCE: _answer_passer_advance,
+    PromptKind.FOLLOW_BALL: _answer_follow_ball,
     PromptKind.SHOOTER_CHOICE: _answer_shooter_choice,
     PromptKind.SMOOTH: _answer_smooth,
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,

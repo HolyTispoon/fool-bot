@@ -2010,6 +2010,8 @@ MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
         "tie_coin",
         # 2.1's cards behind this maneuver's picks, only while there are.
         "maneuver_cards",
+        # 2.1's follow question, only while one is asked.
+        "pending_follow",
         # 2.0's restart run back, only while one is under way.
         "pending_replace",
         "ruleset_id",
@@ -2138,6 +2140,14 @@ class MatchState:
     # `reset_maneuver`. Saved explicitly, only while there are any
     # (`MATCH_EXPLICIT_FIELDS`).
     maneuver_cards: dict[str, list[str]] = field(default_factory=dict)
+    # **2.1's follow, asked** (F2 Follow, R2 Control: "defender may
+    # follow"; rules-2.1 7.4): the question, saved so a restart asks it
+    # again -- who may follow, the space they would move to, and what
+    # the maneuver does once answered (`"then": "deflection"`, with
+    # whether the ball reached the goal zone, or `"then": "finish"`).
+    # Read by `prompts.follow_prompt`; saved explicitly, only while
+    # asked (`MATCH_EXPLICIT_FIELDS`), and cleared with the maneuver.
+    pending_follow: Optional[dict] = None
     # **Volatile's tier rider**: the skill test that just resolved was
     # ignited in a way that raises the *winner's* maneuver to its
     # gambit -- see "Volatile (Fire Demon)" in
@@ -4238,6 +4248,7 @@ class MatchState:
         self.offense_maneuver = None
         self.defense_maneuver = None
         self.maneuver_cards = {}
+        self.pending_follow = None
         self.gambit_declared_by = None
         self.pick_unconfirmed = None
         self.gambit_answer = None
@@ -6630,6 +6641,8 @@ class MatchState:
         # 2.1's cards behind the picks, only while a maneuver has some.
         if self.maneuver_cards:
             saved["maneuver_cards"] = copy_lists(self.maneuver_cards)
+        if self.pending_follow is not None:
+            saved["pending_follow"] = dict(self.pending_follow)
         # 2.0's restart run back, only while one is under way.
         if self.pending_replace is not None:
             saved["pending_replace"] = {
@@ -6779,6 +6792,10 @@ class MatchState:
             # Absent from every 1.0 save: never tossed.
             tie_coin=data.get("tie_coin"),
             maneuver_cards=copy_lists(data.get("maneuver_cards", {})),
+            pending_follow=(
+                dict(data["pending_follow"])
+                if data.get("pending_follow") is not None else None
+            ),
             # Absent from every save but one made mid-restart in 2.0.
             pending_replace=(
                 None
