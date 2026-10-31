@@ -2632,7 +2632,8 @@ ends." and **Lock patrol**).
   `history.undo_targets` says are open. The attacker is named the same
   way over the defender's buttons, and each is labelled with why it is
   legal -- "squad
-  leader", "patroller", "flying", "unstoppable vs. base", in brackets
+  leader, stops the attacker", "patroller", "attacker flies over the
+  patrol", "attacker is unstoppable vs. a base", in brackets
   after its name -- and nothing where the defender has no patrol at
   all, the button the name alone (the author, 2026-10-15) -- which is the engine's
   (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
@@ -2640,10 +2641,18 @@ ends." and **Lock patrol**).
   building's label, here and on any other button, carries the HP it has
   left -- "Tech I (5 HP)", "Base (17 HP)", the base capitalised on a
   button though not in the narration -- read from `building_hp_left`;
-  a building's reason shares its HP's bracket, "Base (20 HP, flying)".
-  The reasons are kept short for a button -- "stealth vs. units",
-  "unstoppable by tech 0", "Demon, unstoppable", "unblocked" (the
-  author, 2026-10-15).
+  a building's reason shares its HP's bracket, "Base (20 HP, attacker
+  flies over the patrol)". The reasons are kept short for a button
+  (the author, 2026-10-15), but **a reason is never a bare keyword**:
+  "flying" beside a defender's name read as the defender flying, not
+  the attacker (the author, 2026-10-31). So a reason that is the
+  attacker's says so -- "attacker has stealth", "attacker has stealth
+  vs. units", "attacker is unstoppable by tech 0 units", "attacker is
+  an unstoppable Demon" -- one that is the defender's names its place,
+  "patroller", and a patroller the attacker is forced to take says
+  why, "squad leader, stops the attacker"; where patrollers stand and
+  none can stop the attacker for no keyword of its own, "no patroller
+  can stop the attacker".
   **Nothing the turn panel asks is a menu any more**: the tower's
   detection and the three choices inside an attack -- obliterate's tie,
   sparkshot's neighbour, overpower's excess -- are buttons too, what

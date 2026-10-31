@@ -2806,15 +2806,16 @@ class RulesEngine:
         if blocking:
             leader = blocking.get("squad_leader")
             if leader is not None:
-                rows = [(leader, "squad leader")]
+                rows = [(leader, "squad leader, stops the attacker")]
             else:
-                rows = [(blocking[slot], "patroller") for slot in PATROL_SLOTS if slot in blocking]
+                rows = [(blocking[slot], "patroller, stops the attacker")
+                        for slot in PATROL_SLOTS if slot in blocking]
             if self._sneaks_to_units(match, attacker, against=against):
                 # Stealth while attacking a unit: any of their units, past
                 # the patrol zone.
                 taken = {ref for ref, _ in rows}
                 rows += [
-                    (card.ref, "stealth vs. units")
+                    (card.ref, "attacker has stealth vs. units")
                     for card in self._units_of(match, other)
                     if card.ref not in taken and self.may_be_attacked(match, attacker, card.ref, against=against)
                 ]
@@ -2823,7 +2824,8 @@ class RulesEngine:
                 # Colossus: "Unstoppable when attacking a base."; Traffic
                 # Director: "... when attacking a building." (step 13).
                 taken = {ref for ref, _ in rows}
-                why = "unstoppable vs. base" if past == "base" else "unstoppable vs. buildings"
+                why = ("attacker is unstoppable vs. a base" if past == "base"
+                       else "attacker is unstoppable vs. buildings")
                 rows += [
                     (ref, why) for ref in self._standing(match, other)
                     if ref not in taken and self.is_building_ref(match, other, ref)
@@ -2835,7 +2837,7 @@ class RulesEngine:
                 # heroes, past the patrol zone (step 12).
                 taken = {ref for ref, _ in rows}
                 rows += [
-                    (ref, "unstoppable vs. heroes")
+                    (ref, "attacker is unstoppable vs. heroes")
                     for ref in self._hero_refs_of(match, other)
                     if ref not in taken
                     and self.may_be_attacked(match, attacker, ref, against=against)
@@ -2883,27 +2885,30 @@ class RulesEngine:
     def _open_why(self, match: MatchState, attacker: str, against: Optional[int] = None) -> str:
         """Why nothing in the patrol zone holds this attacker -- nothing
         where there is no patrol to get past, since an empty zone holds
-        nobody and needs no saying."""
+        nobody and needs no saying. A reason that is the attacker's own
+        says so -- "attacker flies over the patrol", never "flying" --
+        since it is read beside the defender's name, and a bare keyword
+        there reads as the defender's (the author, 2026-10-31)."""
         other = self.defending_seat(match, against)
         if not match.patrollers(other):
             return ""
         sneaking = self.ignores_patrollers(match, attacker, against=against)
         if sneaking == "unstoppable":
-            return "unstoppable"
+            return "attacker is unstoppable"
         if self._unstoppable_by_tech_0(match, attacker, against=against):
-            return "unstoppable by tech 0"
+            return "attacker is unstoppable by tech 0 units"
         body = self.body(match, match.active, attacker)
         if isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_BY_RUNED:
-            return "unstoppable by runed units"
+            return "attacker is unstoppable by runed units"
         if self.is_demon(body) and any(
             self.text_slug(card) in effects.DEMONS_UNSTOPPABLE for card in match.active_player.play
         ):
-            return "Demon, unstoppable"
+            return "attacker is an unstoppable Demon"
         if sneaking:
-            return "stealth"
+            return "attacker has stealth"
         if self.has(match, match.active, attacker, "Flying"):
-            return "flying"
-        return "unblocked"
+            return "attacker flies over the patrol"
+        return "no patroller can stop the attacker"
 
     def flown_over(self, match: MatchState, attacker: str, defender: str) -> tuple[str, ...]:
         """

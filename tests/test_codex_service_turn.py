@@ -69,9 +69,9 @@ class PromptReadingTests(unittest.TestCase):
             {""},
         )
         put(match, 2 if seat == 1 else 1, "tenderfoot", patrol="elite")
-        self.assertEqual([why for _, why in engine.defender_rows(match, attacker.ref)], ["patroller"])
+        self.assertEqual([why for _, why in engine.defender_rows(match, attacker.ref)], ["patroller, stops the attacker"])
         leader = put(match, 2 if seat == 1 else 1, "iron_man", patrol="squad_leader")
-        self.assertEqual(engine.defender_rows(match, attacker.ref), ((leader.ref, "squad leader"),))
+        self.assertEqual(engine.defender_rows(match, attacker.ref), ((leader.ref, "squad leader, stops the attacker"),))
         self.assertEqual(
             engine.legal_defenders(match, attacker.ref),
             tuple(ref for ref, _ in engine.defender_rows(match, attacker.ref)),
@@ -145,7 +145,8 @@ class TurnHeadingTests(unittest.TestCase):
         guard = put(match, 2, "older_brother", patrol="squad_leader")
         match.set_base(2, 17)
         self.assertEqual(ref_label(engine, match, 2, "base"), "Base (17 HP)")
-        self.assertEqual(ref_label(engine, match, 2, "base", "flying"), "Base (17 HP, flying)")
+        self.assertEqual(ref_label(engine, match, 2, "base", "attacker flies over the patrol"),
+                         "Base (17 HP, attacker flies over the patrol)")
         self.assertEqual(ref_label(engine, match, 2, guard.ref, "squad leader"),
                          "Older Brother 2/2 (squad leader)")
 

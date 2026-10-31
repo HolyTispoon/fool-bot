@@ -166,7 +166,8 @@ class DefenderOptions:
     attacker: str
     defenders: tuple[str, ...]
     #: Why each of `defenders` is legal, in the same order: "squad
-    #: leader", "patroller", "flying" -- or ""
+    #: leader, stops the attacker", "patroller", "attacker flies over
+    #: the patrol" -- or ""
     #: where there is no patrol to get past (`defender_rows`).
     why: tuple[str, ...] = ()
     #: The seat each of `defenders` is on, in the same order -- a ref
