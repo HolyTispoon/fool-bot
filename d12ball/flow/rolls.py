@@ -32,10 +32,11 @@ is a rule rather than an accident:
   the shootout, and not in the skill test or the score attempt.** See
   "Injured players" in docs/living-rules.md.
 - **A tie is re-rolled in the skill test and the loose ball**, at a
-  token each -- in 1.0; in 2.0 the coin settles it, unrolled and free
-  (`coin_settles_tie`, rules-2.1 section 5). A score attempt scores on
-  level totals (Law 5.2.3, the author 2026-10-18), and a shootout tie
-  simply scores for nobody.
+  token each -- in 1.0; in 2.1 the coin's face settles it, unrolled and
+  free, and the coin is tossed again after it (`coin_settles_tie`,
+  rules-2.1 section 5). A score attempt scores on level totals in 1.0
+  (Law 5.2.3, the author 2026-10-18) and goes to the coin in 2.1, and a
+  shootout tie simply scores for nobody.
 - **The tutorial scripts the skill test's dice and the loose ball's**,
   and deliberately scripts neither of the other two -- a beat only
   fixes a roll the next beat depends on. See
