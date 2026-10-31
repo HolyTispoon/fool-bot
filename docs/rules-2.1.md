@@ -1,34 +1,36 @@
-# D12 Ball 2.0
+# D12 Ball 2.1
 
-**D12 Ball 2.0 is the Charter ([living-rules.md](living-rules.md)) with the rules below: a
-maneuver deck in place of how a coach chooses a maneuver (sections 1 to 3), roles that
-belong to the formation rather than to the players, with no role abilities (section 4), a
-coin that settles tied rolls, with moving on the board costing exhaustion a space (section 5),
-no shooting range (section 6), and maneuver cards of its own -- four basic maneuvers a rank
-where 1.0 has one (section 7).**
+**D12 Ball 2.1 is the Charter ([living-rules.md](living-rules.md)) with the rules below: a
+deck of twenty-four maneuver cards in place of how a coach chooses a maneuver, each card a
+basic maneuver with a role special, and any card playable as the other side's maneuver of its
+rank for an extra card (sections 1 to 3, and 7); roles that belong to the formation rather than
+to the players, whose only abilities are the cards' specials (section 4); a coin tossed afresh
+to settle every tie, with moving on the board costing exhaustion a space (section 5); and no
+shooting range (section 6). There are no advanced maneuvers.**
 Everything the Charter does not change here plays exactly as it says. D12 Ball 1.0 is the
 Charter unchanged. The edition is chosen at setup, beside the mode, and either edition goes
 with any of the three modes: the mode still decides which abilities are played (Law 18). Where
-this file and the Charter disagree, in a 2.0 game, this file wins.
+this file and the Charter disagree, in a 2.1 game, this file wins.
 
-It is played on the Discord bot only for now. Its history is in [rules-log.md](rules-log.md).
+2.1 replaced D12 Ball 2.0's two-headed cards and its six advanced maneuvers on 2026-10-31;
+the rest of 2.0 -- the roles, the moving costs, no range -- is 2.1's unchanged. It is played on
+the Discord bot only for now. Its history is in [rules-log.md](rules-log.md).
 
 ## 1. The deck
 
-**1.1** Each coach has their own deck of **eighteen maneuver cards**:
+**1.1** Each coach has their own deck of **twenty-four maneuver cards**, four for each of the
+six basic maneuvers, numbered 1 to 4 (section 7):
 
-- **a.** **Twelve two-headed basic cards**, four of each rank, **each a different pair**. A
-  rank has four basic maneuvers on each side, numbered 1 to 4 (section 7), and a two-headed
-  card's top half is the offensive maneuver of its rank and number and its bottom half, upside
-  down, the defensive maneuver of the same rank and number: the rank 1 cards are Pass /
-  Deflect, Pass and Run / Follow, Curved Pass / Boot and Reset Play / Block. A two-headed card
-  carries no role abilities. Across its middle is a band of matchups, read from each end by the
-  half on that end: what that half beats, ties and loses to, by the other side's rank -- every
-  card on a rank beats, ties and loses to the same ranks, so the rank 1 cards' offensive halves
-  beat D3, tie D1 and lose to D2, and their defensive halves beat O3, tie O1 and lose to O2.
-- **b.** **Six advanced maneuvers**, one of each (Law 19.1): Pinpoint, Burst and Cross on
-  offense, Clear, Intercept and Double Team on defense. An advanced card has one head and is
-  played on its own side alone.
+- **a.** Pass P1 to P4, Dribble B1 to B4 and High Ball H1 to H4 on offense; Deflect F1 to F4,
+  Steal S1 to S4 and Pressure R1 to R4 on defense.
+- **b.** **Every card plays its maneuver**, with the Charter's rank (Law 6.3) and the rank's
+  own effect, which is the same on all four of its cards (section 7). What tells the four
+  apart is the card's **special**: a role interaction, "If the player is a Fullback or a
+  Defender, ...", which applies only when the player making the maneuver holds one of the
+  roles it names (2.2).
+- **c.** **The four cards of a rank name all six roles between them, each exactly once**, so
+  whatever role a player holds, one card of each rank has a special for them.
+- **d.** **There are no advanced maneuvers** (Law 19 does not apply).
 
 **1.2** Before kickoff each coach shuffles their deck and draws **a hand of five**. The hand is
 secret. How many cards are in each coach's deck is public, and **each discard pile is face up**,
@@ -37,26 +39,31 @@ so both coaches see every card the other has played since the last shuffle.
 ## 2. Playing a card
 
 **2.1** Wherever the Charter has a coach choose a maneuver (Law 6.2), they choose a card from
-their hand instead, and play it on the side they are on: a two-headed card as the basic
-maneuver its half for that side shows, an advanced card only on its own side. A hand always
-holds a card either side can play, because only three of the eighteen are offense alone and
-three defense alone.
+their hand instead. **A card of the coach's own side plays as its maneuver**, with its special
+(2.2).
 
-**2.2** **There is no gambit declaration** (Law 19.3 does not apply): no coach holds a coin
-to make a gambit with. Playing an advanced card is making a gambit, and it succeeds and fails on
-rank as Law 19.4 says. The coin 2.0 does have settles tied rolls (section 5).
+**2.2** **A special applies when the player making the maneuver holds one of the roles it
+names** -- the handler on offense, the challenger on defense (Law 6.1) -- in the role the
+formation gives them (section 4). A special adds to the card's maneuver or replaces part of it,
+as section 7 says, and is the only role ability in 2.1 (4.7).
 
-**2.3** An advanced card may be played against no challenge (Law 6.1.4), and then **resolves
-as the basic maneuver on its rank**, since there is no card for it to win against.
+**2.3** **A card may be flipped: on their turn a coach may discard an extra card from their
+hand to play any card as the maneuver of the same rank on the other side**, without its
+special. So the offense plays F1 as a Pass by discarding a second card with it, and the defense
+plays P1 as a Deflect. The coach chooses the extra card; a hand of one card cannot flip.
 
-**2.4** The cards are revealed together, as the Charter says; until both are down a coach may
-change the card they chose.
+**2.4** **There is no gambit declaration and no gambit coin** (Law 19.3 does not apply). The
+coin 2.1 does have settles ties (section 5).
+
+**2.5** The cards are revealed together, as the Charter says; until both are down a coach may
+change the card they chose, or the extra card a flip discards. Against no challenge (Law 6.1.4)
+the offense still plays a card, and its special applies to the handler.
 
 ## 3. After the reveal
 
-**3.1** Each card played goes to its coach's **discard pile**, face up, and that coach draws
-one card, back up to five. A coach who did not play a card -- the defense against no
-challenge, either coach at a shot or a time out -- draws nothing.
+**3.1** Each card played goes to its coach's **discard pile**, face up -- with the extra card a
+flip discards -- and that coach draws back up to five. A coach who did not play a card -- the
+defense against no challenge, either coach at a shot or a time out -- draws nothing.
 
 **3.2** **When a coach draws the last card of their deck, they shuffle their discard pile to
 make a new deck** at once.
@@ -166,24 +173,21 @@ brings players on by substitution, and nothing else:
   their zone where there is only one, and otherwise wherever their coach rearranges them (4.6a)
   -- and the coach may not finish the Coaching Choice until they have.
 
-**4.7** **There are no role abilities.** Nothing a role adds in the Charter applies in a 2.0
-game -- neither the six abilities of Law 2.6.2 nor the role lines on the advanced maneuvers
-(Law 19). So, in every mode:
+**4.7** **There are no role abilities but the cards' specials** (2.2, section 7). Nothing the
+six roles add in the Charter (Law 2.6.2) applies in a 2.1 game; where a special does what a
+Charter ability did, it does it on its own card alone. So, in every mode, but for a special:
 
-- **a.** a High Ball is thrown 2 or 3 spaces (6.7.2), a Deflect sends the ball 1 space back
-  (6.8.3), a Clear 3 (19.8.4), a Cross is picked out 0, 1 or 3 spaces (19.7.4), and a failed
-  Cross goes back 1 space off a Deflect and 3 off a Clear (19.7.7);
-- **b.** a won Pressure never steals the ball (6.10.4), so it always leaves the ball with the
-  handler who was shoved back (4.2.2e), and is never a turnover (12.1);
-- **c.** nobody adds 3 to a skill test for their own Pass, Steal, Pinpoint or Intercept (6.4.2a,
-  19.5.4, 19.9.4);
-- **d.** a Dribble advances 1 space (6.6.4) and a Burst up to 4 (19.6.3);
-- **e.** **a completed Pass or Pinpoint never sets up a scoring opportunity** (8.2.1, 19.5.3);
-  the other three set-ups of Law 8.2 stand;
+- **a.** a High Ball is thrown 3 spaces (7.3) and a Deflect sends the ball 1 space back (7.4a);
+- **b.** a won Pressure never steals the ball (6.10.4), so it leaves the ball with the handler
+  who was shoved back (4.2.2e), and is not a turnover (12.1);
+- **c.** nobody adds 3 to a skill test for their own Pass or Steal (6.4.2a);
+- **d.** a Dribble advances 1 space (6.6.4);
+- **e.** **a completed Pass never sets up a scoring opportunity** (8.2.1); the other three
+  set-ups of Law 8.2 stand;
 - **f.** a score attempt off a set-up adds nothing for the shooter's role (8.3.1, 15.4.3).
 
 **4.8** A special ability (Law 21) belongs to the player, not the role, and is still played in
-advanced mode. Where Law 21.1.2 plays it beside the player's role ability, in 2.0 there is no
+advanced mode. Where Law 21.1.2 plays it beside the player's role ability, in 2.1 there is no
 role ability to play it beside.
 
 **4.9** **A new play is a run back.** There is no arrangement to reset to: after a new play (Law
@@ -214,49 +218,46 @@ role ability to play it beside.
 So a new play and a steal are one run back: a steal leaves the ball's holder where they are,
 moves only those out of place and charges them, and a new play moves everybody for nothing.
 
-*Note.* For now a role carries no ability in 2.0: it decides which zone a player is in, where
-the three unique roles stand, who may be moved in a Coaching Choice, who takes the kickoff, and
-where a player goes in a new play's run back.
+*Note.* A role decides which card's special a player plays (2.2), which zone a player is in,
+where the three unique roles stand, who may be moved in a Coaching Choice, who takes the
+kickoff, and where a player goes in a new play's run back.
 
 ## 5. Ties, the coin and moving
 
-**5.1** **The coin settles every tied roll** -- a maneuver's skill test (Law 6.4) and a contest
-for the ball, a High Ball contest included (Law 10.2, 10.4). Nothing is rolled again, and so
-nothing is paid for a re-roll (Law 6.4.4, 10.2.2 and the re-roll in Law 15.1.1 do not apply).
+**5.1** **The coin settles every tie** -- a maneuver's skill test (Law 6.4), a contest for the
+ball, a High Ball contest included (Law 10.2, 10.4), and a score attempt (Law 5.2.3). Nothing
+is rolled again, so nothing is paid for a re-roll (Law 6.4.4, 10.2.2 and the re-roll in Law
+15.1.1 do not apply), and a tied shot is not a goal by itself.
 
-- **a.** **While the coin shows Fortune the offense wins a tied roll; while it shows Doom the
-  defense does.**
+- **a.** **Fortune: the offense wins the tie; Doom: the defense does.** At a score attempt the
+  offense is the attack: Fortune scores, Doom does not.
 - **b.** In a skill test the offense is the handler's side. In a contest for the ball it is the
   side that last held the ball -- the side that adds its offensive skill (Law 10.2.1).
 - **c.** A tie on the cards is still a skill test (Law 6.3.1), and a tie a player loses for being
   injured is still lost with nothing rolled (Law 15.4.2a). Only an equal total on the dice goes to
-  the coin. A score attempt (Law 5.2.3) and a shootout test (Law 17.4.3) are not settled by it.
+  the coin.
 
-**5.2** **The coin is flipped at the start of the game**, before the first turn, and lands on
-Fortune or Doom.
+**5.2** **The coin is tossed afresh for every tie it settles.** Its face after a toss decides
+nothing about the next tie.
 
-**5.3** **Whenever an advanced card is played** -- by either coach, challenged or not -- **the
-coin is tossed again once that maneuver is fully resolved**, every contest it leads to
-included, and its new face holds until the next maneuver an advanced card is played in. So a
-tied roll in that maneuver is settled by the face the coin showed when the cards were revealed.
+**5.3** **A tied shootout test is no goal for either side** (Law 17.4.3); the coin is not
+tossed for it.
 
 **5.4** **Moving costs exhaustion: a player who moves on the board during play exhausts 1 for
 every space they travel**, whoever moved them and whichever card did -- the handler of a won
-Dribble (Law 6.6.2), the passer stepping forward after a Pass (6.5.3), the handler a Pressure or
-a Double Team shoves back and the challenger who moves onto their space (6.10.2, 19.10.2), a
-Double Team's partner who joins them, however far they came (19.10.2), the thief a Steal or an
-Intercept carries off with the ball (6.9.2, 19.9.2), and the challenger and partner a beaten
-Double Team moves forward (19.10.6), as well as every move the Charter already charges a space
--- a player sent to the ball (9.4) and a player running back after a steal (12.4.3).
+Dribble (Law 6.6.2), the passer stepping forward after P2's Pass (6.5.3), the handler a Pressure
+shoves back and the challenger who moves onto their space (6.10.2), the thief a Steal carries
+off with the ball (6.9.2), and the player who follows the ball after F2's Deflect or R2's
+Pressure (7.4), as well as every move the Charter already charges a space -- a player sent to
+the ball (9.4) and a player running back after a steal (12.4.3).
 
 - **a.** **Two kinds of move are free**: the run back after a new play (4.9), and every move a
   Coaching Choice makes -- a rearrangement, a substitution and stepping off a unique role's
   space (Law 14; section 4).
 - **b.** **An ability or a card that prices its own move keeps that price**: Emberdash's Burst
-  costs nothing and so, in 2.0, does their Dribble (Law 21.3.4); a Strider runs back for at most
+  costs nothing and so, in 2.1, does their Dribble (Law 21.3.4); a Strider runs back for at most
   1 (21.4.4); Quantor's run and Glompex's step onto the ball cost what their abilities say
-  (21.4.5, 21.6.1). A Double Team's partner is not one of these: Law 19.10.2's "free of
-  exhaustion" does not apply in 2.0.
+  (21.4.5, 21.6.1).
 - **c.** **Playing a card costs nothing, and so does entering a skill test** (Law 6.4.1 does not
   apply), except that a test Scorchit forces in advanced mode still costs Scorchit 2, the price
   of the ability (Law 21.3.8), and their opponent nothing. Merging into a roll still costs 1
@@ -272,7 +273,7 @@ running back -- are one:
 ## 6. No shooting range
 
 **6.1** **There is no shooting range: a team may shoot from anywhere on the field** (Law 2.3
-does not apply). Wherever the Charter asks whether the ball is in range, in 2.0 it is:
+does not apply). Wherever the Charter asks whether the ball is in range, in 2.1 it is:
 
 - **a.** A score attempt is offered on every turn (Law 1.3, 4.2b, 4.3.1, 5.1.1).
 - **b.** The ball speed modifier is added to a shot from wherever it is taken (Law 5.2.2,
@@ -290,94 +291,90 @@ has not been declared (Law 13.2.1b and c). Being out of range is no longer one o
 
 ## 7. The maneuver cards
 
-**7.1** **2.0 plays its own maneuvers**: the `maneuvers 2.0` tab of the sheet, four basic
-maneuvers and one advanced maneuver a rank on each side. Where a card's 2.0 wording differs from
-the Charter's card of the same name (Law 6.5 to 6.10, 19.5 to 19.10), in a 2.0 game the 2.0
-card is what plays. Every card keeps its rank, so who wins a maneuver is the Charter's (Law 6.3):
-rank alone decides.
+**7.1** **2.1 plays the `maneuvers 2.1` tab of the sheet**: four cards a basic maneuver, each
+with its rank's effect and a special of its own. Who wins a maneuver is the Charter's (Law
+6.3): rank alone decides, so O1 beats D3, ties D1 and loses to D2, and so on round the cycle.
+Every card costs 1 time but the High Balls, which cost 2 (Law 16.2).
 
-| Rank | 1 | 2 | 3 | 4 | Advanced |
-| --- | --- | --- | --- | --- | --- |
-| O1 | Pass | Pass and Run | Curved Pass | Reset Play | Pinpoint |
-| O2 | Dribble | Advance | Spin | Drive | Burst |
-| O3 | High Ball | Long shot | Set up | Vertical Ball | Cross |
-| D1 | Deflect | Follow | Boot | Block | Clear |
-| D2 | Steal | Pickpocket | My Turf! | Toss | Intercept |
-| D3 | Pressure | Control | Stay Close | Stress | Double Team |
+| Index | 1 | 2 | 3 | 4 |
+| --- | --- | --- | --- | --- |
+| P (Pass, O1) | Pass | Pass and Run | Pinpoint | Reset |
+| B (Dribble, O2) | Dribble | Advance | Spin | Drive |
+| H (High Ball, O3) | High Ball | Long shot | Set up | Vertical Ball |
+| F (Deflect, D1) | Deflect | Follow | Boot | Block |
+| S (Steal, D2) | Steal | Pickpocket | My Turf! | Toss |
+| R (Pressure, D3) | Pressure | Control | Stay Close | Stress |
 
-Every card costs 1 time but the offensive cards of rank O3, which cost 2 (Law 16.2).
+A card is named by its index: P3 is a Pass, whatever its name says.
 
-**7.2** **The offensive basic cards.**
+**7.2** **Pass and Dribble.**
 
 - **a.** *Pass:* the ball goes to the nearest teammate ahead of it or behind it, at any
   distance -- a teammate on the ball's own space counting as the nearest behind (Law 6.5.2) --
-  and ball speed rises by 2. The passer does not move.
-- **b.** *Curved Pass:* the ball goes to any teammate up to 2 spaces away, either way, and the
-  speed does not change.
-- **c.** *Pass and Run:* the ball goes as a Pass's does, the speed does not change, and the
-  passer then moves 1 space forward.
-- **d.** *Reset Play:* the ball goes to the side's Playmaker, wherever they are; the speed does
-  not change. A Playmaker who is the handler keeps the ball.
-- **e.** A pass with no teammate to reach rolls 2 spaces forward and settles where it lands
-  (Law 6.5.5).
-- **f.** *Dribble:* the handler and the ball move 1 space forward, and ball speed rises by 2.
-- **g.** *Advance:* the handler and the ball move 1 or 2 spaces forward; the speed does not
-  change.
-- **h.** *Spin:* one teammate in the handler's zone may move up to 2 spaces, either way; then
-  the handler changes the ball's speed by up to their offensive skill, in either direction
-  (Law 6.6.2). The handler keeps the ball.
-- **i.** *Drive:* the handler carries the ball to the nearest teammate ahead, as a Pass reaches
-  one ahead, and that teammate may take the ball or leave it with the handler -- the
-  coach chooses. Ball speed drops by 2, never below 1.
-- **j.** *High Ball:* the ball is thrown 3 spaces forward. A teammate there has to win the High
-  Ball contest to keep it (Law 10.4), and having kept it may take a scoring opportunity (Law 8).
-  A throw that reaches the goal zone is the Charter's (Law 6.7.4).
-- **k.** *Set up:* the ball is thrown 2 spaces forward, and a teammate there receives it and may
-  take a scoring opportunity -- the Charter's High Ball of 2.
-- **l.** *Long shot:* the ball goes to the side's Striker, wherever they are, who has to win the
-  High Ball contest to keep it and then may take a scoring opportunity. A Striker who is the
-  handler contests it on their own space.
-- **m.** *Vertical Ball:* the ball is picked out 0 or 1 space forward, and a teammate there may
-  take a scoring opportunity -- 0 being a teammate on the passer's own space. A pass that
-  lands on nobody settles where it lands (Law 19.7.5).
-- **n.** Every move these cards make on the board costs its spaces (5.4).
+  and ball speed rises by 1. The passer does not move. A pass with no teammate to reach rolls 2
+  spaces forward and settles where it lands (Law 6.5.5).
+  - **P1** *Winger:* a completed Pass may set up a scoring opportunity for its receiver (Law
+    6.5.6).
+  - **P2** *Midfielder or Striker:* once the ball has gone the passer may move 1 space forward
+    (Law 6.5.3), at its cost (5.4).
+  - **P3** *Playmaker:* the pass may instead go to any teammate up to 2 spaces away, either way.
+  - **P4** *Fullback or Defender:* the pass may instead go to the side's Playmaker, wherever
+    they are.
+- **b.** *Dribble:* the handler and the ball move 1 space forward, and ball speed rises by 2.
+  - **B1** *Striker:* the handler may then attempt scoring, as a scoring opportunity (Law 8),
+    wherever they are (section 6).
+  - **B2** *Midfielder or Playmaker:* the handler may advance 1 more space.
+  - **B3** *Fullback or Defender:* the handler then changes the ball's speed by up to their
+    defensive skill, in either direction.
+  - **B4** *Winger:* a teammate sharing the space the handler moved to may take the ball -- their
+    coach chooses who handles it next (Law 4.2.3).
 
-**7.3** **The defensive basic cards.**
+**7.3** **High Ball.** The ball is thrown 3 spaces forward; a teammate there has to win the High
+Ball contest to keep it (Law 10.4), and having kept it may take a scoring opportunity (Law 8). A
+throw that reaches the goal zone is the Charter's (Law 6.7.4).
 
-- **a.** *Deflect:* the ball moves 1 space back and its speed drops by 1; a Fullback deflects it
-  2 -- the card's own line, since 2.0 plays no role abilities (4.7). It lands as the Charter's
-  Deflect does, the goal-zone scoring opportunity included (Law 6.8.4, 6.8.5).
-- **b.** *Follow:* the ball moves 1 space back and its speed does not change, and the player
-  who played it moves onto the space it lands on. It then lands as a Deflect does, the
-  goal-zone scoring opportunity included.
-- **c.** *Boot:* the ball moves 2 spaces back and its speed does not change. A ball booted into
-  the goal zone sets up no scoring opportunity; it lands by the ordinary rule (Law 10.1).
-- **d.** *Block:* the ball is contested on the spot, by the handler and the player who played
-  the Block (Law 10.2).
-- **e.** *Pickpocket:* a turnover where the ball is: nobody moves, and the speed resets to 1.
-- **f.** *My Turf!:* a Steal without its change of speed -- the ball is turned over, and the
-  player who played it and the ball move 1 space back. Where the cards tied, a Defender or a
-  Midfielder who played it adds 3 to the skill test (the author, 2026-10-27).
-- **g.** *Toss:* a turnover, and the player who played it then plays the ball to their nearest
-  teammate behind them -- one sharing their space counting as behind. With nobody behind them
-  they keep it.
-- **h.** *Control:* a Pressure, which also turns the ball over where the player who played it is
-  a Defender -- the Charter's Defender ability as a card (Law 6.10.4).
-- **i.** *Stay Close:* the handler exhausts 1 and ball speed drops by 2, never below 1. Nobody
-  moves.
-- **j.** *Stress:* the ball goes back to the handler's nearest teammate behind them -- one sharing
-  their space counting as behind -- and the player who played it follows the ball onto that
-  space. With no teammate behind the handler the ball can only reach their own goal zone, and
-  that risks an own goal (Law 11) as a Pressure's does.
-- **k.** The ball speed modifier is added to a skill test for Steal and Intercept alone (Law
-  7.4.1), as the tab's `Interactions` column says.
+- **H1** *Fullback or Defender:* it may be thrown 4 instead.
+- **H2** *Playmaker:* it may go to the side's Striker instead, wherever they are, still
+  contested.
+- **H3** *Midfielder:* it may be thrown 2 instead, received with no contest, and may set up a
+  scoring opportunity -- the Charter's High Ball of 2.
+- **H4** *Winger or Striker:* it may go 0 or 1 spaces instead, with no contest. At 0 the passer
+  keeps the ball and may take a scoring opportunity; at 1 a teammate there receives it and may,
+  and with nobody there it settles where it lands (Law 10.1).
 
-**7.4** **An advanced card's failure follows its rank** (Law 19.4): every card on the rank that
-beats it collects it. A Clear beaten by any O2 card exhausts 2; a Pinpoint beaten by any D2
-card that turns the ball over hands the defense its unopposed Pass; a Burst beaten by any D3
-card loses possession; a Cross beaten by any D1 card gives the defense the contest; an Intercept
-beaten by a High Ball or a Long shot makes the reception uncontested; and a Double Team beaten
-by any O1 card moves its two forward.
+**7.4** **The defensive cards.**
+
+- **a.** *Deflect:* the ball moves 1 space back and its speed drops by 1. It lands as the
+  Charter's Deflect does, the goal-zone scoring opportunity included (Law 6.8.4, 6.8.5).
+  - **F1** *Fullback:* it moves a space further (Law 6.8.3).
+  - **F2** *Defender or Midfielder:* the player who played it follows the ball onto the space it
+    lands on, at its cost (5.4).
+  - **F3** *Winger or Striker:* the player who played it gets a scoring opportunity wherever the
+    ball lands, not only in the goal zone -- possession flips for it and the speed resets, as
+    Law 6.8.5's does.
+  - **F4** *Playmaker:* the ball goes nowhere and is contested on the spot, by the handler and
+    the player who played it (Law 10.2); the speed is left alone.
+- **b.** *Steal:* a turnover; the speed resets to 1 (Law 7.3), and the player who played it and
+  the ball move 1 space back. Nobody changes the speed after (Law 6.9.3 does not apply). The
+  ball speed modifier is added to its skill test (Law 7.4.1).
+  - **S1** *Playmaker:* once everyone is back, they change the ball's speed by up to their
+    offensive skill.
+  - **S2** *Midfielder:* they do not move back: the ball is turned over where it is.
+  - **S3** *Fullback or Defender:* they add 3 to this maneuver's skill test.
+  - **S4** *Winger or Striker:* they stay in place and play the ball to their nearest teammate
+    behind them -- one sharing their space counting as behind; with nobody behind them they keep
+    it.
+- **c.** *Pressure:* the handler and the ball go 1 space back and the player who played it moves
+  1 forward onto that space; reaching the handler's own goal zone risks an own goal (Law 6.10).
+  - **R1** *Defender:* a turnover, and nobody moves.
+  - **R2** *Fullback or Playmaker:* the ball goes back to the handler's nearest teammate behind
+    them -- one sharing their space counting as behind -- and the player who played it follows it
+    onto that space. With nobody behind the handler it reaches their own goal zone and risks an
+    own goal (Law 11).
+  - **R3** *Midfielder:* the handler also exhausts 1.
+  - **R4** *Striker or Winger:* the ball goes nowhere and is contested in place, by the handler
+    and the player who played it (Law 10.2).
+- **d.** Every move these cards make on the board costs its spaces (5.4).
 
 **7.5** Where the tab leaves a card's `Mode` or `Time` blank, the card is basic and costs 1 (the
 author, 2026-10-27).
