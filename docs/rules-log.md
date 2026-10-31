@@ -192,13 +192,15 @@ S1's Playmaker now does, by up to the offensive skill).
 
 **Read from the cards, for the author to confirm** -- each is what the bot plays:
 
-- F2 Follow: the defender follows the ball 1 space (always, as 2.0's Follow did, though the tab
-  says "may").
+- **"May" is optional** (the author, the same day: *"Any time a card says 'may' it's optional"*):
+  F2's and R2's follow is a question to the defender's coach, and every set-up a card says "may"
+  -- the Deflect's in the goal zone and F3 Boot's anywhere -- is offered, the ball changing hands
+  only if the shot is taken. F2's follow is 1 space.
 - F4 Block and R4 Stress: "contested on the spot / in place" is a contest for the ball between
   the handler and the defender on the ball's space, in place of the card's own move; the speed is
   left alone.
 - R2 Control: 2.0's Stress -- the ball to the handler's nearest teammate behind, the defender
-  following it (always, though the tab says "may"), an own goal risked with nobody behind.
+  asked whether to follow it, an own goal risked with nobody behind.
 - H2 Long shot: to the Striker at any distance, still contested, offered beside the plain throw
   of 3.
 - H4 Vertical Ball: 0 or 1 spaces, offered beside the throw of 3; at 0 the passer keeps it and
@@ -209,8 +211,8 @@ S1's Playmaker now does, by up to the offensive skill).
 - B4 Drive: a teammate sharing the space the dribbler moved to may take the ball -- the turn's
   own choice of handler among those on the ball.
 - B3 Spin: after the Dribble's +2, the handler changes the speed by up to their defensive skill.
-- F3 Boot: the Winger or Striker who played it gets the deflection's scoring opportunity wherever
-  the ball lands, shooting from there.
+- F3 Boot: the Winger or Striker who played it is offered the deflection's scoring opportunity
+  wherever the ball lands, shooting from there.
 - S1 Steal: "up to oSkill" is the stealer's offensive skill, chosen once everyone is back.
 - S2 Pickpocket: the defender keeps the ball and stays in place.
 - S3 My Turf!: +3 in this maneuver's skill test.
@@ -221,14 +223,10 @@ S1's Playmaker now does, by up to the offensive skill).
   passer step is a question, as 1.0's is.
 - Moves still cost exhaustion a space, as in 2.0 (5.4).
 
-**Asked of the author, still open:**
-
-- The Steal rank's Effect ends "Ball skill modifer for skill tests" -- the bot reads it as 1.0's
-  ball speed modifier added to a Steal's skill test (Law 7.4.1), which it still adds. Is that
-  still a rule?
-- On the tab, to fix there: "Long shot " (and the ends of several Effect and Special cells) carry
-  trailing spaces, which the importer strips; "modifer" in the Steal Effect. H1's "ball my go"
-  and R2's "teammmate" are already fixed on the tab.
+**Answered by the author** (2026-10-31): the ball speed modifier is still added to a Steal's skill
+test (Law 7.4.1) -- the Steal rank's Effect, "Ball skill modifier for skill tests". The tab's
+trailing spaces were removed and "modifer" corrected on the sheet, through the connector, at the
+author's request; H1's "ball my go" and R2's "teammmate" had already been fixed there.
 
 ### 2026-10-28 (later still) -- sheet and author, 2.0: Drive goes ahead only
 

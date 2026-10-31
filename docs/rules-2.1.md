@@ -45,7 +45,8 @@ their hand instead. **A card of the coach's own side plays as its maneuver**, wi
 **2.2** **A special applies when the player making the maneuver holds one of the roles it
 names** -- the handler on offense, the challenger on defense (Law 6.1) -- in the role the
 formation gives them (section 4). A special adds to the card's maneuver or replaces part of it,
-as section 7 says, and is the only role ability in 2.1 (4.7).
+as section 7 says, and is the only role ability in 2.1 (4.7). **Whatever a card says a player
+"may" do is optional**: the coach chooses whether to.
 
 **2.3** **A card may be flipped: on their turn a coach may discard an extra card from their
 hand to play any card as the maneuver of the same rank on the other side**, without its
@@ -347,13 +348,15 @@ throw that reaches the goal zone is the Charter's (Law 6.7.4).
 **7.4** **The defensive cards.**
 
 - **a.** *Deflect:* the ball moves 1 space back and its speed drops by 1. It lands as the
-  Charter's Deflect does, the goal-zone scoring opportunity included (Law 6.8.4, 6.8.5).
+  Charter's Deflect does (Law 6.8.4), and where Law 6.8.5 sets up a scoring opportunity the
+  player who played it may take it or let it go: the ball changes hands only if they shoot, and
+  let go it lands by the ordinary rule (Law 10.1).
   - **F1** *Fullback:* it moves a space further (Law 6.8.3).
-  - **F2** *Defender or Midfielder:* the player who played it follows the ball onto the space it
-    lands on, at its cost (5.4).
-  - **F3** *Winger or Striker:* the player who played it gets a scoring opportunity wherever the
-    ball lands, not only in the goal zone -- possession flips for it and the speed resets, as
-    Law 6.8.5's does.
+  - **F2** *Defender or Midfielder:* the player who played it may follow the ball onto the space
+    it lands on, at its cost (5.4).
+  - **F3** *Winger or Striker:* the player who played it may take a scoring opportunity wherever
+    the ball lands, not only in the goal zone, shooting from there -- possession flips for it and
+    the speed resets, as Law 6.8.5's does; let go, the ball lands by the ordinary rule.
   - **F4** *Playmaker:* the ball goes nowhere and is contested on the spot, by the handler and
     the player who played it (Law 10.2); the speed is left alone.
 - **b.** *Steal:* a turnover; the speed resets to 1 (Law 7.3), and the player who played it and
@@ -370,8 +373,8 @@ throw that reaches the goal zone is the Charter's (Law 6.7.4).
   1 forward onto that space; reaching the handler's own goal zone risks an own goal (Law 6.10).
   - **R1** *Defender:* a turnover, and nobody moves.
   - **R2** *Fullback or Playmaker:* the ball goes back to the handler's nearest teammate behind
-    them -- one sharing their space counting as behind -- and the player who played it follows it
-    onto that space. With nobody behind the handler it reaches their own goal zone and risks an
+    them -- one sharing their space counting as behind -- and the player who played it may follow
+    it onto that space. With nobody behind the handler it reaches their own goal zone and risks an
     own goal (Law 11).
   - **R3** *Midfielder:* the handler also exhausts 1.
   - **R4** *Striker or Winger:* the ball goes nowhere and is contested in place, by the handler
