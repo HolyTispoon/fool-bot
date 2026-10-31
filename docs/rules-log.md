@@ -193,9 +193,11 @@ S1's Playmaker now does, by up to the offensive skill).
 **Read from the cards, for the author to confirm** -- each is what the bot plays:
 
 - **"May" is optional** (the author, the same day: *"Any time a card says 'may' it's optional"*):
-  F2's and R2's follow is a question to the defender's coach, and every set-up a card says "may"
-  -- the Deflect's in the goal zone and F3 Boot's anywhere -- is offered, the ball changing hands
-  only if the shot is taken. F2's follow is 1 space.
+  F2's and R2's follow is a question to the defender's coach, and F3 Boot's set-up anywhere is
+  offered, the ball changing hands only if the shot is taken. F2's follow is 1 space. **The
+  Deflect's own set-up in the goal zone is not a "may"**: the author corrected the rank's Effect
+  on the sheet the same day to *"If reaches goal zone, set up scoring"* (*"Deflect set up scoring
+  is not a may. ... Boot is optional"*), so the challenger shoots, as in 1.0.
 - F4 Block and R4 Stress: "contested on the spot / in place" is a contest for the ball between
   the handler and the defender on the ball's space, in place of the card's own move; the speed is
   left alone.
@@ -224,9 +226,10 @@ S1's Playmaker now does, by up to the offensive skill).
 - Moves still cost exhaustion a space, as in 2.0 (5.4).
 
 **Answered by the author** (2026-10-31): the ball speed modifier is still added to a Steal's skill
-test (Law 7.4.1) -- the Steal rank's Effect, "Ball skill modifier for skill tests". The tab's
-trailing spaces were removed and "modifer" corrected on the sheet, through the connector, at the
-author's request; H1's "ball my go" and R2's "teammmate" had already been fixed there.
+test (Law 7.4.1). The author corrected the Steal rank's Effect on the sheet to "Ball speed
+modifier for skill tests" (it read "Ball skill modifier"). The tab's trailing spaces were removed
+and "modifer" corrected on the sheet, through the connector, at the author's request; H1's "ball
+my go" and R2's "teammmate" had already been fixed there.
 
 ### 2026-10-28 (later still) -- sheet and author, 2.0: Drive goes ahead only
 

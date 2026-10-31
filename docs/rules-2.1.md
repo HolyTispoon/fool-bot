@@ -348,9 +348,9 @@ throw that reaches the goal zone is the Charter's (Law 6.7.4).
 **7.4** **The defensive cards.**
 
 - **a.** *Deflect:* the ball moves 1 space back and its speed drops by 1. It lands as the
-  Charter's Deflect does (Law 6.8.4), and where Law 6.8.5 sets up a scoring opportunity the
-  player who played it may take it or let it go: the ball changes hands only if they shoot, and
-  let go it lands by the ordinary rule (Law 10.1).
+  Charter's Deflect does (Law 6.8.4), and where it reaches the goal zone it sets up a scoring
+  opportunity for the player who played it, as Law 6.8.5 does -- a set-up they take, not one
+  they may let go (the author, 2026-10-31).
   - **F1** *Fullback:* it moves a space further (Law 6.8.3).
   - **F2** *Defender or Midfielder:* the player who played it may follow the ball onto the space
     it lands on, at its cost (5.4).
