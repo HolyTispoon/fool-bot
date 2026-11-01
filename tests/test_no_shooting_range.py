@@ -1,5 +1,5 @@
 """
-D12 Ball 2.0 has no shooting range (docs/rules-2.1.md section 6): a
+D12 Ball 2.0 has no shooting range (docs/rules-2.2.md section 6): a
 shot may be taken from anywhere, and a time out may be called on any
 turn, once a half and not after last possession. 1.0 is untouched.
 `RulesEngine.can_attempt_score` and `may_call_time_out` are the one
@@ -125,7 +125,7 @@ class NoShootingRangeButtonTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_shot_and_the_time_out_are_both_offered_in_two(self) -> None:
         self.assertEqual(
             self.buttons(Edition.TWO),
-            # My hand rides on a 2.1 turn's prompt as well.
+            # My hand rides on a 2.2 turn's prompt as well.
             ["Maneuver", "Shoot to score", "Time out", "My hand"],
         )
         self.assertEqual(self.buttons(Edition.ONE), ["Maneuver", "Time out"])

@@ -1957,7 +1957,7 @@ def render_maneuver_card(
     is_offense: bool,
     bleed: bool,
 ) -> Image.Image:
-    """One printed 1.0 maneuver card. 2.1's cards are
+    """One printed 1.0 maneuver card. 2.2's cards are
     `d12ball.deck_faces`'."""
     # A distinct shade for a gambit, not a tint of the basic
     # one -- the two sit side by side in a coach's hand and back to
@@ -2079,7 +2079,7 @@ class BackStyle(NamedTuple):
     """
     How a maneuver back draws its words: the title, the rank labels
     and the captions. The defaults are 1.0's backs; `EDITION_TWO_BACK`
-    is the 2.1 deck's.
+    is the 2.2 deck's.
     """
 
     title_size: int = 44

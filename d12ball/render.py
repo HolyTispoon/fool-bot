@@ -5912,7 +5912,7 @@ def draw_jumbotron_coin(
 ) -> None:
     """
     D12 Ball 2.0's coin, showing the face it lands on, with what that
-    face means under it (docs/rules-2.1.md, section 5; the author,
+    face means under it (docs/rules-2.2.md, section 5; the author,
     2026-10-20). `tie_coin` is the face's picture, as
     `game.coin_face_name` names it, and the caption the engine words
     (`RulesEngine.tie_coin_caption`) -- the picture knows no rule. A

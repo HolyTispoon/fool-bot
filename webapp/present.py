@@ -1153,7 +1153,7 @@ def _passer_advance(asked: Asked) -> list:
 
 def _follow_ball(asked: Asked) -> list:
     """
-    Whether 2.1's F2 or R2 defender follows the ball (rules-2.1 7.4):
+    Whether 2.2's F2 or R2 defender follows the ball (rules-2.2 7.4):
     the yes lights the defender, and both answers name them, as the
     Discord buttons do. The web page plays no 2.x game, so this is here
     for the kind to have its controls.

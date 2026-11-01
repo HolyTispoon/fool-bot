@@ -958,7 +958,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
 
 class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
     """A 2.0 side's Coaching Choice arranges it by its roles in place of
-    a formation (docs/rules-2.1.md 4.3): three unique roles named, three
+    a formation (docs/rules-2.2.md 4.3): three unique roles named, three
     more placed, and the shape is what that makes."""
 
     def build(self, board_size: int = 9):
@@ -988,7 +988,7 @@ class CoachingArrangeFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Arrange team", labels)
         self.assertFalse(any(label.startswith("Formation") for label in labels))
         # Arrange team's trades and moves are 2.0's only way to move
-        # anybody (docs/rules-2.1.md 4.6).
+        # anybody (docs/rules-2.2.md 4.6).
         self.assertNotIn("Zone Assignment", labels)
         self.assertNotIn("Space Positioning", labels)
 

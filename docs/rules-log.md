@@ -156,9 +156,33 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-11-01 (latest) -- author, 2.1: the coin starts on the toss's face
+### 2026-11-01 (latest) -- author, 2.2 replaces 2.1: twelve split cards and a hand of three
 
-**A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) 5.2). The author, on 2026-11-01,
+**A rule changed, in 2.x alone** ([rules-2.2.md](rules-2.2.md) 1.1, 1.2, 2.1, 2.3, 2.5, 3.1,
+3.3 and 7.1; the file was `rules-2.1.md`). The author, on 2026-11-01, drafted the 2.1 cards as
+split cards -- *"both offense and defense on the same card ... top half and bottom half"*, with
+the band of what beats what between them -- and then: *"Build this deck as 2.1. Hands of 3
+cards."* On reviewing it, the same day: *"The new deck should be called 2.2 with a record of 2.1
+and what it was"*, and *"I'm gonna abandon ongoing games."*
+
+- **2.2 replaces 2.1.** 2.1's rules as they stood, and what it was, are filed in
+  [archive/rules-2.1/](../archive/rules-2.1/README.md). The 2.1 games in progress on the live
+  bot are abandoned, as 2.0's were on 2026-10-31, so nothing is carried over: an id of 2.1's
+  single-faced cards plays nothing in 2.2. The setting is the same one, saved "2.0".
+- **The twenty-four cards are printed two to a card**, each offensive half over the defensive
+  half of the same rank and number (P*n*/F*n*, B*n*/S*n*, H*n*/R*n*), so a deck is twelve cards
+  and every card plays on either side with its special. The pairing by number was the draft's
+  (Claude's, which the author reviewed and asked to be built).
+- **The flip** (2.1's 2.3) goes: there is no other side's card left to flip.
+- **A hand is three cards**, drawn back up to three, and three again at halftime. The odds of a
+  hand of three holding a single rank -- 12 of 220 hands, about 5% -- were worked out for him
+  before he chose three.
+- **1.1c now counts halves**: the four halves of a rank name all six roles once, which puts each
+  role on two of a rank's four cards, once a half.
+
+### 2026-11-01 (later) -- author, 2.1: the coin starts on the toss's face
+
+**A rule changed, in 2.x alone** ([rules-2.2.md](rules-2.2.md) 5.2). The author, on 2026-11-01,
 after a first turn announced a fresh flip: *"it shouldn't toss on the first turn, it should just
 use the toss from the team selection."* 5.2 had the coin flipped at the start of the game, before
 the first turn, which the bot read as a second flip at the first turn; now the coin starts on the
@@ -167,7 +191,7 @@ unchanged.
 
 ### 2026-11-01 -- author, 2.1: every score attempt exhausts 1
 
-**A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) 5.5, 7.2b). The author, on PR
+**A rule changed, in 2.x alone** ([rules-2.2.md](rules-2.2.md) 5.5, 7.2b). The author, on PR
 #694: *"Attempting a score -- whether off set up or not -- always exhausts 1."* In 2.1 the
 shooter exhausts 1 after the roll on every score attempt -- an ordinary turn's shot, a
 set-up's, and B1's scoring opportunity alike. In 1.0 a plain score attempt still costs nothing
@@ -175,8 +199,9 @@ and a set-up's shot 1 (Law 8.3.1): *"Don't change 1.0 for now"* (the author, the
 
 ### 2026-10-31 -- sheet and author, 2.1: the 2.1 maneuver deck replaces 2.0's cards
 
-**A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) sections 1 to 3, 5 and 7; the
-file was `rules-2.1.md`, and sections 4 and 6 stand as they were). The author rewrote the
+**A rule changed, in 2.x alone** ([rules-2.2.md](rules-2.2.md) sections 1 to 3, 5 and 7; the
+file was `rules-2.0.md`, then `rules-2.1.md` until 2026-11-01, and sections 4 and 6 stand as
+they were). The author rewrote the
 `maneuvers 2.0` tab in place as `maneuvers 2.1` (gid 1310773351) and decided, on 2026-10-31:
 
 - **2.0's two-headed cards are filed away** (`archive/maneuvers-2.0/`). The three 2.0 games in
@@ -257,7 +282,7 @@ my go" and R2's "teammmate" had already been fixed there.
 
 ### 2026-10-28 (later still) -- sheet and author, 2.0: Drive goes ahead only
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 7.2i). The author amended Drive
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 7.2i). The author amended Drive
 on the `maneuvers 2.0` tab: *"Player and ball to closest teammate ahead. Teammate may take the
 ball. Ball speed -2."* -- "ahead or behind" is now "ahead". In the author's words: *"it only
 goes ahead, not behind"*. The bot offers Drive's teammate ahead alone
@@ -266,7 +291,7 @@ the teammate ahead at its next click.
 
 ### 2026-10-28 (later) -- sheet and author, 2.0: the two-headed cards re-paired
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 1.1a, 7.1). The author
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 1.1a, 7.1). The author
 renumbered two pairs of rows on the `maneuvers 2.0` tab, which is what pairs a two-headed
 card's halves: Pass and Run now shares a card with Follow and Curved Pass with Boot, and Long
 shot now shares a card with Control and Set up with Stay Close. It follows the pairing the
@@ -278,7 +303,7 @@ this finds the cards of those four rows swapped at its next card played.
 
 ### 2026-10-28 -- sheet and author, 2.0: Follow amended, and the card readings confirmed
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 7.3b). The author amended Follow
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 7.3b). The author amended Follow
 on the `maneuvers 2.0` tab: *"Ball moves back 1 space, defender follows it. If reaches goal
 zone, may set up scoring."* -- its +3 to ball speed is gone, and the goal-zone scoring
 opportunity the entry below read into it is now the card's own words. Of the rest of the
@@ -291,7 +316,7 @@ author, 2026-10-28), so nothing imports it yet.
 
 ### 2026-10-27 -- sheet and author, 2.0: the maneuver cards of the `maneuvers 2.0` tab
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 1.1a and section 7). The author
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 1.1a and section 7). The author
 asked for the 2.0 deck to be built from the sheet's new `maneuvers 2.0` tab (gid 1310773351):
 thirty maneuvers, five a rank on each side -- the rank's basic card, three more basic cards, and
 the advanced card -- numbered 1 to 5 by the tab's `Index`. The twelve two-headed cards are now
@@ -332,7 +357,7 @@ and is what the bot plays:
 
 ### 2026-10-25 (later still) -- author, 2.0: a stray player goes back to their zone or takes a new role
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 4.9d), to the entry below, which
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 4.9d), to the entry below, which
 had a player left outside their zone take the standard role of the zone they stood in as the
 coach finished. Asked whether everyone ends the window in the zone of their role, and told that
 they did so by taking the role of wherever they stood, the author chose the stricter reading:
@@ -344,7 +369,7 @@ their role.
 
 ### 2026-10-25 (later) -- author, 2.0: a time out's and halftime's window sends the unique roles back
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 4.9d), replacing "a time out and
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 4.9d), replacing "a time out and
 halftime move nobody" of 2026-10-24 (later), now that a 2.0 coach moves their side by
 rearranging it alone (4.6c, the entry below). Asked what a Coaching Choice opened on a scattered
 side should do -- a Fullback, Playmaker or Striker off their space, or others outside their zone
@@ -359,7 +384,7 @@ option put to the author that their answer kept.
 
 ### 2026-10-25 -- author, 2.0: no zone assignment or space positioning; an Ooze shares both ways
 
-**Two more answers on PR #673** ([rules-2.1.md](rules-2.1.md) 4.6, 5.4a), to the two entries
+**Two more answers on PR #673** ([rules-2.2.md](rules-2.2.md) 4.6, 5.4a), to the two entries
 below.
 
 - **An Ooze shares a space both ways** (4.6e): an Ooze may be placed on anybody's space, a
@@ -377,7 +402,7 @@ below.
 
 ### 2026-10-25 -- author, 2.0: no shooting range
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) section 6). The author, asking for
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) section 6). The author, asking for
 the range to come off the printed 2.0 field board: *"there is no shooting range in 2.0. Players
 can shoot from wherever they want."* So a score attempt is offered on every turn, the speed
 modifier goes with a shot from anywhere, and a set-up's shot is never lost to the range (6.1).
@@ -389,7 +414,7 @@ conditions -- once a half, and not after last possession -- unchanged (6.2).
 
 ### 2026-10-24 (later) -- author, 2.0: only a new play runs back, and a steal's run back is the Charter's
 
-**Two answers on PR #675** ([rules-2.1.md](rules-2.1.md) 4.6d, 4.9, 5.4a), narrowing the entry
+**Two answers on PR #675** ([rules-2.2.md](rules-2.2.md) 4.6d, 4.9, 5.4a), narrowing the entry
 below. The author: *"There is no point in placing back players after a time out and before the
 second half. When there's a coaching window the player will have a chance to place them anyway.
 I want to pull back a little. After a steal all player run back to their zone including unique
@@ -409,7 +434,7 @@ moves to an empty space of it.
 
 ### 2026-10-24 -- author, 2.0: a restart is a run back
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 4.9, 5.4a), replacing the reset
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 4.9, 5.4a), replacing the reset
 to the coaches' arrangement (Law 12.5.1, 13.1.2) with a run back. The author: *"Another rule
 change for 2.0 is that run back and new play are now the same, in the sense that each player
 needs to run back to any open space in the zone they are assigned to. So a midfielder would just
@@ -433,7 +458,7 @@ where 1.0 resets after them.
 
 ### 2026-10-24 (later) -- author, 2.0: the zone cap holds with Oozes, and a rearrangement starts from where the side stands
 
-**Two answers on PR #673** ([rules-2.1.md](rules-2.1.md) 4.3, 4.6a), to the entry below.
+**Two answers on PR #673** ([rules-2.2.md](rules-2.2.md) 4.3, 4.6a), to the entry below.
 
 - **No zone holds more players than it has spaces, Oozes included.** The author: *"Make note
   that there can be no more players in a zone than spaces even with oozes in the rules"* -- the
@@ -450,7 +475,7 @@ where 1.0 resets after them.
 
 ### 2026-10-24 -- author, 2.0: no formations; a side is arranged by its roles
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 4.2, 4.3, 4.5, 4.6a, 4.6e, 5.4a),
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 4.2, 4.3, 4.5, 4.6a, 4.6e, 5.4a),
 replacing 4.3's three steps -- a formation, then the roles, then the standard roles' spaces --
 and the formation change of 2026-10-18. The author: *"for d12ball 2.0 the way to assign players
 to formation should follow the following procedure. 1. Coaches assign players to the roles of
@@ -481,7 +506,7 @@ Rearranging later in the game uses the six on the field; only a substitution bri
 
 ### 2026-10-21 -- author, 2.0: moving costs a token a space, and a card costs nothing
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) 5.4), replacing the rank cost of
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) 5.4), replacing the rank cost of
 2026-10-20 (the second entry below). The author: *"the recent changes where maneuver cost
 exhaustion according to rank in d12ball 2.0 - remove that. instead moving on the board costs
 exhaustion so any time players moves except for running back after a new play, they should add
@@ -507,7 +532,7 @@ space too"* (5.4, 5.4b).
 **A rule changed, in 2.0 alone.** The author: *"I want 12 cards of basic maneuvers. 6 advanced
 still"*, and after the simulations below, *"Make it 12+6 with a hand of 5"*. So the deck is
 eighteen cards -- four two-headed cards a rank and the six advanced maneuvers -- and a coach
-holds five (rules-2.1 1.1, 1.2, 3.1, 3.3). Nothing else in 2.0 moved: one card is still drawn
+holds five (rules-2.2 1.1, 1.2, 3.1, 3.3). Nothing else in 2.0 moved: one card is still drawn
 after each card played, the reshuffle is still at the last card drawn, and halftime still
 shuffles everything back.
 
@@ -531,7 +556,7 @@ leads to.
 
 ### 2026-10-20 -- author, 2.0: the coin settles tied rolls, and a maneuver costs its rank
 
-**A rule changed, in 2.0 alone** ([rules-2.1.md](rules-2.1.md) section 5). The author: *"ties
+**A rule changed, in 2.0 alone** ([rules-2.2.md](rules-2.2.md) section 5). The author: *"ties
 are resolved by the state of the coin. At the start of the game, the coin is flipped into
 fortune or doom. While the coin is on fortune, offense wins ties and vice versa. Every time there
 is a contest or a challenge where an advanced maneuver is played, the coin is tossed again and a
@@ -562,7 +587,7 @@ coin's face should be shown on the turn message and the board as well as said wh
 
 **Two rules changed, in 2.0 alone**, answering the questions on PR #637.
 
-- **A recommended arrangement for each team** (rules-2.1 4.5). Asked whether a formation change
+- **A recommended arrangement for each team** (rules-2.2 4.5). Asked whether a formation change
   should start from an arrangement dealt by defensive skill, the author: *"the setup should just
   record a specific suggested arrangement - a recommended setup for each team. That's all."* And
   on where: *"The rulebook should have recommended arrangements for each team saying 'for your
@@ -580,10 +605,10 @@ coin's face should be shown on the turn message and the board as well as said wh
 
 **A rule changed, in 2.0 alone.** The author: *"Players no longer have roles. Formations have
 roles in places. ... Players keep their abilities scores but not the basic role abilities which
-for now are gone in 2.0."* The rules are [rules-2.1.md](rules-2.1.md) section 4; the living
+for now are gone in 2.0."* The rules are [rules-2.2.md](rules-2.2.md) section 4; the living
 rules, 1.0's, are unchanged. Asked the same day, the author answered:
 
-- **Which role is where** (rules-2.1 4.2). The first message said there is always one of each
+- **Which role is where** (rules-2.2 4.2). The first message said there is always one of each
   role on the field; the author then gave a layout where that holds for 2-2-2 alone (*"2-3-1
   would mean playing with 2 midfielders and no winger. 3-2-1 means two defenders and no wingers.
   1-3-2 means no defender and two midfielders. 1-2-3 is no defender and two wingers"*), and
@@ -662,7 +687,7 @@ reached the goal zone pays the whole speed against it.
   the ball speed modifier itself rather than a bonus of his own. "Once, not twice" stands: where
   the roll already adds the modifier, or the whole speed on a High Ball contest's throwing
   side, Zorch adds nothing besides.
-- **Both editions.** D12 Ball 2.0 plays the Charter wherever `rules-2.1.md` does not change it,
+- **Both editions.** D12 Ball 2.0 plays the Charter wherever `rules-2.2.md` does not change it,
   and it does not touch the speed, so this is one change to both.
 
 ### 2026-10-17 -- author, a space is numbered like a number line
@@ -686,7 +711,7 @@ each space rather than small number hiding in the corner."*
   lessons and the rulebook figures' notes with them. Where every space is, who stands where and
   every distance are unchanged; only what a space is called moved.
 - **Negative numbers take the minus sign** ("−2"), never the hyphen, which joins a range.
-- Applies to 1.0 and 2.0 alike: `docs/rules-2.1.md` names no space by number, so it is unchanged.
+- Applies to 1.0 and 2.0 alike: `docs/rules-2.2.md` names no space by number, so it is unchanged.
 
 ### 2026-10-16 -- sheet and author, Low Pass is Pass and High Pass is High Ball
 
@@ -712,7 +737,7 @@ beats/ties/defeated by row so it works for both sides. Discard piles should be v
 Halftime reshuffle."* And: *"The beats band in the middle should say beat R3 rather than beat
 3."*
 
-- **A two-headed card carries no role abilities** (rules-2.1 1.1a), and its beats / ties /
+- **A two-headed card carries no role abilities** (rules-2.2 1.1a), and its beats / ties /
   loses-to row is **one band across the middle**, read from each end by the half there, by the
   other side's rank: D3 under the offensive half, O3 under the defensive one, with the basic
   maneuver on that rank and not its advanced one (*"don't include the advanced maneuver in the
@@ -730,11 +755,11 @@ turned around upside down. top half is offensive and bottom half is defensive ma
 same rank. 9 cards are 3 each of the 3 ranks of basic maneuver. in addition, each deck has 6
 advanced maneuvers. players draw hands of 4 cards each turn and play from their hand. when you
 draw the last card of your deck, you shuffle your discard to make a new deck. keep d12ball 1.0
-as is."* The rules are [rules-2.1.md](rules-2.1.md), not the living rules, which stay 1.0's.
+as is."* The rules are [rules-2.2.md](rules-2.2.md), not the living rules, which stay 1.0's.
 Asked the same day, the author answered:
 
 - **The hand refills**: a coach keeps their hand and draws one after each card played, back up
-  to four (rules-2.1 3.1) -- chosen over a fresh four every turn.
+  to four (rules-2.2 3.1) -- chosen over a fresh four every turn.
 - **No coin** (2.2): an advanced card in the hand is played like any other, and succeeds or
   fails on rank; played against no challenge it resolves as its basic counterpart (2.3).
 - **The edition is a setting beside the mode** -- every mode keeps its own abilities and plays

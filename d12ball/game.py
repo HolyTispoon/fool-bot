@@ -151,11 +151,12 @@ class Edition(str, Enum):
     """
     Which edition of the game a match plays, beside its mode (the
     author, 2026-10-16). **1.0** is the game the Charter describes: each
-    coach chooses from the same three cards every maneuver. **2.1**
+    coach chooses from the same three cards every maneuver. **2.2**
     (the member is still `TWO`, saved as "2.0": 2.1 replaced 2.0's cards
-    on 2026-10-31 under the same setting) gives each coach a shuffled
-    deck of twenty-four maneuver cards and a hand of five drawn from it
-    -- see docs/design/maneuver-deck.md and docs/rules-2.1.md. The mode still
+    on 2026-10-31, and 2.2 replaced 2.1's on 2026-11-01, under the same
+    setting) gives each coach a shuffled
+    deck of twelve split maneuver cards and a hand of three drawn from it
+    -- see docs/design/maneuver-deck.md and docs/rules-2.2.md. The mode still
     says which abilities are played, so either edition goes with any
     mode.
 

@@ -1,7 +1,8 @@
 """
-D12 Ball 2.1 on Discord: the public maneuver prompt carries no cards,
-only one hand button; pressing it shows a coach their own five cards, ephemerally, with the maneuvers they can play under it; and a
-pick from there plays the card. The rules are `test_maneuver_deck`'s;
+D12 Ball 2.2 on Discord: the public maneuver prompt carries no cards,
+only one hand button; pressing it shows a coach their own three cards,
+ephemerally, with a button a card under it; and a pick from there plays
+the card. The rules are `test_maneuver_deck`'s;
 this is the frontend over them.
 """
 
@@ -12,7 +13,6 @@ from cogs.d12ball_boards import d12ball_board_view
 from cogs.d12ball_helpers import HAND_BUTTON_LABEL
 from cogs.d12ball_views import ManeuverActionPromptView, PlayerActionView
 from cogs.d12ball_views.turn import (
-    FlipExtraView,
     HandButton,
     HandShowing,
     ManeuverHandView,
@@ -89,8 +89,9 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             )
             hand_view = sent[0].kwargs["view"]
             self.assertIsInstance(hand_view, ManeuverHandView)
-            # One button a way to play a card: its own, or flipped --
-            # in the picture's order, this side's cards before the flips.
+            # One button a card -- named by the half the prompt's own
+            # `CardPlay` says it plays on this side -- in the picture's
+            # order.
             order = maneuver_deck.hand_order(cog.maneuver_catalog, side)
             plays = sorted(
                 cog.engine.card_plays(game, match, side),
@@ -98,10 +99,10 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(len(hand_view.children), len(plays))
             for item, play in zip(hand_view.children, plays):
-                self.assertIn(play.card_id, item.label)
-                self.assertEqual(item.label.startswith("\u21c5"), play.flip)
-            flips = [play.flip for play in plays]
-            self.assertEqual(flips, sorted(flips))
+                self.assertEqual(
+                    cog.maneuver_catalog.deck_card(play.half).side, side,
+                )
+                self.assertIn(play.half, item.label)
 
     async def test_somebody_coaching_neither_side_is_refused(self) -> None:
         cog, game = self.build()
@@ -141,44 +142,18 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             )
             view = ManeuverHandView(cog, game.game_id, options_hand)
             interaction = build_interaction(user_id=coaches[side])
-            play = next(play for play in options_hand.cards if not play.flip)
+            play = options_hand.cards[0]
             with suppressed_cog_saves():
                 await view.pick(
                     interaction, side, play.maneuver_key, play.card_id,
+                    play.half,
                 )
+            reply = interaction.response.send_message.await_args.args[0]
+            self.assertIn(play.half, reply)
         match = cog.engine.load_match_state(game)
         for deck in match.maneuver_decks.values():
-            self.assertEqual(len(deck["hand"]), 5)
+            self.assertEqual(len(deck["hand"]), 3)
             self.assertEqual(len(deck["discard"]), 1)
-
-
-    async def test_a_flip_asks_its_extra_card_and_discards_both(self) -> None:
-        cog, game = self.build()
-        match = cog.engine.load_match_state(game)
-        team = cog.engine.maneuver_side_team(match, "offense")
-        deck = match.maneuver_decks[team.value]
-        # A hand with a defensive card the offense can only flip.
-        others = [card for card in deck["draw"] if card.startswith("F")]
-        deck["draw"] = [c for c in deck["draw"] if c != others[0]] + deck["hand"][:1]
-        deck["hand"][0] = others[0]
-        game.match_state = match.to_dict()
-        options_hand = next(
-            hand for hand in ManeuverActionPromptView(cog, game.game_id)
-            .prompt_options(game, match, PromptKind.MANEUVER_ACTION).hands
-            if hand.side == "offense"
-        )
-        flip = next(play for play in options_hand.cards if play.flip)
-        extras = FlipExtraView(cog, game.game_id, "offense", flip)
-        self.assertEqual(len(extras.children), len(flip.extra_ids))
-        coach = HOME_COACH if team == TeamSide.HOME else VISITING_COACH
-        with suppressed_cog_saves():
-            await extras.pick(
-                build_interaction(user_id=coach), "offense",
-                flip.maneuver_key, flip.card_id, flip.extra_ids[0],
-            )
-        match = cog.engine.load_match_state(game)
-        self.assertEqual(match.maneuver_cards["offense"], [flip.card_id, flip.extra_ids[0]])
-        self.assertEqual(match.offense_maneuver, "low_pass")
 
 
 class DiscardPictureTests(unittest.IsolatedAsyncioTestCase):
@@ -222,7 +197,7 @@ class HandEverywhereTests(unittest.IsolatedAsyncioTestCase):
     def hand_buttons(view):
         return [item for item in view.children if isinstance(item, HandButton)]
 
-    def test_the_action_prompt_carries_my_hand_in_2_1_alone(self) -> None:
+    def test_the_action_prompt_carries_my_hand_in_2_2_alone(self) -> None:
         cog, game = self.build()
         self.assertEqual(
             len(self.hand_buttons(PlayerActionView(cog, game.game_id))), 1,
@@ -274,7 +249,7 @@ class HandEverywhereTests(unittest.IsolatedAsyncioTestCase):
         refused.followup.send.assert_not_awaited()
         cog.build_deck_hand_file.assert_not_awaited()
 
-    def test_the_hand_text_does_not_explain_the_flip(self) -> None:
+    def test_the_hand_text_names_no_flip(self) -> None:
         cog, game = self.build(challenged=True)
         match = cog.engine.load_match_state(game)
         for hand in ManeuverActionPromptView(cog, game.game_id).prompt_options(

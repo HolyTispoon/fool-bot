@@ -864,7 +864,7 @@ class TeamSetup:
 # reads their own shape from their own goal, and which end of the board
 # that is depends on the side they are playing (zone_for_area).
 SETUP_AREAS = ("own_goal", "midfield", "opponent_goal")
-# D12 Ball 2.0's roles by zone (docs/rules-2.1.md 4.2): each setup
+# D12 Ball 2.0's roles by zone (docs/rules-2.2.md 4.2): each setup
 # area's unique role, which its first player takes, and the standard
 # role every other player in it holds.
 FORMATION_ZONE_ROLES = {
@@ -874,19 +874,19 @@ FORMATION_ZONE_ROLES = {
 }
 # The three unique roles, as saved: a card holding one stands on its
 # zone's fixed space and is not moved by space positioning
-# (docs/rules-2.1.md 4.3a, 4.6d).
+# (docs/rules-2.2.md 4.3a, 4.6d).
 UNIQUE_ROLE_VALUES = frozenset(
     unique.value for unique, _ in FORMATION_ZONE_ROLES.values()
 )
 # The setup area each unique role belongs to, keyed as saved, in the
 # order a 2.0 arrangement names them: Fullback, Playmaker, Striker
-# (docs/rules-2.1.md 4.3a).
+# (docs/rules-2.2.md 4.3a).
 UNIQUE_ROLE_AREAS = {
     unique.value: area for area, (unique, _) in FORMATION_ZONE_ROLES.items()
 }
 FIELD_PLAYER_COUNT = 6
 # How many a 2.0 arrangement places after the three unique roles
-# (docs/rules-2.1.md 4.3b).
+# (docs/rules-2.2.md 4.3b).
 ARRANGED_PLAYER_COUNT = FIELD_PLAYER_COUNT - len(UNIQUE_ROLE_AREAS)
 
 # The shortest High Ball a coach may choose. A Fullback's ability
@@ -1166,8 +1166,9 @@ class ManeuverDefinition:
 @dataclass(frozen=True)
 class DeckCard:
     """
-    **One of D12 Ball 2.1's twenty-four maneuver cards** (the
-    `maneuvers 2.1` tab, `maneuver_cards.json`; docs/rules-2.1.md).
+    **One of the twenty-four halves of D12 Ball 2.2's maneuver cards**
+    -- 2.1's twenty-four cards, two to a 2.2 card (the `maneuvers 2.1`
+    tab, `maneuver_cards.json`; docs/rules-2.2.md 1.1).
 
     `index` is the card's identity -- the sheet's `Index`, "P1" to
     "R4" -- because two cards' names are 1.0 cards' names (P3 is
@@ -1208,7 +1209,7 @@ class ManeuverCatalog:
     source: str
     offense: tuple[ManeuverDefinition, ...]
     defense: tuple[ManeuverDefinition, ...]
-    # **D12 Ball 2.1's deck** (`maneuver_cards.json`), by the sheet's
+    # **D12 Ball 2.2's halves** (`maneuver_cards.json`), by the sheet's
     # index. Each plays one of the basic cards above, so it is not a
     # maneuver of its own: nothing that reads a side's maneuvers meets
     # one. Empty for a catalog loaded without the file -- a test's.
@@ -1218,7 +1219,7 @@ class ManeuverCatalog:
         return self.offense if side == "offense" else self.defense
 
     def deck_card(self, index: str) -> Optional[DeckCard]:
-        """The 2.1 card with this index, or None."""
+        """The half with this index, or None."""
         for card in self.deck_cards:
             if card.index == index:
                 return card
@@ -1252,7 +1253,7 @@ class ManeuverCatalog:
 
     def card_title(self, card: DeckCard) -> str:
         """
-        **A 2.1 card's title is the basic maneuver it plays** --
+        **A half's title is the basic maneuver it plays** --
         "Deflect" for F3 -- and its own name, "Boot", its subtitle
         (the author, 2026-11-01): a card says which maneuver it is
         before what sets it apart. The face draws the two apart;
@@ -1262,7 +1263,7 @@ class ManeuverCatalog:
 
     def card_label(self, card: DeckCard) -> str:
         """
-        A 2.1 card named in a line of text: its title, then its name in
+        A half named in a line of text: its title, then its name in
         parentheses -- "Deflect (Boot)" -- or the title alone where the
         name is the title (F1, "Deflect").
         """
@@ -2025,16 +2026,16 @@ MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
         # it was before 2.0.
         "maneuver_decks",
         "formation_roles",
-        # 2.1's coin, likewise written only where it has been tossed.
+        # 2.2's coin, likewise written only where it has been tossed.
         "tie_coin",
-        # 2.1's cards behind this maneuver's picks, only while there are.
+        # 2.2's cards behind this maneuver's picks, only while there are.
         "maneuver_cards",
-        # 2.1's follow question, only while one is asked.
+        # 2.2's follow question, only while one is asked.
         "pending_follow",
-        # 2.1's terms of the offer a shot was taken off, only while the
+        # 2.2's terms of the offer a shot was taken off, only while the
         # shot waits.
         "pending_shot_offer",
-        # 2.1's H4 thrown 0, only while its maneuver is under way.
+        # 2.2's H4 thrown 0, only while its maneuver is under way.
         "vertical_ball",
         # 2.0's restart run back, only while one is under way.
         "pending_replace",
@@ -2131,7 +2132,7 @@ class MatchState:
     # (`RulesEngine.initialize_standard_match`) and played at a
     # maneuver's reveal (`d12ball.flow.turn.play_maneuver_cards`); it
     # outlives every maneuver, so `reset_maneuver` leaves it alone.
-    # D12 Ball 2.0's roles (docs/rules-2.1.md, section 4): a role
+    # D12 Ball 2.0's roles (docs/rules-2.2.md, section 4): a role
     # belongs to the formation, assigned to a player, rather than being
     # the player's own. Keyed by the side's saved value, each
     # `{card id: role value}` for the six fielded cards -- a bench card
@@ -2143,7 +2144,7 @@ class MatchState:
     maneuver_decks: dict[str, dict[str, list[str]]] = field(
         default_factory=dict,
     )
-    # D12 Ball 2.1's coin (docs/rules-2.1.md, section 5): the face it
+    # D12 Ball 2.2's coin (docs/rules-2.2.md, section 5): the face it
     # shows, which settles the next tie -- the offense's on Fortune, the
     # defense's on Doom. Flipped at the first turn
     # (`d12ball.flow.turn.settle_tie_coin`) and tossed again after every
@@ -2154,25 +2155,25 @@ class MatchState:
     # exactly as before (`MATCH_EXPLICIT_FIELDS`). It outlives every
     # maneuver, so `reset_maneuver` leaves it alone.
     tie_coin: Optional[str] = None
-    # **D12 Ball 2.1's cards behind this maneuver's picks**, by side
+    # **D12 Ball 2.2's cards behind this maneuver's picks**, by side
     # ("offense", "defense"): `[card]`, or `[card, extra]` for a card
     # flipped to play as the other side's maneuver of its rank, which
-    # discards the extra card and plays no special (docs/rules-2.1.md
+    # discards the extra card and plays no special (docs/rules-2.2.md
     # 2.3). Written with the pick (`turn.maneuver_pick_step`), played
     # out of the hand at the reveal, and read through the effect by
     # `RulesEngine.card_special` -- so it goes with the maneuver, in
     # `reset_maneuver`. Saved explicitly, only while there are any
     # (`MATCH_EXPLICIT_FIELDS`).
     maneuver_cards: dict[str, list[str]] = field(default_factory=dict)
-    # **2.1's follow, asked** (F2 Follow, R2 Control: "defender may
-    # follow"; rules-2.1 7.4): the question, saved so a restart asks it
+    # **2.2's follow, asked** (F2 Follow, R2 Control: "defender may
+    # follow"; rules-2.2 7.4): the question, saved so a restart asks it
     # again -- who may follow, the space they would move to, and what
     # the maneuver does once answered (`"then": "deflection"`, with
     # whether the ball reached the goal zone, or `"then": "finish"`).
     # Read by `prompts.follow_prompt`; saved explicitly, only while
     # asked (`MATCH_EXPLICIT_FIELDS`), and cleared with the maneuver.
     pending_follow: Optional[dict] = None
-    # **2.1's terms of the offer a waiting shot was taken off**
+    # **2.2's terms of the offer a waiting shot was taken off**
     # (`arrivals.take_scoring_opportunity`): `"set_up": False` for a
     # scoring opportunity that is not a set-up -- B1's, whose shooter
     # does not exhaust after the roll (Law 8.3.1; the author,
@@ -2182,7 +2183,7 @@ class MatchState:
     # offers the same question with the ball where it was. Saved
     # explicitly, only while held (`MATCH_EXPLICIT_FIELDS`).
     pending_shot_offer: Optional[dict] = None
-    # **2.1's H4 Vertical Ball thrown 0** (rules-2.1 7.3): the ball goes
+    # **2.2's H4 Vertical Ball thrown 0** (rules-2.2 7.3): the ball goes
     # straight up and comes down on the passer's own space, and the
     # passer is its receiver -- the one High Ball a passer receives,
     # still contested and then a set-up (the author, 2026-10-31). Read
@@ -2397,7 +2398,7 @@ class MatchState:
     # space step that consumes it and by every reset that ends a run
     # back.
     run_back_pick: Optional[str] = None
-    # **D12 Ball 2.0's new play run back** (docs/rules-2.1.md 4.9, the
+    # **D12 Ball 2.0's new play run back** (docs/rules-2.2.md 4.9, the
     # author, 2026-10-24): a new play sends every fielded player back to
     # their own zone rather than snapping them onto a saved arrangement
     # -- the three unique roles straight to their spaces, everyone else
@@ -2891,7 +2892,7 @@ class MatchState:
         explicitly, since they read the offense once at the top and
         resolve the whole effect against it.
 
-        **2.0 has no range** (docs/rules-2.1.md section 6), so there a
+        **2.0 has no range** (docs/rules-2.2.md section 6), so there a
         shot is legal from anywhere: `range_applies` is the game's
         answer, which the match cannot see, and
         `RulesEngine.can_attempt_score` is the one place it is asked.
@@ -2912,7 +2913,7 @@ class MatchState:
     def shot_is_set_up(self) -> bool:
         """
         Whether the waiting shot is **off a set-up** (Law 8): taken off
-        an offer, and not one of 2.1's scoring opportunities that is not
+        an offer, and not one of 2.2's scoring opportunities that is not
         a set-up (B1's; `pending_shot_offer`). The one reading of what
         a set-up's shot adds -- the shooter's token after the roll
         (Law 8.3.1) and the Striker's +3 -- where
@@ -2990,7 +2991,7 @@ class MatchState:
         Whether the team in possession may stop play to coach -- see
         "Time out" in docs/living-rules.md. Three conditions and no
         others -- two in 2.0, which has no range (`range_applies`
-        False; docs/rules-2.1.md 6.2), so its time out is on offer on
+        False; docs/rules-2.2.md 6.2), so its time out is on offer on
         any turn. `RulesEngine.may_call_time_out` asks it:
 
         - **They are out of shooting range.** A side with a shot on is
@@ -3124,8 +3125,8 @@ class MatchState:
             for player_id in self.setup_for_side(side).field_players
             if player_id in occupants and (
                 player_id != self.active_player_id
-                # 2.1's H4 thrown 0 is the passer's own to receive (a
-                # match dealt the decks is a 2.1 one; 1.0's Cross of 0
+                # 2.2's H4 thrown 0 is the passer's own to receive (a
+                # match dealt the decks is a 2.2 one; 1.0's Cross of 0
                 # is a teammate's).
                 or (distance == 0 and bool(self.maneuver_decks))
             )
@@ -3353,7 +3354,7 @@ class MatchState:
         if (
             self.pending_loose_ball_is_high_pass
             and TeamSide(side) == self.ball.possession
-            # 2.1's H4 thrown 0 is the passer's own to receive.
+            # 2.2's H4 thrown 0 is the passer's own to receive.
             and not self.vertical_ball
         ):
             return [
@@ -4885,7 +4886,7 @@ class MatchState:
         side = TeamSide(side)
         zone = Zone(zone)
         setup = self.setup_for_side(side)
-        # **A 2.0 new play's run back** (docs/rules-2.1.md 4.9): a
+        # **A 2.0 new play's run back** (docs/rules-2.2.md 4.9): a
         # Fullback, a Playmaker or a Striker goes to their own space and
         # nowhere else, nobody else is sent onto one, and a teammate
         # still to be placed covers nothing -- they are about to move. A
@@ -4947,7 +4948,7 @@ class MatchState:
         """
         The space of `zone` a 2.0 new play's run back keeps for the
         zone's unique role -- the Fullback's, the Playmaker's or the
-        Striker's -- and sends nobody else to (docs/rules-2.1.md 4.9).
+        Striker's -- and sends nobody else to (docs/rules-2.2.md 4.9).
         None outside one: a steal's run back reserves nothing.
         """
         side = TeamSide(side)
@@ -4973,7 +4974,7 @@ class MatchState:
         self, then: str, side: Optional[TeamSide] = None,
     ) -> list[tuple[str, Zone, int]]:
         """
-        **Start a 2.0 new play's run back** (docs/rules-2.1.md 4.9, the
+        **Start a 2.0 new play's run back** (docs/rules-2.2.md 4.9, the
         author, 2026-10-24): every fielded player of both sides is to be
         placed again in their own zone, for nothing. The three unique
         roles have nothing to choose and go straight to their spaces,
@@ -5005,7 +5006,7 @@ class MatchState:
         own spaces, for nothing, and report who moved: a new play's run
         back starts with it, and a time out's or halftime's Coaching
         Choice opens with it, everybody else staying where they stand
-        (docs/rules-2.1.md 4.9). Nothing for a 1.0 side.
+        (docs/rules-2.2.md 4.9). Nothing for a 1.0 side.
         """
         side = TeamSide(side)
         moved: list[tuple[str, Zone, int]] = []
@@ -5432,7 +5433,7 @@ class MatchState:
         zone_index = setup.zones[zone].index(fielded_player_id)
         setup.zones[zone][zone_index] = incoming_player_id
         # In 2.0 the player coming on takes the outgoing player's role
-        # too (docs/rules-2.1.md 4.6b).
+        # too (docs/rules-2.2.md 4.6b).
         roles = self.formation_roles.get(side.value)
         if roles is not None and fielded_player_id in roles:
             roles[incoming_player_id] = roles.pop(fielded_player_id)
@@ -5527,7 +5528,7 @@ class MatchState:
             # In 2.0 a trade swaps roles, two players in the same zone
             # included -- so long as it trades a role: two in the zone's
             # standard role would only change spaces. No 2.0 Coaching
-            # Choice asks it (docs/rules-2.1.md 4.6c); a rearrangement
+            # Choice asks it (docs/rules-2.2.md 4.6c); a rearrangement
             # trades through `arrange_side`.
             if roles.get(player_id) == roles.get(other_player_id):
                 raise RuleRefusal(
@@ -5572,7 +5573,7 @@ class MatchState:
         self.swap_field_positions(side, player_id, other_player_id)
         self.swap_meeple_positions(side, player_id, other_player_id)
         # In 2.0 the trade takes the two players' roles with it, though
-        # no 2.0 Coaching Choice asks it (docs/rules-2.1.md 4.6c).
+        # no 2.0 Coaching Choice asks it (docs/rules-2.2.md 4.6c).
         roles = self.formation_roles.get(side.value)
         if roles is not None and player_id in roles and other_player_id in roles:
             roles[player_id], roles[other_player_id] = (
@@ -5582,7 +5583,7 @@ class MatchState:
     def unique_role_space(self, side: TeamSide, area: str) -> int:
         """
         The space a zone's **unique role** stands on in 2.0
-        (docs/rules-2.1.md 4.3a), for one side: the Fullback on the last
+        (docs/rules-2.2.md 4.3a), for one side: the Fullback on the last
         space before their own goal, the Playmaker on their own kickoff
         space, the Striker on the last space before the goal they
         attack. `area` is one of `SETUP_AREAS`, read from the coach's
@@ -5597,7 +5598,7 @@ class MatchState:
     def assign_formation_roles(self, side: TeamSide) -> None:
         """
         Give each of a side's fielded cards the role its place in the
-        formation carries (docs/rules-2.1.md 4.2): in each zone the card
+        formation carries (docs/rules-2.2.md 4.2): in each zone the card
         standing on the unique role's space takes the unique role --
         the nearest to it where nobody stands there -- and every other
         card in the zone the standard role. Asked where a side has just
@@ -5632,7 +5633,7 @@ class MatchState:
 
     def arrangement_pool(self, side: TeamSide) -> list[str]:
         """
-        Who a 2.0 arrangement is chosen from (docs/rules-2.1.md 4.3):
+        Who a 2.0 arrangement is chosen from (docs/rules-2.2.md 4.3):
         the six on the field and, in a window whose substitutions have
         no limit -- setup's -- the bench as well, so before kickoff a
         coach picks their six from the squad and the three left over
@@ -5658,7 +5659,7 @@ class MatchState:
         A 2.0 side's arrangement as it stands: the three unique roles'
         holders keyed by the role, and every other fielded player where
         they stand, in field order -- what a rearrangement starts from
-        (docs/rules-2.1.md 4.6a). Empty for a 1.0 side.
+        (docs/rules-2.2.md 4.6a). Empty for a 1.0 side.
         """
         side = TeamSide(side)
         roles = self.formation_roles.get(side.value)
@@ -5688,7 +5689,7 @@ class MatchState:
         strays included): zero for a side standing in an arrangement 4.3
         allows with everybody in the zone of their role, and for a 1.0
         side. A Coaching Choice may not close on more
-        (`RulesEngine.coaching_finish_refusal`, docs/rules-2.1.md 4.9d).
+        (`RulesEngine.coaching_finish_refusal`, docs/rules-2.2.md 4.9d).
         """
         side = TeamSide(side)
         if side.value not in self.formation_roles:
@@ -5708,7 +5709,7 @@ class MatchState:
         A 2.0 side's players standing outside the zone of their role --
         where open play left them before a time out or halftime, the
         role kept until their coach moves them back or gives them a new
-        one (docs/rules-2.1.md 4.9d). Empty for a 1.0 side.
+        one (docs/rules-2.2.md 4.9d). Empty for a 1.0 side.
         """
         side = TeamSide(side)
         if side.value not in self.formation_roles:
@@ -5724,7 +5725,7 @@ class MatchState:
         self, side: TeamSide,
     ) -> dict[str, tuple[Zone, int]]:
         """Each unique role's space for one side, keyed by the role
-        (docs/rules-2.1.md 4.3a)."""
+        (docs/rules-2.2.md 4.3a)."""
         side = TeamSide(side)
         return {
             role: (zone_for_area(side, area), self.unique_role_space(side, area))
@@ -5741,7 +5742,7 @@ class MatchState:
         strays: Collection[str] = (),
     ) -> list[tuple[str, str]]:
         """
-        **Put a 2.0 side in an arrangement** (docs/rules-2.1.md 4.3, the
+        **Put a 2.0 side in an arrangement** (docs/rules-2.2.md 4.3, the
         author, 2026-10-24): `holders` names the Fullback, the Playmaker
         and the Striker (keyed by the role, as saved), each of whom
         stands on their role's space, and `placed` puts three more
@@ -5760,7 +5761,7 @@ class MatchState:
         first.
 
         **A side a time out or halftime left out of place**
-        (docs/rules-2.1.md 4.9d) is put right a change at a time:
+        (docs/rules-2.2.md 4.9d) is put right a change at a time:
         `strays` names the players left outside their zone who keep
         their role for now, and a change that leaves fewer players out
         of place (`arrangement_faults`) stands though the side is not
@@ -5779,7 +5780,7 @@ class MatchState:
         unique_spaces = self.arrangement_unique_spaces(side)
         zone_sizes = {zone: len(self.board.spaces[zone]) for zone in Zone}
         # **`strays` keep their role** where play left them outside its
-        # zone (docs/rules-2.1.md 4.9d): each must be one standing there
+        # zone (docs/rules-2.2.md 4.9d): each must be one standing there
         # now and not moved by this change. Everybody else placed takes
         # the standard role of the zone they are placed in.
         strays = list(dict.fromkeys(strays))
@@ -5899,7 +5900,7 @@ class MatchState:
         In 1.0 that is every space but where they stand, with every
         teammate on it (`position_meeple`'s trade rule decides).
 
-        **In 2.0 the role decides** (docs/rules-2.1.md 4.6d): a unique
+        **In 2.0 the role decides** (docs/rules-2.2.md 4.6d): a unique
         role goes nowhere; a standard role may go to an empty space or
         trade with a teammate in a standard role, never onto a space a
         unique role holds. An Ooze bends that (4.6e), being Spreadable:
@@ -5973,7 +5974,7 @@ class MatchState:
         may not share -- the Fullback's, the Playmaker's or the
         Striker's, where the holder is not a Spreadable Ooze. Nobody
         puts one there: a teammate may share an Ooze's space
-        (docs/rules-2.1.md 4.6e), and a substitution can then put
+        (docs/rules-2.2.md 4.6e), and a substitution can then put
         somebody who is not an Ooze in that role. It stands and the
         teammate moves off (the author, 2026-10-18) --
         `settle_unique_space_sharers` where only one space is open to
@@ -6021,7 +6022,7 @@ class MatchState:
         exactly one space to go to, and report each move; one with a
         choice stays for the coach. A zone never holds more players
         than spaces, so with two on one space there is always an empty
-        one (docs/rules-2.1.md 4.3b).
+        one (docs/rules-2.2.md 4.3b).
         """
         side = TeamSide(side)
         moved = []
@@ -6094,7 +6095,7 @@ class MatchState:
         no exhaustion, and report who it traded with (None for an
         ordinary move).
 
-        **In 2.0 the player's role decides** (docs/rules-2.1.md 4.6d):
+        **In 2.0 the player's role decides** (docs/rules-2.2.md 4.6d):
         the move must be one `positioning_targets` offers, which says
         who it trades with -- `spread_exempt_ids` are the side's
         Spreadable Oozes, which bend the rule (4.6e). What follows here
@@ -6197,7 +6198,7 @@ class MatchState:
 
         for player_id, zone, space_index in placement:
             self.board.place_meeple(player_id, Zone(zone), space_index)
-        # A 2.0 side's roles go with the new shape (docs/rules-2.1.md
+        # A 2.0 side's roles go with the new shape (docs/rules-2.2.md
         # 4.2): read off the spaces, which `RulesEngine.formation_placement`
         # deals with each unique role's holder on its own space and
         # first in its zone, so a tie goes to them.
@@ -6701,10 +6702,10 @@ class MatchState:
         # 2.0's roles, likewise only where there are any.
         if self.formation_roles:
             saved["formation_roles"] = copy_roles(self.formation_roles)
-        # 2.1's coin, likewise only once it has been tossed.
+        # 2.2's coin, likewise only once it has been tossed.
         if self.tie_coin is not None:
             saved["tie_coin"] = self.tie_coin
-        # 2.1's cards behind the picks, only while a maneuver has some.
+        # 2.2's cards behind the picks, only while a maneuver has some.
         if self.maneuver_cards:
             saved["maneuver_cards"] = copy_lists(self.maneuver_cards)
         if self.pending_follow is not None:
@@ -7094,7 +7095,7 @@ def load_deck_cards(
     path: Path, maneuvers: tuple[ManeuverDefinition, ...],
 ) -> tuple[DeckCard, ...]:
     """
-    2.1's twenty-four cards, each refused unless it plays a basic card
+    2.2's twenty-four halves, each refused unless it plays a basic card
     of the 1.0 catalog on its own side and rank -- the deck's matchups,
     timing and effects are that card's.
     """
@@ -7108,7 +7109,7 @@ def load_deck_cards(
     for row in data["cards"]:
         if (row["maneuver"], row["rank"]) not in basics:
             raise ValueError(
-                f"2.1's {row['index']} plays {row['maneuver']!r}, which is "
+                f"2.2's {row['index']} plays {row['maneuver']!r}, which is "
                 f"not 1.0's basic card on rank {row['rank']}."
             )
         cards.append(DeckCard(
@@ -7176,7 +7177,7 @@ def arrangement_space_open(
 ) -> bool:
     """
     Whether a 2.0 arrangement may put `player_id` on this space, with
-    `standing` already placed (docs/rules-2.1.md 4.3b, 4.6e): a space
+    `standing` already placed (docs/rules-2.2.md 4.3b, 4.6e): a space
     of a zone that still has room -- **no zone holds more players than
     it has spaces, Oozes included** (the author, 2026-10-24) -- and an
     empty one, or one where either of the two is an Ooze, which
@@ -7212,7 +7213,7 @@ def arrangement_refusal(
 ) -> Optional[str]:
     """
     **The one reading of whether a 2.0 arrangement may stand**
-    (docs/rules-2.1.md 4.3), or why not: a Fullback, a Playmaker and a
+    (docs/rules-2.2.md 4.3), or why not: a Fullback, a Playmaker and a
     Striker, each on their space (`unique_spaces`, keyed by the role),
     and `ARRANGED_PLAYER_COUNT` more placed, everyone once and out of
     `pool`, each placement open as `arrangement_space_open` reads it.
@@ -7288,7 +7289,7 @@ def arrangement_faults(
 ) -> int:
     """
     **How far a 2.0 arrangement is from one that may stand**, as a
-    count of players out of place (docs/rules-2.1.md 4.9d): each player
+    count of players out of place (docs/rules-2.2.md 4.9d): each player
     over a zone's spaces, each player who is not an Ooze past the first
     on a space, and each of `strays`, standing outside the zone of the
     role they keep. Zero exactly where `arrangement_refusal` finds

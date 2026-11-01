@@ -166,7 +166,7 @@ def d12ball_board_view(cog: "D12Ball", game: D12BallGame) -> Any:
     """
     if game.home_and_visiting_selected:
         view = HomeAwaySelectionView(cog=cog, game_id=game.game_id)
-        # **My hand** under the board in a 2.1 game (the author,
+        # **My hand** under the board in a 2.2 game (the author,
         # 2026-11-01): a dynamic item, so it answers after a restart
         # with nothing re-armed per message.
         hand = hand_button_for(cog, game)

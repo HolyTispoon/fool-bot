@@ -1,7 +1,7 @@
 """
 The players as standees, for the print-and-play kit.
 
-D12 Ball 2.0 takes the role off the player (docs/rules-2.1.md section
+D12 Ball 2.0 takes the role off the player (docs/rules-2.2.md section
 4), so a meeple coloured or labelled by role no longer says who is
 standing on a space, and nine plain meeples a team say nothing at all.
 A standee is the player's own portrait -- the bot's art, the picture on

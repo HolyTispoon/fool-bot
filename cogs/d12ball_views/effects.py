@@ -709,8 +709,8 @@ class PasserAdvanceView(SafeView):
 
 class FollowBallView(SafeView):
     """
-    2.1's F2 Follow or R2 Control: whether the defender follows the ball
-    onto its space, or stays ("defender may follow"; rules-2.1 7.4). The
+    2.2's F2 Follow or R2 Control: whether the defender follows the ball
+    onto its space, or stays ("defender may follow"; rules-2.2 7.4). The
     defender is the prompt's, read back off `MatchState.pending_follow`
     by the driver; the view holds them only to name them and gate the
     click to their coach.

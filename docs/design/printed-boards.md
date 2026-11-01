@@ -627,7 +627,7 @@ zones went to each coach's own side of the table.
 
 ## The 2.0 boards: which role goes where
 
-D12 Ball 2.0 puts the roles on the formation's zones (rules-2.1 section
+D12 Ball 2.0 puts the roles on the formation's zones (rules-2.2 section
 4), so its boards show them (the author, 2026-10-24).
 `scripts/render_boards.py --edition 2.0` writes them into
 `d12ball/print/boards-2.0/`, and the kit into `boards-2.0/`.
@@ -642,7 +642,7 @@ D12 Ball 2.0 puts the roles on the formation's zones (rules-2.1 section
   run. Every 1.0 board is byte-identical with the edition in (all
   seventeen, SHA-256 checked).
 - **The field board marks each side's unique roles on their spaces**
-  (`draw_role_marks`, rules-2.1 4.3b): the Fullback on the last space
+  (`draw_role_marks`, rules-2.2 4.3b): the Fullback on the last space
   before its own goal, the Playmaker on its own kickoff space, the
   Striker on the last space before the goal it attacks. Where they are
   is `components.unique_role_space_index`, the function of the board's
@@ -695,7 +695,7 @@ D12 Ball 2.0 puts the roles on the formation's zones (rules-2.1 section
     rest of the sheet is offcut past a cut line.
   - **A slot a tile, each whole** (`draw_zone_two_slot`): the one
     nearest the field is the zone's unique role, which the first player
-    in a zone takes (rules-2.1 4.2), solid gold on a pale gold, and the
+    in a zone takes (rules-2.2 4.2), solid gold on a pale gold, and the
     two dashed ones under it its standard role -- as many as any
     formation puts in a zone. Nothing is printed inside a slot.
   - **Each slot's role is marked beside it, outside where the tile

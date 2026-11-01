@@ -883,7 +883,7 @@ def _answer_follow_ball(
     prompt: PendingPrompt,
     choice: str,
 ) -> StepResult:
-    """2.1's F2 or R2 defender follows the ball, or stays (rules-2.1
+    """2.2's F2 or R2 defender follows the ball, or stays (rules-2.2
     7.4), and the maneuver carries on with what it was owed."""
     return effects.answer_follow(engine, game, match, follow=choice == "follow")
 
@@ -1001,7 +1001,7 @@ def _answer_coaching_hub(
     So `choice` names which it is, and those that change something
     return the note the hub puts back above its own buttons. A 2.0
     side is offered `arrange` where a 1.0 side is offered `formation`
-    (docs/rules-2.1.md 4.3), and in place of `swap` and `reposition`
+    (docs/rules-2.2.md 4.3), and in place of `swap` and `reposition`
     too (4.6), and each is refused where the prompt does not offer it.
 
     **Its sub-menus are not prompts and never were.** They are steps of
@@ -1108,7 +1108,7 @@ def _arrangement(
     [{"player_id": id, "zone": zone, "space_index": n}, ...],
     "strays": [id, ...]}` into the holders keyed by role, the
     placements `arrange_side` takes, and the players who keep their
-    role outside its zone (docs/rules-2.1.md 4.9d; absent, nobody). A
+    role outside its zone (docs/rules-2.2.md 4.9d; absent, nobody). A
     shape that is not that is refused here; whether the arrangement is
     legal is `MatchState.arrange_side`'s.
     """
@@ -1351,11 +1351,10 @@ def _answer_maneuver_action(
     side: str,
     maneuver_key: Optional[str] = None,
     card_id: Optional[str] = None,
-    extra_card_id: Optional[str] = None,
 ) -> StepResult:
     """
-    One coach's maneuver, picked -- in 2.1 by its card (`card_id`),
-    and a flipped card's extra discard (`extra_card_id`) -- or, with the choice `"gambit"`, a
+    One coach's maneuver, picked -- in 2.2 by its card (`card_id`) --
+    or, with the choice `"gambit"`, a
     gambit declared, and with `"confirm"` a pick a gambit put back in
     question confirmed as it stands (Law 19.3). The card is the empty
     choice's argument (`REQUIRED_ARGUMENTS`); the other two name only
@@ -1383,13 +1382,13 @@ def _answer_maneuver_action(
     if choice == "confirm":
         return turn.confirm_maneuver_step(engine, game, match, side=side)
     refusal = turn.maneuver_pick_refusal(
-        engine, game, match, side, maneuver_key, card_id, extra_card_id,
+        engine, game, match, side, maneuver_key, card_id,
     )
     if refusal is not None:
         raise RuleRefusal(refusal)
     return turn.maneuver_pick_step(
         engine, game, match, side=side, maneuver_key=maneuver_key,
-        card_id=card_id, extra_card_id=extra_card_id,
+        card_id=card_id,
     )
 
 
@@ -1788,7 +1787,7 @@ def _answer_high_pass_choice(
     distances that land short of the goal zone, and the tutorial's where it rails
     one. `runner` is Quantor running onto it (`_run_onto`).
 
-    **2.1's specials** (rules-2.1 7.3): the choice `"long_shot"` is H2's
+    **2.2's specials** (rules-2.2 7.3): the choice `"long_shot"` is H2's
     throw to the Striker, refused unless the prompt offers it, and a
     distance under 2 is H4's Vertical Ball, thrown by `high_pass_step`
     like any other.
@@ -1924,7 +1923,7 @@ def _answer_dribble_advance_choice(
     *,
     distance: int,
 ) -> StepResult:
-    """A Playmaker's won Dribble, or 2.1's B2 Advance: one space or two."""
+    """A Playmaker's won Dribble, or 2.2's B2 Advance: one space or two."""
     if distance not in prompt.options.distances:
         _refuse(
             f"A {engine.maneuver_name('dribble_advance')} is one space "

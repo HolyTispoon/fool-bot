@@ -268,16 +268,10 @@ class DinkyAI(AIStrategy):
                 key for key in hand.maneuver_keys
                 if self.maneuver_catalog.definition(key).rank == rank
             ]
-            # A 2.1 hand plays every rank by flipping, at an extra card;
-            # Dinky pays it only where the rank is not held as itself.
-            own = {play.maneuver_key for play in hand.cards if not play.flip}
-            if hand.cards and own and not set(on_rank) & own:
-                on_rank = [key for key in hand.maneuver_keys if key in own]
             if not on_rank:
-                # A hand that does not cover every rank is not a state
-                # the game produces, but picking out of what is
-                # actually there is cheaper than a branch that can
-                # never be right.
+                # A 2.2 hand of three often misses the rank the die
+                # chose (rules-2.2 1.2), so Dinky plays out of what it
+                # holds instead.
                 on_rank = list(hand.maneuver_keys)
             key = self.rng.choice(on_rank)
         arguments = {"side": pick_side, "maneuver_key": key}
@@ -288,19 +282,12 @@ class DinkyAI(AIStrategy):
     @staticmethod
     def _card_for(plays, key: str) -> dict:
         """
-        **Which 2.1 card plays the maneuver the die chose** -- one whose
-        special is live first, then any of this side's own, and only
-        then a card of the other side flipped, discarding the first card
-        it may (rules-2.1 2.3). No judgement beyond not paying a card
-        for nothing: the hand's own order decides among equals.
+        **Which 2.2 card plays the maneuver the die chose** -- one whose
+        special is live first, then the first of the rest. No judgement
+        beyond that: the hand's own order decides among equals.
         """
         on_key = [play for play in plays if play.maneuver_key == key]
-        play = next(
-            (play for play in on_key if play.special),
-            next((play for play in on_key if not play.flip), on_key[0]),
-        )
-        if play.flip:
-            return {"card_id": play.card_id, "extra_card_id": play.extra_ids[0]}
+        play = next((play for play in on_key if play.special), on_key[0])
         return {"card_id": play.card_id}
 
     # -- The effects ----------------------------------------------------
@@ -542,7 +529,7 @@ class DinkyAI(AIStrategy):
         until they have (`CoachingHubOptions.finish_refusal`), and
         Dinky is held to the same rule -- it moves the nearest
         midfielder onto it, at no cost, and then says it is done. A 2.0
-        side is moved by rearranging alone (docs/rules-2.1.md 4.6):
+        side is moved by rearranging alone (docs/rules-2.2.md 4.6):
         Dinky moves a teammate off a unique role's space to the first
         space its options offer, and covers the kickoff space by
         standing the side in its arrangement, the Playmaker on it.
@@ -594,14 +581,14 @@ class DinkyAI(AIStrategy):
         first -- and otherwise,
         while the window is held and a unique role stands off their
         space, the side stood in its own arrangement again, which puts
-        the Playmaker on the kickoff space (docs/rules-2.1.md 4.3a).
+        the Playmaker on the kickoff space (docs/rules-2.2.md 4.3a).
         """
         arrangement = options.arrangement
         out_of_place = arrangement.faults(
             arrangement.holders, arrangement.placed, arrangement.stray_ids,
         )
         # Out of place -- a sharer on a unique role's space, or a side a
-        # time out or halftime left scattered (docs/rules-2.1.md 4.9d):
+        # time out or halftime left scattered (docs/rules-2.2.md 4.9d):
         # each change its options offer leaves fewer out of place, and
         # Dinky takes the first, a player sent back into the zone of
         # their own role before one given a new role, until none is.

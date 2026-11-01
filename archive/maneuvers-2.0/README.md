@@ -9,8 +9,10 @@ came from the sheet's `maneuvers 2.0` tab (gid 1310773351).
 `maneuvers 2.1` and rewritten in place, as twenty-four single-faced cards
 whose specials are role interactions, and no advanced maneuvers. The bot
 reads `d12ball/data/maneuver_cards.json`, written by
-`scripts/import_d12ball_maneuver_cards.py`; the rules are
-[docs/rules-2.1.md](../../docs/rules-2.1.md).
+`scripts/import_d12ball_maneuver_cards.py`. 2.1's rules are filed in
+[archive/rules-2.1/](../rules-2.1/), since **2.2 replaced 2.1 on
+2026-11-01** with the same cards printed two to a card; the rules now
+are [docs/rules-2.2.md](../../docs/rules-2.2.md).
 
 What is here is the last 2.0 import, kept for the record:
 

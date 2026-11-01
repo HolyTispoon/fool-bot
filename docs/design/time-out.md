@@ -49,7 +49,7 @@ the scramble. That is the Choice's own mechanics, not the new play's reset,
 and it is why the other side stays where open play left it while the caller
 coaches.
 
-**In 2.0 nothing resets** (rules-2.1 4.9d, the author, 2026-10-25): there is no arrangement for
+**In 2.0 nothing resets** (rules-2.2 4.9d, the author, 2026-10-25): there is no arrangement for
 a reset to read, so each window opens with that side's Fullback, Playmaker and Striker back on
 their spaces and everybody else where they stand, the coach puts them right with Arrange team
 before finishing, and a 2.0 `finish_time_out` moves nobody -- it ends the play and pins the

@@ -874,7 +874,7 @@ class PresentationMixin:
         does.
         """
         png = await self.render_match_png(game, snapshot)
-        # **My hand** under every board of a 2.1 game, on the send
+        # **My hand** under every board of a 2.2 game, on the send
         # itself so it costs no request (the author, 2026-11-01).
         view = hand_view(self, game)
         snapshot = await send_new_prompt(

@@ -80,7 +80,7 @@ roles once each -- every one refused otherwise. An `Advanced` row is skipped and
 or `Time` filled with Basic and 1, each printed (the author, 2026-10-27 and 2026-10-31). The
 spaces at a cell's ends are stripped, which is normalisation, not correction: a typo on the tab
 is fixed on the tab. 2.0's importer and its file are in `archive/maneuvers-2.0/`. How the
-catalog reads the cards is "The 2.1 cards" in [maneuver-deck.md](maneuver-deck.md).
+catalog reads the cards is "The halves: 2.1's cards" in [maneuver-deck.md](maneuver-deck.md).
 
 It needs `openpyxl`, which the bot does not, so it is not in `requirements.txt`. Copying rows out
 of the connector by hand is not a substitute: a typo there is a data change nobody made.

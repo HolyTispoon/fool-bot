@@ -592,7 +592,7 @@ class RulesEngine:
         sets it any more; it is still read so an advanced game saved
         with the gambits turned off plays on as it was started.
 
-        **D12 Ball 2.1 has no advanced maneuvers** (the author,
+        **D12 Ball 2.2 has no advanced maneuvers** (the author,
         2026-10-31), so a game playing the deck plays no gambits in any
         mode.
         """
@@ -604,10 +604,10 @@ class RulesEngine:
 
     def maneuver_deck_applies(self, game: Optional[D12BallGame]) -> bool:
         """
-        Whether this game plays **D12 Ball 2.1's maneuver deck**: each
-        coach a shuffled deck of twenty-four cards and a hand of five, in
+        Whether this game plays **D12 Ball 2.2's maneuver deck**: each
+        coach a shuffled deck of twelve split cards and a hand of three, in
         place of the three cards every maneuver (the author,
-        2026-10-16 and 2026-10-31; docs/rules-2.1.md). The edition is a
+        2026-10-16 and 2026-10-31; docs/rules-2.2.md). The edition is a
         setting beside the mode, so any mode may play it. Never a
         tutorial, whose beats are written for the three cards.
         """
@@ -621,7 +621,7 @@ class RulesEngine:
         """
         Whether **the coin** decides who may make a gambit (Law 19.3):
         a game playing the gambits, which is 1.0's advanced mode alone,
-        since 2.1 has no advanced maneuvers.
+        since 2.2 has no advanced maneuvers.
         """
         return self.gambits_apply(game)
 
@@ -629,7 +629,7 @@ class RulesEngine:
         """
         Whether **the coin settles a tied roll** rather than its being
         rolled again, or a tied shot rather than its scoring
-        (docs/rules-2.1.md, section 5; the author, 2026-10-20 and
+        (docs/rules-2.2.md, section 5; the author, 2026-10-20 and
         2026-10-31). It is 2.x's, so this is the deck's own answer --
         asked under its own name so a reader of a tie sees which rule
         it is.
@@ -640,7 +640,7 @@ class RulesEngine:
     def tie_coin_winner(match: MatchState) -> str:
         """
         Which side the coin's face gives the next tie: the offense on
-        Fortune, the defense on Doom (rules-2.1 5.1a). In a contest for the ball the offense is the side that
+        Fortune, the defense on Doom (rules-2.2 5.1a). In a contest for the ball the offense is the side that
         last held it, which is `ball.possession` there as it is for
         every contest's skill (5.1b); at a shot, the attack.
         """
@@ -654,7 +654,7 @@ class RulesEngine:
         self, game: Optional[D12BallGame], match: MatchState,
     ) -> Optional[CoinFace]:
         """
-        The face 2.1's coin shows, which settles the next tie, for a
+        The face 2.2's coin shows, which settles the next tie, for a
         frontend to draw on the turn message and the board (the author,
         2026-10-20 and 2026-10-31) -- None in 1.0 and before the first
         flip.
@@ -677,7 +677,7 @@ class RulesEngine:
         """
         Whether **a move on the board costs a token a space** wherever
         it happens during play, rather than only where the Charter
-        charges one -- a send and a run back (rules-2.1 5.4; the
+        charges one -- a send and a run back (rules-2.2 5.4; the
         author, 2026-10-21) -- and so whether entering a skill test is
         free. 2.0's, so the deck's own answer under its own name.
         """
@@ -686,7 +686,7 @@ class RulesEngine:
     def shooting_range_applies(self, game: Optional[D12BallGame]) -> bool:
         """
         Whether **a shot may only be taken from within range** (Law
-        2.3). 2.0 has no range -- a shot from anywhere (docs/rules-2.1.md
+        2.3). 2.0 has no range -- a shot from anywhere (docs/rules-2.2.md
         section 6; the author, 2026-10-25) -- so this is the deck's own
         answer, the other way round, under its own name.
         """
@@ -710,7 +710,7 @@ class RulesEngine:
     ) -> bool:
         """**The one reading of whether a time out may be called** --
         `MatchState.may_call_time_out` with the game's answer to
-        whether being in range forbids one (docs/rules-2.1.md 6.2)."""
+        whether being in range forbids one (docs/rules-2.2.md 6.2)."""
         return match.may_call_time_out(
             range_applies=self.shooting_range_applies(game),
         )
@@ -724,7 +724,7 @@ class RulesEngine:
     ) -> str:
         """
         **D12 Ball 2.0: a move the Charter makes free costs its
-        spaces** (rules-2.1 5.4) -- a won Dribble's handler, the
+        spaces** (rules-2.2 5.4) -- a won Dribble's handler, the
         passer's step, Pressure's shove and the challenger who follows
         it, a Steal's or an Intercept's thief, a beaten Double Team's
         two. `tokens` is the spaces the move actually came to, or what
@@ -836,7 +836,7 @@ class RulesEngine:
         of "which role is this", for a rule and for a label alike.
 
         In 1.0 a player's role is their card's (Law 2.6). In 2.0 it is
-        the formation's, assigned by the coach (docs/rules-2.1.md,
+        the formation's, assigned by the coach (docs/rules-2.2.md,
         section 4), which is why this asks the match and not the
         catalog: nothing may read `PlayerDefinition.role` to decide a
         rule or name a role without coming through here
@@ -892,7 +892,7 @@ class RulesEngine:
         It asks the match rather than the game because every site that
         asks it -- the distances on offer, a roll's modifiers, a steal --
         is handed the match and nothing else. **A match whose roles are
-        the formation's plays none** (docs/rules-2.1.md 4.7): that is
+        the formation's plays none** (docs/rules-2.2.md 4.7): that is
         2.0, where the role abilities are gone for now.
         """
         if player_id is None or match.formation_roles:
@@ -901,14 +901,14 @@ class RulesEngine:
 
     def hand_kickoff_to_playmaker(self, match: MatchState) -> None:
         """
-        **The Playmaker takes the kickoff** in 2.0 (docs/rules-2.1.md
+        **The Playmaker takes the kickoff** in 2.0 (docs/rules-2.2.md
         4.4): a restart from a side's kickoff space -- each half's
         kickoff, a goal's, an own goal's -- leaves the ball with that
         side's Playmaker as its carrier (Law 4.2.2), rather than with
         whoever stands there for their coach to choose between. Asked
         just before the restart is played, once every arrangement and
         window has settled, so the Playmaker is on their own kickoff
-        space (rules-2.1 4.3a); an Ooze sharing it is why it is asked
+        space (rules-2.2 4.3a); an Ooze sharing it is why it is asked
         at all. A 1.0 match, and a Playmaker somewhere else, change
         nothing.
         """
@@ -2153,7 +2153,7 @@ class RulesEngine:
         """
         D12 Ball 2.0's public count of each coach's cards, for the
         maneuver prompt -- how many are face down in their deck and in
-        their discard pile, home's first. The hand is five and secret,
+        their discard pile, home's first. The hand is three and secret,
         so it is not counted. `""` in 1.0.
         """
         if not self.maneuver_deck_applies(game):
@@ -2231,11 +2231,9 @@ class RulesEngine:
         """
         One side's playable cards this turn, in the order they read.
 
-        **In 2.1 it is every maneuver the coach's hand can play on this
-        side** (`card_plays`): each card of this side as its own, and --
-        flipped, at the price of an extra card -- each card of the other
-        side as this side's maneuver of its rank. One entry a maneuver
-        however many cards play it.
+        **In 2.2 it is every maneuver the coach's hand can play on this
+        side** (`card_plays`): each card's half of this side. One entry a
+        maneuver however many cards play it.
         """
         if self.maneuver_deck_applies(game):
             keys = {play.maneuver_key for play in self.card_plays(game, match, side)}
@@ -2265,33 +2263,25 @@ class RulesEngine:
         side: str,
     ) -> tuple[maneuver_deck.CardPlay, ...]:
         """
-        **Every card a 2.1 coach may play on `side` this maneuver**, in
-        the hand's order (docs/rules-2.1.md, section 2): a card of this
-        side as its own maneuver, its special live where the player
-        making the maneuver holds a role it names (`special`); a card of
-        the other side **flipped**, as this side's maneuver of its rank,
-        with no special, while the hand holds another card to discard
-        with it (`extra_ids`). The pick's buttons, the AI and the pick's
-        refusal all read this one list. `()` in 1.0.
+        **Every card a 2.2 coach may play on `side` this maneuver**, in
+        the hand's order (docs/rules-2.2.md, section 2): each card as its
+        half on this side (`maneuver_deck.face_on`), that half's special
+        live where the player making the maneuver holds a role it names
+        (`special`). The pick's buttons, the AI and the pick's refusal
+        all read this one list. `()` in 1.0.
         """
         hand = self.maneuver_deck_hand(match, self.maneuver_side_team(match, side))
         actor = self.maneuver_actor(match, side)
         plays = []
         for card_id in hand:
-            key, flip = maneuver_deck.plays_as(self.maneuver_catalog, card_id, side)
-            if key is None:
-                continue
-            extras = tuple(other for other in hand if other != card_id) if flip else ()
-            if flip and not extras:
+            half = maneuver_deck.face_on(self.maneuver_catalog, card_id, side)
+            if half is None:
                 continue
             plays.append(maneuver_deck.CardPlay(
                 card_id=card_id,
-                maneuver_key=key,
-                flip=flip,
-                extra_ids=extras,
-                special=not flip and self.special_names_role(
-                    match, card_id, actor,
-                ),
+                half=half.index,
+                maneuver_key=half.maneuver,
+                special=self.special_names_role(match, card_id, actor, side),
             ))
         return tuple(plays)
 
@@ -2302,56 +2292,60 @@ class RulesEngine:
         return match.active_player_id if side == "offense" else match.challenger_id
 
     def special_names_role(
-        self, match: MatchState, card_id: str, player_id: Optional[str],
+        self,
+        match: MatchState,
+        card_id: str,
+        player_id: Optional[str],
+        side: str,
     ) -> bool:
-        """Whether `card_id`'s special names the role `player_id` holds
-        in this match -- the one place a 2.1 special reads a role,
-        through `role_of`."""
-        card = self.maneuver_catalog.deck_card(card_id)
-        if card is None or player_id is None:
+        """Whether the special on `card_id`'s half for `side` names the
+        role `player_id` holds in this match -- the one place a 2.2
+        special reads a role, through `role_of`. No for a card the
+        catalog does not have."""
+        half = maneuver_deck.face_on(self.maneuver_catalog, card_id, side)
+        if half is None or player_id is None:
             return False
-        return self.role_of(match, player_id) in card.roles
+        return self.role_of(match, player_id) in half.roles
 
     def card_special(self, match: MatchState, side: str) -> Optional[str]:
         """
-        **The one reading of which 2.1 special this maneuver plays** for
-        `side` ("offense" or "defense"): the index of the card behind
-        the side's pick, where it was played as itself rather than
-        flipped and the player making the maneuver -- the handler, or
-        the challenger -- holds a role its special names. None otherwise,
-        and always in 1.0, which has no cards on the match.
+        **The one reading of which 2.2 special this maneuver plays** for
+        `side` ("offense" or "defense"): the index of the half the side's
+        card played -- "F2" for P2/F2 on defense -- where the player
+        making the maneuver -- the handler, or the challenger -- holds a
+        role its special names. None otherwise, and always in 1.0, which has no cards on
+        the match.
 
         This is 2.x's role ability: every rule site that a special
         changes asks `card_special(match, side) == maneuver_deck.X`, and
         nothing else reads a role for it -- the twin of
         `has_role_ability`, which answers no for every 1.0 role ability
-        in a match whose roles are the formation's (rules-2.1 4.7).
+        in a match whose roles are the formation's (rules-2.2 4.7).
         """
         cards = match.maneuver_cards.get(side) or []
-        if len(cards) != 1:
+        if not cards:
             return None
-        card = self.maneuver_catalog.deck_card(cards[0])
-        if card is None or card.side != side:
+        half = maneuver_deck.face_on(self.maneuver_catalog, cards[0], side)
+        if half is None:
             return None
-        if self.special_names_role(match, card.index, self.maneuver_actor(match, side)):
-            return card.index
+        if self.special_names_role(
+            match, cards[0], self.maneuver_actor(match, side), side,
+        ):
+            return half.index
         return None
 
     def played_card_label(self, match: MatchState, side: str) -> str:
         """
-        How the narration names a 2.1 side's card at the reveal: its
-        index and label, "P3 Pass (Pinpoint)", and a flipped card as what it
-        played, "P2 Pass (Pass and Run) played as Deflect". "" where the side played no
-        card (1.0, or no pick yet).
+        How the narration names a 2.2 side's card at the reveal: the half
+        it played, by index and label, "P3 Pass (Pinpoint)". "" where the
+        side played no card (1.0, or no pick yet).
         """
         cards = match.maneuver_cards.get(side) or []
-        card = self.maneuver_catalog.deck_card(cards[0]) if cards else None
-        if card is None:
+        if not cards:
             return ""
-        if len(cards) > 1:
-            key = match.offense_maneuver if side == "offense" else match.defense_maneuver
-            return f"{card.index} {self.maneuver_catalog.card_label(card)} played as {self.maneuver_name(key)}"
-        return f"{card.index} {self.maneuver_catalog.card_label(card)}"
+        if maneuver_deck.face_on(self.maneuver_catalog, cards[0], side) is None:
+            return ""
+        return maneuver_deck.card_words(self.maneuver_catalog, cards[0], side)
 
     def maneuver_deck(
         self, match: MatchState, team_side: TeamSide,
@@ -2368,7 +2362,7 @@ class RulesEngine:
 
     def deal_maneuver_decks(self, game: D12BallGame, match: MatchState) -> None:
         """
-        Each coach's twenty-four cards shuffled and five drawn, at kickoff
+        Each coach's twelve cards shuffled and three drawn, at kickoff
         -- home's first, so a seeded game deals the same hands. A 1.0
         game is dealt nothing.
         """
@@ -2383,7 +2377,7 @@ class RulesEngine:
         self, game: D12BallGame, match: MatchState,
     ) -> None:
         """
-        **2.0's standard deal** (docs/rules-2.1.md 4.5): the six 1.0
+        **2.0's standard deal** (docs/rules-2.2.md 4.5): the six 1.0
         deals, each in the role their card names, with each unique role
         on its space -- which on boards 7 and 9 is where 1.0 already put
         them. On board 10 1.0 deals the Midfielder onto the kickoff space
@@ -2413,7 +2407,7 @@ class RulesEngine:
         """
         **Halftime in 2.0** (the author, 2026-10-16): each coach's hand,
         deck and discard pile are shuffled together into a new deck of
-        twenty-four and a fresh hand of five is drawn -- home's first, as at
+        twelve and a fresh hand of three is drawn -- home's first, as at
         kickoff. Says whether it did anything, so a 1.0 halftime says
         nothing about decks.
         """
@@ -2621,7 +2615,7 @@ class RulesEngine:
             return SETUP_PASS_CLOCK_COST
         if resolving == "high_pass":
             return HIGH_PASS_CLOCK_COST
-        # Every other card says its own time (its tab's `Time`). 2.1's
+        # Every other card says its own time (its tab's `Time`). 2.2's
         # cards play these same six, so their time is the maneuver's.
         card = self.maneuver_catalog.get(resolving)
         if card is not None and card.time.isdigit():
@@ -3055,7 +3049,7 @@ class RulesEngine:
         under a test Scorchit forced (`forced_by`) 2 to Scorchit and
         nothing to their opponent. In 2.0 moving costs instead and the
         test is free, but for Scorchit's 2, which is the ability's
-        price (rules-2.1 5.4c).
+        price (rules-2.2 5.4c).
         """
         if forced_by is not None:
             return (
@@ -3101,7 +3095,7 @@ class RulesEngine:
     def contest_sets_up(self, match: MatchState) -> bool:
         """
         Whether winning this High Ball contest **then sets up scoring**
-        (2.1's High Ball, a Long shot's included: "receiver must win a
+        (2.2's High Ball, a Long shot's included: "receiver must win a
         contest, then may set up scoring"). Not after a pass into the goal zone, whose
         set-up was offered before its contest and declined
         (`pending_high_pass_overshoot`).
@@ -3458,7 +3452,7 @@ class RulesEngine:
         )
 
         candidates: list[tuple[int, str]] = []
-        # **2.1's Pass reaches the nearest teammate each way however
+        # **2.2's Pass reaches the nearest teammate each way however
         # far** (the `maneuvers 2.1` tab names no distance): `reach`
         # None, the whole field.
         if reach is None:
@@ -3646,7 +3640,7 @@ class RulesEngine:
         Pinpoint's +3. Both are capped at 12 by the caller, the way every
         speed change is.
 
-        **2.1's Pass adds 1 too** (`maneuver_deck.PASS_SPEED_BONUS`),
+        **2.2's Pass adds 1 too** (`maneuver_deck.PASS_SPEED_BONUS`),
         whichever of its four cards played it.
         """
         if maneuver_key == "skilled_pass":
@@ -3765,7 +3759,7 @@ class RulesEngine:
             return self.skilled_pass_candidates(match)
         if not self.match_plays_deck(match) or maneuver_key != "low_pass":
             return self.low_pass_candidates(match)
-        # **2.1's Pass** (the `maneuvers 2.1` tab): the nearest teammate
+        # **2.2's Pass** (the `maneuvers 2.1` tab): the nearest teammate
         # each way at any distance -- and the specials add to it: P3's
         # Playmaker any teammate within 2 (Pinpoint's shape at 2), P4's
         # Fullback or Defender the side's Playmaker wherever they are.
@@ -3861,7 +3855,7 @@ class RulesEngine:
         the ball has moved out from under.
         """
         if self.match_plays_deck(match):
-            # **2.1's High Ball goes 3** (the `maneuvers 2.1` tab), and
+            # **2.2's High Ball goes 3** (the `maneuvers 2.1` tab), and
             # its specials offer another distance instead: H1's 4, H3's
             # 2 with no contest, H4's 0 or 1 still contested. The card's own 3 is always
             # on offer -- into the goal zone too, which `high_pass_step`
@@ -3893,7 +3887,7 @@ class RulesEngine:
         return match.high_pass_distances(match.ball.possession, max_distance)
 
     def high_pass_fixed_distance(self, match: MatchState) -> Optional[int]:
-        """The distance a 2.1 High Ball is thrown with nothing to
+        """The distance a 2.2 High Ball is thrown with nothing to
         choose -- None in 1.0, where the coach chooses."""
         if not self.match_plays_deck(match):
             return None
@@ -3903,7 +3897,7 @@ class RulesEngine:
         self, game: Optional[D12BallGame], match: MatchState,
     ) -> bool:
         """
-        Whether a won 2.1 High Ball asks its coach anything: a special
+        Whether a won 2.2 High Ball asks its coach anything: a special
         offering another throw (`high_pass_distance_options`,
         `long_shot_offered`), or Quantor able to run onto it. Otherwise
         it is thrown its 3 at once. The offer and the restart's reading
@@ -3918,13 +3912,13 @@ class RulesEngine:
 
     def long_shot_offered(self, match: MatchState) -> bool:
         """**H2 Long shot**: whether this High Ball may go to the
-        passing side's Striker instead (rules-2.1 7.3)."""
+        passing side's Striker instead (rules-2.2 7.3)."""
         return self.card_special(match, "offense") == maneuver_deck.LONG_SHOT
 
     def shot_exhausts(self, match: MatchState) -> bool:
         """
         Whether the waiting shot exhausts its shooter 1 after the roll:
-        **in 2.1 every score attempt does**, off a set-up or not (the
+        **in 2.2 every score attempt does**, off a set-up or not (the
         author, 2026-11-01: "Attempting a score -- whether off set up
         or not -- always exhausts 1"); in 1.0 only one off a set-up
         (Law 8.3.1, `MatchState.shot_is_set_up`).
@@ -3932,7 +3926,7 @@ class RulesEngine:
         return self.match_plays_deck(match) or match.shot_is_set_up
 
     def uncontested_throws(self, match: MatchState) -> tuple[int, ...]:
-        """The 2.1 High Ball distances a teammate receives without a
+        """The 2.2 High Ball distances a teammate receives without a
         contest -- H3's 2 alone; H4's 0 and 1 are still contested (the
         author, 2026-10-31) -- for a frontend's label; the step reads
         the same number off the distance."""
@@ -4039,8 +4033,8 @@ class RulesEngine:
     def dribble_advance_asked(self, match: MatchState) -> bool:
         """
         Whether a won Dribble asks how far: a Playmaker's in 1.0 (Law
-        6.6.4), and in 2.1 a Midfielder's or Playmaker's **B2 Advance**,
-        which may go a space more -- 2.1's Dribble goes 1 and asks
+        6.6.4), and in 2.2 a Midfielder's or Playmaker's **B2 Advance**,
+        which may go a space more -- 2.2's Dribble goes 1 and asks
         nothing (the `maneuvers 2.1` tab). The offer and the restart's reading ask this one place.
         """
         if self.match_plays_deck(match):
@@ -4139,7 +4133,7 @@ class RulesEngine:
         ball" -- Deflect's set-up asks it about the *defense*,
         where the passer exclusion would mean nothing.
         """
-        # **2.1's H4 thrown 0** is the one High Ball a passer receives
+        # **2.2's H4 thrown 0** is the one High Ball a passer receives
         # (`MatchState.vertical_ball`), first of anyone there.
         candidates = self.scoring_opportunity_candidates(match, offense_side)
         if match.vertical_ball and match.active_player_id in candidates:
@@ -4552,7 +4546,7 @@ class RulesEngine:
         question left is which space.
         """
         # A 2.0 restart places every one of its players again, whether
-        # or not they are out of their zone (docs/rules-2.1.md 4.9).
+        # or not they are out of their zone (docs/rules-2.2.md 4.9).
         if match.pending_replace is not None:
             return match.run_back_placing(side)
         stays_player_id = match.pending_run_back_stays_player_id
@@ -4708,7 +4702,7 @@ class RulesEngine:
                 # A 2.0 restart's players are each their coach's to
                 # place wherever their zone has more than one open
                 # space -- who stands where is the whole of the choice
-                # (docs/rules-2.1.md 4.9) -- so only a zone with one
+                # (docs/rules-2.2.md 4.9) -- so only a zone with one
                 # player left and one space for them is settled here.
                 placing = match.pending_replace is not None
                 by_zone: dict[Zone, list[str]] = {}
@@ -4774,7 +4768,7 @@ class RulesEngine:
     def restarts_by_run_back(match: MatchState) -> bool:
         """
         **Whether a restart runs everybody back rather than resetting
-        them** (docs/rules-2.1.md 4.9, the author, 2026-10-24): a 2.0
+        them** (docs/rules-2.2.md 4.9, the author, 2026-10-24): a 2.0
         match, whose roles are the formation's, places every player
         again in their own zone at a new play -- the unique roles on
         their spaces, everyone else where their coach puts them -- and
@@ -4791,7 +4785,7 @@ class RulesEngine:
         """
         Whether running `player_id` back costs nothing: a 2.0 new play's
         run back is free, as the 1.0 reset it replaces is
-        (docs/rules-2.1.md 4.9, 5.4a). A steal's
+        (docs/rules-2.2.md 4.9, 5.4a). A steal's
         run back is charged a token a space, in both editions. Asked
         before the move, since the move takes them off the list.
         """
@@ -5119,7 +5113,7 @@ class RulesEngine:
     ) -> str:
         """
         Set a 2.0 side up from its roles (`MatchState.arrange_side`,
-        docs/rules-2.1.md 4.3) and say where everybody stands. Who
+        docs/rules-2.2.md 4.3) and say where everybody stands. Who
         comes on before kickoff goes to the ordinary bench, as a setup
         substitution does (`CoachingOccasion.retires_outgoing_players`).
         `strays` keep their role outside its zone for now (4.9d).
@@ -5141,7 +5135,7 @@ class RulesEngine:
             strays=strays,
         )
         # A change that only puts a scattered side partly right
-        # (docs/rules-2.1.md 4.9d) makes no shape yet, so it says who
+        # (docs/rules-2.2.md 4.9d) makes no shape yet, so it says who
         # moved or took a new role, and how many are still out of place.
         out_of_place = match.standing_arrangement_faults(side, spreadable)
         if out_of_place:
@@ -5316,7 +5310,7 @@ class RulesEngine:
 
         A 2.0 side is held by two more things: a teammate left on a
         unique role's space they may not share, and a side a time out or
-        halftime left out of place (docs/rules-2.1.md 4.9d).
+        halftime left out of place (docs/rules-2.2.md 4.9d).
         """
         side = TeamSide(side)
         occasion = match.coaching_occasion
@@ -5338,7 +5332,7 @@ class RulesEngine:
                 "move to another space before finishing."
             )
         # A 2.0 side a time out or halftime left scattered stands in an
-        # arrangement before its coach finishes (docs/rules-2.1.md 4.9d).
+        # arrangement before its coach finishes (docs/rules-2.2.md 4.9d).
         if game is not None and match.standing_arrangement_faults(
             side, self.spreadable_among(game, match.arrangement_pool(side)),
         ):
@@ -5789,7 +5783,7 @@ class RulesEngine:
             mention=player_number is not None,
         )
 
-        # 2.1's coin, on every turn message (the author, 2026-10-20 and
+        # 2.2's coin, on every turn message (the author, 2026-10-20 and
         # 2026-10-31): the face settles the next tie, so a coach always
         # knows how one will go.
         face = self.tie_coin_face(game, match)

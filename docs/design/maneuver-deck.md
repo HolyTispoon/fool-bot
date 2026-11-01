@@ -1,7 +1,7 @@
-# D12 Ball 2.1: the maneuver deck
+# D12 Ball 2.2: the maneuver deck
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are
-[rules-2.1.md](../rules-2.1.md) over [living-rules.md](../living-rules.md).
+[rules-2.2.md](../rules-2.2.md) over [living-rules.md](../living-rules.md).
 
 **2.1 replaced 2.0's cards on 2026-10-31** (the author): twenty-four single-faced cards, four
 for each basic maneuver, each with a role special, any card playable as the other side's
@@ -11,18 +11,36 @@ nothing deals them, and no saved 2.0 game is carried over -- the three games in 
 live bot were abandoned (the author: *"we don't need any legacy"*). Everything else 2.0 built --
 the roles, the moving costs, no range, the secret hand -- is 2.1's as it stood.
 
+**2.2 replaced 2.1 on 2026-11-01** (the author: *"Build this deck as 2.1. Hands of 3 cards"*,
+off a draft of split cards he reviewed on a design canvas the same morning; then, the same day:
+*"The new deck should be called 2.2 with a record of 2.1 and what it was"*). 2.1's twenty-four
+cards are 2.2's twenty-four halves, printed two to a card -- each an offensive half over the
+defensive half of the same rank and number, P*n*/F*n*, B*n*/S*n*, H*n*/R*n* -- so every card
+plays on either side with that half's special and the flip has nothing left to do; the hand is
+three. The halves are the twenty-four rows the importer reads, unchanged; what changed is how
+they are dealt. **2.1 is filed in [archive/rules-2.1/](../../archive/rules-2.1/README.md)**, its
+rules as they stood and what it was. As with 2.0, no 2.1 game is carried over: the author
+abandons the games in progress (*"I'm gonna abandon ongoing games"*), so the flip, the
+single-faced card and its face went with 2.1 rather than staying for games dealt before. See
+"Split cards" below.
+
+**What "2.1" still means in the code.** A comment that says "2.1's coin", "2.1's H4" or "2.1's
+Pass" names what 2.1 brought, which 2.2 plays unchanged, as "2.0's roles" names what 2.0 brought;
+the sheet's tab is still called `maneuvers 2.1`. What 2.2 alone has -- the split card, the hand
+of three -- is said as 2.2's.
+
 ## An edition beside the mode
 
 `D12BallGame.edition` (`Edition.ONE`, `Edition.TWO`) is a setting of its own, not a fourth
 mode (the author, 2026-10-16: "keep d12ball 1.0 as is"; each mode keeps its abilities and
-every mode can play the deck). **`Edition.TWO` is 2.1**: its saved value is still "2.0", since
-2.1 is the same setting with new cards, and only what a person reads says 2.1
+every mode can play the deck). **`Edition.TWO` is 2.2**: its saved value is still "2.0", since
+2.1 and then 2.2 are the same setting with new cards, and only what a person reads says 2.2
 (`formatting.EDITION_NAMES`). **Nothing reads it to decide a rule**:
 `RulesEngine.maneuver_deck_applies` is the answer, and it is never true for a tutorial, whose
 beats rail cards a shuffled hand may not hold (`configure` refuses 2.x there and
 `pin_tutorial` sets 1.0).
 
-- **`gambits_apply` answers no in 2.1**, whatever the mode: there are no advanced maneuvers.
+- **`gambits_apply` answers no in 2.2**, whatever the mode: there are no advanced maneuvers.
   `coin_applies` -- the gate over everything Law 19.3 adds -- is the same answer, 1.0's
   advanced mode alone.
 - **The record leaves the field out of `to_dict` while it is 1.0**, as it does `ai_seats`, so a
@@ -44,23 +62,25 @@ which is 1.0 and every save before the field. `d12ball/maneuver_deck.py` is the 
 moves made on them -- `new_deck`, `draw_cards`, `play_cards` -- with the engine's `rng` handed
 in, so a seeded game deals and reshuffles the same way every time.
 
-- **A card is its sheet index, not a maneuver or a name**: "P1" to "R4". Two of 2.1's names
+- **A half is its sheet index, not a maneuver or a name**: "P1" to "R4". Two of 2.1's names
   are 1.0 cards' names -- P3 is "Pinpoint", P4 "Reset" -- so a slug of the name would collide
-  with the catalog's keys; the index is what the tab, the deck, the save and the rules read.
-  What a card plays is `plays_as(catalog, card, side)`: its own maneuver on its own side, and on
-  the other side, flipped, the maneuver of the same rank there.
+  with the catalog's keys; the index is what the tab, the save and the rules read. **A card is
+  its two halves' indexes, "P2/F2"** (`split_card_id`), offense first. What a card plays on a
+  side is the half there, `face_on(catalog, card, side)`; an id that is not two indexes of the
+  catalog's -- 2.1's "P2" among them -- has no halves and plays nothing.
 - **The deck belongs to a team, the pick to a maneuver side.** The engine maps one onto the
   other with `maneuver_side_team`, the reading every other per-side question already uses.
 - **The reshuffle is at the last card drawn**, not at a draw from an empty pile -- the
   author's wording -- so a deck between turns is never empty while there is a discard.
-- **Twenty-four cards and five in hand** (`deck_cards`, `HAND_SIZE`).
+- **Twelve cards and three in hand** (`deck_cards`, `HAND_SIZE`).
 - **The picks are still maneuver keys** on `offense_maneuver` / `defense_maneuver` -- always
   one of the six basic keys -- and **the cards behind them are `MatchState.maneuver_cards`**,
-  `{side: [card]}` or `[card, extra]` for a flip. One of `MATCH_EXPLICIT_FIELDS`, written only
+  `{side: [card]}` -- a list, as 2.1 saved it with a flip's extra card beside the card, since the
+  save format is the contract. One of `MATCH_EXPLICIT_FIELDS`, written only
   while there are any, and cleared with the picks in `reset_maneuver`, since the effect reads it
   until the maneuver is over.
 
-## The 2.1 cards
+## The halves: 2.1's cards
 
 **The deck is the `maneuvers 2.1` tab** (gid 1310773351 -- the tab 2.0 read, renamed and
 rewritten in place), imported by `scripts/import_d12ball_maneuver_cards.py` into
@@ -83,7 +103,7 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   site a special changes asks `card_special(match, side) == maneuver_deck.PINPOINT` and so on,
   by the named indexes in `maneuver_deck.py`, as a site asks a maneuver by its key; nothing else
   reads a role for one. It is the 2.x twin of `has_role_ability`, which still answers no for the
-  Charter's six abilities in a match whose roles are the formation's (rules-2.1 4.7). Where a
+  Charter's six abilities in a match whose roles are the formation's (rules-2.2 4.7). Where a
   special is a Charter ability on one card -- P1 the Winger's set-up, F1 the Fullback's deflect
   -- the site asks both.
 - **A special runs in its maneuver's step**, mostly where 2.0's variant of the same shape ran:
@@ -134,7 +154,7 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   neither the defender nor the ball; S3's +3 is this maneuver's skill test alone; R1 is a
   turnover with nobody moving; R3's token comes on top of the shove's; moves cost exhaustion.
 - **Every 2.1 score attempt exhausts the shooter 1 after the roll**, off a set-up or not (the
-  author, 2026-11-01; rules-2.1 5.5), where 1.0 charges only a set-up's shot (Law 8.3.1).
+  author, 2026-11-01; rules-2.2 5.5), where 1.0 charges only a set-up's shot (Law 8.3.1).
   `RulesEngine.shot_exhausts` is the one reading, and `rolls.score_attempt_step` asks it.
 - **B1's shot is a scoring opportunity but not a set-up** (the author, 2026-10-31): the shot out
   of turn. In 2.1 that changes only its wording and the shot's `set_up` statistic, since every
@@ -156,43 +176,72 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   `loose_ball_occupants`, `high_pass_receiver_candidates` and `high_pass_receivers_at` read.
   A throw the field clamps to 0 is not one.
 
-## The flip
+## Split cards
 
-**On their turn a coach may discard an extra card to play any card as the same rank's maneuver
-on the other side, without its special** (rules-2.1 2.3; the author, 2026-10-31). The pick
-therefore names a card, and a flip the extra card: `Action(MANEUVER_ACTION, "", {"side",
-"maneuver_key", "card_id", "extra_card_id"})`. `maneuver_key` is still the required argument --
-1.0's pick is a key alone -- and the driver refuses a 2.1 pick without a card, a card not in the
-hand, a card that does not play that key, and a flip without an extra card from the hand
-(`turn._card_pick_refusal`). **`RulesEngine.card_plays` is the one list**: every card in the hand
-as a `CardPlay` (`maneuver_deck.py`) -- its maneuver on the side, whether it is a flip, the
-cards a flip may discard (every other card in the hand) and whether its special is live. The
-prompt carries it (`ManeuverHand.cards`), the Discord hand builds its buttons off it, the refusal
-reads it, and the AI picks from it. A hand of one card cannot flip.
+**A card is an offensive half over the defensive half of the same rank and number**
+(rules-2.2 1.1; the author, 2026-11-01). The pairing is by number because the author's draft
+paired them that way and he asked for it to be built; nothing else ties P2 to F2, so a
+different pairing is a change to `deck_cards` alone. The sheet still has a row a half, and the
+importer, `DeckCard`, the specials' indexes (`PINPOINT` is "P3") and every rule site that asks
+`card_special(match, side) == X` are unchanged: **`maneuver_deck.face_on(catalog, card, side)`
+is the one reading of which half a card plays**, and `card_special`, `special_names_role`,
+`played_card_label` and a special's narration all ask it. `card_plays` gives every card in the
+hand one `CardPlay` a side, naming the half it plays (`half`), so the hand's buttons and the
+pick's reply read their label off the prompt rather than asking `face_on` again (CLAUDE.md: a
+view builds its buttons from `PendingPrompt.options` and nothing else). `faces` is kept per card
+(`lru_cache`), since the catalog is fixed and every prompt asks it of every card in a hand.
 
-**Dinky** rolls its rank as before, plays a card of its own side on it where it holds one -- a
-live special first -- and plays another of its own ranks rather than flip; it flips only a hand
-with nothing of its own side, discarding the first other card (`DinkyAI._card_for`).
+**A hand of three cards** (rules-2.2 1.2) may hold a single rank -- 12 of the 220 hands, about
+1 in 18 -- and then the coach plays a variant of that rank, not a rank of their choice. Dinky,
+whose die often names a rank the hand lacks, plays out of what it holds.
+
+**The face** (`draw_split_face`) is the draft's: the offensive half on top in red, the
+defensive half below in navy, both upright, and between them **a band of two rows**, what each
+half beats, ties and loses to (`draw_band_row`). Each half's header has the rank badge and the
+maneuver as its title, with the half's own name, index and time under it; under the header, the
+rank's effect and the role interaction from the top of the half, at the one size both fit
+(the author, on the draft: "align all text to the top", "make the fonts a bit bigger"). There
+is no spec ability's space -- the author asked for the cards "without the space for spec
+abilities" -- and no flip strip. The top half's badge stands in from the card's rounded corner,
+and the bottom half's box clears the lower corners. A discarded card is a chip of two rows
+(`discard_chip`), and a hand of three is drawn at 480px a card rather than 2.1's five at 360.
+
+## The pick
+
+**The pick names a card**: `Action(MANEUVER_ACTION, "", {"side", "maneuver_key", "card_id"})`.
+`maneuver_key` is still the required argument -- 1.0's pick is a key alone -- and the driver
+refuses a 2.2 pick without a card, a card not in the hand, and a card that does not play that key
+(`turn._card_pick_refusal`); 2.1's `extra_card_id` is an argument the answer no longer takes, so
+`driver.answer` refuses it as it refuses any other. **`RulesEngine.card_plays` is the one list**:
+every card in the hand as a `CardPlay` (`maneuver_deck.py`) -- its half on the side, the
+maneuver that half plays and whether its special is live. The prompt carries it
+(`ManeuverHand.cards`), the Discord hand builds its buttons off it, the refusal reads it, and the
+AI picks from it.
+
+**Dinky** rolls its rank as before and plays a card on it, a live special first
+(`DinkyAI._card_for`). A hand of three often lacks the rank the die named, and then Dinky plays
+out of what it holds -- the same draw off the same stream as before the flip went, so a seeded
+game plays as it did.
 
 ## Who holds what
 
 **`RulesEngine.maneuver_hand` is still the only answer to which maneuvers a coach may play.** In
-2.1 it is every key `card_plays` reaches -- a coach holding any card of the other side and
-another to discard can play every rank. The prompt's `ManeuverHand` keeps `maneuver_keys` and
-`held` (the five card ids) with `deck_count` and `discard_count`, and grows `cards`.
+2.2 it is every key `card_plays` reaches -- the ranks of the three cards held, on the side
+being played. The prompt's `ManeuverHand` keeps `maneuver_keys` and `held` (the card ids) with
+`deck_count` and `discard_count`, and grows `cards`.
 
 **An unchallenged maneuver plays its card**, and its special applies to the handler.
 
 ## Played at the reveal
 
 `d12ball.flow.turn.play_maneuver_cards`, at the end of `maneuver_pick_step` once
-`maneuver_selections_complete`: each side's cards on `maneuver_cards` -- the card, and a flip's
-extra -- go to the discard and the coach draws back to five. It is the reveal rather than
+`maneuver_selections_complete`: each side's card on `maneuver_cards` goes to the discard and the
+coach draws back to three. It is the reveal rather than
 `begin_effect_resolution` because that is when a card is down for good -- until then the pick
 may change -- and the step where both picks become complete is the one place every maneuver
 passes (an AI's pick goes through the same answer). A reshuffle is said, since it is public. The
-reveal names each card -- "P3 Pass (Pinpoint), its special in play", "P2 Pass (Pass and Run)
-played as Deflect" (`RulesEngine.played_card_label`); the label names the maneuver, so the reveal
+reveal names the half each card played -- "P3 Pass (Pinpoint), its special in play", "F2
+Deflect (Follow)" (`RulesEngine.played_card_label`); the label names the maneuver, so the reveal
 does not say "a Pass" after it.
 
 **A card's title is the basic maneuver it plays, and its own name is the subtitle**
@@ -210,19 +259,16 @@ holds the same three cards. A 2.x hand is a secret, so **the public prompt carri
 **My hand** button and no card** (`d12ball:maneuver_hand:<game>`, `HAND_BUTTON_LABEL`), and no
 hand image. One button rather than one a side (the author, 2026-10-17): who presses it says
 whose hand it is. It answers ephemerally with the hand of each side the clicker coaches --
-both, named by side, for somebody coaching themselves -- as the five cards
-(`deck_faces.render_deck_hand`, one row, the side's own cards first) and `ManeuverHandView`,
-**one button a `CardPlay`**: "P3 Pass (Pinpoint)", starred where its special is live, in the side's
-colour; and "⇅ F1 Deflect as Pass" for a flip, grey, which answers with `FlipExtraView` -- one
-button a card the flip may discard -- before it is a pick. **The buttons are in the picture's
-order** -- this side's cards by rank, then the flips -- both sorted by `maneuver_deck.hand_order`
-(the author, 2026-11-01). The text over the hand explains the star only where a card carries
-one, and never the flip: each card's own green strip says what flipping it does (the author,
-2026-11-01). Somebody coaching neither side is put
+both, named by side, for somebody coaching themselves -- as the three cards
+(`deck_faces.render_deck_hand`, one row, by the rank of the half played on that side) and
+`ManeuverHandView`, **one button a `CardPlay`**, named by its `half` (`half_label`): "P3 Pass
+(Pinpoint)", starred where its special is live, in the side's colour. **The buttons are in the
+picture's order**, both sorted by `maneuver_deck.hand_order` (the author, 2026-11-01). The text
+over the hand explains the star only where a card carries one. Somebody coaching neither side is put
 through the pick's own gate a side at a time, so a helper is confirmed and then shown every hand
 on the prompt, and anybody else is refused. A pick from there is the 1.0 pick exactly
 (`ManeuverPicking`, the mixin the views share): the same action, an ephemeral "You chose P3
-Pass (Pinpoint)" (or "... as Pass, discarding ..."), the prompt deleted once both are in. The public
+Pass (Pinpoint)", named by the button's own `half`, the prompt deleted once both are in. The public
 message is never edited, as in 1.0, and a restart re-arms it from the custom ids; the ephemeral
 hand is not persistent, and pressing the public button again sends a fresh one.
 
@@ -242,54 +288,50 @@ confirmation.
 
 ## The faces
 
-**A 2.1 card is drawn from scratch** (`d12ball/deck_faces.py`, the author, 2026-10-31), not
-from the printed 1.0 card's parts -- the 2.0 two-headed card and its band went with the cards.
-Top to bottom: the header, the card's title -- its maneuver -- beside its rank badge (O1, D2),
-with its own name, its index and its time under the title; **the main effect**, the rank's wording, largest; **the
-role interaction** in a box tinted with the card's colour, headed with the roles it names in
-full ("IF FULLBACK OR DEFENDER"); **an empty, labelled space for the spec ability** advanced
-mode will add, with the tab's `Spec` name small in its corner where it gives one; and **a green
-strip along the bottom**, "Discard an extra card: play as Deflect", the same rank's maneuver on
-the other side. Offense is 1.0's red; **defense is navy, #0B2545** (the author) -- on the 2.1
-face alone, so the 1.0 cards are byte-identical (hashed before and after, every face, back and
-hand). Each face is drawn once and kept (`lru_cache`). The print run is
-`scripts/render_maneuver_cards.py --edition 2.0`, into `maneuver-cards-2.1/`, every card on the
-2.x back (`EDITION_TWO_BACK`). **The matchup row sits above the flip strip** (the author,
-2026-10-31: "Need the matchup row"): BEATS / TIES / LOSES TO over the other side's rank badge in
-that side's colour and the basic maneuver on it, read off the rank as 1.0's row is
-(`matchup_rank_groups`, `draw_matchup_row`) -- every card of a rank reads the same row, and no
-advanced card is named, since 2.1 has none.
+**A 2.2 card is drawn from scratch** (`d12ball/deck_faces.py`, the author, 2026-10-31 for 2.1's
+card and 2026-11-01 for the split card), not from the printed 1.0 card's parts; the face is
+under "Split cards" above. Offense is 1.0's red; **defense is navy, #0B2545** (the author) -- on
+the 2.x face alone, so the 1.0 cards are byte-identical. Each face is drawn once and kept
+(`lru_cache`). The print run is `scripts/render_maneuver_cards.py --edition 2.0`, into
+`maneuver-cards-2.2/`, every card on the 2.x back (`EDITION_TWO_BACK`). **The band's rows are the
+matchup row** (the author, 2026-10-31, of 2.1's card: "Need the matchup row"): BEATS / TIES /
+LOSES TO over the other side's rank badge in that side's colour and the basic maneuver on it,
+read off the rank as 1.0's row is (`matchup_rank_groups`, `draw_band_row`) -- every half of a
+rank reads the same row, and no advanced card is named, since 2.2 has none. 2.1's single face --
+its matchup row above a green flip strip, and an empty space for the spec ability -- went with
+2.1.
 
 **The discard piles are face up** (the author): the public 2.x prompt carries both coaches'
 piles as one picture (`deck_faces.render_discard_piles`, `D12Ball.build_discard_file`) once
 either has discarded anything -- the upload the 1.0 hand image made, so no extra request. **A
-discarded card is a chip, not the card** (the author, 2026-10-18): its rank badge and its index
-and name, in the new face's colours (`discard_chip`), in the order they went down. **Each pile
+discarded card is a chip, not the card** (the author, 2026-10-18): its two halves as two rows,
+each its rank badge, index and name in its side's colour (`discard_chip`), in the order they went
+down. **Each pile
 is a column, the two side by side**, home's first (the author, 2026-10-20). The model's reading
 is `RulesEngine.maneuver_discards`; a picture is not a button, so it is read off the match, as
 the field strip is.
 
 **Halftime reshuffles** (the author): `begin_halftime` asks
 `RulesEngine.reshuffle_maneuver_decks`, which puts each coach's hand and discard back into the
-deck, shuffles and deals five (`maneuver_deck.reshuffled`), and says so in halftime's opening
+deck, shuffles and deals three (`maneuver_deck.reshuffled`), and says so in halftime's opening
 message. A 1.0 halftime is unchanged, which the windows golden pins.
 
 ## The coin
 
-**2.1's coin settles every tie, and is tossed again after it** (rules-2.1 section 5; the author,
+**2.1's coin settles every tie, and is tossed again after it** (rules-2.2 section 5; the author,
 2026-10-20 and 2026-10-31: *"The coin is tossed after any tie so players always know how it'll be
 resolved next and it has to be presented in turn messages"*). A skill test's, a contest for the
 ball's and, new in 2.1, a score attempt's tie goes to the face the coin shows -- Fortune to the
 offense (at a shot, the attack scores), Doom to the defense -- and then the coin is tossed, and
 its new face holds until the next tie. A tied shootout test scores for nobody and leaves the coin
-alone. It is not 1.0's gambit coin, which `coin_applies` gates and 2.1 has none of.
+alone. It is not 1.0's gambit coin, which `coin_applies` gates and 2.2 has none of.
 
 - **`MatchState.tie_coin` is the face it shows**, saved only once flipped (`MATCH_EXPLICIT_FIELDS`),
   so a 1.0 match is written as before. `RulesEngine.tie_coin_applies` is the gate, the deck's
   answer under its own name, and `tie_coin_winner` the one reading of whom the face favours.
 - **Set at the first turn from the setup toss** (`turn.settle_tie_coin`, in `start_turn`), before
   anybody is asked anything, and never again there: the coin starts on the face the toss for home
-  or the visitors landed on (`D12BallGame.coin_face`; rules-2.1 5.2, the author, 2026-11-01:
+  or the visitors landed on (`D12BallGame.coin_face`; rules-2.2 5.2, the author, 2026-11-01:
   *"it should just use the toss from the team selection"*), and only a game seated without a toss
   flips it there. It says nothing: the turn message's coin line is the one place the face is
   said, and a "The coin is flipped" line beside it put the face in one message twice. 2.0 tossed
@@ -309,7 +351,7 @@ alone. It is not 1.0's gambit coin, which `coin_applies` gates and 2.1 has none 
 
 ## Moving costs
 
-**In 2.x a move on the board costs a token a space, and a card costs nothing** (rules-2.1 5.4;
+**In 2.x a move on the board costs a token a space, and a card costs nothing** (rules-2.2 5.4;
 the author, 2026-10-21, replacing the rank cost of 2026-10-20, which had each player pay their
 card's rank at the reveal). `RulesEngine.moving_costs` is the gate -- the deck's answer under its
 own name, like `tie_coin_applies` -- and `pay_for_move(game, match, player_id, tokens)` the one
@@ -337,7 +379,7 @@ charge, "" in 1.0 or for a move that went nowhere.
 
 ## No shooting range
 
-**2.0 has no shooting range: a shot may be taken from anywhere** (rules-2.1 section 6; the
+**2.0 has no shooting range: a shot may be taken from anywhere** (rules-2.2 section 6; the
 author, 2026-10-25). `RulesEngine.shooting_range_applies` is the gate -- the deck's answer the
 other way round, under its own name -- and two engine readings carry it to every site:
 `can_attempt_score(game, match, side)` and `may_call_time_out(game, match)`, over the
@@ -364,7 +406,7 @@ a 2-space High Ball's and Vorix's set-up, the Winger's, Zytheris's shot); a 1.0 
 playing**, and `has_role_ability(match, player_id, role)` the one question every role-ability
 site asks (the Fullback's distances, the Defender's steal, the Midfielder's +3, the Playmaker's
 space, the Winger's set-up, the Striker's +3) -- the twin of `has_species_ability`. 2.0 moves a
-role off the player and onto the formation (rules-2.1 section 4), so the two editions can only
+role off the player and onto the formation (rules-2.2 section 4), so the two editions can only
 be told apart where the role is read, and that has to be one place. They ask the match rather
 than the game because every one of the sixteen sites is handed the match and nothing else.
 `tests/test_role_reading.py` holds the rule modules (`engine.py`, `flow/`,
@@ -378,11 +420,11 @@ only where a match has roles, for the reason `maneuver_decks` is: a 1.0 match is
 byte as before. `role_of` reads it where it is there and each card's own role where it is not,
 so a 2.0 game saved before the field plays on with its cards' roles -- and its role abilities,
 since `has_role_ability` answers no only for a match whose roles are the formation's
-(rules-2.1 4.7). Who holds what:
+(rules-2.2 4.7). Who holds what:
 
 - **The deal** is `RulesEngine.deal_formation_roles`, beside the decks at kickoff and gated the
   same way (`maneuver_deck_applies`, so never a tutorial): the six 1.0 deals, each in the role
-  their card names (the author, 2026-10-18). Each unique role has a space (rules-2.1 4.3a,
+  their card names (the author, 2026-10-18). Each unique role has a space (rules-2.2 4.3a,
   `MatchState.unique_role_space`), and on boards 7 and 9 the 1.0 deal already stands them there;
   on board 10 it puts the Midfielder on the kickoff space (Law 3.2.2), so the 2.0 deal moves the
   Playmaker onto it and the Midfielder behind, and records that as the first arrangement.
@@ -393,22 +435,22 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   share a unique role's space and the space would then not say who holds it. An arrangement
   (below) gives its roles rather than reading them back.
 - **A substitute takes the outgoing card's role** (`substitute`). **A 2.0 Coaching Choice has no
-  zone assignment and no space positioning** (rules-2.1 4.6c, the author, 2026-10-25: *"drop
+  zone assignment and no space positioning** (rules-2.2 4.6c, the author, 2026-10-25: *"drop
   them"*): a rearrangement's trades and moves (below) do both, so the hub offers a 2.0 side no
   `swaps` and no `repositions`, the driver refuses `swap` and `reposition` for it, and Discord
   builds neither button. The model's own readings stay -- `exchange_field_players` still trades
   two 2.0 roles, two in the same zone included, and `positioning_targets` still says where a 2.0
   card may be moved -- because a sharer stepping off a unique role's space goes by the second,
   and a test or an admin edit may call the first.
-- **The Playmaker takes the kickoff** (rules-2.1 4.4): `RulesEngine.hand_kickoff_to_playmaker`
+- **The Playmaker takes the kickoff** (rules-2.2 4.4): `RulesEngine.hand_kickoff_to_playmaker`
   makes them the carrier just before a restart from the kickoff space is played -- at the end
   of setup (`finish_setup_coaching`), of halftime (`finish_halftime`) and of a goal's restart
   (`run_back_kickoff_fill`), once every arrangement and window has settled. A carrier rather
   than a new reading of who may handle, because "the ball was left with somebody" is already
   what a carrier says (Law 4.2.2) and `turn_handler_candidates` already honours it. It only
-  changes anything where somebody shares the Playmaker's space -- an Ooze (rules-2.1 4.6e) --
+  changes anything where somebody shares the Playmaker's space -- an Ooze (rules-2.2 4.6e) --
   since nobody else's arrangement puts them on the kickoff space.
-- **Where a card may be moved reads the role** (rules-2.1 4.6d): `MatchState.positioning_targets`
+- **Where a card may be moved reads the role** (rules-2.2 4.6d): `MatchState.positioning_targets`
   is the one reading of where a card may be moved and whom it trades with, and `position_meeple`
   refuses against it. A unique role goes nowhere; a standard role goes to an empty space, or
   trades with a teammate in a standard role, never onto a space a unique role holds. In 1.0 it is
@@ -418,7 +460,7 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   role is still locked but lets a standard teammate share its space. Which cards are Spreadable
   is the engine's (`spread_exempt_ids`), handed in, since the match knows no species -- so in
   training mode, which plays no species abilities, nobody bends it.
-- **Moving off a unique role's space** (rules-2.1 4.6e, the author, 2026-10-18): a teammate
+- **Moving off a unique role's space** (rules-2.2 4.6e, the author, 2026-10-18): a teammate
   sharing an Ooze's unique space is left sharing it with somebody who is not an Ooze when a
   substitution puts them in the role. The substitution stands; `MatchState.unique_space_sharers`
   names who has to move, `settle_unique_space_sharers` moves each who has one empty space of
@@ -430,7 +472,7 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   have moved, and the hub's options name them (`must_move`), so Dinky sends the first move their
   edits offer before it is done. A zone never holds more players than spaces, so with two on one
   there is always an empty one.
-- **There are no formations: a side is arranged by its roles** (rules-2.1 4.2, 4.3; the author,
+- **There are no formations: a side is arranged by its roles** (rules-2.2 4.2, 4.3; the author,
   2026-10-24, replacing the formation change of 2026-10-18). An arrangement is the three unique
   roles' holders, each stood on their space, and three placements anywhere on the field, each
   taking its zone's standard role. `MatchState.arrange_side` puts a side in one, checking it
@@ -454,7 +496,7 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   bench player in their place -- each the whole arrangement it leaves, kept only if
   `arrangement_refusal` lets it stand. The hub's `arrange` answer takes that whole arrangement,
   so the driver's door is one and the same however the frontend builds it.
-- **Before kickoff the pool is the squad** (rules-2.1 4.3c): `MatchState.arrangement_pool` is the
+- **Before kickoff the pool is the squad** (rules-2.2 4.3c): `MatchState.arrangement_pool` is the
   six on the field, and the bench too where the window's substitutions have no limit -- setup's
   -- so whoever on the field is left out goes off through `substitute` and is recorded as the
   window's substitution. After kickoff a substitution is counted, so an arrangement rearranges
@@ -479,7 +521,7 @@ since `has_role_ability` answers no only for a match whose roles are the formati
   puts the Playmaker back on the kickoff space (`DinkyAI._rearrangement`). The web app plays no
   2.0, so it shows neither control.
 
-- **A new play is a run back** (rules-2.1 4.9, the author, 2026-10-24): every player is placed
+- **A new play is a run back** (rules-2.2 4.9, the author, 2026-10-24): every player is placed
   again in their own zone, free -- the unique roles on their spaces -- and the Coaching Choice
   comes after; a time out's and halftime's window sends the unique roles back as it opens and
   the coach puts everybody else right by rearranging, a change at a time -- each stray back in
@@ -520,7 +562,7 @@ field strip under a prompt carries the roles on its meeples -- [board-image.md](
 **Every name in a 2.0 game carries the role the card holds**, and a bench card its skills --
 [naming-and-wording.md](naming-and-wording.md), "Naming a player".
 
-What is not done yet: a 2.1 hand on the web page; the 2.1 cards in the print-and-play kit; the
-spec abilities the face leaves room for; the Learn to Play's 2.x cards; and of **the roles of
-rules-2.1 section 4**, the matchup image's ability line, which still prints the card's own role
+What is not done yet: a 2.2 hand on the web page; the 2.2 cards in the print-and-play kit; the
+spec abilities, which the split face has no room for yet; the Learn to Play's 2.x cards; and of **the roles of
+rules-2.2 section 4**, the matchup image's ability line, which still prints the card's own role
 ability though 2.0 plays none (4.7), and the goal log, which names a scorer by the card's role.

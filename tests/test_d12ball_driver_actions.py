@@ -157,15 +157,12 @@ def _player_action(fixture: PromptFixture) -> tuple[str, dict]:
 def _maneuver_action(fixture: PromptFixture) -> tuple[str, dict]:
     hand = _prompt(fixture).options.hands[0]
     if hand.cards:
-        play = next((play for play in hand.cards if not play.flip), hand.cards[0])
-        arguments = {
+        play = hand.cards[0]
+        return "", {
             "side": hand.side,
             "maneuver_key": play.maneuver_key,
             "card_id": play.card_id,
         }
-        if play.flip:
-            arguments["extra_card_id"] = play.extra_ids[0]
-        return "", arguments
     return "", {"side": hand.side, "maneuver_key": hand.maneuver_keys[0]}
 
 
@@ -1164,7 +1161,7 @@ def _formation_off_the_board(fixture: PromptFixture) -> dict:
 
 def _arrangement_on_a_one_point_oh_side(fixture: PromptFixture) -> dict:
     """The fixtures are 1.0 games, whose sides change formation and are
-    never arranged by their roles (docs/rules-2.1.md 4.3)."""
+    never arranged by their roles (docs/rules-2.2.md 4.3)."""
     side = _coaching_side(fixture)
     fielded = fixture.match.setup_for_side(side).field_players
     return {
@@ -1394,7 +1391,7 @@ REFUSED_ACTIONS = {
     (PromptKind.SHOOTOUT_TEST, "pass"): _wrong_pass,
     (PromptKind.LOW_PASS_CHOICE, ""): _wrong_receiver,
     (PromptKind.HIGH_PASS_CHOICE, ""): _wrong_distance,
-    # A 1.0 High Ball offers no Long shot: only 2.1's H2 Playmaker does.
+    # A 1.0 High Ball offers no Long shot: only 2.2's H2 Playmaker does.
     (PromptKind.HIGH_PASS_CHOICE, "long_shot"): lambda fixture: {},
     (PromptKind.SETUP_PASS_CHOICE, ""): _wrong_distance,
     (PromptKind.SPEED_DELTA_CHOICE, ""): _wrong_speed,

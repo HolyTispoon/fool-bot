@@ -8,10 +8,10 @@ Twelve faces and their two backs, print-ready at 2.5 x 3.5 inches (poker size):
     python3 scripts/render_maneuver_cards.py --hands
     python3 scripts/render_maneuver_cards.py --edition 2.0 --sheet
 
-**`--edition 2.0` draws D12 Ball 2.1's deck** (the edition's saved
-value is still "2.0") into `d12ball/print/maneuver-cards-2.1/` unless
-`--out` names another folder: the twenty-four cards of one coach's deck
-(`maneuver_deck.deck_cards`), each its 2.1 face
+**`--edition 2.0` draws D12 Ball 2.2's deck** (the edition's saved
+value is still "2.0") into `d12ball/print/maneuver-cards-2.2/` unless
+`--out` names another folder: the twelve split cards of one coach's deck
+(`maneuver_deck.deck_cards`), each its 2.2 face
 (`deck_faces.render_deck_card`). Every card takes the basic back, the
 six basic maneuvers' hexagon (the author, 2026-10-28), in the 2.x
 back's style (`EDITION_TWO_BACK`): larger words throughout, each rank
@@ -81,16 +81,19 @@ def with_bleed(card: Image.Image) -> Image.Image:
 
 
 def render_edition_two(args, catalog, players) -> None:
-    """The 2.1 deck: one coach's twenty-four cards, a PNG each, and with
-    `--sheet` the Avery 95328 pages and their backs."""
+    """The 2.2 deck: one coach's twelve split cards, a PNG each, and
+    with `--sheet` the Avery 95328 pages and their backs."""
     fronts = []
     for card_id in maneuver_deck.deck_cards(catalog):
-        card = catalog.deck_card(card_id)
+        halves = maneuver_deck.faces(catalog, card_id)
         face = render_deck_card(catalog, card_id, args.bleed)
         fronts.append(face)
         if not args.sheets_only:
-            slug = re.sub(r"[^a-z0-9]+", "-", card.name.lower()).strip("-")
-            path = args.out / f"{card_id.lower()}-{slug}.png"
+            slug = "-".join(
+                re.sub(r"[^a-z0-9]+", "-", f"{half.index} {half.name}".lower()).strip("-")
+                for half in halves
+            )
+            path = args.out / f"{slug}.png"
             face.save(path, dpi=(300, 300))
             print(f"wrote {path}")
 
@@ -122,7 +125,7 @@ def main() -> None:
         "--edition",
         choices=[edition.value for edition in Edition],
         default=Edition.ONE.value,
-        help="The edition the cards are for (default: 1.0). 2.0 draws the 2.1 deck of twenty-four.",
+        help="The edition the cards are for (default: 1.0). 2.0 draws the 2.2 deck of twelve split cards.",
     )
     parser.add_argument(
         "--out",
@@ -130,7 +133,7 @@ def main() -> None:
         default=None,
         help=(
             "Directory to write the PNGs into (default: "
-            "./d12ball/print/maneuver-cards, or maneuver-cards-2.1 for 2.1)"
+            "./d12ball/print/maneuver-cards, or maneuver-cards-2.2 for 2.2)"
         ),
     )
     parser.add_argument(
@@ -165,7 +168,7 @@ def main() -> None:
     edition = Edition(args.edition)
     if args.out is None:
         args.out = PRINT_FOLDER / (
-            "maneuver-cards" if edition == Edition.ONE else "maneuver-cards-2.1"
+            "maneuver-cards" if edition == Edition.ONE else "maneuver-cards-2.2"
         )
     if args.hands and edition != Edition.ONE:
         parser.error("--hands draws 1.0's hands alone")
