@@ -128,9 +128,11 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   - The rest already were: the passes' and High Ball's extra destinations and distances beside
     the card's own, P1's and B1's and H4's shots, P2's step, B2's distance, B3's and S1's speed
     (staying the same is one of the speeds), B4's handler choice.
-- **What the readings are**, confirmed by the author on 2026-10-31: F4 and R4 are a contest
-  between handler and challenger on the ball's space, the speed left alone; H2's Long shot is
-  offered beside the 3; B4's teammate is the turn's own handler choice; moves cost exhaustion.
+- **What the readings are**, confirmed by the author on 2026-10-31 and 2026-11-01: F4 and R4
+  are a contest between handler and challenger on the ball's space, the speed left alone; H2's
+  Long shot is offered beside the 3; B4's teammate is the turn's own handler choice; S2 moves
+  neither the defender nor the ball; S3's +3 is this maneuver's skill test alone; R1 is a
+  turnover with nobody moving; R3's token comes on top of the shove's; moves cost exhaustion.
 - **Every 2.1 score attempt exhausts the shooter 1 after the roll**, off a set-up or not (the
   author, 2026-11-01; rules-2.1 5.5), where 1.0 charges only a set-up's shot (Law 8.3.1).
   `RulesEngine.shot_exhausts` is the one reading, and `rolls.score_attempt_step` asks it.

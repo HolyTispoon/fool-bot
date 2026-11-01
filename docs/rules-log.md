@@ -162,8 +162,7 @@ the author directly.
 #694: *"Attempting a score -- whether off set up or not -- always exhausts 1."* In 2.1 the
 shooter exhausts 1 after the roll on every score attempt -- an ordinary turn's shot, a
 set-up's, and B1's scoring opportunity alike. In 1.0 a plain score attempt still costs nothing
-and a set-up's shot 1 (Law 8.3.1), pending the author's answer on whether the Charter changes
-too.
+and a set-up's shot 1 (Law 8.3.1): *"Don't change 1.0 for now"* (the author, the same day).
 
 ### 2026-10-31 -- sheet and author, 2.1: the 2.1 maneuver deck replaces 2.0's cards
 
@@ -199,7 +198,8 @@ The tab's rank effects differ from 2.0's in one number: **a Pass adds 1 to the s
 added 2), and **a Steal changes no speed** (2.0's Steal changed it by up to the defensive skill;
 S1's Playmaker now does, by up to the offensive skill).
 
-**Read from the cards, for the author to confirm** -- each is what the bot plays:
+**Read from the cards and confirmed by the author** (2026-10-31 and 2026-11-01, on PR #694) --
+each is what the bot plays, with the author's corrections where the first reading differed:
 
 - **"May" is optional** (the author, the same day: *"Any time a card says 'may' it's optional"*):
   F2's and R2's follow is a question to the defender's coach, and F3 Boot's set-up anywhere is
@@ -217,7 +217,7 @@ S1's Playmaker now does, by up to the offensive skill).
 - H4 Vertical Ball: 0 or 1 spaces, offered beside the throw of 3, **still contested and then
   may set up scoring** (the author, the same day, correcting the first reading, which had them
   uncontested). At 0 the ball comes down on the passer's own space and the passer is its
-  receiver.
+  receiver -- confirmed: the passer has it if they win the contest.
 - H1's 4 and H3's 2 are offered beside the throw of 3; H3's 2 is received with no contest and
   may set up scoring.
 - B1 Dribble: the Striker may attempt scoring from anywhere, as a scoring opportunity (Law 8)
@@ -229,11 +229,13 @@ S1's Playmaker now does, by up to the offensive skill).
   wherever the ball lands, shooting from there.
 - S1 Steal: "up to oSkill" is the stealer's offensive skill, chosen once everyone is back --
   confirmed: the author amended the sheet's Special to "... up to oSkill after turnover".
-- S2 Pickpocket: the defender keeps the ball and stays in place.
-- S3 My Turf!: +3 in this maneuver's skill test.
+- S2 Pickpocket: the defender keeps the ball and stays in place -- confirmed: neither the
+  defender nor the ball moves.
+- S3 My Turf!: +3 in this maneuver's skill test -- confirmed.
 - S4 Toss: the defender stays in place and the ball goes to their nearest teammate behind.
-- R1 Pressure: a turnover with nobody moving, followed by the steal's run back.
-- R3 Stay Close: the handler exhausts 1 on top of the Pressure's own effect.
+- R1 Pressure: a turnover with nobody moving, followed by the steal's run back -- confirmed.
+- R3 Stay Close: the handler exhausts 1 on top of the Pressure's own effect, so a shoved
+  handler pays 1 for the space and 1 for the card -- confirmed.
 - P3 and P4 offer their extra destinations beside the Pass's nearest teammate each way; P2's
   passer step is a question, as 1.0's is.
 - Moves still cost exhaustion a space, as in 2.0 (5.4) -- confirmed.
