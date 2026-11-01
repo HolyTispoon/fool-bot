@@ -1250,6 +1250,20 @@ class ManeuverCatalog:
         maneuver = self.get(key)
         return maneuver.name if maneuver is not None else key
 
+    def card_title(self, card: DeckCard) -> str:
+        """
+        **A 2.1 card's title**, the one way any frontend names it: the
+        basic maneuver it plays, then its own name -- "Deflect - Boot",
+        "Pressure - Stay Close" -- so a card says which maneuver it is
+        before what sets it apart. A name that already holds the
+        maneuver's is left as it stands: P1 is "Pass", P2 "Pass and
+        Run" (the author, 2026-11-01).
+        """
+        maneuver = self.display_name(card.maneuver)
+        if re.search(rf"\b{re.escape(maneuver)}\b", card.name, re.IGNORECASE):
+            return card.name
+        return f"{maneuver} - {card.name}"
+
     def for_tier(
         self, side: str, tier: str,
     ) -> tuple[ManeuverDefinition, ...]:

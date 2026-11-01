@@ -133,8 +133,9 @@ def draw_header(pen: Pen, catalog: ManeuverCatalog, card: DeckCard) -> None:
 
     left = center[0] + BADGE_RADIUS + 22
     room = CARD_WIDTH - MARGIN - left
-    name_face = fitted_bold_font(pen, card.name, room, max_size=56, min_size=30) or font(30, bold=True)
-    pen.text((left, FRAME + HEADER_HEIGHT / 2 + 4), card.name, name_face, "#ffffff", anchor="ls")
+    title = catalog.card_title(card)
+    name_face = fitted_bold_font(pen, title, room, max_size=56, min_size=30) or font(30, bold=True)
+    pen.text((left, FRAME + HEADER_HEIGHT / 2 + 4), title, name_face, "#ffffff", anchor="ls")
     maneuver = catalog.display_name(card.maneuver).upper()
     minutes = "1 TIME" if card.time == "1" else f"{card.time} TIME"
     pen.text(
@@ -351,7 +352,7 @@ def discard_chip(catalog: ManeuverCatalog, card_id: str) -> Image.Image:
     if card is not None:
         pen.text(center, rank_label(card), rank_font(19), color, anchor="mm")
         left = center[0] + CHIP_BADGE + 12
-        label = f"{card.index} {card.name}"
+        label = f"{card.index} {catalog.card_title(card)}"
         face = fitted_bold_font(pen, label, CHIP_WIDTH - left - 10, max_size=26, min_size=15) or font(15, bold=True)
         pen.text((left, CHIP_HEIGHT / 2), label, face, "#ffffff", anchor="lm")
     chip = pen.image.resize((CHIP_WIDTH, CHIP_HEIGHT), Image.Resampling.LANCZOS).convert("RGBA")
