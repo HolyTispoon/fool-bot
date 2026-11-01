@@ -324,8 +324,9 @@ A card is named by its index: P3 is a Pass, whatever its name says.
   - **P4** *Fullback or Defender:* the pass may instead go to the side's Playmaker, wherever
     they are.
 - **b.** *Dribble:* the handler and the ball move 1 space forward, and ball speed rises by 2.
-  - **B1** *Striker:* the handler may then attempt scoring, as a scoring opportunity (Law 8),
-    wherever they are (section 6).
+  - **B1** *Striker:* the handler may then attempt scoring, as a scoring opportunity (Law 8.1.1),
+    wherever they are (section 6) -- but not one off a set-up: the shooter does not exhaust after
+    the roll (Law 8.3.1 does not apply).
   - **B2** *Midfielder or Playmaker:* the handler may advance 1 more space.
   - **B3** *Fullback or Defender:* the handler then changes the ball's speed by up to their
     defensive skill, in either direction.
@@ -341,9 +342,10 @@ throw that reaches the goal zone is the Charter's (Law 6.7.4).
   contested.
 - **H3** *Midfielder:* it may be thrown 2 instead, received with no contest, and may set up a
   scoring opportunity -- the Charter's High Ball of 2.
-- **H4** *Winger or Striker:* it may go 0 or 1 spaces instead, with no contest. At 0 the passer
-  keeps the ball and may take a scoring opportunity; at 1 a teammate there receives it and may,
-  and with nobody there it settles where it lands (Law 10.1).
+- **H4** *Winger or Striker:* it may go 0 or 1 spaces instead, still a High Ball: contested,
+  and having kept it the receiver may take a scoring opportunity. At 0 it comes down on the
+  passer's own space and the passer is its receiver -- the one High Ball a passer receives; at 1
+  a teammate there receives it, and with nobody there it settles where it lands (Law 10.1).
 
 **7.4** **The defensive cards.**
 

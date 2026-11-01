@@ -198,24 +198,29 @@ S1's Playmaker now does, by up to the offensive skill).
   Deflect's own set-up in the goal zone is not a "may"**: the author corrected the rank's Effect
   on the sheet the same day to *"If reaches goal zone, set up scoring"* (*"Deflect set up scoring
   is not a may. ... Boot is optional"*), so the challenger shoots, as in 1.0.
-- F4 Block and R4 Stress: "contested on the spot / in place" is a contest for the ball between
-  the handler and the defender on the ball's space, in place of the card's own move; the speed is
-  left alone.
+- F4 Block and R4 Stress: "contested in place" is a contest for the ball between the handler
+  and the defender on the ball's space, in place of the card's own move; the speed is left alone
+  -- confirmed, and F4's Special now reads "in place" as R4's does.
 - R2 Control: 2.0's Stress -- the ball to the handler's nearest teammate behind, the defender
   asked whether to follow it, an own goal risked with nobody behind.
 - H2 Long shot: to the Striker at any distance, still contested, offered beside the plain throw
-  of 3.
-- H4 Vertical Ball: 0 or 1 spaces, offered beside the throw of 3; at 0 the passer keeps it and
-  may set up scoring, at 1 a teammate there may.
+  of 3 -- confirmed.
+- H4 Vertical Ball: 0 or 1 spaces, offered beside the throw of 3, **still contested and then
+  may set up scoring** (the author, the same day, correcting the first reading, which had them
+  uncontested). At 0 the ball comes down on the passer's own space and the passer is its
+  receiver.
 - H1's 4 and H3's 2 are offered beside the throw of 3; H3's 2 is received with no contest and
   may set up scoring.
-- B1 Dribble: the Striker may attempt scoring from anywhere, as a scoring opportunity (Law 8).
+- B1 Dribble: the Striker may attempt scoring from anywhere, as a scoring opportunity (Law 8)
+  **but not off a set-up** (the author, the same day): the shooter does not exhaust after the
+  roll (Law 8.3.1).
 - B4 Drive: a teammate sharing the space the dribbler moved to may take the ball -- the turn's
-  own choice of handler among those on the ball.
+  own choice of handler among those on the ball -- confirmed.
 - B3 Spin: after the Dribble's +2, the handler changes the speed by up to their defensive skill.
 - F3 Boot: the Winger or Striker who played it is offered the deflection's scoring opportunity
   wherever the ball lands, shooting from there.
-- S1 Steal: "up to oSkill" is the stealer's offensive skill, chosen once everyone is back.
+- S1 Steal: "up to oSkill" is the stealer's offensive skill, chosen once everyone is back --
+  confirmed: the author amended the sheet's Special to "... up to oSkill after turnover".
 - S2 Pickpocket: the defender keeps the ball and stays in place.
 - S3 My Turf!: +3 in this maneuver's skill test.
 - S4 Toss: the defender stays in place and the ball goes to their nearest teammate behind.
@@ -223,7 +228,7 @@ S1's Playmaker now does, by up to the offensive skill).
 - R3 Stay Close: the handler exhausts 1 on top of the Pressure's own effect.
 - P3 and P4 offer their extra destinations beside the Pass's nearest teammate each way; P2's
   passer step is a question, as 1.0's is.
-- Moves still cost exhaustion a space, as in 2.0 (5.4).
+- Moves still cost exhaustion a space, as in 2.0 (5.4) -- confirmed.
 
 **Answered by the author** (2026-10-31): the ball speed modifier is still added to a Steal's skill
 test (Law 7.4.1). The author corrected the Steal rank's Effect on the sheet to "Ball speed

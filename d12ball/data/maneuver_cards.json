@@ -243,7 +243,7 @@
       "number": 4,
       "maneuver": "deflect",
       "effect": "Ball moves back 1 space. If reaches goal zone, set up scoring. Ball speed -1.",
-      "special": "If defender is PM, ball is contested on the spot.",
+      "special": "If defender is PM, ball is contested in place.",
       "roles": [
         "playmaker"
       ],
@@ -258,7 +258,7 @@
       "number": 1,
       "maneuver": "steal",
       "effect": "Turnover. Defender and ball move back 1 space. Ball speed modifier for skill tests.",
-      "special": "If defender is PM, can manipulate ball speed up to oSkill.",
+      "special": "If defender is PM, can manipulate ball speed up to oSkill after turnover.",
       "roles": [
         "playmaker"
       ],
