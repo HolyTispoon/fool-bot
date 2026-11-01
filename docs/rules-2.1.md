@@ -238,8 +238,9 @@ is rolled again, so nothing is paid for a re-roll (Law 6.4.4, 10.2.2 and the re-
   injured is still lost with nothing rolled (Law 15.4.2a). Only an equal total on the dice goes to
   the coin.
 
-**5.2** **The coin is flipped at the start of the game**, before the first turn, and lands on
-Fortune or Doom. **After every tie it settles, it is tossed again**, and its new face holds until
+**5.2** **The coin starts on the face the toss landed on** (Law 3.1.2): the coin that decided
+who chooses home or the visitors is not flipped again before the first turn, and that face settles
+the first tie. **After every tie it settles, it is tossed again**, and its new face holds until
 the next tie -- so both coaches always know how the next tie will go. The face is public, shown
 on every turn.
 

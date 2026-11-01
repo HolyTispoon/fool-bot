@@ -156,7 +156,16 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-11-01 (latest) -- author, 2.1: every score attempt exhausts 1
+### 2026-11-01 (latest) -- author, 2.1: the coin starts on the toss's face
+
+**A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) 5.2). The author, on 2026-11-01,
+after a first turn announced a fresh flip: *"it shouldn't toss on the first turn, it should just
+use the toss from the team selection."* 5.2 had the coin flipped at the start of the game, before
+the first turn, which the bot read as a second flip at the first turn; now the coin starts on the
+face the setup toss (Law 3.1.2) landed on, and is tossed only after a tie, as before. 1.0 is
+unchanged.
+
+### 2026-11-01 -- author, 2.1: every score attempt exhausts 1
 
 **A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) 5.5, 7.2b). The author, on PR
 #694: *"Attempting a score -- whether off set up or not -- always exhausts 1."* In 2.1 the

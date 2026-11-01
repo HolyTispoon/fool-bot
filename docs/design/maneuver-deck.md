@@ -260,9 +260,14 @@ alone. It is not 1.0's gambit coin, which `coin_applies` gates and 2.1 has none 
 - **`MatchState.tie_coin` is the face it shows**, saved only once flipped (`MATCH_EXPLICIT_FIELDS`),
   so a 1.0 match is written as before. `RulesEngine.tie_coin_applies` is the gate, the deck's
   answer under its own name, and `tie_coin_winner` the one reading of whom the face favours.
-- **Flipped at the first turn** (`turn.settle_tie_coin`, in `start_turn`), before anybody is
-  asked anything, and never again there: 2.0 tossed it at a turn's start after an advanced card,
-  and with no advanced cards the turn-start toss and `tie_coin_owed` are gone.
+- **Set at the first turn from the setup toss** (`turn.settle_tie_coin`, in `start_turn`), before
+  anybody is asked anything, and never again there: the coin starts on the face the toss for home
+  or the visitors landed on (`D12BallGame.coin_face`; rules-2.1 5.2, the author, 2026-11-01:
+  *"it should just use the toss from the team selection"*), and only a game seated without a toss
+  flips it there. It says nothing: the turn message's coin line is the one place the face is
+  said, and a "The coin is flipped" line beside it put the face in one message twice. 2.0 tossed
+  it at a turn's start after an advanced card, and with no advanced cards the turn-start toss and
+  `tie_coin_owed` are gone.
 - **Settled and tossed in one place**, `rolls.coin_settles_tie`: it reads the face, says who wins
   and why, tosses (`engine.flip_coin`, the engine's `rng`) and says the new face and what it means
   -- asked where 1.0 re-rolls a tied test or contest (`skill_test_step`, `loose_ball_test_step`)

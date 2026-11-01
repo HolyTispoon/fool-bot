@@ -1,6 +1,6 @@
 """
-D12 Ball 2.1's coin (docs/rules-2.1.md, section 5): flipped before the
-first turn, its face settles every tie -- a skill test's, a contest for
+D12 Ball 2.1's coin (docs/rules-2.1.md, section 5): the setup toss's
+face at the first turn, its face settles every tie -- a skill test's, a contest for
 the ball's, a shot's -- rather than a re-roll or a goal, and it is tossed
 again after the tie, so the next tie's answer is always known and shown
 on the turn message; a tied shootout test scores for nobody -- and
@@ -311,15 +311,35 @@ class TieCoinTests(unittest.TestCase):
 
     # -- Shown -------------------------------------------------------------
 
-    def test_flipped_at_the_first_turn_only(self) -> None:
-        with tossed(CoinFace.FORTUNE):
-            line = settle_tie_coin(ENGINE, self.game, self.match)
-        self.assertIn("The coin is flipped", line)
-        self.assertIn("offense wins ties", line)
-        self.assertEqual(self.match.tie_coin, "fortune")
+    def test_the_first_turn_takes_the_toss_face(self) -> None:
+        # The coin that decided home or the visitors is the coin: it is
+        # not flipped again (rules-2.1 5.2; the author, 2026-11-01).
+        self.game.coin_face = CoinFace.DOOM
+        with mock.patch.object(ENGINE, "flip_coin") as flip:
+            self.assertIsNone(settle_tie_coin(ENGINE, self.game, self.match))
+        flip.assert_not_called()
+        self.assertEqual(self.match.tie_coin, "doom")
         # Not again at later turns: only a tie tosses it.
-        self.assertEqual(settle_tie_coin(ENGINE, self.game, self.match), "")
+        self.game.coin_face = CoinFace.FORTUNE
+        settle_tie_coin(ENGINE, self.game, self.match)
+        self.assertEqual(self.match.tie_coin, "doom")
+
+    def test_a_game_seated_without_a_toss_flips_it(self) -> None:
+        self.game.coin_face = None
+        with tossed(CoinFace.FORTUNE):
+            settle_tie_coin(ENGINE, self.game, self.match)
         self.assertEqual(self.match.tie_coin, "fortune")
+
+    def test_the_first_turn_says_the_coin_once(self) -> None:
+        # The turn message shows the face; the turn's narration does not
+        # repeat it.
+        from d12ball.flow.turn import start_turn
+        self.game.coin_face = CoinFace.DOOM
+        self.match.select_ball_handler(self.handler)
+        result = start_turn(ENGINE, self.game, self.match)
+        said = " ".join(result.narration) + result.next.ask
+        self.assertEqual(said.count("{coin:"), 1)
+        self.assertIn("{coin:doom} **Doom**: defense wins ties.", said)
 
     def test_the_turn_message_shows_the_coin_once_flipped(self) -> None:
         self.assertNotIn("{coin:", ENGINE.build_turn_prompt(self.game, self.match))
@@ -331,7 +351,7 @@ class TieCoinTests(unittest.TestCase):
 
     def test_one_point_oh_has_no_tie_coin(self) -> None:
         self.game.edition = Edition.ONE
-        self.assertEqual(settle_tie_coin(ENGINE, self.game, self.match), "")
+        settle_tie_coin(ENGINE, self.game, self.match)
         self.assertIsNone(self.match.tie_coin)
 
     def test_the_board_is_drawn_with_the_coin(self) -> None:
