@@ -660,7 +660,8 @@ def dribble_two_tail(
     speed rises by 2 and nothing is asked -- but of three specials.
     B3's Fullback or Defender then changes the speed by up to their
     *defensive* skill; B1's Striker may attempt scoring, from wherever
-    they are (2.1 has no range); and B4's Winger leaves the ball for
+    they are (2.1 has no range) -- a scoring opportunity that is not a
+    set-up, so the shooter gains no token after the roll; and B4's Winger leaves the ball for
     their coach to hand to a teammate sharing the space -- the turn's
     own choice of handler among those on the ball (Law 4.2.3), since a
     carrier would make it the dribbler's.
@@ -694,7 +695,9 @@ def dribble_two_tail(
             board_changed=True,
             next=FollowOn(
                 FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
-                {"shooter_id": handler_id, "distance_moved": 1},
+                # A scoring opportunity, but not a set-up (the author,
+                # 2026-10-31): no token after the roll (Law 8.3.1).
+                {"shooter_id": handler_id, "distance_moved": 1, "set_up": False},
             ),
         )
     if special == maneuver_deck.DRIVE:
@@ -2137,10 +2140,18 @@ def throw_high_pass(
         if engine.match_plays_deck(match) and distance == 4
         else " (Set up special)"
         if engine.match_plays_deck(match) and distance == 2
+        else " (Vertical Ball special)"
+        if engine.match_plays_deck(match) and distance < 2
         else ""
     )
     name = "High Ball"
-    if actual_distance:
+    if distance == 0:
+        # 2.1's H4 Vertical Ball thrown 0: straight up, and back down.
+        content = (
+            f"**{name}:** the ball goes straight up and comes back down "
+            f"on the passer's own space{ability_note}."
+        )
+    elif actual_distance:
         space_word = "space" if actual_distance == 1 else "spaces"
         content = (
             f"**{name}:** the ball moves {actual_distance} "
@@ -2255,11 +2266,11 @@ def high_pass_step(
     """
     offense_side = match.ball.possession
     handler = engine.get_player_definition(match.active_player_id)
-    # **2.1's H4 Vertical Ball** throws 0 or 1, as a set-up rather than
-    # a High Ball (rules-2.1 7.3).
-    if engine.match_plays_deck(match) and distance < 2:
-        return vertical_ball_step(engine, match, distance, game)
-
+    # **2.1's H4 Vertical Ball thrown 0** comes down on the passer's own
+    # space, and the passer is its receiver: still a High Ball,
+    # contested, and then it may set up scoring (the author,
+    # 2026-10-31). A throw the field clamps to 0 is not one.
+    match.vertical_ball = engine.match_plays_deck(match) and distance == 0
     reaches_goal_zone, actual_distance, content = throw_high_pass(
         engine, match, offense_side, distance, handler,
     )
@@ -2623,12 +2634,10 @@ def setup_pass_step(
     distance: int,
     runner_id: Optional[str] = None,
     game: Optional[D12BallGame] = None,
-    name: Optional[str] = None,
 ) -> StepResult:
     """
     Cross: the ball goes 0, 1 or 3 spaces, and a teammate standing
-    where it lands takes a scoring opportunity. `name` is 2.1's H4,
-    which throws 1 the same way (`vertical_ball_step`).
+    where it lands takes a scoring opportunity.
 
     **Every distance that fits on the field is offered**, whether or
     not anybody of the passing side is standing there, so all three
@@ -2636,7 +2645,7 @@ def setup_pass_step(
     guards -- see `RulesEngine.setup_pass_distances`.
     """
     offense_side = match.ball.possession
-    name = name or engine.maneuver_name("setup_pass")
+    name = engine.maneuver_name("setup_pass")
     # A game saved after the speed choice Cross used to ask first
     # carries a `setup_pass_shot` continuation; applying the pass spends
     # it, as it always did.
@@ -2711,39 +2720,6 @@ def setup_pass_step(
                 "shooter_id": receiver_id,
                 "distance_moved": SETUP_PASS_CLOCK_COST,
             },
-        ),
-    )
-
-
-def vertical_ball_step(
-    engine: RulesEngine,
-    match: MatchState,
-    distance: int,
-    game: Optional[D12BallGame] = None,
-) -> StepResult:
-    """
-    **H4 Vertical Ball's Winger or Striker** (2.1): the ball goes 0 or
-    1 spaces instead of a High Ball's 3, with no contest. At 0 the
-    passer keeps it and may set up scoring; at 1 a teammate there
-    receives it and may, as a Cross's does -- and with nobody there it
-    lands as any pass that reaches nobody (`setup_pass_step`).
-    """
-    name = _card_name(engine, match, "offense", "high_pass")
-    if distance > 0:
-        return setup_pass_step(engine, match, distance, game=game, name=name)
-    passer_id = match.active_player_id
-    match.set_ball_carrier(passer_id)
-    passer = engine.get_player_definition(passer_id)
-    return StepResult(
-        narration=[
-            f"**{name}:** {engine.format_player_label(match, passer)} "
-            "keeps the ball -- a scoring opportunity! Ball speed is "
-            f"{match.ball.speed}."
-        ],
-        board_changed=False,
-        next=FollowOn(
-            FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
-            {"shooter_id": passer_id, "distance_moved": SETUP_PASS_CLOCK_COST},
         ),
     )
 

@@ -2012,6 +2012,11 @@ MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
         "maneuver_cards",
         # 2.1's follow question, only while one is asked.
         "pending_follow",
+        # 2.1's terms of the offer a shot was taken off, only while the
+        # shot waits.
+        "pending_shot_offer",
+        # 2.1's H4 thrown 0, only while its maneuver is under way.
+        "vertical_ball",
         # 2.0's restart run back, only while one is under way.
         "pending_replace",
         "ruleset_id",
@@ -2148,6 +2153,24 @@ class MatchState:
     # Read by `prompts.follow_prompt`; saved explicitly, only while
     # asked (`MATCH_EXPLICIT_FIELDS`), and cleared with the maneuver.
     pending_follow: Optional[dict] = None
+    # **2.1's terms of the offer a waiting shot was taken off**
+    # (`arrivals.take_scoring_opportunity`): `"set_up": False` for a
+    # scoring opportunity that is not a set-up -- B1's, whose shooter
+    # does not exhaust after the roll (Law 8.3.1; the author,
+    # 2026-10-31) -- and, for an offer to the side without the ball (F3
+    # Boot's), `"loose_on_decline"` with the `"possession"` and
+    # `"speed"` it had before the shot, so stepping back from the shot
+    # offers the same question with the ball where it was. Saved
+    # explicitly, only while held (`MATCH_EXPLICIT_FIELDS`).
+    pending_shot_offer: Optional[dict] = None
+    # **2.1's H4 Vertical Ball thrown 0** (rules-2.1 7.3): the ball goes
+    # straight up and comes down on the passer's own space, and the
+    # passer is its receiver -- the one High Ball a passer receives,
+    # still contested and then a set-up (the author, 2026-10-31). Read
+    # by `loose_ball_occupants` and `RulesEngine.high_pass_receiver_
+    # candidates`; saved explicitly, only while True, and cleared with
+    # the maneuver.
+    vertical_ball: bool = False
     # **Volatile's tier rider**: the skill test that just resolved was
     # ignited in a way that raises the *winner's* maneuver to its
     # gambit -- see "Volatile (Fire Demon)" in
@@ -2866,6 +2889,20 @@ class MatchState:
             self.board.flat_index(self.ball.zone, self.ball.space_index),
         )
 
+    @property
+    def shot_is_set_up(self) -> bool:
+        """
+        Whether the waiting shot is **off a set-up** (Law 8): taken off
+        an offer, and not one of 2.1's scoring opportunities that is not
+        a set-up (B1's; `pending_shot_offer`). The one reading of what
+        a set-up's shot adds -- the shooter's token after the roll
+        (Law 8.3.1) and the Striker's +3 -- where
+        `pending_shot_is_set_up` alone says the shot came off an offer.
+        """
+        return self.pending_shot_is_set_up and (
+            (self.pending_shot_offer or {}).get("set_up", True)
+        )
+
     def may_cancel_pending_shot(self) -> bool:
         """
         Whether the "Back" button on the score attempt prompt has
@@ -3066,7 +3103,13 @@ class MatchState:
         return [
             player_id
             for player_id in self.setup_for_side(side).field_players
-            if player_id in occupants and player_id != self.active_player_id
+            if player_id in occupants and (
+                player_id != self.active_player_id
+                # 2.1's H4 thrown 0 is the passer's own to receive (a
+                # match dealt the decks is a 2.1 one; 1.0's Cross of 0
+                # is a teammate's).
+                or (distance == 0 and bool(self.maneuver_decks))
+            )
         ]
 
     def high_pass_distance_is_moot(self, side: TeamSide) -> bool:
@@ -3291,6 +3334,8 @@ class MatchState:
         if (
             self.pending_loose_ball_is_high_pass
             and TeamSide(side) == self.ball.possession
+            # 2.1's H4 thrown 0 is the passer's own to receive.
+            and not self.vertical_ball
         ):
             return [
                 player_id
@@ -4249,6 +4294,7 @@ class MatchState:
         self.defense_maneuver = None
         self.maneuver_cards = {}
         self.pending_follow = None
+        self.vertical_ball = False
         self.gambit_declared_by = None
         self.pick_unconfirmed = None
         self.gambit_answer = None
@@ -4287,6 +4333,7 @@ class MatchState:
         self.pending_passer_advance = None
         self.pending_shot_is_set_up = False
         self.pending_shot_setup_cost = 0
+        self.pending_shot_offer = None
         self.clock_charged = False
         self.pending_high_pass_overshoot = False
         self.pending_own_goal = False
@@ -6643,6 +6690,10 @@ class MatchState:
             saved["maneuver_cards"] = copy_lists(self.maneuver_cards)
         if self.pending_follow is not None:
             saved["pending_follow"] = dict(self.pending_follow)
+        if self.pending_shot_offer is not None:
+            saved["pending_shot_offer"] = dict(self.pending_shot_offer)
+        if self.vertical_ball:
+            saved["vertical_ball"] = True
         # 2.0's restart run back, only while one is under way.
         if self.pending_replace is not None:
             saved["pending_replace"] = {
@@ -6796,6 +6847,11 @@ class MatchState:
                 dict(data["pending_follow"])
                 if data.get("pending_follow") is not None else None
             ),
+            pending_shot_offer=(
+                dict(data["pending_shot_offer"])
+                if data.get("pending_shot_offer") is not None else None
+            ),
+            vertical_ball=bool(data.get("vertical_ball", False)),
             # Absent from every save but one made mid-restart in 2.0.
             pending_replace=(
                 None

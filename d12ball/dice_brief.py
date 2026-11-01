@@ -429,7 +429,7 @@ def score_attempt_brief(
             + ")"
         )
     striker = (
-        3 if match.pending_shot_is_set_up
+        3 if match.shot_is_set_up
         and engine.has_role_ability(
             match, shooter.player_id, PlayerRole.STRIKER,
         ) else 0

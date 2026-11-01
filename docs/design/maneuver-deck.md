@@ -92,9 +92,9 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   | --- | --- |
   | P1, P2 | `low_pass_tail`'s set-up; `offer_passer_advance` |
   | P3, P4 | `RulesEngine.pass_candidates` adds the teammates within 2, or the Playmaker (`playmaker_pass`) |
-  | B1, B3, B4 | `dribble_two_tail`: a scoring opportunity; the speed choice by defensive skill; no carrier, so the turn's handler choice offers a teammate on the space (Law 4.2.3) |
+  | B1, B3, B4 | `dribble_two_tail`: a scoring opportunity that is not a set-up (`set_up=False`); the speed choice by defensive skill; no carrier, so the turn's handler choice offers a teammate on the space (Law 4.2.3) |
   | B2 | `dribble_advance_asked`, Dribble's distance prompt |
-  | H1, H3, H4 | `high_pass_distance_options`: 3 or 4, 2 or 3, 0/1 or 3; under 2 is `vertical_ball_step` |
+  | H1, H3, H4 | `high_pass_distance_options`: 3 or 4, 2 or 3, 0/1 or 3; H4's 0 and 1 are High Balls like the 3 -- contested, then a set-up -- and a throw of 0 is the passer's to receive (`MatchState.vertical_ball`) |
   | H2 | the `"long_shot"` choice on `HIGH_PASS_CHOICE` (`DistanceOptions.long_shot`), `long_shot_step` |
   | F1, F2, F3, F4 | `deflection_numbers`; `deflection_step`'s follow, set-up anywhere, and `contest_on_the_spot` |
   | S1 | the run back's speed choice by offensive skill (`finish_run_back`, `effect_choice_prompt`) |
@@ -128,9 +128,27 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   - The rest already were: the passes' and High Ball's extra destinations and distances beside
     the card's own, P1's and B1's and H4's shots, P2's step, B2's distance, B3's and S1's speed
     (staying the same is one of the speeds), B4's handler choice.
-- **What the readings are**, listed in the PR for the author: F4 and R4 are a contest between
-  handler and challenger on the ball's space, the speed left alone; B1's shot is a scoring
-  opportunity (Law 8); B4's teammate is the turn's own handler choice.
+- **What the readings are**, confirmed by the author on 2026-10-31: F4 and R4 are a contest
+  between handler and challenger on the ball's space, the speed left alone; H2's Long shot is
+  offered beside the 3; B4's teammate is the turn's own handler choice; moves cost exhaustion.
+- **B1's shot is a scoring opportunity but not a set-up** (the author, 2026-10-31): the shot out
+  of turn, without the shooter's token after the roll (Law 8.3.1). The offer carries
+  `set_up=False` (`arrivals.offer_scoring_attempt_choice`, `pending_scoring_opportunity`), and
+  the waiting shot `MatchState.pending_shot_offer` -- **the terms of the offer a shot was taken
+  off**, explicit and held only while the shot waits. `MatchState.shot_is_set_up` is the one
+  reading of what a set-up adds (the token, the Striker's +3, the shot's `set_up` statistic);
+  `pending_shot_is_set_up` alone still means "the shot came off an offer", which is what the
+  step back from it asks. The same terms carry F3 Boot's `loose_on_decline` and the possession
+  and speed before the shot, so stepping back from a Boot shot gives the ball back and asks the
+  same question (`rolls.retract_shot_step`).
+- **H4's 0 or 1 is still a High Ball** (the author, 2026-10-31: "still requires a contest and
+  still may set up scoring"): `high_pass_step` throws it like the 3, and a receiver must win the
+  High Ball contest, after which `contest_sets_up` offers the shot. **Thrown 0, the ball comes
+  down on the passer's own space and the passer is its receiver** -- the one exception to "a
+  passer never receives their own pass" -- which `MatchState.vertical_ball` records for the
+  contest's whole length (explicit, only while True, cleared with the maneuver), and
+  `loose_ball_occupants`, `high_pass_receiver_candidates` and `high_pass_receivers_at` read.
+  A throw the field clamps to 0 is not one.
 
 ## The flip
 

@@ -1790,8 +1790,8 @@ def _answer_high_pass_choice(
 
     **2.1's specials** (rules-2.1 7.3): the choice `"long_shot"` is H2's
     throw to the Striker, refused unless the prompt offers it, and a
-    distance under 2 is H4's Vertical Ball, which `high_pass_step` hands
-    to its own step.
+    distance under 2 is H4's Vertical Ball, thrown by `high_pass_step`
+    like any other.
     """
     if choice == "long_shot":
         if not prompt.options.long_shot:

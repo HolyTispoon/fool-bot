@@ -199,11 +199,41 @@ class DribbleTests(unittest.TestCase):
         self.assertEqual(match.ball.speed, min(12, speed + 2))
 
     def test_b1_a_striker_may_attempt_scoring(self) -> None:
+        from d12ball.flow import arrivals, rolls
         game, match = staged("B1", "F1")
         make(match, match.active_player_id, PlayerRole.STRIKER)
+        shooter = match.active_player_id
         result = effects.dribble_advance_step(ENGINE, game, match, 1)
         self.assertEqual(result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE)
-        self.assertEqual(result.next.kwargs["shooter_id"], match.active_player_id)
+        self.assertEqual(result.next.kwargs["shooter_id"], shooter)
+        # A scoring opportunity, but not off a set-up (the author,
+        # 2026-10-31): offered, and shot with no token after the roll.
+        self.assertIs(result.next.kwargs["set_up"], False)
+        arrivals.offer_scoring_attempt_choice(
+            ENGINE, game, match, lead_in="", **result.next.kwargs,
+        )
+        arrivals.take_scoring_opportunity(ENGINE, game, match, shooter_id=shooter)
+        self.assertTrue(match.pending_shot_is_set_up)
+        self.assertFalse(match.shot_is_set_up)
+        saved = type(match).from_dict(match.to_dict(), ENGINE.basic_ruleset)
+        self.assertFalse(saved.shot_is_set_up)
+        before = match.exhaustion.get(shooter, 0)
+        rolls.score_attempt_step(ENGINE, game, match)
+        self.assertEqual(match.exhaustion.get(shooter, 0), before)
+
+    def test_b1_a_step_back_offers_the_same_opportunity(self) -> None:
+        from d12ball.flow import arrivals, rolls
+        game, match = staged("B1", "F1")
+        make(match, match.active_player_id, PlayerRole.STRIKER)
+        shooter = match.active_player_id
+        result = effects.dribble_advance_step(ENGINE, game, match, 1)
+        arrivals.offer_scoring_attempt_choice(
+            ENGINE, game, match, lead_in="", **result.next.kwargs,
+        )
+        arrivals.take_scoring_opportunity(ENGINE, game, match, shooter_id=shooter)
+        rolls.retract_shot_step(ENGINE, game, match)
+        self.assertIs(match.pending_scoring_opportunity["set_up"], False)
+        self.assertIsNone(match.pending_shot_offer)
 
     def test_b2_a_midfielder_or_playmaker_may_advance_two(self) -> None:
         game, match = staged("B2", "F1")
@@ -297,10 +327,47 @@ class HighBallTests(unittest.TestCase):
         game, match = staged("H4", "S1")
         make(match, match.active_player_id, PlayerRole.STRIKER)
         self.assertEqual(ENGINE.high_pass_distance_options(match), [0, 1, 3])
+        # Still contested (the author, 2026-10-31).
+        self.assertEqual(ENGINE.uncontested_throws(match), ())
+
+    def test_h4_thrown_none_is_the_passers_to_contest_then_set_up(self) -> None:
+        from d12ball.flow import arrivals
+        game, match = staged("H4", "S1")
+        make(match, match.active_player_id, PlayerRole.STRIKER)
+        passer, before = match.active_player_id, ball_flat(match)
         result = effects.high_pass_step(ENGINE, match, 0, game=game)
-        # At 0 the passer keeps it and may set up scoring.
-        self.assertEqual(match.ball_carrier_id, match.active_player_id)
-        self.assertEqual(result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE)
+        self.assertEqual(ball_flat(match), before)
+        self.assertTrue(match.vertical_ball)
+        self.assertEqual(result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST)
+        arrivals.begin_high_pass_contest(ENGINE, game, match, 2)
+        # The passer receives it, against the challenger on the space.
+        self.assertEqual(
+            ENGINE.loose_ball_candidates(match, match.ball.possession), [passer],
+        )
+        self.assertIn(
+            match.challenger_id,
+            ENGINE.loose_ball_candidates(match, match.defending_side()),
+        )
+        # Having won it, they may set up scoring.
+        self.assertTrue(ENGINE.contest_sets_up(match))
+        saved = type(match).from_dict(match.to_dict(), ENGINE.basic_ruleset)
+        self.assertTrue(saved.vertical_ball)
+        match.reset_maneuver()
+        self.assertFalse(match.vertical_ball)
+
+    def test_h4_thrown_one_is_contested_by_whoever_is_there(self) -> None:
+        game, match = staged("H4", "S1")
+        make(match, match.active_player_id, PlayerRole.WINGER)
+        offense = match.ball.possession
+        ahead = match.relative_flat_index(ball_flat(match), offense, 1)
+        teammate = next(
+            player for player in match.setup_for_side(offense).field_players
+            if player != match.active_player_id
+        )
+        match.move_meeple(teammate, *match.board.position_at_flat_index(ahead))
+        result = effects.high_pass_step(ENGINE, match, 1, game=game)
+        self.assertFalse(match.vertical_ball)
+        self.assertEqual(result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST)
 
 
 class DeflectTests(unittest.TestCase):
@@ -390,6 +457,27 @@ class DeflectTests(unittest.TestCase):
         )
         self.assertEqual(match.ball.possession, defense)
         self.assertEqual(match.ball.speed, 1)
+
+    def test_f3_a_step_back_from_the_shot_gives_the_ball_back(self) -> None:
+        from d12ball.flow import arrivals, rolls
+        game, match = staged("H1", "F3")
+        make(match, match.challenger_id, PlayerRole.STRIKER)
+        offense = match.ball.possession
+        result = effects.deflection_step(ENGINE, match, "deflect", game)
+        speed = match.ball.speed
+        arrivals.offer_scoring_attempt_choice(
+            ENGINE, game, match, lead_in="", **result.next.kwargs,
+        )
+        arrivals.take_scoring_opportunity(
+            ENGINE, game, match, shooter_id=match.challenger_id,
+        )
+        self.assertNotEqual(match.ball.possession, offense)
+        rolls.retract_shot_step(ENGINE, game, match)
+        self.assertEqual(match.ball.possession, offense)
+        self.assertEqual(match.ball.speed, speed)
+        self.assertTrue(match.pending_scoring_opportunity["loose_on_decline"])
+        declined = arrivals.decline_scoring_attempt(ENGINE, game, match, 1)
+        self.assertEqual(declined.next.step, FollowOnStep.BEGIN_LOOSE_BALL)
 
     def test_f4_a_playmaker_contests_it_on_the_spot(self) -> None:
         game, match = staged("H1", "F4")

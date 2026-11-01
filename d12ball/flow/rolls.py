@@ -1350,7 +1350,7 @@ def score_score_attempt(
     # contesting, and nobody contests a shot (see "Injured players" in
     # docs/living-rules.md). Don't add `match.injured` here to match
     # the skill test.
-    if match.pending_shot_is_set_up and engine.has_role_ability(
+    if match.shot_is_set_up and engine.has_role_ability(
         match, shooter.player_id, PlayerRole.STRIKER,
     ):
         attack_total += 3
@@ -1468,8 +1468,9 @@ def settle_score_attempt(
     # A plain score attempt costs no exhaustion and owes no injury
     # check -- only a shot taken off a set-up gains a token, taken
     # after the roll regardless of outcome, and injury checks stay
-    # exclusive to skill tests either way.
-    if match.pending_shot_is_set_up:
+    # exclusive to skill tests either way. 2.1's B1 shot is a scoring
+    # opportunity but not a set-up, and gains none (`shot_is_set_up`).
+    if match.shot_is_set_up:
         verdict += "\n\n" + engine.apply_exhaustion(
             game, match, shooter.player_id, 1,
         )
@@ -1590,7 +1591,7 @@ def score_attempt_step(
         side=match.ball.possession,
         player_id=shooter.player_id,
         scored=scored,
-        set_up=bool(match.pending_shot_is_set_up),
+        set_up=match.shot_is_set_up,
         speed_modifier=match.shot_speed_modifier(),
         # The defenders the shot was up against: one Flickerwing passed
         # was in the way and added nothing, so the count leaves them out.
@@ -1709,10 +1710,17 @@ def retract_shot_step(
     shooter_id = match.active_player_id
     distance_moved = match.pending_shot_setup_cost
     contest_on_decline = match.pending_high_pass_overshoot
+    # 2.1's terms of the offer the shot came off: the ball goes back to
+    # the side it was with, and the offer is asked on the same terms.
+    terms = match.pending_shot_offer or {}
+    if "possession" in terms:
+        match.ball.possession = TeamSide(terms["possession"])
+        match.ball.speed = terms["speed"]
 
     match.pending_action = None
     match.pending_shot_is_set_up = False
     match.pending_shot_setup_cost = 0
+    match.pending_shot_offer = None
     # **The offer is outstanding again**, so the field that records it
     # is armed again -- a restart here would otherwise come back to a
     # turn that has already resolved. See
@@ -1723,6 +1731,10 @@ def retract_shot_step(
         "distance_moved": distance_moved,
         "contest_on_decline": contest_on_decline,
     }
+    if terms.get("loose_on_decline"):
+        match.pending_scoring_opportunity["loose_on_decline"] = True
+    if terms.get("set_up", True) is False:
+        match.pending_scoring_opportunity["set_up"] = False
     return StepResult(
         narration=called_off,
         next=scoring_opportunity_prompt(engine, game, match),

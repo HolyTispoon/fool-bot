@@ -3863,7 +3863,7 @@ class RulesEngine:
         if self.match_plays_deck(match):
             # **2.1's High Ball goes 3** (the `maneuvers 2.1` tab), and
             # its specials offer another distance instead: H1's 4, H3's
-            # 2 with no contest, H4's 0 or 1. The card's own 3 is always
+            # 2 with no contest, H4's 0 or 1 still contested. The card's own 3 is always
             # on offer -- into the goal zone too, which `high_pass_step`
             # settles -- and each other kept while it lands short of the
             # goal zone, as 1.0 keeps each of its own.
@@ -3923,13 +3923,14 @@ class RulesEngine:
 
     def uncontested_throws(self, match: MatchState) -> tuple[int, ...]:
         """The 2.1 High Ball distances a teammate receives without a
-        contest -- H3's 2 and H4's 0 and 1 -- for a frontend's label;
-        the step reads the same numbers off the distance."""
+        contest -- H3's 2 alone; H4's 0 and 1 are still contested (the
+        author, 2026-10-31) -- for a frontend's label; the step reads
+        the same number off the distance."""
         if not self.match_plays_deck(match):
             return ()
         return tuple(
             distance for distance in self.high_pass_distance_options(match)
-            if distance < maneuver_deck.HIGH_BALL_DISTANCE
+            if distance == maneuver_deck.SET_UP_DISTANCE
         )
 
     def pass_ability_note(self, distance: int) -> str:
@@ -4128,11 +4129,16 @@ class RulesEngine:
         ball" -- Deflect's set-up asks it about the *defense*,
         where the passer exclusion would mean nothing.
         """
+        # **2.1's H4 thrown 0** is the one High Ball a passer receives
+        # (`MatchState.vertical_ball`), first of anyone there.
+        candidates = self.scoring_opportunity_candidates(match, offense_side)
+        if match.vertical_ball and match.active_player_id in candidates:
+            return [match.active_player_id] + [
+                player_id for player_id in candidates
+                if player_id != match.active_player_id
+            ]
         return [
-            player_id
-            for player_id in self.scoring_opportunity_candidates(
-                match, offense_side,
-            )
+            player_id for player_id in candidates
             if player_id != match.active_player_id
         ]
 

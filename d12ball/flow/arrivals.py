@@ -415,6 +415,7 @@ def dispatch_arrival_resume(
             lead_in=resume.get("lead_in", ""),
             contest_on_decline=resume.get("contest_on_decline", False),
             loose_on_decline=resume.get("loose_on_decline", False),
+            set_up=resume.get("set_up", True),
         )
 
     if kind == "own_goal":
@@ -629,6 +630,7 @@ def offer_scoring_attempt_choice(
     lead_in: str,
     contest_on_decline: bool = False,
     loose_on_decline: bool = False,
+    set_up: bool = True,
 ) -> StepResult:
     """
     Offer the offense a chance to attempt a scoring-opportunity shot
@@ -652,6 +654,11 @@ def offer_scoring_attempt_choice(
     changes hands only if they shoot (`take_scoring_opportunity`) --
     and declining lands the ball where it lies by the ordinary rule
     (Law 10.1), as the deflection otherwise would have.
+
+    `set_up=False` is **a 2.1 scoring opportunity that is not a
+    set-up** -- B1's (the author, 2026-10-31: "an opportunity but not
+    off a set up"): the shot out of turn, without the shooter's token
+    after the roll (Law 8.3.1; `MatchState.shot_is_set_up`).
     """
     # **A scoring opportunity is an arrival too**, and one the rules
     # name outright among what a pull pre-empts -- so the offer goes
@@ -667,6 +674,7 @@ def offer_scoring_attempt_choice(
             "lead_in": lead_in,
             "contest_on_decline": contest_on_decline,
             "loose_on_decline": loose_on_decline,
+            "set_up": set_up,
         },
     )
     if taken is not None:
@@ -697,6 +705,8 @@ def offer_scoring_attempt_choice(
     }
     if loose_on_decline:
         match.pending_scoring_opportunity["loose_on_decline"] = True
+    if not set_up:
+        match.pending_scoring_opportunity["set_up"] = False
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=scoring_opportunity_prompt(engine, game, match),
@@ -1536,15 +1546,27 @@ def take_scoring_opportunity(
     `pending_prompt` reads, so a match that still held it would be
     asked the same question again on the next click.
     """
+    offer = match.pending_scoring_opportunity or {}
     match.pending_scoring_opportunity = None
+    # **2.1's terms of the offer**, kept while the shot waits
+    # (`MatchState.pending_shot_offer`): whether it is a set-up at all,
+    # and what a step back from the shot puts back.
+    terms: dict = {}
+    if offer.get("loose_on_decline"):
+        terms["loose_on_decline"] = True
+    if offer.get("set_up", True) is False:
+        terms["set_up"] = False
     # **A set-up offered to the side without the ball** -- a 2.1
     # deflection's (`loose_on_decline`) -- changes hands as it is taken,
     # as Law 6.8.5's does: possession flips and the speed resets, so the
     # shot reads the right attacking and defending sides.
     shooter_side = match.side_for_player(shooter_id)
     if shooter_side is not None and shooter_side != match.ball.possession:
+        terms["possession"] = match.ball.possession.value
+        terms["speed"] = match.ball.speed
         match.ball.possession = shooter_side
         match.ball.speed = 1
+    match.pending_shot_offer = terms or None
     match.active_player_id = shooter_id
     match.pending_action = "shoot"
     match.pending_shot_is_set_up = True
@@ -1554,7 +1576,7 @@ def take_scoring_opportunity(
     return StepResult(
         narration=[
             f"{engine.format_player_label(match, shooter)} takes the "
-            "shot off the set-up.",
+            + ("shot off the set-up." if match.shot_is_set_up else "shot."),
         ],
         # The roll prompt. What a frontend puts up for the kind is the
         # composition image and then the prompt -- two uploads and no
