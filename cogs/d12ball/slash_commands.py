@@ -65,6 +65,7 @@ from cogs.d12ball_helpers import (
     format_team_coach,
 )
 from cogs.d12ball_views import (
+    hand_view,
     HubRolesView,
     LobbyView,
     NewGameHubView,
@@ -1597,11 +1598,13 @@ class CommandsMixin:
             return
 
         await interaction.response.defer()
+        view = hand_view(self, game)
         snapshot = await interaction.followup.send(
             file=await self.build_match_file(game),
             wait=True,
+            **({} if view is None else {"view": view}),
         )
-        await add_full_image_button(snapshot)
+        await add_full_image_button(snapshot, view)
 
     @app_commands.command(
         name="team_roster",

@@ -214,13 +214,31 @@ both, named by side, for somebody coaching themselves -- as the five cards
 (`deck_faces.render_deck_hand`, one row, the side's own cards first) and `ManeuverHandView`,
 **one button a `CardPlay`**: "P3 Pass (Pinpoint)", starred where its special is live, in the side's
 colour; and "⇅ F1 Deflect as Pass" for a flip, grey, which answers with `FlipExtraView` -- one
-button a card the flip may discard -- before it is a pick. Somebody coaching neither side is put
+button a card the flip may discard -- before it is a pick. **The buttons are in the picture's
+order** -- this side's cards by rank, then the flips -- both sorted by `maneuver_deck.hand_order`
+(the author, 2026-11-01). The text over the hand explains the star only where a card carries
+one, and never the flip: each card's own green strip says what flipping it does (the author,
+2026-11-01). Somebody coaching neither side is put
 through the pick's own gate a side at a time, so a helper is confirmed and then shown every hand
 on the prompt, and anybody else is refused. A pick from there is the 1.0 pick exactly
 (`ManeuverPicking`, the mixin the views share): the same action, an ephemeral "You chose P3
 Pass (Pinpoint)" (or "... as Pass, discarding ..."), the prompt deleted once both are in. The public
 message is never edited, as in 1.0, and a restart re-arms it from the custom ids; the ephemeral
 hand is not persistent, and pressing the public button again sends a fresh one.
+
+**My hand is also on the turn's action prompt (Maneuver / Shoot to score) and under every
+board** -- the board message, every new play's board, the tail of a maneuver, a loose ball's or a
+correction's board, `/d12ball board` (the author, 2026-11-01), but not the final board, which has
+no hand left to read. That button is `HandButton`, a `discord.ui.DynamicItem` whose custom_id is
+`d12ball:hand:<game>`, registered once in `cog_load` (`add_dynamic_items`), so a board posted
+hours ago still answers after a restart with nothing re-armed per message. It rides on the send
+the board already makes, so it costs no request. What it shows is `HandShowing.show_own_hand`:
+a coach's own hand -- both, named, for somebody coaching themselves; a helper coaching neither
+sees both. While that coach's side is picking a maneuver they are sent the playable hand, the
+prompt's own answer; every other time, and always for a helper, the hand is the picture and the
+two piles with no buttons. A helper picks from the prompt's own button, whose confirmation edits
+the prompt -- on a board it would edit the board -- and looking moves nothing, so it asks no
+confirmation.
 
 ## The faces
 

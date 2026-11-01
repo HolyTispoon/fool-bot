@@ -46,7 +46,7 @@ from cogs.d12ball_helpers import (
     build_full_image_button,
     full_image_link_button,
 )
-from cogs.d12ball_views import HomeAwaySelectionView
+from cogs.d12ball_views import HomeAwaySelectionView, hand_button_for
 from d12ball.game import D12BallGame
 
 if TYPE_CHECKING:
@@ -165,7 +165,14 @@ def d12ball_board_view(cog: "D12Ball", game: D12BallGame) -> Any:
     to go stale, so it is left alone (`MISSING`).
     """
     if game.home_and_visiting_selected:
-        return HomeAwaySelectionView(cog=cog, game_id=game.game_id)
+        view = HomeAwaySelectionView(cog=cog, game_id=game.game_id)
+        # **My hand** under the board in a 2.1 game (the author,
+        # 2026-11-01): a dynamic item, so it answers after a restart
+        # with nothing re-armed per message.
+        hand = hand_button_for(cog, game)
+        if hand is not None:
+            view.add_item(hand)
+        return view
     return discord.utils.MISSING
 
 

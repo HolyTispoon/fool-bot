@@ -42,6 +42,7 @@ from d12ball.rules_doc import DISCORD_MESSAGE_LIMIT
 from d12ball.species_cards import render_species_reference
 from d12ball.zone_board_image import render_zone_board
 from gamesaves.d12ball.storage import save_games
+from cogs.d12ball_views import hand_view
 from cogs.d12ball_helpers import (
     FIELD_IMAGE_FILENAME,
     PBD_ARCHIVE_CATEGORY_NAME,
@@ -873,12 +874,16 @@ class PresentationMixin:
         does.
         """
         png = await self.render_match_png(game, snapshot)
+        # **My hand** under every board of a 2.1 game, on the send
+        # itself so it costs no request (the author, 2026-11-01).
+        view = hand_view(self, game)
         snapshot = await send_new_prompt(
             interaction,
             message,
             file=self.match_file_from_png(game, png),
+            view=view,
         )
-        await add_full_image_button(snapshot)
+        await add_full_image_button(snapshot, view)
         await self.refresh_match_image(interaction, game, png=png)
         await pin_board_message(snapshot)
 
@@ -906,12 +911,14 @@ class PresentationMixin:
         twice.
         """
         png = await self.render_match_png(game, snapshot)
+        view = hand_view(self, game)
         snapshot = await send_new_prompt(
             interaction,
             message,
             file=self.match_file_from_png(game, png),
+            view=view,
         )
-        await add_full_image_button(snapshot)
+        await add_full_image_button(snapshot, view)
         await self.refresh_match_image(interaction, game, png=png)
 
     async def fetch_game_channel(

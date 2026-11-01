@@ -124,7 +124,9 @@ class NoShootingRangeButtonTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_shot_and_the_time_out_are_both_offered_in_two(self) -> None:
         self.assertEqual(
-            self.buttons(Edition.TWO), ["Maneuver", "Shoot to score", "Time out"],
+            self.buttons(Edition.TWO),
+            # My hand rides on a 2.1 turn's prompt as well.
+            ["Maneuver", "Shoot to score", "Time out", "My hand"],
         )
         self.assertEqual(self.buttons(Edition.ONE), ["Maneuver", "Time out"])
 

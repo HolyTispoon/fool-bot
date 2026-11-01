@@ -8,6 +8,7 @@ import discord
 from math import ceil
 from typing import Optional, TYPE_CHECKING
 
+from d12ball import maneuver_deck
 from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.driver import Action
 from d12ball.flow.turn import turn_action_refusal
@@ -20,6 +21,7 @@ from gamesaves.d12ball.service import GameResult
 from cogs.d12ball_helpers import (
     HAND_BUTTON_LABEL,
     add_full_image_button_to_response,
+    is_game_helper,
     refresh_player_names,
     send_new_prompt,
 )
@@ -177,6 +179,14 @@ class PlayerActionView(SafeView):
 
             button.callback = callback
             self.add_item(button)
+
+        # **My hand** in a 2.1 game (the author, 2026-11-01): whether
+        # to maneuver or shoot is read off the cards a coach holds. Its
+        # own row, so the turn's choices read as one row.
+        hand = hand_button_for(cog, game)
+        if hand is not None:
+            hand.row = 1
+            self.add_item(hand)
 
     async def choose_action(
         self,
@@ -660,6 +670,20 @@ class ManeuverPicking:
             return "Only the player on that side can choose this maneuver."
         return None
 
+    async def send_playable_hand(
+        self, interaction: discord.Interaction, hand, named: bool,
+    ) -> None:
+        """One side's 2.1 hand on the maneuver prompt, to the clicker
+        alone, with a button a way to play it (`ManeuverHandView`).
+        The interaction has been deferred."""
+        file = await self.cog.build_deck_hand_file(hand.held, hand.side)
+        await interaction.followup.send(
+            describe_secret_hand(hand, named=named),
+            file=file,
+            view=ManeuverHandView(self.cog, self.game_id, hand),
+            ephemeral=True,
+        )
+
     async def pick(
         self,
         interaction: discord.Interaction,
@@ -991,13 +1015,7 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         for hand in shown:
-            file = await self.cog.build_deck_hand_file(hand.held, hand.side)
-            await interaction.followup.send(
-                describe_secret_hand(hand, named=len(shown) > 1),
-                file=file,
-                view=ManeuverHandView(self.cog, self.game_id, hand),
-                ephemeral=True,
-            )
+            await self.send_playable_hand(interaction, hand, len(shown) > 1)
 
     async def show_reference(self, interaction: discord.Interaction) -> None:
         """
@@ -1120,9 +1138,9 @@ def describe_secret_hand(hand, named: bool = False) -> str:
     """
     What a 2.1 coach reads over their own hand -- `named` with its side
     where the clicker is shown both. A star marks a card whose special
-    the player making the maneuver would play; a card of the other side
-    plays as this side's maneuver of its rank by discarding an extra
-    card (docs/rules-2.1.md 2.3).
+    the player making the maneuver would play, and is explained only
+    where a card carries one. What a flip (\u21c5) does is not said
+    here: each card's own strip says it (the author, 2026-11-01).
     """
     count = (
         f"{hand.deck_count} in your deck, {hand.discard_count} in your "
@@ -1130,9 +1148,9 @@ def describe_secret_hand(hand, named: bool = False) -> str:
     )
     title = f"Your hand on {hand.side}" if named else "Your hand"
     key = (
-        " \u2605 marks a card whose special is in play; \u21c5 plays a "
-        "card as your side's maneuver of its rank, discarding an extra "
-        "card, with no special."
+        " \u2605 marks a card whose special is in play."
+        if any(play.special for play in hand.cards)
+        else ""
     )
     if hand.picked:
         return (
@@ -1140,6 +1158,158 @@ def describe_secret_hand(hand, named: bool = False) -> str:
             f"change it while the other side is still choosing.{key}"
         )
     return f"{title} ({count}) Play one:{key}"
+
+
+def describe_held_hand(
+    side: str, deck_count: int, discard_count: int, named: bool = False,
+) -> str:
+    """What a 2.1 coach reads over their hand while no maneuver is
+    being picked: the side it would be played on and the two piles."""
+    title = f"Your hand on {side}" if named else "Your hand"
+    return (
+        f"{title} ({deck_count} in your deck, {discard_count} in your "
+        "discard.)"
+    )
+
+
+class HandShowing(ManeuverPicking, SafeView):
+    """
+    **My hand away from the maneuver prompt**: the turn's action prompt
+    and every board carry it (the author, 2026-11-01), through
+    `HandButton`. Never posted -- it is the gates and lookups the button
+    reads, since a dynamic button arrives on no view of ours.
+
+    Who sees what: a coach sees their own hand -- both, named by side,
+    for somebody coaching themselves -- and a game helper coaching
+    neither sees both. While their side is picking a maneuver a coach
+    is sent the playable hand, the maneuver prompt's own answer; every
+    other time, and always for a helper, the hand is a picture with no
+    buttons. A helper picks for a coach from the prompt's own button,
+    whose confirmation edits the prompt -- here it would edit a board.
+    Looking changes nothing, so it asks no confirmation.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str) -> None:
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+    async def show_own_hand(self, interaction: discord.Interaction) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        engine = self.cog.engine
+        if not engine.maneuver_deck_applies(game) or not match.maneuver_decks:
+            await interaction.response.send_message(
+                "Nobody holds a hand of cards in this game yet.",
+                ephemeral=True,
+            )
+            return
+        sides = (TeamSide.HOME, TeamSide.VISITING)
+        coached = [
+            side for side in sides
+            if engine.side_controller_id(game, side) == interaction.user.id
+        ]
+        shown = coached or (
+            list(sides) if is_game_helper(interaction.user) else []
+        )
+        if not shown:
+            await interaction.response.send_message(
+                "Only the coaches in this game can see a hand.",
+                ephemeral=True,
+            )
+            return
+        options = self.prompt_options(game, match, PromptKind.MANEUVER_ACTION)
+        picking = {
+            TeamSide(hand.team_side): hand
+            for hand in (options.hands if options is not None else ())
+            if hand.team_side is not None
+        }
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        named = len(shown) > 1
+        for team_side in shown:
+            hand = picking.get(team_side)
+            if hand is not None and team_side in coached:
+                await self.send_playable_hand(interaction, hand, named)
+                continue
+            side = (
+                "offense" if team_side == match.ball.possession
+                else "defense"
+            )
+            deck = engine.maneuver_deck(match, team_side)
+            deck_count, discard_count = maneuver_deck.pile_counts(deck)
+            await interaction.followup.send(
+                describe_held_hand(side, deck_count, discard_count, named),
+                file=await self.cog.build_deck_hand_file(
+                    engine.maneuver_deck_hand(match, team_side), side,
+                ),
+                ephemeral=True,
+            )
+
+
+class HandButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"d12ball:hand:(?P<game_id>[^:]+)",
+):
+    """
+    **My hand** on any message of a 2.1 game: the turn's action prompt,
+    the board message and every board posted. A dynamic item, so it
+    answers on any message carrying it after a restart with one
+    registration (`D12Ball.cog_load`) and none per message -- a board
+    posted hours ago is still pressed. Its custom_id names the game and
+    nothing else: the clicker says whose hand it is
+    (`HandShowing.show_own_hand`).
+    """
+
+    def __init__(self, game_id: str) -> None:
+        super().__init__(
+            discord.ui.Button(
+                label=HAND_BUTTON_LABEL,
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:hand:{game_id}",
+            )
+        )
+        self.game_id = game_id
+
+    @property
+    def label(self) -> str:
+        """The button's own label, so a view's children read alike."""
+        return self.item.label
+
+    @classmethod
+    async def from_custom_id(
+        cls, interaction: discord.Interaction, item, match,
+    ) -> "HandButton":
+        return cls(match["game_id"])
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        cog = interaction.client.get_cog("D12Ball")
+        if cog is None:
+            return
+        await HandShowing(cog, self.game_id).show_own_hand(interaction)
+
+
+def hand_button_for(cog: "D12Ball", game: Optional[D12BallGame]):
+    """**My hand** for a message of `game`, or None where the game deals
+    no hand (1.0) or has no match yet."""
+    if (
+        not isinstance(game, D12BallGame)
+        or game.match_state is None
+        or not cog.engine.maneuver_deck_applies(game)
+    ):
+        return None
+    return HandButton(game.game_id)
+
+
+def hand_view(cog: "D12Ball", game: Optional[D12BallGame]):
+    """A view holding **My hand** alone, for a board posted with no
+    buttons of its own -- None where `hand_button_for` gives none."""
+    button = hand_button_for(cog, game)
+    if button is None:
+        return None
+    view = discord.ui.View(timeout=None)
+    view.add_item(button)
+    return view
 
 
 class ManeuverHandView(ManeuverPicking, SafeView):
@@ -1160,7 +1330,10 @@ class ManeuverHandView(ManeuverPicking, SafeView):
         self.cog = cog
         self.game_id = game_id
         buttons = []
-        for play in hand.cards:
+        # The picture's order, so the buttons read as the cards do:
+        # this side's cards first, then the flips.
+        order = maneuver_deck.hand_order(cog.maneuver_catalog, hand.side)
+        for play in sorted(hand.cards, key=lambda play: order(play.card_id)):
             label = card_label(cog.maneuver_catalog, play.card_id)
             if play.flip:
                 label = (

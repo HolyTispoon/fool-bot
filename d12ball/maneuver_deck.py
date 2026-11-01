@@ -180,6 +180,23 @@ def reshuffled(deck: dict, rng: random.Random) -> dict:
     return fresh
 
 
+def hand_order(catalog: ManeuverCatalog, side: str):
+    """
+    **The one order a 2.1 hand is shown in on `side`**, as a sort key
+    over card ids: this side's cards first by rank and number, then the
+    other side's -- each playable here only flipped. The hand's picture
+    and the buttons under it both sort by it, so the buttons read left
+    to right as the cards do (the author, 2026-11-01).
+    """
+    def order(card_id: str) -> tuple:
+        card = catalog.deck_card(card_id)
+        if card is None:
+            return (2, 0, 0)
+        return (0 if card.side == side else 1, card.rank, card.number)
+
+    return order
+
+
 def pile_counts(deck: dict) -> tuple[int, int]:
     """How many cards are face down in the deck and in the discard --
     public, where the hand is its coach's alone."""
