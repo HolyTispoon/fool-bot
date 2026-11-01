@@ -1252,17 +1252,22 @@ class ManeuverCatalog:
 
     def card_title(self, card: DeckCard) -> str:
         """
-        **A 2.1 card's title**, the one way any frontend names it: the
-        basic maneuver it plays, then its own name -- "Deflect - Boot",
-        "Pressure - Stay Close" -- so a card says which maneuver it is
-        before what sets it apart. A name that already holds the
-        maneuver's is left as it stands: P1 is "Pass", P2 "Pass and
-        Run" (the author, 2026-11-01).
+        **A 2.1 card's title is the basic maneuver it plays** --
+        "Deflect" for F3 -- and its own name, "Boot", its subtitle
+        (the author, 2026-11-01): a card says which maneuver it is
+        before what sets it apart. The face draws the two apart;
+        `card_label` is the two in a line of text.
         """
-        maneuver = self.display_name(card.maneuver)
-        if re.search(rf"\b{re.escape(maneuver)}\b", card.name, re.IGNORECASE):
-            return card.name
-        return f"{maneuver} - {card.name}"
+        return self.display_name(card.maneuver)
+
+    def card_label(self, card: DeckCard) -> str:
+        """
+        A 2.1 card named in a line of text: its title, then its name in
+        parentheses -- "Deflect (Boot)" -- or the title alone where the
+        name is the title (F1, "Deflect").
+        """
+        title = self.card_title(card)
+        return title if card.name == title else f"{title} ({card.name})"
 
     def for_tier(
         self, side: str, tier: str,

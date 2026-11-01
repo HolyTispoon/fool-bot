@@ -1099,9 +1099,9 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
 
 
 def card_label(catalog, card_id: str) -> str:
-    """A 2.1 card as a button or a reply names it: "P3 Pass - Pinpoint"."""
+    """A 2.1 card as a button or a reply names it: "P3 Pass (Pinpoint)"."""
     card = catalog.deck_card(card_id)
-    return card_id if card is None else f"{card.index} {catalog.card_title(card)}"
+    return card_id if card is None else f"{card.index} {catalog.card_label(card)}"
 
 
 def card_pick_words(catalog, engine, card_id, maneuver_key, extra_card_id) -> str:

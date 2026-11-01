@@ -48,6 +48,7 @@ from d12ball.cards import (
     MUTED,
     OFFENSE_COLOR,
     Pen,
+    SUPERSAMPLE,
     fitted_bold_font,
     font,
     line_height,
@@ -136,12 +137,18 @@ def draw_header(pen: Pen, catalog: ManeuverCatalog, card: DeckCard) -> None:
     title = catalog.card_title(card)
     name_face = fitted_bold_font(pen, title, room, max_size=56, min_size=30) or font(30, bold=True)
     pen.text((left, FRAME + HEADER_HEIGHT / 2 + 4), title, name_face, "#ffffff", anchor="ls")
-    maneuver = catalog.display_name(card.maneuver).upper()
+    # The card's own name is the subtitle, then its index and time, on
+    # one baseline under the title.
     minutes = "1 TIME" if card.time == "1" else f"{card.time} TIME"
+    tail = f"  ·  {card.index}  ·  {minutes}"
+    tail_face = font(22, bold=True)
+    tail_width = tail_face.getlength(tail) / SUPERSAMPLE
+    sub_face = fitted_bold_font(pen, card.name, room - tail_width, max_size=32, min_size=20) or font(20, bold=True)
+    baseline = FRAME + HEADER_HEIGHT / 2 + 46
+    pen.text((left, baseline), card.name, sub_face, "#ffffff", anchor="ls")
     pen.text(
-        (left, FRAME + HEADER_HEIGHT / 2 + 16),
-        f"{card.index}  ·  {maneuver}  ·  {minutes}",
-        font(22, bold=True), "#ffffff", anchor="lt",
+        (left + sub_face.getlength(card.name) / SUPERSAMPLE, baseline),
+        tail, tail_face, "#ffffff", anchor="ls",
     )
 
 
@@ -352,7 +359,7 @@ def discard_chip(catalog: ManeuverCatalog, card_id: str) -> Image.Image:
     if card is not None:
         pen.text(center, rank_label(card), rank_font(19), color, anchor="mm")
         left = center[0] + CHIP_BADGE + 12
-        label = f"{card.index} {catalog.card_title(card)}"
+        label = f"{card.index} {catalog.card_label(card)}"
         face = fitted_bold_font(pen, label, CHIP_WIDTH - left - 10, max_size=26, min_size=15) or font(15, bold=True)
         pen.text((left, CHIP_HEIGHT / 2), label, face, "#ffffff", anchor="lm")
     chip = pen.image.resize((CHIP_WIDTH, CHIP_HEIGHT), Image.Resampling.LANCZOS).convert("RGBA")

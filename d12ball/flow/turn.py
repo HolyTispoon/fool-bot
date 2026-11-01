@@ -787,7 +787,8 @@ def _chose(
 ) -> str:
     """What a side chose, as the reveal says it: the maneuver in 1.0,
     and in 2.1 the card that played it -- flipped, or with its special
-    in play."""
+    in play. A card's label names its maneuver already ("P3 Pass
+    (Pinpoint)"), so the reveal does not name it twice."""
     label = engine.played_card_label(match, side)
     if not label:
         return f"**{name}**"
@@ -798,7 +799,7 @@ def _chose(
         ", its special in play"
         if engine.card_special(match, side) is not None else ""
     )
-    return f"**{label}**, a {name}{special}"
+    return f"**{label}**{special}"
 
 
 def settle_tie_coin(

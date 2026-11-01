@@ -2340,8 +2340,8 @@ class RulesEngine:
     def played_card_label(self, match: MatchState, side: str) -> str:
         """
         How the narration names a 2.1 side's card at the reveal: its
-        title and index, "Pass - Pinpoint (P3)", and a flipped card as what it
-        played, "P1 played as Deflect". "" where the side played no
+        index and label, "P3 Pass (Pinpoint)", and a flipped card as what it
+        played, "P2 Pass (Pass and Run) played as Deflect". "" where the side played no
         card (1.0, or no pick yet).
         """
         cards = match.maneuver_cards.get(side) or []
@@ -2350,8 +2350,8 @@ class RulesEngine:
             return ""
         if len(cards) > 1:
             key = match.offense_maneuver if side == "offense" else match.defense_maneuver
-            return f"{self.maneuver_catalog.card_title(card)} ({card.index}) played as {self.maneuver_name(key)}"
-        return f"{self.maneuver_catalog.card_title(card)} ({card.index})"
+            return f"{card.index} {self.maneuver_catalog.card_label(card)} played as {self.maneuver_name(key)}"
+        return f"{card.index} {self.maneuver_catalog.card_label(card)}"
 
     def maneuver_deck(
         self, match: MatchState, team_side: TeamSide,

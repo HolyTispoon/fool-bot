@@ -108,13 +108,13 @@ class SpecialReadingTests(unittest.TestCase):
         make(match, match.active_player_id, PlayerRole.PLAYMAKER)
         self.assertEqual(
             _chose(ENGINE, match, "offense", "Pass"),
-            "**Pinpoint (P3)**, a Pass, its special in play",
+            "**P3 Pass (Pinpoint)**, its special in play",
         )
         match.maneuver_cards["defense"] = ["P2", "B1"]
         match.defense_maneuver = "deflect"
         self.assertEqual(
             _chose(ENGINE, match, "defense", "Deflect"),
-            "**Pass and Run (P2) played as Deflect**",
+            "**P2 Pass (Pass and Run) played as Deflect**",
         )
 
 
