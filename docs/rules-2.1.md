@@ -273,6 +273,10 @@ running back -- are one:
 | --- | --- |
 | Moving on the board during play, but for a reset or a Coaching Choice | 1 per space traveled |
 
+**5.5** **Every score attempt exhausts the shooter 1, after the roll, whether it is off a set-up
+or not** -- an ordinary turn's shot as much as a scoring opportunity's (Law 8.3.1, for every
+shot; Law 5 charges a plain one nothing). It owes no injury check, as no shot does.
+
 ## 6. No shooting range
 
 **6.1** **There is no shooting range: a team may shoot from anywhere on the field** (Law 2.3
@@ -325,8 +329,8 @@ A card is named by its index: P3 is a Pass, whatever its name says.
     they are.
 - **b.** *Dribble:* the handler and the ball move 1 space forward, and ball speed rises by 2.
   - **B1** *Striker:* the handler may then attempt scoring, as a scoring opportunity (Law 8.1.1),
-    wherever they are (section 6) -- but not one off a set-up: the shooter does not exhaust after
-    the roll (Law 8.3.1 does not apply).
+    wherever they are (section 6) -- but not one off a set-up. It exhausts the shooter 1 after
+    the roll, as every score attempt does (5.5).
   - **B2** *Midfielder or Playmaker:* the handler may advance 1 more space.
   - **B3** *Fullback or Defender:* the handler then changes the ball's speed by up to their
     defensive skill, in either direction.

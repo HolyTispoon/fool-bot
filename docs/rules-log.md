@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-31.
+**As of:** 2026-11-01.
 
 ## Where the rules come from
 
@@ -156,7 +156,16 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-10-31 (latest) -- sheet and author, 2.1: the 2.1 maneuver deck replaces 2.0's cards
+### 2026-11-01 (latest) -- author, 2.1: every score attempt exhausts 1
+
+**A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) 5.5, 7.2b). The author, on PR
+#694: *"Attempting a score -- whether off set up or not -- always exhausts 1."* In 2.1 the
+shooter exhausts 1 after the roll on every score attempt -- an ordinary turn's shot, a
+set-up's, and B1's scoring opportunity alike. In 1.0 a plain score attempt still costs nothing
+and a set-up's shot 1 (Law 8.3.1), pending the author's answer on whether the Charter changes
+too.
+
+### 2026-10-31 -- sheet and author, 2.1: the 2.1 maneuver deck replaces 2.0's cards
 
 **A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) sections 1 to 3, 5 and 7; the
 file was `rules-2.1.md`, and sections 4 and 6 stand as they were). The author rewrote the
@@ -212,8 +221,7 @@ S1's Playmaker now does, by up to the offensive skill).
 - H1's 4 and H3's 2 are offered beside the throw of 3; H3's 2 is received with no contest and
   may set up scoring.
 - B1 Dribble: the Striker may attempt scoring from anywhere, as a scoring opportunity (Law 8)
-  **but not off a set-up** (the author, the same day): the shooter does not exhaust after the
-  roll (Law 8.3.1).
+  **but not off a set-up** (the author, the same day).
 - B4 Drive: a teammate sharing the space the dribbler moved to may take the ball -- the turn's
   own choice of handler among those on the ball -- confirmed.
 - B3 Spin: after the Dribble's +2, the handler changes the speed by up to their defensive skill.
