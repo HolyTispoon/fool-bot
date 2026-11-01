@@ -89,8 +89,9 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             )
             hand_view = sent[0].kwargs["view"]
             self.assertIsInstance(hand_view, ManeuverHandView)
-            # One button a way to play a card: its own, or flipped --
-            # in the picture's order, this side's cards before the flips.
+            # One button a way to play a card -- its half on this side,
+            # named by that half's index -- in the picture's order; a
+            # split hand flips nothing.
             order = maneuver_deck.hand_order(cog.maneuver_catalog, side)
             plays = sorted(
                 cog.engine.card_plays(game, match, side),
@@ -98,10 +99,11 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(len(hand_view.children), len(plays))
             for item, play in zip(hand_view.children, plays):
-                self.assertIn(play.card_id, item.label)
-                self.assertEqual(item.label.startswith("\u21c5"), play.flip)
-            flips = [play.flip for play in plays]
-            self.assertEqual(flips, sorted(flips))
+                half = maneuver_deck.face_on(cog.maneuver_catalog, play.card_id, side)
+                self.assertEqual(half.side, side)
+                self.assertIn(half.index, item.label)
+                self.assertFalse(item.label.startswith("\u21c5"))
+            self.assertFalse(any(play.flip for play in plays))
 
     async def test_somebody_coaching_neither_side_is_refused(self) -> None:
         cog, game = self.build()
@@ -148,19 +150,19 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
                 )
         match = cog.engine.load_match_state(game)
         for deck in match.maneuver_decks.values():
-            self.assertEqual(len(deck["hand"]), 5)
+            self.assertEqual(len(deck["hand"]), 3)
             self.assertEqual(len(deck["discard"]), 1)
 
 
-    async def test_a_flip_asks_its_extra_card_and_discards_both(self) -> None:
+    async def test_an_older_games_flip_asks_its_extra_card_and_discards_both(self) -> None:
         cog, game = self.build()
         match = cog.engine.load_match_state(game)
         team = cog.engine.maneuver_side_team(match, "offense")
-        deck = match.maneuver_decks[team.value]
-        # A hand with a defensive card the offense can only flip.
-        others = [card for card in deck["draw"] if card.startswith("F")]
-        deck["draw"] = [c for c in deck["draw"] if c != others[0]] + deck["hand"][:1]
-        deck["hand"][0] = others[0]
+        # A game dealt single-faced cards before 2026-11-01, with a
+        # defensive card the offense can only flip.
+        match.maneuver_decks[team.value] = {
+            "draw": ["P3", "P4", "B1"], "hand": ["F1", "P1", "P2"], "discard": [],
+        }
         game.match_state = match.to_dict()
         options_hand = next(
             hand for hand in ManeuverActionPromptView(cog, game.game_id)

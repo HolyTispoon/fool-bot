@@ -598,8 +598,9 @@ class ManeuverHand:
     deck_count: int = 0
     discard_count: int = 0
     #: **D12 Ball 2.1: every way this hand may be played on this side**
-    #: (`RulesEngine.card_plays`) -- a card as itself, its special live
-    #: or not, or flipped with an extra card to discard. A pick answers
+    #: (`RulesEngine.card_plays`) -- each card as its half on this side,
+    #: its special live or not, and in an older game's single-faced
+    #: hand a card flipped with an extra card to discard. A pick answers
     #: with one's `card_id` (and, flipped, one of its `extra_ids`)
     #: beside its `maneuver_key`. Empty in 1.0.
     cards: tuple[CardPlay, ...] = ()

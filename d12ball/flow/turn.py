@@ -918,7 +918,7 @@ def play_maneuver_cards(
     **D12 Ball 2.1: the cards just revealed leave their hands** (the
     author, 2026-10-16). Each card played goes to its coach's discard
     pile -- with the extra card a flip discards -- and the coach draws
-    back up to five; drawing the last card of a deck shuffles the
+    back up to three; drawing the last card of a deck shuffles the
     discard into a new one, which is said out loud because it is
     public. Nothing in 1.0.
 

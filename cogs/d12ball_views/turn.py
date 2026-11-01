@@ -736,7 +736,7 @@ class ManeuverPicking:
         if card_id is not None:
             chosen = card_pick_words(
                 self.cog.maneuver_catalog, self.cog.engine, card_id,
-                maneuver_key, extra_card_id,
+                maneuver_key, extra_card_id, side,
             )
         await interaction.response.send_message(
             ("You changed your maneuver to " if changing else "You chose ")
@@ -975,7 +975,7 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
 
     async def show_hand(self, interaction: discord.Interaction) -> None:
         """
-        A 2.0 coach's own hand, to them alone: the five cards as a
+        A 2.0 coach's own hand, to them alone: the three cards as a
         picture, how many are in their deck and discard, and a button
         for each maneuver the hand can play on its side.
 
@@ -1116,16 +1116,20 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
         await self.cog.present(interaction, game, result)
 
 
-def card_label(catalog, card_id: str) -> str:
-    """A 2.1 card as a button or a reply names it: "P3 Pass (Pinpoint)"."""
-    card = catalog.deck_card(card_id)
-    return card_id if card is None else f"{card.index} {catalog.card_label(card)}"
+def card_label(catalog, card_id: str, side: Optional[str] = None) -> str:
+    """A 2.1 card as a button or a reply names it: the half `side`
+    plays, "P3 Pass (Pinpoint)", or both halves with no side
+    (`maneuver_deck.card_words`)."""
+    return maneuver_deck.card_words(catalog, card_id, side)
 
 
-def card_pick_words(catalog, engine, card_id, maneuver_key, extra_card_id) -> str:
-    """What the coach is told they chose: the card, and a flip's
-    maneuver and the card it discarded."""
-    label = f"**{card_label(catalog, card_id)}**"
+def card_pick_words(
+    catalog, engine, card_id, maneuver_key, extra_card_id, side=None,
+) -> str:
+    """What the coach is told they chose: the card's half on `side`,
+    and, in an older game, a flip's maneuver and the card it
+    discarded."""
+    label = f"**{card_label(catalog, card_id, side)}**"
     if extra_card_id is None:
         return label
     return (
@@ -1316,8 +1320,9 @@ class ManeuverHandView(ManeuverPicking, SafeView):
     """
     **A 2.1 coach's secret hand**, sent ephemerally by the prompt's
     hand button: one button a way to play a card on this side, off
-    `ManeuverHand.cards` and nothing else -- a card of this side as
-    itself, starred where its special is in play, and a card of the
+    `ManeuverHand.cards` and nothing else -- each card as its half on
+    this side, starred where its special is in play, and, only in a
+    game dealt single-faced cards before 2026-11-01, a card of the
     other side flipped (\u21c5), which asks which extra card to discard
     (`FlipExtraView`) before it is a pick. Each pick is the 1.0
     prompt's pick exactly (`ManeuverPicking.pick`). Never persistent:
@@ -1334,7 +1339,7 @@ class ManeuverHandView(ManeuverPicking, SafeView):
         # this side's cards first, then the flips.
         order = maneuver_deck.hand_order(cog.maneuver_catalog, hand.side)
         for play in sorted(hand.cards, key=lambda play: order(play.card_id)):
-            label = card_label(cog.maneuver_catalog, play.card_id)
+            label = card_label(cog.maneuver_catalog, play.card_id, hand.side)
             if play.flip:
                 label = (
                     f"\u21c5 {label} as "

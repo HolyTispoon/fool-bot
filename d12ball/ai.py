@@ -268,16 +268,17 @@ class DinkyAI(AIStrategy):
                 key for key in hand.maneuver_keys
                 if self.maneuver_catalog.definition(key).rank == rank
             ]
-            # A 2.1 hand plays every rank by flipping, at an extra card;
-            # Dinky pays it only where the rank is not held as itself.
+            # A split hand of three plays only the ranks it holds, and
+            # never flips. An older game's single-faced hand plays every
+            # rank by flipping, at an extra card; Dinky pays it only
+            # where the rank is not held as itself.
             own = {play.maneuver_key for play in hand.cards if not play.flip}
             if hand.cards and own and not set(on_rank) & own:
                 on_rank = [key for key in hand.maneuver_keys if key in own]
             if not on_rank:
-                # A hand that does not cover every rank is not a state
-                # the game produces, but picking out of what is
-                # actually there is cheaper than a branch that can
-                # never be right.
+                # A split hand of three often misses the rank the die
+                # chose (rules-2.1 2.3), so Dinky plays out of what it
+                # holds instead.
                 on_rank = list(hand.maneuver_keys)
             key = self.rng.choice(on_rank)
         arguments = {"side": pick_side, "maneuver_key": key}

@@ -102,6 +102,39 @@ class SpecialReadingTests(unittest.TestCase):
         }
         self.assertEqual(live, {"P1"})
 
+    def test_each_half_of_a_split_card_plays_its_own_special(self) -> None:
+        _, match = staged("P2", "S2")
+        match.maneuver_cards = {"offense": ["P2/F2"], "defense": ["B2/S2"]}
+        make(match, match.active_player_id, PlayerRole.STRIKER)
+        make(match, match.challenger_id, PlayerRole.MIDFIELDER)
+        # P2 names the Striker, S2 the Midfielder: each side reads the
+        # half it played, never the other.
+        self.assertEqual(ENGINE.card_special(match, "offense"), "P2")
+        self.assertEqual(ENGINE.card_special(match, "defense"), "S2")
+        make(match, match.challenger_id, PlayerRole.STRIKER)
+        self.assertIsNone(ENGINE.card_special(match, "defense"))
+
+    def test_the_plays_mark_a_split_cards_live_half(self) -> None:
+        game, match = staged("P1", "F1")
+        hand = match.maneuver_decks[match.ball.possession.value]["hand"]
+        hand[:] = ["P1/F1", "P2/F2", "P3/F3"]
+        make(match, match.active_player_id, PlayerRole.WINGER)
+        live = {
+            play.card_id for play in ENGINE.card_plays(game, match, "offense")
+            if play.special
+        }
+        self.assertEqual(live, {"P1/F1"})
+
+    def test_the_reveal_names_the_half_played(self) -> None:
+        from d12ball.flow.turn import _chose
+        _, match = staged("P1", "F2")
+        match.maneuver_cards["defense"] = ["P2/F2"]
+        make(match, match.challenger_id, PlayerRole.WINGER)
+        self.assertEqual(
+            _chose(ENGINE, match, "defense", "Deflect"),
+            "**F2 Deflect (Follow)**",
+        )
+
     def test_the_reveal_names_the_card(self) -> None:
         from d12ball.flow.turn import _chose
         _, match = staged("P3", "F1")

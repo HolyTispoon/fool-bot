@@ -605,7 +605,7 @@ class RulesEngine:
     def maneuver_deck_applies(self, game: Optional[D12BallGame]) -> bool:
         """
         Whether this game plays **D12 Ball 2.1's maneuver deck**: each
-        coach a shuffled deck of twenty-four cards and a hand of five, in
+        coach a shuffled deck of twelve split cards and a hand of three, in
         place of the three cards every maneuver (the author,
         2026-10-16 and 2026-10-31; docs/rules-2.1.md). The edition is a
         setting beside the mode, so any mode may play it. Never a
@@ -2153,7 +2153,7 @@ class RulesEngine:
         """
         D12 Ball 2.0's public count of each coach's cards, for the
         maneuver prompt -- how many are face down in their deck and in
-        their discard pile, home's first. The hand is five and secret,
+        their discard pile, home's first. The hand is three and secret,
         so it is not counted. `""` in 1.0.
         """
         if not self.maneuver_deck_applies(game):
@@ -2232,10 +2232,9 @@ class RulesEngine:
         One side's playable cards this turn, in the order they read.
 
         **In 2.1 it is every maneuver the coach's hand can play on this
-        side** (`card_plays`): each card of this side as its own, and --
-        flipped, at the price of an extra card -- each card of the other
-        side as this side's maneuver of its rank. One entry a maneuver
-        however many cards play it.
+        side** (`card_plays`): each card's half of this side, and in an
+        older game's single-faced hand, each card of the other side
+        flipped. One entry a maneuver however many cards play it.
         """
         if self.maneuver_deck_applies(game):
             keys = {play.maneuver_key for play in self.card_plays(game, match, side)}
@@ -2266,13 +2265,15 @@ class RulesEngine:
     ) -> tuple[maneuver_deck.CardPlay, ...]:
         """
         **Every card a 2.1 coach may play on `side` this maneuver**, in
-        the hand's order (docs/rules-2.1.md, section 2): a card of this
-        side as its own maneuver, its special live where the player
-        making the maneuver holds a role it names (`special`); a card of
-        the other side **flipped**, as this side's maneuver of its rank,
-        with no special, while the hand holds another card to discard
-        with it (`extra_ids`). The pick's buttons, the AI and the pick's
-        refusal all read this one list. `()` in 1.0.
+        the hand's order (docs/rules-2.1.md, section 2): each card as its
+        half on this side (`maneuver_deck.face_on`), that half's special
+        live where the player making the maneuver holds a role it names
+        (`special`). Only a single-faced card of a game dealt before
+        2026-11-01 plays the other side **flipped**, as this side's
+        maneuver of its rank, with no special, while the hand holds
+        another card to discard with it (`extra_ids`). The pick's
+        buttons, the AI and the pick's refusal all read this one list.
+        `()` in 1.0.
         """
         hand = self.maneuver_deck_hand(match, self.maneuver_side_team(match, side))
         actor = self.maneuver_actor(match, side)
@@ -2290,7 +2291,7 @@ class RulesEngine:
                 flip=flip,
                 extra_ids=extras,
                 special=not flip and self.special_names_role(
-                    match, card_id, actor,
+                    match, card_id, actor, side,
                 ),
             ))
         return tuple(plays)
@@ -2302,24 +2303,30 @@ class RulesEngine:
         return match.active_player_id if side == "offense" else match.challenger_id
 
     def special_names_role(
-        self, match: MatchState, card_id: str, player_id: Optional[str],
+        self,
+        match: MatchState,
+        card_id: str,
+        player_id: Optional[str],
+        side: str,
     ) -> bool:
-        """Whether `card_id`'s special names the role `player_id` holds
-        in this match -- the one place a 2.1 special reads a role,
-        through `role_of`."""
-        card = self.maneuver_catalog.deck_card(card_id)
-        if card is None or player_id is None:
+        """Whether the special on `card_id`'s half for `side` names the
+        role `player_id` holds in this match -- the one place a 2.1
+        special reads a role, through `role_of`. No for a card with no
+        half on `side`, a single-faced card flipped."""
+        half = maneuver_deck.face_on(self.maneuver_catalog, card_id, side)
+        if half is None or player_id is None:
             return False
-        return self.role_of(match, player_id) in card.roles
+        return self.role_of(match, player_id) in half.roles
 
     def card_special(self, match: MatchState, side: str) -> Optional[str]:
         """
         **The one reading of which 2.1 special this maneuver plays** for
-        `side` ("offense" or "defense"): the index of the card behind
-        the side's pick, where it was played as itself rather than
-        flipped and the player making the maneuver -- the handler, or
-        the challenger -- holds a role its special names. None otherwise,
-        and always in 1.0, which has no cards on the match.
+        `side` ("offense" or "defense"): the index of the half the side's
+        card played -- "F2" for P2/F2 on defense -- where it was played
+        as itself rather than flipped and the player making the maneuver
+        -- the handler, or the challenger -- holds a role its special
+        names. None otherwise, and always in 1.0, which has no cards on
+        the match.
 
         This is 2.x's role ability: every rule site that a special
         changes asks `card_special(match, side) == maneuver_deck.X`, and
@@ -2330,28 +2337,34 @@ class RulesEngine:
         cards = match.maneuver_cards.get(side) or []
         if len(cards) != 1:
             return None
-        card = self.maneuver_catalog.deck_card(cards[0])
-        if card is None or card.side != side:
+        half = maneuver_deck.face_on(self.maneuver_catalog, cards[0], side)
+        if half is None:
             return None
-        if self.special_names_role(match, card.index, self.maneuver_actor(match, side)):
-            return card.index
+        if self.special_names_role(
+            match, cards[0], self.maneuver_actor(match, side), side,
+        ):
+            return half.index
         return None
 
     def played_card_label(self, match: MatchState, side: str) -> str:
         """
-        How the narration names a 2.1 side's card at the reveal: its
-        index and label, "P3 Pass (Pinpoint)", and a flipped card as what it
-        played, "P2 Pass (Pass and Run) played as Deflect". "" where the side played no
-        card (1.0, or no pick yet).
+        How the narration names a 2.1 side's card at the reveal: the half
+        it played, by index and label, "P3 Pass (Pinpoint)", and an older
+        game's flipped card as what it played, "P2 Pass (Pass and Run)
+        played as Deflect". "" where the side played no card (1.0, or no
+        pick yet).
         """
         cards = match.maneuver_cards.get(side) or []
-        card = self.maneuver_catalog.deck_card(cards[0]) if cards else None
-        if card is None:
+        if not cards:
             return ""
-        if len(cards) > 1:
-            key = match.offense_maneuver if side == "offense" else match.defense_maneuver
-            return f"{card.index} {self.maneuver_catalog.card_label(card)} played as {self.maneuver_name(key)}"
-        return f"{card.index} {self.maneuver_catalog.card_label(card)}"
+        catalog = self.maneuver_catalog
+        if maneuver_deck.face_on(catalog, cards[0], side) is not None:
+            return maneuver_deck.card_words(catalog, cards[0], side)
+        halves = maneuver_deck.faces(catalog, cards[0])
+        if not halves:
+            return ""
+        key = match.offense_maneuver if side == "offense" else match.defense_maneuver
+        return f"{maneuver_deck.card_words(catalog, cards[0])} played as {self.maneuver_name(key)}"
 
     def maneuver_deck(
         self, match: MatchState, team_side: TeamSide,
@@ -2368,7 +2381,7 @@ class RulesEngine:
 
     def deal_maneuver_decks(self, game: D12BallGame, match: MatchState) -> None:
         """
-        Each coach's twenty-four cards shuffled and five drawn, at kickoff
+        Each coach's twelve cards shuffled and three drawn, at kickoff
         -- home's first, so a seeded game deals the same hands. A 1.0
         game is dealt nothing.
         """
@@ -2413,7 +2426,7 @@ class RulesEngine:
         """
         **Halftime in 2.0** (the author, 2026-10-16): each coach's hand,
         deck and discard pile are shuffled together into a new deck of
-        twenty-four and a fresh hand of five is drawn -- home's first, as at
+        twelve and a fresh hand of three is drawn -- home's first, as at
         kickoff. Says whether it did anything, so a 1.0 halftime says
         nothing about decks.
         """

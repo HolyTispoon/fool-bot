@@ -1114,7 +1114,7 @@ class CoreMixin:
         self, held: Sequence[str], side: str,
     ) -> discord.File:
         """
-        A 2.1 coach's own five cards, this side's first, as a picture
+        A 2.1 coach's own three cards, by the half on this side, as a picture
         for their eyes alone (`deck_faces.render_deck_hand`). Drawn in a
         worker thread, like every render; each card face is drawn once
         and kept, so after the first few hands this is a paste.

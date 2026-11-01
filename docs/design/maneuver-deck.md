@@ -11,6 +11,14 @@ nothing deals them, and no saved 2.0 game is carried over -- the three games in 
 live bot were abandoned (the author: *"we don't need any legacy"*). Everything else 2.0 built --
 the roles, the moving costs, no range, the secret hand -- is 2.1's as it stood.
 
+**On 2026-11-01 the twenty-four cards became twelve split cards and the hand three** (the
+author: *"Build this deck as 2.1. Hands of 3 cards"*, off a draft of split cards he reviewed
+on a design canvas the same morning). Each card is an offensive half over the defensive half
+of the same rank and number -- P*n*/F*n*, B*n*/S*n*, H*n*/R*n* -- so every card plays on either
+side, with that half's special, and the flip has nothing left to do. The halves are the
+twenty-four cards the importer reads, unchanged; what changed is how they are dealt. See "Split
+cards" below.
+
 ## An edition beside the mode
 
 `D12BallGame.edition` (`Edition.ONE`, `Edition.TWO`) is a setting of its own, not a fourth
@@ -44,19 +52,19 @@ which is 1.0 and every save before the field. `d12ball/maneuver_deck.py` is the 
 moves made on them -- `new_deck`, `draw_cards`, `play_cards` -- with the engine's `rng` handed
 in, so a seeded game deals and reshuffles the same way every time.
 
-- **A card is its sheet index, not a maneuver or a name**: "P1" to "R4". Two of 2.1's names
+- **A half is its sheet index, not a maneuver or a name**: "P1" to "R4". Two of 2.1's names
   are 1.0 cards' names -- P3 is "Pinpoint", P4 "Reset" -- so a slug of the name would collide
-  with the catalog's keys; the index is what the tab, the deck, the save and the rules read.
-  What a card plays is `plays_as(catalog, card, side)`: its own maneuver on its own side, and on
-  the other side, flipped, the maneuver of the same rank there.
+  with the catalog's keys; the index is what the tab, the save and the rules read. **A card is
+  its two halves' indexes, "P2/F2"** (`split_card_id`), offense first. What a card plays is
+  `plays_as(catalog, card, side)`, the half on that side (`face_on`).
 - **The deck belongs to a team, the pick to a maneuver side.** The engine maps one onto the
   other with `maneuver_side_team`, the reading every other per-side question already uses.
 - **The reshuffle is at the last card drawn**, not at a draw from an empty pile -- the
   author's wording -- so a deck between turns is never empty while there is a discard.
-- **Twenty-four cards and five in hand** (`deck_cards`, `HAND_SIZE`).
+- **Twelve cards and three in hand** (`deck_cards`, `HAND_SIZE`).
 - **The picks are still maneuver keys** on `offense_maneuver` / `defense_maneuver` -- always
   one of the six basic keys -- and **the cards behind them are `MatchState.maneuver_cards`**,
-  `{side: [card]}` or `[card, extra]` for a flip. One of `MATCH_EXPLICIT_FIELDS`, written only
+  `{side: [card]}`, or, in an older game, `[card, extra]` for a flip. One of `MATCH_EXPLICIT_FIELDS`, written only
   while there are any, and cleared with the picks in `reset_maneuver`, since the effect reads it
   until the maneuver is over.
 
@@ -156,7 +164,42 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   `loose_ball_occupants`, `high_pass_receiver_candidates` and `high_pass_receivers_at` read.
   A throw the field clamps to 0 is not one.
 
-## The flip
+## Split cards
+
+**A card is an offensive half over the defensive half of the same rank and number**
+(rules-2.1 1.1; the author, 2026-11-01). The pairing is by number because the author's draft
+paired them that way and he asked for it to be built; nothing else ties P2 to F2, so a
+different pairing is a change to `deck_cards` alone. The sheet still has a row a half, and the
+importer, `DeckCard`, the specials' indexes (`PINPOINT` is "P3") and every rule site that asks
+`card_special(match, side) == X` are unchanged: **`maneuver_deck.face_on(catalog, card, side)`
+is the one reading of which half a card plays**, and `card_special`, `special_names_role`,
+`played_card_label` and a special's narration all ask it. A card is never flipped, so
+`card_plays` gives every card in the hand one `CardPlay` a side, with no `extra_ids`.
+
+**A hand of three cards** (rules-2.1 1.2) may hold a single rank -- 12 of the 220 hands, about
+1 in 18 -- and then the coach plays a variant of that rank, not a rank of their choice. Dinky,
+whose die often names a rank the hand lacks, plays out of what it holds.
+
+**A game dealt before 2026-11-01 plays on with its single-faced cards.** The save holds card
+ids, so a deck of "P1" to "R4" still loads; `faces` reads an id of one index as a one-half
+card, `face_on` gives it on its own side alone, and `plays_as` still flips it to the other side
+for an extra card -- so the flip below, its `FlipExtraView` and its refusal stay, reached only
+by those games. Unlike 2026-10-31, nothing here was said about abandoning games in progress, so
+none is stranded; once none is left, the flip can go. Its hand of five plays down to three,
+since a draw only tops a hand up (`play_cards`).
+
+**The face** (`draw_split_face`) is the draft's: the offensive half on top in red, the
+defensive half below in navy, both upright, and between them **a band of two rows**, what each
+half beats, ties and loses to (`draw_band_row`). Each half's header has the rank badge and the
+maneuver as its title, with the half's own name, index and time under it; under the header, the
+rank's effect and the role interaction from the top of the half, at the one size both fit
+(the author, on the draft: "align all text to the top", "make the fonts a bit bigger"). There
+is no spec ability's space -- the author asked for the cards "without the space for spec
+abilities" -- and no flip strip. The top half's badge stands in from the card's rounded corner,
+and the bottom half's box clears the lower corners. A discarded card is a chip of two rows
+(`split_chip`), and a hand of three is drawn at 480px a card rather than five at 360.
+
+## The flip (games dealt before 2026-11-01)
 
 **On their turn a coach may discard an extra card to play any card as the same rank's maneuver
 on the other side, without its special** (rules-2.1 2.3; the author, 2026-10-31). The pick
@@ -170,16 +213,17 @@ cards a flip may discard (every other card in the hand) and whether its special 
 prompt carries it (`ManeuverHand.cards`), the Discord hand builds its buttons off it, the refusal
 reads it, and the AI picks from it. A hand of one card cannot flip.
 
-**Dinky** rolls its rank as before, plays a card of its own side on it where it holds one -- a
-live special first -- and plays another of its own ranks rather than flip; it flips only a hand
-with nothing of its own side, discarding the first other card (`DinkyAI._card_for`).
+**Dinky** rolls its rank as before and plays a card on it -- a live special first. In an older
+game it plays a card of its own side where it holds one, and another of its own ranks rather
+than flip; it flips only a hand with nothing of its own side, discarding the first other card
+(`DinkyAI._card_for`).
 
 ## Who holds what
 
 **`RulesEngine.maneuver_hand` is still the only answer to which maneuvers a coach may play.** In
-2.1 it is every key `card_plays` reaches -- a coach holding any card of the other side and
-another to discard can play every rank. The prompt's `ManeuverHand` keeps `maneuver_keys` and
-`held` (the five card ids) with `deck_count` and `discard_count`, and grows `cards`.
+2.1 it is every key `card_plays` reaches -- the ranks of the three cards held, on the side
+being played. The prompt's `ManeuverHand` keeps `maneuver_keys` and `held` (the card ids) with
+`deck_count` and `discard_count`, and grows `cards`.
 
 **An unchallenged maneuver plays its card**, and its special applies to the handler.
 
@@ -187,12 +231,13 @@ another to discard can play every rank. The prompt's `ManeuverHand` keeps `maneu
 
 `d12ball.flow.turn.play_maneuver_cards`, at the end of `maneuver_pick_step` once
 `maneuver_selections_complete`: each side's cards on `maneuver_cards` -- the card, and a flip's
-extra -- go to the discard and the coach draws back to five. It is the reveal rather than
+extra in an older game -- go to the discard and the coach draws back to three. It is the reveal rather than
 `begin_effect_resolution` because that is when a card is down for good -- until then the pick
 may change -- and the step where both picks become complete is the one place every maneuver
 passes (an AI's pick goes through the same answer). A reshuffle is said, since it is public. The
-reveal names each card -- "P3 Pass (Pinpoint), its special in play", "P2 Pass (Pass and Run)
-played as Deflect" (`RulesEngine.played_card_label`); the label names the maneuver, so the reveal
+reveal names the half each card played -- "P3 Pass (Pinpoint), its special in play", "F2
+Deflect (Follow)" -- and an older game's flip as what it played, "P2 Pass (Pass and Run) played
+as Deflect" (`RulesEngine.played_card_label`); the label names the maneuver, so the reveal
 does not say "a Pass" after it.
 
 **A card's title is the basic maneuver it plays, and its own name is the subtitle**
@@ -210,10 +255,11 @@ holds the same three cards. A 2.x hand is a secret, so **the public prompt carri
 **My hand** button and no card** (`d12ball:maneuver_hand:<game>`, `HAND_BUTTON_LABEL`), and no
 hand image. One button rather than one a side (the author, 2026-10-17): who presses it says
 whose hand it is. It answers ephemerally with the hand of each side the clicker coaches --
-both, named by side, for somebody coaching themselves -- as the five cards
-(`deck_faces.render_deck_hand`, one row, the side's own cards first) and `ManeuverHandView`,
-**one button a `CardPlay`**: "P3 Pass (Pinpoint)", starred where its special is live, in the side's
-colour; and "⇅ F1 Deflect as Pass" for a flip, grey, which answers with `FlipExtraView` -- one
+both, named by side, for somebody coaching themselves -- as the three cards
+(`deck_faces.render_deck_hand`, one row, by the rank of the half played on that side) and
+`ManeuverHandView`, **one button a `CardPlay`**, named by that half: "P3 Pass (Pinpoint)",
+starred where its special is live, in the side's colour; and, in an older game,
+"⇅ F1 Deflect as Pass" for a flip, grey, which answers with `FlipExtraView` -- one
 button a card the flip may discard -- before it is a pick. **The buttons are in the picture's
 order** -- this side's cards by rank, then the flips -- both sorted by `maneuver_deck.hand_order`
 (the author, 2026-11-01). The text over the hand explains the star only where a card carries
@@ -244,7 +290,8 @@ confirmation.
 
 **A 2.1 card is drawn from scratch** (`d12ball/deck_faces.py`, the author, 2026-10-31), not
 from the printed 1.0 card's parts -- the 2.0 two-headed card and its band went with the cards.
-Top to bottom: the header, the card's title -- its maneuver -- beside its rank badge (O1, D2),
+**A split card's face is under "Split cards" above**; what follows is the single face an older
+game's hand still draws. Top to bottom: the header, the card's title -- its maneuver -- beside its rank badge (O1, D2),
 with its own name, its index and its time under the title; **the main effect**, the rank's wording, largest; **the
 role interaction** in a box tinted with the card's colour, headed with the roles it names in
 full ("IF FULLBACK OR DEFENDER"); **an empty, labelled space for the spec ability** advanced
@@ -271,7 +318,7 @@ the field strip is.
 
 **Halftime reshuffles** (the author): `begin_halftime` asks
 `RulesEngine.reshuffle_maneuver_decks`, which puts each coach's hand and discard back into the
-deck, shuffles and deals five (`maneuver_deck.reshuffled`), and says so in halftime's opening
+deck, shuffles and deals three (`maneuver_deck.reshuffled`), and says so in halftime's opening
 message. A 1.0 halftime is unchanged, which the windows golden pins.
 
 ## The coin

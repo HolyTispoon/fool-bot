@@ -1039,14 +1039,14 @@ EDITION_NAMES: dict[Edition, str] = {
 
 #: What 2.1 changes, for the setup screens (docs/rules-2.1.md). The
 #: edition's saved value is still `Edition.TWO`'s "2.0": 2.1 replaced
-#: 2.0's cards on 2026-10-31, and the setting is the same one.
+#: 2.0's cards on 2026-10-31, and the setting is the same one; its cards
+#: are split and its hand three since 2026-11-01.
 EDITION_TWO_DEFINITION = (
-    "each coach plays from their own shuffled deck of 24 maneuver cards "
-    "-- four for each basic maneuver, each with a role special -- "
-    "holding a secret hand of five and drawing back up after each card "
-    "played. Any card plays as the other side's maneuver of its rank by "
-    "discarding an extra card. No advanced maneuvers; a coin settles "
-    "every tie."
+    "each coach plays from their own shuffled deck of 12 split maneuver "
+    "cards -- an offensive maneuver on top and the defensive one of the "
+    "same rank below, each half with a role special -- holding a secret "
+    "hand of three and drawing back up after each card played. No "
+    "advanced maneuvers; a coin settles every tie."
 )
 
 

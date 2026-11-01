@@ -1,10 +1,20 @@
 """
 **D12 Ball 2.1's maneuver cards as pictures** -- the face, a coach's
-hand of five and the face-up discard piles -- redrawn from scratch for
+hand of three and the face-up discard piles -- redrawn from scratch for
 the 2.1 deck (the author, 2026-10-31; docs/rules-2.1.md,
 docs/design/maneuver-deck.md, "The faces").
 
-A face reads top to bottom in the order a coach needs it:
+**A card is split** (the author, 2026-11-01): its offensive half on
+top, in red, its defensive half below, in navy, both upright, and
+between them the band of what each beats, ties and loses to
+(`draw_split_face`). Each half is a header -- the rank badge, the
+maneuver as the title and the half's own name, index and time under it
+-- the rank's effect, and the role interaction in its tinted box. There
+is no spec ability's space and no flip strip.
+
+**The single-faced face** below is what a game dealt before
+2026-11-01 still holds in its hand, and reads top to bottom in the
+order a coach needs it:
 
 - **the header**, the card's name and its rank badge (O1, D2), with
   its index and the maneuver it plays under the name;
@@ -266,26 +276,182 @@ def draw_matchup_row(
             )
 
 
+# -- The split card ----------------------------------------------------
+
+#: A split card's three parts, top to bottom: the offensive half, the
+#: band of what beats what, the defensive half.
+SPLIT_BAND = 176
+SPLIT_HALF = (CARD_HEIGHT - 2 * FRAME - SPLIT_BAND) / 2
+SPLIT_HEADER = 104
+SPLIT_BADGE = 40
+#: The band's paper, a warm grey the two halves' white stands off.
+BAND_FILL = "#efe8da"
+BAND_RULE = "#c9bfad"
+
+
+def draw_split_header(
+    pen: Pen, catalog: ManeuverCatalog, card: DeckCard, top: float,
+    corner: bool = False,
+) -> None:
+    """A half's header: the rank badge, the maneuver as the title, and
+    the half's own name with its index and time under it. The top
+    half's (`corner`) sits in the card's rounded corner, so its words
+    stand a little lower and further in."""
+    color = card_color(card)
+    pen.rect_in_card(
+        (FRAME, top, CARD_WIDTH - FRAME, top + SPLIT_HEADER), color,
+        inset=EDGE_WIDTH / 2,
+    )
+    drop, indent = (8, 22) if corner else (0, 0)
+    center = (MARGIN + SPLIT_BADGE + indent, top + SPLIT_HEADER / 2 + drop)
+    pen.circle(center, SPLIT_BADGE, fill=CARD_FACE)
+    pen.text(center, rank_label(card), rank_font(38), color, anchor="mm")
+
+    left = center[0] + SPLIT_BADGE + 20
+    room = CARD_WIDTH - MARGIN - left
+    title = catalog.card_title(card)
+    minutes = "1 TIME" if card.time == "1" else f"{card.time} TIME"
+    tail = f"{card.index}  ·  {minutes}"
+    if card.name != title:
+        tail = f"{card.name.upper()}  ·  {tail}"
+    title_face = fitted_bold_font(pen, title, room, max_size=52, min_size=30) or font(30, bold=True)
+    tail_face = fitted_bold_font(pen, tail, room, max_size=26, min_size=18) or font(18, bold=True)
+    pen.text((left, center[1] + 8), title, title_face, "#ffffff", anchor="ls")
+    pen.text((left, center[1] + 40), tail, tail_face, "#ffffff", anchor="ls")
+
+
+def draw_split_half(
+    pen: Pen, catalog: ManeuverCatalog, card: DeckCard, top: float, bottom: float,
+    corner: str = "",
+) -> None:
+    """One half of a split card between `top` and `bottom`: its header,
+    then the rank's effect and the role interaction under it, both from
+    the top of the space (the author, 2026-11-01: "align all text to
+    the top")."""
+    color = card_color(card)
+    draw_split_header(pen, catalog, card, top, corner == "top")
+    inner_left, inner_right = MARGIN, CARD_WIDTH - MARGIN
+    width = inner_right - inner_left
+    y = top + SPLIT_HEADER + 18
+    # The bottom half ends in the card's rounded corners, which the
+    # box's own corners must clear.
+    room = bottom - y - (44 if corner == "bottom" else 16)
+
+    heading = " OR ".join(ROLE_WORDS[role.value].upper() for role in card.roles)
+    # The effect and the box share the room at one size: the largest
+    # at which both fit, so the bonus is never set smaller than the
+    # effect above it.
+    box_chrome = 14 + BOX_PAD + BOX_HEADING + 12 + BOX_PAD - 10
+    for size in range(34, 19, -1):
+        effect_face = special_face = font(size)
+        effect_lines = pen.wrapped(card.effect, effect_face, width)
+        special_lines = pen.wrapped(card.special, special_face, width - BOX_PAD * 2)
+        step = line_height(pen, effect_face)
+        if (len(effect_lines) + len(special_lines)) * step + box_chrome <= room:
+            break
+    y = _draw_lines(pen, effect_lines, effect_face, inner_left, y, INK)
+    box_top = y + 14
+    box_height = (
+        BOX_PAD + BOX_HEADING + 12
+        + len(special_lines) * line_height(pen, special_face) + BOX_PAD - 10
+    )
+    pen.rect(
+        (inner_left, box_top, inner_right, box_top + box_height),
+        radius=16, fill=SIDE_TINTS[card.side], outline=color, width=3,
+    )
+    pen.text(
+        (inner_left + BOX_PAD, box_top + BOX_PAD), f"IF {heading}",
+        font(BOX_HEADING - 2, bold=True), color,
+    )
+    _draw_lines(
+        pen, special_lines, special_face, inner_left + BOX_PAD,
+        box_top + BOX_PAD + BOX_HEADING + 12, INK,
+    )
+
+
+def draw_band_row(
+    pen: Pen, catalog: ManeuverCatalog, card: DeckCard, top: float, height: float,
+) -> None:
+    """One row of the band: the half's rank, then what it beats, ties
+    and loses to, each the other side's rank badge and maneuver in that
+    side's colour (`matchup_rank_groups`, as the single face's row)."""
+    maneuver = catalog.definition(card.maneuver)
+    is_offense = card.side == "offense"
+    other = maneuver_deck.OTHER_SIDE[card.side]
+    letter = "D" if is_offense else "O"
+    other_color = SIDE_COLORS[other]
+    groups = matchup_rank_groups(catalog, maneuver, is_offense)
+    lead = 96
+    left, right = FRAME + EDGE_WIDTH, CARD_WIDTH - FRAME - EDGE_WIDTH
+    pen.text(
+        (left + lead / 2, top + height / 2), rank_label(card), rank_font(34),
+        card_color(card), anchor="mm",
+    )
+    column = (right - left - lead) / 3
+    for index, (label, (rank, _)) in enumerate(zip(("BEATS", "TIES", "LOSES TO"), groups)):
+        x0 = left + lead + column * index
+        pen.line([(x0, top + 12), (x0, top + height - 12)], fill=BAND_RULE, width=2)
+        cx = x0 + column / 2
+        name = catalog.display_name(maneuver_deck.basic_on(catalog, other, rank))
+        pen.text((cx, top + height / 2 - 16), label, font(17, bold=True), MUTED, anchor="mm")
+        words = f"{letter}{rank} {name}"
+        face = fitted_bold_font(pen, words, column - 14, max_size=26, min_size=16) or font(16, bold=True)
+        pen.text((cx, top + height / 2 + 16), words, face, other_color, anchor="mm")
+
+
+def draw_split_face(
+    pen: Pen, catalog: ManeuverCatalog, offense: DeckCard, defense: DeckCard,
+) -> None:
+    """**A split card**: the offensive half on top, the band, the
+    defensive half below (rules-2.1 1.1; the author's draft of
+    2026-11-01). The edge is each half's colour, so a card fanned in a
+    hand shows its offense along the top."""
+    middle = FRAME + SPLIT_HALF + SPLIT_BAND / 2
+    pen.rect_in_card((FRAME, FRAME, CARD_WIDTH - FRAME, middle), card_color(offense))
+    pen.rect_in_card((FRAME, middle, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME), card_color(defense))
+    pen.rect_in_card(
+        (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME), CARD_FACE,
+        inset=EDGE_WIDTH,
+    )
+    band_top = FRAME + SPLIT_HALF
+    band_bottom = band_top + SPLIT_BAND
+    draw_split_half(pen, catalog, offense, FRAME, band_top, "top")
+    pen.rect_in_card((FRAME, band_top, CARD_WIDTH - FRAME, band_bottom), BAND_FILL, inset=EDGE_WIDTH)
+    pen.line([(FRAME, band_top), (CARD_WIDTH - FRAME, band_top)], fill=BAND_RULE, width=2)
+    pen.line([(FRAME, band_bottom), (CARD_WIDTH - FRAME, band_bottom)], fill=BAND_RULE, width=2)
+    row = SPLIT_BAND / 2
+    draw_band_row(pen, catalog, offense, band_top, row)
+    pen.line([(FRAME + EDGE_WIDTH, band_top + row), (CARD_WIDTH - FRAME - EDGE_WIDTH, band_top + row)], fill=BAND_RULE, width=2)
+    draw_band_row(pen, catalog, defense, band_top + row, row)
+    draw_split_half(pen, catalog, defense, band_bottom, CARD_HEIGHT - FRAME, "bottom")
+
+
 @lru_cache(maxsize=None)
 def _face(catalog: ManeuverCatalog, card_id: str, bleed: bool) -> Image.Image:
-    card = catalog.deck_card(card_id)
-    if card is None:
+    halves = maneuver_deck.faces(catalog, card_id)
+    if not halves:
         raise KeyError(f"Unknown 2.1 card {card_id!r}.")
     pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
-    draw_face(pen, catalog, card)
+    if len(halves) == 2:
+        draw_split_face(pen, catalog, *halves)
+    else:
+        draw_face(pen, catalog, halves[0])
     return pen.finish(bleed, CARD_FACE)
 
 
 def render_deck_card(
     catalog: ManeuverCatalog, card_id: str, bleed: bool = False,
 ) -> Image.Image:
-    """One 2.1 card's face at the printed size, drawn once and kept."""
+    """One 2.1 card's face at the printed size, drawn once and kept: a
+    split card's (`draw_split_face`), or an older game's single face."""
     return _face(catalog, card_id, bleed)
 
 
 # -- A coach's hand ----------------------------------------------------
 
-HAND_CARD_WIDTH = 360
+#: A hand is three cards since 2026-11-01, so each is drawn larger than
+#: the five of a hand before then were.
+HAND_CARD_WIDTH = 480
 HAND_GAP = 16
 HAND_MARGIN = 20
 HAND_HEADINGS = {"offense": "YOUR HAND -- ON OFFENSE", "defense": "YOUR HAND -- ON DEFENSE"}
@@ -298,11 +464,12 @@ def render_deck_hand(
     side: str,
 ) -> BytesIO:
     """
-    **A 2.1 coach's hand**, for their eyes alone: the five cards in one
-    row under a heading naming the side being played, this side's cards
-    first by rank, then the other side's -- each playable here only
-    flipped, which its green strip says. `players` is unused, kept so
-    the cog's call reads as before.
+    **A 2.1 coach's hand**, for their eyes alone: the three cards in one
+    row under a heading naming the side being played, by the rank of
+    the half played on it (`maneuver_deck.hand_order`) -- and in an
+    older game's single-faced hand, the other side's cards after this
+    side's, each playable here only flipped, which its green strip
+    says. `players` is unused, kept so the cog's call reads as before.
     """
     order = maneuver_deck.hand_order(catalog, side)
     faces = [render_deck_card(catalog, card_id) for card_id in sorted(held, key=order)]
@@ -343,9 +510,14 @@ def discard_chip(catalog: ManeuverCatalog, card_id: str) -> Image.Image:
     """
     One discarded card as a chip, in the new face's colours: its rank
     badge, and its index and name -- what tells one card from another
-    in a pile read for what has gone (the author, 2026-10-18).
+    in a pile read for what has gone (the author, 2026-10-18). A split
+    card is two chips' rows in one, its offensive half over its
+    defensive half (`split_chip`).
     """
-    card = catalog.deck_card(card_id)
+    halves = maneuver_deck.faces(catalog, card_id)
+    if len(halves) == 2:
+        return split_chip(catalog, *halves)
+    card = halves[0] if halves else None
     color = SIDE_COLORS[card.side] if card is not None else MUTED
     pen = Pen((CHIP_WIDTH, CHIP_HEIGHT), CARD_FACE)
     pen.rect((0, 0, CHIP_WIDTH, CHIP_HEIGHT), radius=CHIP_RADIUS, fill=color)
@@ -364,6 +536,34 @@ def discard_chip(catalog: ManeuverCatalog, card_id: str) -> Image.Image:
         radius=round(CHIP_RADIUS * pen.image.width / CHIP_WIDTH), fill=255,
     )
     chip.putalpha(mask.resize((CHIP_WIDTH, CHIP_HEIGHT), Image.Resampling.LANCZOS))
+    return chip
+
+
+def split_chip(catalog: ManeuverCatalog, offense: DeckCard, defense: DeckCard) -> Image.Image:
+    """A split card's chip: its two halves as two rows, offense in red
+    over defense in navy, each with its badge, index and label."""
+    row = CHIP_HEIGHT * 0.66
+    height = round(row * 2)
+    pen = Pen((CHIP_WIDTH, height), CARD_FACE)
+    for index, half in enumerate((offense, defense)):
+        top = index * row
+        color = SIDE_COLORS[half.side]
+        pen.rect((0, top, CHIP_WIDTH, top + row), fill=color)
+        badge = row / 2 - 4
+        center = (8 + badge, top + row / 2)
+        pen.circle(center, badge, fill=CARD_FACE)
+        pen.text(center, rank_label(half), rank_font(15), color, anchor="mm")
+        left = center[0] + badge + 10
+        label = f"{half.index} {catalog.card_label(half)}"
+        face = fitted_bold_font(pen, label, CHIP_WIDTH - left - 10, max_size=21, min_size=13) or font(13, bold=True)
+        pen.text((left, top + row / 2), label, face, "#ffffff", anchor="lm")
+    chip = pen.image.resize((CHIP_WIDTH, height), Image.Resampling.LANCZOS).convert("RGBA")
+    mask = Image.new("L", pen.image.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, pen.image.width - 1, pen.image.height - 1),
+        radius=round(CHIP_RADIUS * pen.image.width / CHIP_WIDTH), fill=255,
+    )
+    chip.putalpha(mask.resize((CHIP_WIDTH, height), Image.Resampling.LANCZOS))
     return chip
 
 
@@ -392,7 +592,7 @@ def render_discard_piles(
             CHIP_WIDTH, round(heading_font.getlength(title)),
             0 if chips else round(empty_font.getlength(empty_text)),
         )
-        height = len(chips) * (CHIP_HEIGHT + CHIP_GAP) - CHIP_GAP if chips else 30
+        height = sum(chip.height + CHIP_GAP for chip in chips) - CHIP_GAP if chips else 30
         columns.append((title, colour, chips, width, height))
     canvas = Image.new(
         "RGB",
@@ -412,7 +612,7 @@ def render_discard_piles(
             draw.text((x, y), empty_text, font=empty_font, fill=MUTED)
         for chip in chips:
             canvas.paste(chip, (x, y), chip)
-            y += CHIP_HEIGHT + CHIP_GAP
+            y += chip.height + CHIP_GAP
         x += width + PILE_GAP
     buffer = BytesIO()
     canvas.save(buffer, format="PNG")

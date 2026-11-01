@@ -1494,10 +1494,13 @@ def _card_name(
     engine: RulesEngine, match: MatchState, side: str, key: str,
 ) -> str:
     """What a step names a 2.1 special's effect by: the card played as
-    itself, by its label ("Pressure (Control)"), else the maneuver
-    ("Pressure")."""
+    itself, by its half's label ("Pressure (Control)"), else the
+    maneuver ("Pressure")."""
     cards = match.maneuver_cards.get(side) or []
-    card = engine.maneuver_catalog.deck_card(cards[0]) if len(cards) == 1 else None
+    card = (
+        maneuver_deck.face_on(engine.maneuver_catalog, cards[0], side)
+        if len(cards) == 1 else None
+    )
     return (
         engine.maneuver_catalog.card_label(card)
         if card is not None else engine.maneuver_name(key)
