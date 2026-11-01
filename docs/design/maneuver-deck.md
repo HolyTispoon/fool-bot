@@ -191,8 +191,17 @@ extra -- go to the discard and the coach draws back to five. It is the reveal ra
 `begin_effect_resolution` because that is when a card is down for good -- until then the pick
 may change -- and the step where both picks become complete is the one place every maneuver
 passes (an AI's pick goes through the same answer). A reshuffle is said, since it is public. The
-reveal names each card -- "Pinpoint (P3), a Pass, its special in play", "Pass and Run (P2)
-played as Deflect" (`RulesEngine.played_card_label`).
+reveal names each card -- "P3 Pass (Pinpoint), its special in play", "P2 Pass (Pass and Run)
+played as Deflect" (`RulesEngine.played_card_label`); the label names the maneuver, so the reveal
+does not say "a Pass" after it.
+
+**A card's title is the basic maneuver it plays, and its own name is the subtitle**
+(`ManeuverCatalog.card_title`, the author, 2026-11-01) -- "Deflect", then "Boot" -- so a card
+says which maneuver it is before what sets it apart, all twenty-four alike, those named for their
+maneuver included. In a line of text the two are one label (`card_label`): "Deflect (Boot)", the
+title alone where the name is the title ("Deflect" for F1). The face, the discard chip, the
+hand's buttons, the reveal and a special's narration all ask these two; `name` stays the sheet's,
+for the importer and the tests.
 
 ## On Discord: the hand is secret
 
@@ -203,13 +212,13 @@ hand image. One button rather than one a side (the author, 2026-10-17): who pres
 whose hand it is. It answers ephemerally with the hand of each side the clicker coaches --
 both, named by side, for somebody coaching themselves -- as the five cards
 (`deck_faces.render_deck_hand`, one row, the side's own cards first) and `ManeuverHandView`,
-**one button a `CardPlay`**: "P3 Pinpoint", starred where its special is live, in the side's
+**one button a `CardPlay`**: "P3 Pass (Pinpoint)", starred where its special is live, in the side's
 colour; and "⇅ F1 Deflect as Pass" for a flip, grey, which answers with `FlipExtraView` -- one
 button a card the flip may discard -- before it is a pick. Somebody coaching neither side is put
 through the pick's own gate a side at a time, so a helper is confirmed and then shown every hand
 on the prompt, and anybody else is refused. A pick from there is the 1.0 pick exactly
 (`ManeuverPicking`, the mixin the views share): the same action, an ephemeral "You chose P3
-Pinpoint" (or "... as Pass, discarding ..."), the prompt deleted once both are in. The public
+Pass (Pinpoint)" (or "... as Pass, discarding ..."), the prompt deleted once both are in. The public
 message is never edited, as in 1.0, and a restart re-arms it from the custom ids; the ephemeral
 hand is not persistent, and pressing the public button again sends a fresh one.
 
@@ -217,8 +226,8 @@ hand is not persistent, and pressing the public button again sends a fresh one.
 
 **A 2.1 card is drawn from scratch** (`d12ball/deck_faces.py`, the author, 2026-10-31), not
 from the printed 1.0 card's parts -- the 2.0 two-headed card and its band went with the cards.
-Top to bottom: the header, the card's name beside its rank badge (O1, D2), with its index, its
-maneuver and its time under the name; **the main effect**, the rank's wording, largest; **the
+Top to bottom: the header, the card's title -- its maneuver -- beside its rank badge (O1, D2),
+with its own name, its index and its time under the title; **the main effect**, the rank's wording, largest; **the
 role interaction** in a box tinted with the card's colour, headed with the roles it names in
 full ("IF FULLBACK OR DEFENDER"); **an empty, labelled space for the spec ability** advanced
 mode will add, with the tab's `Spec` name small in its corner where it gives one; and **a green

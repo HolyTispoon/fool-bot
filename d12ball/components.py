@@ -1250,6 +1250,25 @@ class ManeuverCatalog:
         maneuver = self.get(key)
         return maneuver.name if maneuver is not None else key
 
+    def card_title(self, card: DeckCard) -> str:
+        """
+        **A 2.1 card's title is the basic maneuver it plays** --
+        "Deflect" for F3 -- and its own name, "Boot", its subtitle
+        (the author, 2026-11-01): a card says which maneuver it is
+        before what sets it apart. The face draws the two apart;
+        `card_label` is the two in a line of text.
+        """
+        return self.display_name(card.maneuver)
+
+    def card_label(self, card: DeckCard) -> str:
+        """
+        A 2.1 card named in a line of text: its title, then its name in
+        parentheses -- "Deflect (Boot)" -- or the title alone where the
+        name is the title (F1, "Deflect").
+        """
+        title = self.card_title(card)
+        return title if card.name == title else f"{title} ({card.name})"
+
     def for_tier(
         self, side: str, tier: str,
     ) -> tuple[ManeuverDefinition, ...]:
