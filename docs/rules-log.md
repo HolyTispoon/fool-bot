@@ -156,7 +156,22 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-11-01 (latest) -- author, 2.1: the coin starts on the toss's face
+### 2026-11-01 (latest) -- author, 2.1: twelve split cards and a hand of three
+
+**A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) 1.1, 1.2, 2.1, 2.3, 2.5, 3.1,
+3.3 and 7.1). The author, on 2026-11-01, drafted the 2.1 cards as split cards -- *"both
+offense and defense on the same card ... top half and bottom half"*, with the band of what
+beats what between them -- and then: *"Build this deck as 2.1. Hands of 3 cards."* The
+twenty-four halves are printed two to a card, each offensive half over the defensive half of
+the same rank and number (P*n*/F*n*, B*n*/S*n*, H*n*/R*n*), so a deck is twelve cards and every
+card plays on either side with its special. The flip (old 2.3) goes with it: there is no
+other side's card left to flip. A hand is three cards, drawn back up to three, and three again
+at halftime. The pairing by number was the draft's (Claude's, which the author reviewed and
+asked to be built); the odds of a hand of three holding a single rank -- 12 of 220 hands,
+about 5% -- were worked out for him before he chose three. Games dealt before this change keep their single-faced cards, and with them
+the flip, until they end.
+
+### 2026-11-01 (later) -- author, 2.1: the coin starts on the toss's face
 
 **A rule changed, in 2.x alone** ([rules-2.1.md](rules-2.1.md) 5.2). The author, on 2026-11-01,
 after a first turn announced a fresh flip: *"it shouldn't toss on the first turn, it should just
