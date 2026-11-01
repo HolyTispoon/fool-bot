@@ -1,13 +1,14 @@
 """
-D12 Ball 2.1's maneuver deck: each coach's twelve split cards, the
+D12 Ball 2.2's maneuver deck: each coach's twelve split cards, the
 hand of three drawn from them, and the discard pile -- as data and the
 few moves made on them. See docs/design/maneuver-deck.md and
-docs/rules-2.1.md.
+docs/rules-2.2.md.
 
 **The halves.** Twenty-four halves, four for each basic maneuver --
 P1 to P4 Pass, B1 to B4 Dribble, H1 to H4 High Ball on offense, F1 to
 F4 Deflect, S1 to S4 Steal, R1 to R4 Pressure on defense (the
 `maneuvers 2.1` tab, 2026-10-31), each a `DeckCard` of the catalog's.
+They were 2.1's twenty-four single-faced cards (archive/rules-2.1/).
 Every half plays its rank's basic maneuver; what tells the four apart
 is a **special**, a role interaction its player plays when they hold
 one of the roles it names (`RulesEngine.card_special`). There are no
@@ -15,21 +16,15 @@ advanced maneuvers.
 
 **The cards.** **Each card is an offensive half over the defensive
 half of the same rank and number** -- P2 over F2, B3 over S3, H4 over
-R4 (rules-2.1 1.1, 2026-11-01) -- so a deck is twelve cards and every
+R4 (rules-2.2 1.1, 2026-11-01) -- so a deck is twelve cards and every
 card plays on either side: `face_on` is the half a side plays. A card's
 id is its two indexes, offense first, "P2/F2" (`split_card_id`).
-
-**Games dealt before 2026-11-01 hold single-faced cards**, an id that
-is one index ("P2"). They play on: such a card plays its own side as
-before and, **flipped**, the other side's maneuver of its rank for an
-extra card and no special (`plays_as`; the old rules-2.1 2.3). A split
-card is never flipped, so a game dealt now never meets it.
 
 **A deck is a plain dict of three lists** -- `draw`, `hand`, `discard`
 -- because it is saved as it stands (`MatchState.maneuver_decks`). The
 draw pile is face down and in order: its first entry is the next card
 drawn. Nothing here decides who may play what; `RulesEngine.card_plays`
-asks `plays_as` over the hand.
+asks `face_on` over the hand.
 
 No Discord, no Pillow and no `async` (the model's purity rules), and
 every shuffle is the engine's `rng`, handed in.
@@ -39,6 +34,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Optional
 
 from d12ball.components import (
@@ -47,9 +43,7 @@ from d12ball.components import (
     ManeuverCatalog,
 )
 
-#: The cards a coach holds at a time (rules-2.1 1.2, three since
-#: 2026-11-01). A game dealt a hand of five before then plays it down
-#: to three, since a draw only ever tops a hand up.
+#: The cards a coach holds at a time (rules-2.2 1.2).
 HAND_SIZE = 3
 
 #: Between a split card's two indexes in its id, "P2/F2".
@@ -63,31 +57,28 @@ DISCARD = "discard"
 @dataclass(frozen=True)
 class CardPlay:
     """
-    One way a 2.1 coach may play a card from their hand this maneuver
-    (`RulesEngine.card_plays`): the card, the maneuver it plays on the
-    side, whether that is a flip, the cards a flip may discard with it,
-    and whether its special is live -- the player making the maneuver
-    holds a role it names. A pick answers with `card_id` and, for a
-    flip, one of `extra_ids`.
+    One way a 2.2 coach may play a card from their hand this maneuver
+    (`RulesEngine.card_plays`): the card, the half it plays on the side
+    (`half`, its index -- "F2" for P2/F2 on defense), the maneuver that
+    half plays, and whether its special is live -- the player making
+    the maneuver holds a role it names. A pick answers with `card_id`.
     """
 
     card_id: str
+    half: str
     maneuver_key: str
-    flip: bool = False
-    extra_ids: tuple[str, ...] = ()
     special: bool = False
 
     def to_dict(self) -> dict:
         return {
             "card_id": self.card_id,
+            "half": self.half,
             "maneuver_key": self.maneuver_key,
-            "flip": self.flip,
-            "extra_ids": list(self.extra_ids),
             "special": self.special,
         }
 
 
-#: The other side, for a flipped card.
+#: The other side, for what a half beats, ties and loses to.
 OTHER_SIDE = {"offense": "defense", "defense": "offense"}
 
 
@@ -119,18 +110,17 @@ def deck_cards(catalog: ManeuverCatalog) -> list[str]:
     ]
 
 
-def is_split(card_id: str) -> bool:
-    """Whether `card_id` is a split card rather than a single-faced
-    card of a game dealt before 2026-11-01."""
-    return SPLIT in card_id
-
-
+@lru_cache(maxsize=None)
 def faces(catalog: ManeuverCatalog, card_id: str) -> tuple[DeckCard, ...]:
     """
-    **A card's halves**, offense first: two for a split card, one for a
-    single-faced card, none for an id the catalog does not have.
+    **A card's two halves**, offense first, or none for an id that is
+    not a split card of the catalog's. Kept, since the catalog is fixed
+    and every prompt asks it of every card in a hand.
     """
-    halves = tuple(catalog.deck_card(index) for index in card_id.split(SPLIT))
+    indexes = card_id.split(SPLIT)
+    if len(indexes) != 2:
+        return ()
+    halves = tuple(catalog.deck_card(index) for index in indexes)
     return () if any(half is None for half in halves) else halves
 
 
@@ -138,10 +128,9 @@ def face_on(
     catalog: ManeuverCatalog, card_id: str, side: str,
 ) -> Optional[DeckCard]:
     """
-    **The half `card_id` plays on `side`** -- a split card's top half on
-    offense and its bottom half on defense, a single-faced card itself
-    on its own side -- or None: a single-faced card on the other side,
-    which plays there only flipped, without a special.
+    **The half `card_id` plays on `side`** -- its top half on offense
+    and its bottom half on defense -- or None for an id the catalog
+    does not have.
     """
     for half in faces(catalog, card_id):
         if half.side == side:
@@ -165,9 +154,12 @@ def card_words(
             halves = (half,)
     if not halves:
         return card_id
-    return " / ".join(
-        f"{half.index} {catalog.card_label(half)}" for half in halves
-    )
+    return " / ".join(half_words(catalog, half) for half in halves)
+
+
+def half_words(catalog: ManeuverCatalog, half: DeckCard) -> str:
+    """One half in a line of text: "P2 Pass (Pass and Run)"."""
+    return f"{half.index} {catalog.card_label(half)}"
 
 
 def basic_on(
@@ -178,28 +170,6 @@ def basic_on(
         if maneuver.rank == rank:
             return maneuver.key
     return None
-
-
-def plays_as(
-    catalog: ManeuverCatalog, card_id: str, side: str,
-) -> tuple[Optional[str], bool]:
-    """
-    The maneuver `card_id` plays on `side` ("offense" or "defense"),
-    and whether that is a **flip**. A split card plays the half on
-    `side` and never flips; a single-faced card of an older game plays
-    its own side as itself and the other side flipped, the maneuver of
-    its rank there (the old rules-2.1 2.3). `(None, False)` for a card
-    the catalog does not have.
-    """
-    halves = faces(catalog, card_id)
-    if not halves:
-        return None, False
-    half = face_on(catalog, card_id, side)
-    if half is not None:
-        return half.maneuver, False
-    if len(halves) > 1:
-        return None, False
-    return basic_on(catalog, side, halves[0].rank), True
 
 
 def new_deck(catalog: ManeuverCatalog, rng: random.Random) -> dict:
@@ -238,11 +208,9 @@ def draw_cards(deck: dict, rng: random.Random, count: int) -> int:
 
 def play_cards(deck: dict, card_ids: list[str], rng: random.Random) -> int:
     """
-    `card_ids` played out of the hand onto the discard pile -- the card,
-    and, in a game dealt before 2026-11-01, the extra card a flip
-    discards with it -- and the hand drawn
-    back up to three. Returns how many times the discard was shuffled
-    into a new deck by that draw.
+    `card_ids` -- the one card played -- out of the hand onto the
+    discard pile, and the hand drawn back up to three. Returns how many
+    times the discard was shuffled into a new deck by that draw.
     """
     for card_id in card_ids:
         deck[HAND].remove(card_id)
@@ -265,21 +233,17 @@ def reshuffled(deck: dict, rng: random.Random) -> dict:
 
 def hand_order(catalog: ManeuverCatalog, side: str):
     """
-    **The one order a 2.1 hand is shown in on `side`**, as a sort key
-    over card ids: by the rank and number of the half played on `side`
-    -- and in an older game's hand of single-faced cards, this side's
-    cards before the other side's, each playable here only flipped. The
-    hand's picture and the buttons under it both sort by it, so the
-    buttons read left to right as the cards do (the author, 2026-11-01).
+    **The one order a 2.2 hand is shown in on `side`**, as a sort key
+    over card ids: by the rank and number of the half played on `side`,
+    an id the catalog does not have last. The hand's picture and the
+    buttons under it both sort by it, so the buttons read left to right
+    as the cards do (the author, 2026-11-01).
     """
     def order(card_id: str) -> tuple:
         half = face_on(catalog, card_id, side)
-        if half is not None:
-            return (0, half.rank, half.number)
-        halves = faces(catalog, card_id)
-        if not halves:
-            return (2, 0, 0)
-        return (1, halves[0].rank, halves[0].number)
+        if half is None:
+            return (1, 0, 0)
+        return (0, half.rank, half.number)
 
     return order
 
@@ -359,7 +323,7 @@ SPECIAL_INDEXES = (
 )
 
 
-# -- What the 2.1 cards say, as numbers -------------------------------
+# -- What the cards say, as numbers ----------------------------------
 #
 # Each is a number printed on the `maneuvers 2.1` tab, held here beside
 # the deck so the engine's readings and the effects read one value.

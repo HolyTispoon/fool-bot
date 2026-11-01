@@ -398,7 +398,7 @@ class SafeView(GameLockedView):
         """
         `may_act_for` the coach of `player_id`'s side -- the gate on a
         question put to one player, which is not always the side with
-        the ball: a 2.1 deflection's set-up and a follow are the
+        the ball: a 2.2 deflection's set-up and a follow are the
         defense's.
         """
         return self.may_act_for(

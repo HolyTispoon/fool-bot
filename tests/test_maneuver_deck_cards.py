@@ -1,9 +1,9 @@
 """
-D12 Ball 2.1's maneuver cards as the `maneuvers 2.1` tab prints them
-(docs/rules-2.1.md sections 2 and 7): which card's special a player
+D12 Ball 2.2's maneuver cards as the `maneuvers 2.1` tab prints them
+(docs/rules-2.2.md sections 2 and 7): which card's special a player
 plays -- the one reading, `RulesEngine.card_special` -- and what each of
-the twenty-four specials does when its card wins, staged on a 2.1 match
-and run through the effect steps. Whole 2.1 games through the driver
+the twenty-four specials does when its card wins, staged on a 2.2 match
+and run through the effect steps. Whole 2.2 games through the driver
 are `test_maneuver_deck.WholeGameTests`, which deal these cards.
 """
 
@@ -25,8 +25,9 @@ from prompt_fixtures import ENGINE, build_game, build_match, challenge
 
 
 def staged(offense_card: str, defense_card: str, board_size: int = 9):
-    """A 2.1 match under way -- decks and roles dealt, a challenger
-    sent onto the ball -- with these two cards played as themselves."""
+    """A 2.2 match under way -- decks and roles dealt, a challenger
+    sent onto the ball -- with the cards holding these two halves played,
+    each on its own half's side (`card_of`)."""
     game = build_game(edition=Edition.TWO, mode=GameMode.TRAINING)
     match = build_match(board_size)
     ENGINE.deal_maneuver_decks(game, match)
@@ -35,13 +36,18 @@ def staged(offense_card: str, defense_card: str, board_size: int = 9):
     match.move_meeple(match.challenger_id, match.ball.zone, match.ball.space_index)
     for side, card_id in (("offense", offense_card), ("defense", defense_card)):
         card = ENGINE.maneuver_catalog.deck_card(card_id)
-        key = (
-            card.maneuver if card.side == side
-            else maneuver_deck.plays_as(ENGINE.maneuver_catalog, card_id, side)[0]
-        )
-        setattr(match, f"{side}_maneuver", key)
-        match.maneuver_cards[side] = [card_id]
+        assert card.side == side, f"{card_id} is not a {side} half"
+        setattr(match, f"{side}_maneuver", card.maneuver)
+        match.maneuver_cards[side] = [card_of(card_id)]
     return game, match
+
+
+def card_of(half: str) -> str:
+    """The split card that has `half` on it: "P2/F2" for "F2"."""
+    return next(
+        card_id for card_id in maneuver_deck.deck_cards(ENGINE.maneuver_catalog)
+        if half in card_id.split(maneuver_deck.SPLIT)
+    )
 
 
 def make(match, player_id: str, role: PlayerRole) -> None:
@@ -78,29 +84,10 @@ class SpecialReadingTests(unittest.TestCase):
         make(match, match.challenger_id, PlayerRole.PLAYMAKER)
         self.assertEqual(ENGINE.card_special(match, "defense"), "F4")
 
-    def test_a_flipped_card_plays_no_special(self) -> None:
-        _, match = staged("P3", "F1")
-        make(match, match.challenger_id, PlayerRole.PLAYMAKER)
-        # P3 flipped to play Deflect, with an extra card discarded.
-        match.defense_maneuver = "deflect"
-        match.maneuver_cards["defense"] = ["P3", "B1"]
-        self.assertIsNone(ENGINE.card_special(match, "defense"))
-
     def test_one_point_oh_plays_no_specials(self) -> None:
         _, match = staged("P1", "F1")
         match.maneuver_cards = {}
         self.assertIsNone(ENGINE.card_special(match, "offense"))
-
-    def test_the_plays_mark_a_live_special(self) -> None:
-        game, match = staged("P1", "F1")
-        hand = match.maneuver_decks[match.ball.possession.value]["hand"]
-        hand[:] = ["P1", "P2", "P3", "P4", "F1"]
-        make(match, match.active_player_id, PlayerRole.WINGER)
-        live = {
-            play.card_id for play in ENGINE.card_plays(game, match, "offense")
-            if play.special
-        }
-        self.assertEqual(live, {"P1"})
 
     def test_each_half_of_a_split_card_plays_its_own_special(self) -> None:
         _, match = staged("P2", "S2")
@@ -142,12 +129,6 @@ class SpecialReadingTests(unittest.TestCase):
         self.assertEqual(
             _chose(ENGINE, match, "offense", "Pass"),
             "**P3 Pass (Pinpoint)**, its special in play",
-        )
-        match.maneuver_cards["defense"] = ["P2", "B1"]
-        match.defense_maneuver = "deflect"
-        self.assertEqual(
-            _chose(ENGINE, match, "defense", "Deflect"),
-            "**P2 Pass (Pass and Run) played as Deflect**",
         )
 
 

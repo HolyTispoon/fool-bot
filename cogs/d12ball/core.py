@@ -171,7 +171,7 @@ FIELD_PROMPT_KINDS = frozenset({
     # Whether a Pass's passer steps forward is a question about
     # where they would stand, asked once the ball has gone (Law 6.5.3).
     PromptKind.PASSER_ADVANCE,
-    # Whether 2.1's F2 or R2 defender follows the ball (rules-2.1 7.4).
+    # Whether 2.2's F2 or R2 defender follows the ball (rules-2.2 7.4).
     PromptKind.FOLLOW_BALL,
 })
 
@@ -1085,7 +1085,7 @@ class CoreMixin:
         self, game: D12BallGame, match: MatchState,
     ) -> Optional[discord.File]:
         """
-        Both coaches' 2.1 discard piles, face up, as one picture
+        Both coaches' 2.2 discard piles, face up, as one picture
         (`deck_faces.render_discard_piles`) -- home's first, each under its
         side and coach in its team's colour. `None` while nothing has
         been discarded yet, so the first maneuver carries no picture of
@@ -1114,7 +1114,7 @@ class CoreMixin:
         self, held: Sequence[str], side: str,
     ) -> discord.File:
         """
-        A 2.1 coach's own three cards, by the half on this side, as a picture
+        A 2.2 coach's own three cards, by the half on this side, as a picture
         for their eyes alone (`deck_faces.render_deck_hand`). Drawn in a
         worker thread, like every render; each card face is drawn once
         and kept, so after the first few hands this is a paste.

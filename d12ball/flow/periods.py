@@ -399,7 +399,7 @@ def begin_halftime(
         else "No fielded player had any exhaustion to clear."
     )
 
-    # D12 Ball 2.1: every card back into the deck, and a fresh three.
+    # D12 Ball 2.2: every card back into the deck, and a fresh three.
     if engine.reshuffle_maneuver_decks(game, match):
         body += (
             "\n\nBoth coaches shuffle their hand and discard pile back "

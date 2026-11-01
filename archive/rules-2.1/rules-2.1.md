@@ -1,9 +1,9 @@
 # D12 Ball 2.1
 
 **D12 Ball 2.1 is the Charter ([living-rules.md](living-rules.md)) with the rules below: a
-deck of twelve split maneuver cards in place of how a coach chooses a maneuver, each card an
-offensive basic maneuver on its top half and the defensive one of the same rank on its bottom
-half, each half with a role special, and a hand of three (sections 1 to 3, and 7); roles that belong to the formation rather than
+deck of twenty-four maneuver cards in place of how a coach chooses a maneuver, each card a
+basic maneuver with a role special, and any card playable as the other side's maneuver of its
+rank for an extra card (sections 1 to 3, and 7); roles that belong to the formation rather than
 to the players, whose only abilities are the cards' specials (section 4); a coin whose face
 settles every tie and is tossed again after it, with moving on the board costing exhaustion a space (section 5); and no
 shooting range (section 6). There are no advanced maneuvers.**
@@ -13,21 +13,17 @@ with any of the three modes: the mode still decides which abilities are played (
 this file and the Charter disagree, in a 2.1 game, this file wins.
 
 2.1 replaced D12 Ball 2.0's two-headed cards and its six advanced maneuvers on 2026-10-31;
-the rest of 2.0 -- the roles, the moving costs, no range -- is 2.1's unchanged. Its twenty-four
-single-faced cards were printed two to a card, and the hand cut from five to three, on
-2026-11-01. It is played on
+the rest of 2.0 -- the roles, the moving costs, no range -- is 2.1's unchanged. It is played on
 the Discord bot only for now. Its history is in [rules-log.md](rules-log.md).
 
 ## 1. The deck
 
-**1.1** Each coach has their own deck of **twelve split maneuver cards**. **A card's top half
-is an offensive maneuver and its bottom half the defensive maneuver of the same rank, with the
-same number** (section 7), so there are four cards a rank:
+**1.1** Each coach has their own deck of **twenty-four maneuver cards**, four for each of the
+six basic maneuvers, numbered 1 to 4 (section 7):
 
-- **a.** P1 to P4 Pass over F1 to F4 Deflect; B1 to B4 Dribble over S1 to S4 Steal; H1 to H4
-  High Ball over R1 to R4 Pressure. P2/F2 is one card: Pass and Run on offense, Follow on
-  defense. Each half is called by its index, as a card was before.
-- **b.** **Every half plays its maneuver**, with the Charter's rank (Law 6.3) and the rank's
+- **a.** Pass P1 to P4, Dribble B1 to B4 and High Ball H1 to H4 on offense; Deflect F1 to F4,
+  Steal S1 to S4 and Pressure R1 to R4 on defense.
+- **b.** **Every card plays its maneuver**, with the Charter's rank (Law 6.3) and the rank's
   own effect, which is the same on all four of its cards (section 7). What tells the four
   apart is the card's **special**: a role interaction, "If the player is a Fullback or a
   Defender, ...", which applies only when the player making the maneuver holds one of the
@@ -36,15 +32,15 @@ same number** (section 7), so there are four cards a rank:
   whatever role a player holds, one card of each rank has a special for them.
 - **d.** **There are no advanced maneuvers** (Law 19 does not apply).
 
-**1.2** Before kickoff each coach shuffles their deck and draws **a hand of three**. The hand is
+**1.2** Before kickoff each coach shuffles their deck and draws **a hand of five**. The hand is
 secret. How many cards are in each coach's deck is public, and **each discard pile is face up**,
 so both coaches see every card the other has played since the last shuffle.
 
 ## 2. Playing a card
 
 **2.1** Wherever the Charter has a coach choose a maneuver (Law 6.2), they choose a card from
-their hand instead. **A card plays the half of the coach's side** -- its top half on offense,
-its bottom half on defense -- as that half's maneuver, with its special (2.2).
+their hand instead. **A card of the coach's own side plays as its maneuver**, with its special
+(2.2).
 
 **2.2** **A special applies when the player making the maneuver holds one of the roles it
 names** -- the handler on offense, the challenger on defense (Law 6.1) -- in the role the
@@ -52,27 +48,29 @@ formation gives them (section 4). A special adds to the card's maneuver or repla
 as section 7 says, and is the only role ability in 2.1 (4.7). **Whatever a card says a player
 "may" do is optional**: the coach chooses whether to.
 
-**2.3** **Every card plays on either side, so nothing is flipped and no extra card is
-discarded.** A hand of three may not hold every rank; a coach plays what they hold.
+**2.3** **A card may be flipped: on their turn a coach may discard an extra card from their
+hand to play any card as the maneuver of the same rank on the other side**, without its
+special. So the offense plays F1 as a Pass by discarding a second card with it, and the defense
+plays P1 as a Deflect. The coach chooses the extra card; a hand of one card cannot flip.
 
 **2.4** **There is no gambit declaration and no gambit coin** (Law 19.3 does not apply). The
 coin 2.1 does have settles ties (section 5).
 
 **2.5** The cards are revealed together, as the Charter says; until both are down a coach may
-change the card they chose. Against no challenge (Law 6.1.4)
+change the card they chose, or the extra card a flip discards. Against no challenge (Law 6.1.4)
 the offense still plays a card, and its special applies to the handler.
 
 ## 3. After the reveal
 
-**3.1** Each card played goes to its coach's **discard pile**, face up, both halves together,
-and that coach draws back up to three. A coach who did not play a card -- the
+**3.1** Each card played goes to its coach's **discard pile**, face up -- with the extra card a
+flip discards -- and that coach draws back up to five. A coach who did not play a card -- the
 defense against no challenge, either coach at a shot or a time out -- draws nothing.
 
 **3.2** **When a coach draws the last card of their deck, they shuffle their discard pile to
 make a new deck** at once.
 
 **3.3** **At halftime each coach shuffles their hand and discard pile back into their deck and
-draws a fresh hand of three.** Nothing else in the game draws, discards or shuffles a card.
+draws a fresh hand of five.** Nothing else in the game draws, discards or shuffles a card.
 
 ## 4. Roles belong to the formation
 
@@ -301,9 +299,8 @@ has not been declared (Law 13.2.1b and c). Being out of range is no longer one o
 
 ## 7. The maneuver cards
 
-**7.1** **2.1 plays the `maneuvers 2.1` tab of the sheet**: four halves a basic maneuver, each
-with its rank's effect and a special of its own, printed two to a card -- the offensive half on
-top, the defensive half of the same rank and number below it (1.1). Who wins a maneuver is the Charter's (Law
+**7.1** **2.1 plays the `maneuvers 2.1` tab of the sheet**: four cards a basic maneuver, each
+with its rank's effect and a special of its own. Who wins a maneuver is the Charter's (Law
 6.3): rank alone decides, so O1 beats D3, ties D1 and loses to D2, and so on round the cycle.
 Every card costs 1 time but the High Balls, which cost 2 (Law 16.2).
 
@@ -316,8 +313,7 @@ Every card costs 1 time but the High Balls, which cost 2 (Law 16.2).
 | S (Steal, D2) | Steal | Pickpocket | My Turf! | Toss |
 | R (Pressure, D3) | Pressure | Control | Stay Close | Stress |
 
-A half is named by its index: P3 is a Pass, whatever its name says. A card is named by its two
-halves, P3/F3.
+A card is named by its index: P3 is a Pass, whatever its name says.
 
 **7.2** **Pass and Dribble.**
 

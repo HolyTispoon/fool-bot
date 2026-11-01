@@ -1,6 +1,6 @@
 # The standees
 
-Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md) and [rules-2.1.md](../rules-2.1.md).
+Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md) and [rules-2.2.md](../rules-2.2.md).
 
 `d12ball/standees.py` draws every player of the four colour teams as a
 standee for the print-and-play kit, a team a letter page; its CLI is
@@ -17,7 +17,7 @@ python3 scripts/render_standees.py --team orange
 The kit used to send a table off for nine meeples a team. That was
 enough in 1.0, where a player's role is on their card and a meeple only
 has to say which side it is on. **D12 Ball 2.0 takes the role off the
-player** (rules-2.1 section 4): a role belongs to the formation and moves
+player** (rules-2.2 section 4): a role belongs to the formation and moves
 from card to card in a Coaching Choice, so a meeple cannot be told apart
 by role either, and nine identical meeples a side say nothing about who
 is standing on a space (the author, 2026-10-24). A standee is the

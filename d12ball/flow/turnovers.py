@@ -233,7 +233,7 @@ def begin_run_back(
     #
     # A steal does none of this: the ball is still live, so the coaches
     # get no pause and the ordinary run back stands.
-    # **D12 Ball 2.0: a new play is a run back too** (docs/rules-2.1.md
+    # **D12 Ball 2.0: a new play is a run back too** (docs/rules-2.2.md
     # 4.9, the author, 2026-10-24) -- everybody back to their own zone,
     # the unique roles to their spaces and the rest where their coach
     # puts them, for nothing -- and the Coaching Choice comes after it,
@@ -294,7 +294,7 @@ def start_new_play_run_back(
     lead_in: str = "",
 ) -> StepResult:
     """
-    **A 2.0 new play's run back** (docs/rules-2.1.md 4.9): the three
+    **A 2.0 new play's run back** (docs/rules-2.2.md 4.9): the three
     unique roles of each side go straight to their spaces, and every
     other fielded player is listed for their coach to place on an open
     space of their zone -- `MatchState.begin_restart_run_back`. Free,
@@ -878,8 +878,8 @@ def finish_run_back(
     if speed_choice_after:
         # Steal: the defender who stole the ball still gets to
         # manipulate its speed, now that everyone is back in position --
-        # by their defensive skill, or 2.1's S1 Playmaker by their
-        # offensive skill (rules-2.1 7.4).
+        # by their defensive skill, or 2.2's S1 Playmaker by their
+        # offensive skill (rules-2.2 7.4).
         skill_type = (
             "offense"
             if engine.card_special(match, "defense") == maneuver_deck.STEAL_SPEED

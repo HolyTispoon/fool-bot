@@ -1,5 +1,5 @@
 """
-`scripts/import_d12ball_maneuver_cards.py`, the 2.1 tab's importer: a
+`scripts/import_d12ball_maneuver_cards.py`, the `maneuvers 2.1` tab's importer: a
 card is keyed by its Index, an Advanced row is skipped, a blank Mode or
 Time is filled and said, and a rank whose specials do not name each of
 the six roles once is refused. See docs/design/rules-and-data.md.

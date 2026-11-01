@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Import the sheet's `maneuvers 2.1` tab: D12 Ball 2.1's twenty-four
-maneuver cards into `d12ball/data/maneuver_cards.json`.
+Import the sheet's `maneuvers 2.1` tab: 2.1's twenty-four maneuver
+cards, D12 Ball 2.2's halves, into `d12ball/data/maneuver_cards.json`.
 
 **A card is keyed by its sheet `Index`** (`P1` to `P4`, `B1` to `B4`,
 `H1` to `H4` on offense; `F1` to `F4`, `S1` to `S4`, `R1` to `R4` on
@@ -16,9 +16,9 @@ identical across the rank's four cards -- refused otherwise. Its
 `Special` is a role interaction, "If <player> is A [or B], ...", and
 **the four cards of a rank name all six roles between them, each
 exactly once** -- refused otherwise -- since a role tells which card's
-special a player plays (docs/rules-2.1.md, section 2).
+special a player plays (docs/rules-2.2.md, section 2).
 
-**Rows whose `Mode` is Advanced are skipped** (2.1 has no advanced
+**Rows whose `Mode` is Advanced are skipped** (2.2 has no advanced
 maneuvers; the author, 2026-10-31), and each is printed. **A blank
 `Mode` reads as Basic and a blank `Time` as 1**, as the 2.0 importer
 did, and each default is printed. Text is stripped of the spaces at its
@@ -221,7 +221,7 @@ def import_cards(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate D12 Ball 2.1's maneuver cards from their tab.",
+        description="Generate D12 Ball 2.2's maneuver cards from their tab.",
     )
     parser.add_argument("--source", default=DEFAULT_SOURCE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

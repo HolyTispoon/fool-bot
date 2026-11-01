@@ -68,7 +68,7 @@ IMPORTS = {
         "import_d12ball_maneuvers.py",
         {"--source": "maneuvers"},
     ),
-    # After `maneuvers`: the 2.1 importer reads each rank's basic card
+    # After `maneuvers`: the 2.2 importer reads each rank's basic card
     # from the file that one writes.
     "maneuver_cards": (
         "maneuver_cards.json",

@@ -66,7 +66,7 @@ offering overlapping subsets of those four; a coach should not have to learn
 three menus to do one job.
 
 **A 2.0 side is offered two of them**: Arrange team in place of the formation,
-and the substitution (rules-2.1 4.6; the author, 2026-10-25). Arrange team's
+and the substitution (rules-2.2 4.6; the author, 2026-10-25). Arrange team's
 trades and moves do what zone assignment and space positioning did, so the
 hub's options carry no `swaps` or `repositions` for it and the driver refuses
 both answers -- see "Roles" in [maneuver-deck.md](maneuver-deck.md).
@@ -190,7 +190,7 @@ with a minute rather than handed out by the play.
 - **A 1.0 window opens on the arrangement its coach last settled**; a 2.0 one opens with its
   Fullback, Playmaker and Striker back on their spaces and everybody else as they stand -- run
   back at a new play, where open play left them at a time out and halftime, for the coach to put
-  right before finishing -- since there is no arrangement kept (rules-2.1 4.9; "2.0: a new play
+  right before finishing -- since there is no arrangement kept (rules-2.2 4.9; "2.0: a new play
   is a run back" in [possession-and-turnovers.md](possession-and-turnovers.md)). In 1.0 it is restored by
   `begin_substitution_window` before anything else -- never on the scramble a
   run back left. A new play resets both sides before offering the window and

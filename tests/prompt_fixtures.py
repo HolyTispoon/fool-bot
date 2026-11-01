@@ -795,7 +795,7 @@ def low_pass_choice() -> PromptFixture:
 
 def follow_ball() -> PromptFixture:
     """
-    2.1's F2 Follow won and its defender not yet moved or kept (rules-2.1
+    2.2's F2 Follow won and its defender not yet moved or kept (rules-2.2
     7.4): the deflection is still the live maneuver, so without
     `MatchState.pending_follow` a restart would offer it again.
     """

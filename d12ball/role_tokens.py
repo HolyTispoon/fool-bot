@@ -3,7 +3,7 @@ D12 Ball 2.0's role tokens, as a duplex pair of sheets for the
 print-and-play kit.
 
 In 2.0 a player has no role: the formation does, and a role moves from
-card to card in a Coaching Choice (docs/rules-2.1.md section 4). The
+card to card in a Coaching Choice (docs/rules-2.2.md section 4). The
 printed player card still says its 1.0 role, so a table marks who holds
 which role now with a token laid on the card (the author, 2026-10-24).
 
@@ -56,7 +56,7 @@ from .token_sheet import (
 )
 
 # The zones in the order a team's block lists them, from the coach's
-# own goal forward -- the order rules-2.1 4.2 reads a formation in.
+# own goal forward -- the order rules-2.2 4.2 reads a formation in.
 ZONE_ORDER = ("own_goal", "midfield", "opponent_goal")
 
 # The role badge's ink and white (`render_role_emoji.INK`, `FACE_COLOR`).

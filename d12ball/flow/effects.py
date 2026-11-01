@@ -163,7 +163,7 @@ def pay_double_team_cost(
 
     No exhaustion in 1.0 -- nobody chose to go, and every per-space
     charge there is for a move somebody was sent on (Law 19.10.6).
-    In 2.0 every move costs its space, this one included (rules-2.1
+    In 2.0 every move costs its space, this one included (rules-2.2
     5.4). Empty string when Double Team was not the card beaten,
     which is nearly always.
     """
@@ -392,7 +392,7 @@ def low_pass_tail(
             game, receiver_id, SpecialAbility.SHOOTS_OFF_ANY_PASS,
         )
     )
-    # **2.1's P1** is the Winger's set-up as a card's special.
+    # **2.2's P1** is the Winger's set-up as a card's special.
     winger = engine.has_role_ability(
         match, handler.player_id, PlayerRole.WINGER,
     ) or engine.card_special(match, "offense") == maneuver_deck.WINGER_PASS
@@ -439,8 +439,8 @@ def offer_passer_advance(
     19.5.3), or a passer on the last space before the goal zone, with
     no space in front of them to move into.
 
-    **In 2.1 only P2's Midfielder or Striker is asked** (Pass and Run,
-    "may run forward 1"): 2.1's Pass names no move of its own.
+    **In 2.2 only P2's Midfielder or Striker is asked** (Pass and Run,
+    "may run forward 1"): 2.2's Pass names no move of its own.
     """
     # Only a Pass asks: a Pinpoint's passer never moves (Law 19.5.3).
     if key != "low_pass":
@@ -470,7 +470,7 @@ def answer_passer_advance(
     to what it was owed: the tail of a completed pass, or the landing
     of one that reached nobody. Staying says nothing -- a move that is
     not made is not news. The step is free in 1.0 (Law 6.5.3) and
-    costs its space in 2.0 (rules-2.1 5.4).
+    costs its space in 2.0 (rules-2.2 5.4).
     """
     pending = match.pending_passer_advance or {}
     match.pending_passer_advance = None
@@ -582,7 +582,7 @@ def dribble_advance_step(
     It takes the `game` for the exhaustion a beaten Clear is charged
     -- the Exhausted threshold is the game record's (see
     `RulesEngine.exhaustion_threshold`) -- and for 2.0's, where the
-    handler pays for the spaces they carried it (rules-2.1 5.4), at a
+    handler pays for the spaces they carried it (rules-2.2 5.4), at a
     Burst's price, which is nothing for Emberdash (5.4b).
     """
     offense_side = match.ball.possession
@@ -656,11 +656,11 @@ def dribble_two_tail(
     special: Optional[str],
 ) -> StepResult:
     """
-    **2.1's Dribble, once the handler has moved** (rules-2.1 7.2): the
+    **2.2's Dribble, once the handler has moved** (rules-2.2 7.2): the
     speed rises by 2 and nothing is asked -- but of three specials.
     B3's Fullback or Defender then changes the speed by up to their
     *defensive* skill; B1's Striker may attempt scoring, from wherever
-    they are (2.1 has no range) -- a scoring opportunity that is not a
+    they are (2.2 has no range) -- a scoring opportunity that is not a
     set-up, so the shooter gains no token after the roll; and B4's Winger leaves the ball for
     their coach to hand to a teammate sharing the space -- the turn's
     own choice of handler among those on the ball (Law 4.2.3), since a
@@ -881,7 +881,7 @@ def steal_result_text(
     stays: bool = False,
 ) -> tuple[str, Headline]:
     """The turnover, and which way the thief carried it -- and its
-    `Headline`, for the side that took the ball. `stays` is a 2.1 card
+    `Headline`, for the side that took the ball. `stays` is a 2.2 card
     whose thief carries it nowhere (S2, S4, R1)."""
     space_word = "space" if actual_distance == 1 else "spaces"
     challenger = engine.get_player_definition(challenger_id)
@@ -926,7 +926,7 @@ def steal_step(
     exhaustion a run back charges is `begin_run_back`'s, and the cost
     this card can collect is an engine question -- and takes `game`
     to name the side that took the ball by its coach and for 2.0's
-    charge on the thief's carry (rules-2.1 5.4).
+    charge on the thief's carry (rules-2.2 5.4).
     """
     new_possession_side = match.defending_side()
     challenger_id = match.challenger_id
@@ -934,7 +934,7 @@ def steal_step(
     two = engine.match_plays_deck(match)
     special = engine.card_special(match, "defense") if two else None
     # Toward the new possessor's own goal for a Steal, toward the goal
-    # they now attack for an Intercept, and nowhere for 2.1's S2
+    # they now attack for an Intercept, and nowhere for 2.2's S2
     # Pickpocket and S4 Toss.
     stays = special in (maneuver_deck.PICKPOCKET, maneuver_deck.TOSS)
     direction = 1 if key == "intercept" else 0 if stays else -1
@@ -946,7 +946,7 @@ def steal_step(
         engine, match, key, name, challenger_id, actual_distance, game,
         stays=stays,
     )
-    # The carry is free in 1.0 and costs its spaces in 2.0 (rules-2.1
+    # The carry is free in 1.0 and costs its spaces in 2.0 (rules-2.2
     # 5.4).
     paid = engine.pay_for_move(game, match, challenger_id, actual_distance)
     if paid:
@@ -1012,7 +1012,7 @@ def steal_step(
     # No stays_player_id: begin_run_back exempts the ball carrier,
     # which take_ball_by_steal has already made the interceptor.
     #
-    # **2.1's Steal changes no speed** but S1's Playmaker's, by up to
+    # **2.2's Steal changes no speed** but S1's Playmaker's, by up to
     # their offensive skill (`turnovers.finish_run_back` reads which).
     speed_choice = (
         special == maneuver_deck.STEAL_SPEED if two
@@ -1032,7 +1032,7 @@ def toss_ball(
     engine: RulesEngine, match: MatchState, challenger_id: str,
 ) -> str:
     """
-    **S4 Toss** (2.1): having taken the ball, the defender plays it to
+    **S4 Toss** (2.2): having taken the ball, the defender plays it to
     the nearest teammate behind them -- toward their own goal -- one
     sharing their space counting as behind, as a Pass's does (Law
     6.5.2). With nobody behind them they keep it. Returns what to add
@@ -1175,7 +1175,7 @@ def apply_pressure_turnover(
         )
 
     # Role ability -- Defender: also steals the ball on a won
-    # pressure, on top of the normal effect above. (2.1's R1 is that
+    # pressure, on top of the normal effect above. (2.2's R1 is that
     # steal as a card's special, with nobody moving: `pressure_step`.)
     stolen = engine.has_role_ability(
         match, defender.player_id, PlayerRole.DEFENDER,
@@ -1215,12 +1215,12 @@ def pressure_step(
     It reads the game record for two things: whether the challenger
     is Acidel, whose pressure into the goal zone is a shot rather than
     an own-goal roll (Law 21), and whether the shove costs its spaces,
-    which it does in 2.0 (rules-2.1 5.4).
+    which it does in 2.0 (rules-2.2 5.4).
     """
     offense_side = match.ball.possession
     defense_side = match.defending_side()
     name = engine.maneuver_name(key)
-    # **2.1's specials on Pressure's rank** (rules-2.1 7.4): R1's
+    # **2.2's specials on Pressure's rank** (rules-2.2 7.4): R1's
     # Defender turns the ball over with nobody moving, R2's Fullback or
     # Playmaker plays it to the handler's nearest teammate behind, and
     # R4's Striker or Winger contests it where it is -- each in place
@@ -1270,7 +1270,7 @@ def pressure_step(
     )
     # **2.0: the shove costs the handler its spaces, and the
     # challenger and a Double Team's partner the spaces they came**
-    # (rules-2.1 5.4; the author on PR #665, for the partner). Free in
+    # (rules-2.2 5.4; the author on PR #665, for the partner). Free in
     # 1.0, where the partner joins free however far they came
     # (Law 19.10.2).
     destination = match.board.flat_index(
@@ -1421,7 +1421,7 @@ def offer_follow(
     then: dict,
 ) -> Optional[PendingPrompt]:
     """
-    **2.1's "defender may follow"** (F2 Follow, R2 Control; rules-2.1
+    **2.2's "defender may follow"** (F2 Follow, R2 Control; rules-2.2
     7.4, the author, 2026-10-31: "Any time a card says 'may' it's
     optional"): ask whether `player_id` moves onto the ball's space,
     recording the question and what the maneuver does once it is
@@ -1453,7 +1453,7 @@ def answer_follow(
 ) -> StepResult:
     """
     The defender follows the ball onto its space, paying for the spaces
-    (rules-2.1 5.4), or stays -- which says nothing -- and the maneuver
+    (rules-2.2 5.4), or stays -- which says nothing -- and the maneuver
     goes on to what it was owed: a deflection's landing, or its end.
     """
     pending = match.pending_follow or {}
@@ -1493,7 +1493,7 @@ def answer_follow(
 def _card_name(
     engine: RulesEngine, match: MatchState, side: str, key: str,
 ) -> str:
-    """What a step names a 2.1 special's effect by: the card played as
+    """What a step names a 2.2 special's effect by: the card played as
     itself, by its half's label ("Pressure (Control)"), else the
     maneuver ("Pressure")."""
     cards = match.maneuver_cards.get(side) or []
@@ -1514,7 +1514,7 @@ def turnover_in_place(
     game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
-    **R1 Pressure's Defender** (2.1): "turnover and players don't
+    **R1 Pressure's Defender** (2.2): "turnover and players don't
     move" -- the ball changes hands where it is, the speed resets as at
     every turnover (Law 7.3), and the steal's run back follows, with no
     speed to set. The challenger is on the ball's space, so they take
@@ -1537,7 +1537,7 @@ def contest_on_the_spot(
     engine: RulesEngine, match: MatchState, name: str,
 ) -> StepResult:
     """
-    **F4 Block's Playmaker and R4 Stress's Striker or Winger** (2.1):
+    **F4 Block's Playmaker and R4 Stress's Striker or Winger** (2.2):
     the ball goes nowhere and is contested where it is, by the handler
     and the challenger standing on it -- the ordinary landing (Law
     10.1) on a space both sides hold, as a deflection's ball lands.
@@ -1555,11 +1555,11 @@ def control_step(
     game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
-    **R2 Control's Fullback or Playmaker** (2.1, 2.0's Stress): the
+    **R2 Control's Fullback or Playmaker** (2.2, 2.0's Stress): the
     ball is forced back to the handler's nearest teammate behind -- one
     sharing the handler's space counting as behind, as a Pass's does
     (Law 6.5.2) -- and the defender follows it onto that space, paying
-    for the spaces (rules-2.1 5.4). With no teammate behind the handler
+    for the spaces (rules-2.2 5.4). With no teammate behind the handler
     the ball can only go back into their own goal zone, which risks an
     own goal (Law 11), as a Pressure on the last space does; nothing
     moves then.
@@ -1878,7 +1878,7 @@ def deflection_numbers(
     are returned as two numbers rather than one.
     """
     if engine.match_plays_deck(match):
-        # **2.1's Deflect** (the `maneuvers 2.1` tab): 1 back and 1 off
+        # **2.2's Deflect** (the `maneuvers 2.1` tab): 1 back and 1 off
         # the speed, and a space more for F1's Fullback -- 1.0's
         # Fullback ability as the card's special.
         fullback_bonus = engine.card_special(
@@ -1982,7 +1982,7 @@ def deflection_step(
         f"{match.ball.speed}."
     )
     if special == maneuver_deck.FOLLOW:
-        # **F2 Follow** (2.1): "defender may follow" -- asked, and the
+        # **F2 Follow** (2.2): "defender may follow" -- asked, and the
         # deflection lands once it is answered (`answer_follow`).
         asked = offer_follow(
             engine, game, match, defender.player_id,
@@ -1993,7 +1993,7 @@ def deflection_step(
                 narration=[content], board_changed=True, next=asked,
             )
     if special == maneuver_deck.BOOT:
-        # **F3 Boot's Winger or Striker** (2.1): "may set up scoring"
+        # **F3 Boot's Winger or Striker** (2.2): "may set up scoring"
         # wherever the ball lands, not only in the goal zone -- the
         # deflection's own set-up (Law 6.8.5), offered: the player who
         # played the card shoots from where the ball came to rest, and
@@ -2141,7 +2141,7 @@ def throw_high_pass(
 
     ability_note = (
         " (Fullback ability)" if fullback_bonus
-        # 2.1's H1 throws 4 for its Fullback or Defender, and H3 2 for
+        # 2.2's H1 throws 4 for its Fullback or Defender, and H3 2 for
         # its Midfielder: each the card's special.
         else " (High Ball special)"
         if engine.match_plays_deck(match) and distance == 4
@@ -2153,7 +2153,7 @@ def throw_high_pass(
     )
     name = "High Ball"
     if distance == 0:
-        # 2.1's H4 Vertical Ball thrown 0: straight up, and back down.
+        # 2.2's H4 Vertical Ball thrown 0: straight up, and back down.
         content = (
             f"**{name}:** the ball goes straight up and comes back down "
             f"on the passer's own space{ability_note}."
@@ -2273,7 +2273,7 @@ def high_pass_step(
     """
     offense_side = match.ball.possession
     handler = engine.get_player_definition(match.active_player_id)
-    # **2.1's H4 Vertical Ball thrown 0** comes down on the passer's own
+    # **2.2's H4 Vertical Ball thrown 0** comes down on the passer's own
     # space, and the passer is its receiver: still a High Ball,
     # contested, and then it may set up scoring (the author,
     # 2026-10-31). A throw the field clamps to 0 is not one.
@@ -2510,11 +2510,11 @@ def long_shot_step(
     match: MatchState,
 ) -> StepResult:
     """
-    **H2 Long shot's Playmaker** (2.1): the ball goes to the side's
+    **H2 Long shot's Playmaker** (2.2): the ball goes to the side's
     Striker instead, wherever they are, who has to win the High Ball
     contest to keep it -- and then may take a scoring opportunity
-    (`rolls.after_the_contest`). A 2.1 side always has a Striker
-    (rules-2.1 4.3a); the Playmaker throwing it is never the Striker.
+    (`rolls.after_the_contest`). A 2.2 side always has a Striker
+    (rules-2.2 4.3a); the Playmaker throwing it is never the Striker.
     """
     key = "high_pass"
     offense_side = match.ball.possession
@@ -3062,7 +3062,7 @@ def offer_dribble_advance(
             dribble_advance_step(engine, game, match, 1), lead_in,
         )
 
-    # 2.1's B2 asks by its card, 1.0's Playmaker by the ability.
+    # 2.2's B2 asks by its card, 1.0's Playmaker by the ability.
     two = engine.match_plays_deck(match)
     return StepResult(
         narration=[lead_in] if lead_in else [],
@@ -3144,7 +3144,7 @@ def offer_high_pass(
     distances = engine.high_pass_distance_options(match)
     fixed = engine.high_pass_fixed_distance(match)
     if fixed is not None:
-        # **2.1's High Ball goes 3**, so the coach is asked only where
+        # **2.2's High Ball goes 3**, so the coach is asked only where
         # a special offers another throw or Quantor may run onto it
         # (`RulesEngine.high_pass_asks`); otherwise it is thrown --
         # into the goal zone too, where 3 lands past the last space.
@@ -3297,7 +3297,7 @@ EFFECT_OFFERS = {
     "double_team": lambda engine, game, match: pressure_step(
         engine, match, "double_team", game,
     ),
-    # D12 Ball 2.1's cards each play one of the basic six above, and
+    # D12 Ball 2.2's cards each play one of the basic six above, and
     # their specials are read inside its step (`card_special`).
 }
 

@@ -1,11 +1,11 @@
 """
-D12 Ball 2.1's coin (docs/rules-2.1.md, section 5): the setup toss's
+D12 Ball 2.2's coin (docs/rules-2.2.md, section 5): the setup toss's
 face at the first turn, its face settles every tie -- a skill test's, a contest for
 the ball's, a shot's -- rather than a re-roll or a goal, and it is tossed
 again after the tie, so the next tie's answer is always known and shown
 on the turn message; a tied shootout test scores for nobody -- and
 moving on the board costs a
-token a space (rules-2.1 5.4), where a card costs nothing. 1.0 is
+token a space (rules-2.2 5.4), where a card costs nothing. 1.0 is
 untouched. See docs/design/maneuver-deck.md, "The coin" and "Moving
 costs".
 """
@@ -313,7 +313,7 @@ class TieCoinTests(unittest.TestCase):
 
     def test_the_first_turn_takes_the_toss_face(self) -> None:
         # The coin that decided home or the visitors is the coin: it is
-        # not flipped again (rules-2.1 5.2; the author, 2026-11-01).
+        # not flipped again (rules-2.2 5.2; the author, 2026-11-01).
         self.game.coin_face = CoinFace.DOOM
         with mock.patch.object(ENGINE, "flip_coin") as flip:
             self.assertIsNone(settle_tie_coin(ENGINE, self.game, self.match))

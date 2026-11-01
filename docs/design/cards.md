@@ -23,14 +23,15 @@ gets a design of its own.
 python3 scripts/render_maneuver_cards.py --sheet  # d12ball/print/maneuver-cards/<tier>-{front,back}-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
 python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot sends
-python3 scripts/render_maneuver_cards.py --edition 2.0 --sheet  # 2.1's twenty-four-card deck
+python3 scripts/render_maneuver_cards.py --edition 2.0 --sheet  # 2.2's twelve split cards
 ```
 
-`--edition 2.0` draws one coach's 2.1 deck (`maneuver_deck.deck_cards`; the edition's saved
-value is still "2.0") with the faces the bot's 2.1 hand shows -- `deck_faces.render_deck_card`,
-drawn from scratch for 2.1 (the author, 2026-10-31): the name and rank badge, the effect, the
-role interaction in a tinted box, an empty labelled space for the spec ability, and the green
-flip strip, defense in navy -- see "The faces" in [maneuver-deck.md](maneuver-deck.md) -- with
+`--edition 2.0` draws one coach's 2.2 deck (`maneuver_deck.deck_cards`; the edition's saved
+value is still "2.0") with the faces the bot's 2.2 hand shows -- `deck_faces.render_deck_card`,
+drawn from scratch (the author, 2026-10-31 and 2026-11-01): the offensive half over the
+defensive half, each with its rank badge, title, effect and role interaction in a tinted box,
+and between them the band of what each beats, ties and loses to, defense in navy -- see "Split
+cards" and "The faces" in [maneuver-deck.md](maneuver-deck.md) -- with
 `--sheet` as Avery 95328 pages. **Every 2.x card takes the basic back** (the author,
 2026-10-28): the deck is one shuffled pile, so every card needs the same back, and the basic
 six's hexagon is the one chosen. 2.0's two-headed face and its band went with its cards; the
@@ -730,7 +731,7 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
 `player-cards-2.0/`. In 2.0 a player has no role -- the formation's
 zones hold the roles, the zone board says which beside each slot, and a
 role token laid on the tile may too ([printed-tokens.md](printed-tokens.md),
-"Role tokens") -- and no role ability applies (rules-2.1 4.7), so a
+"Role tokens") -- and no role ability applies (rules-2.2 4.7), so a
 2.0 piece names no role anywhere.
 
 **It is a tile, smaller than a card, at the card's type sizes** (the

@@ -229,7 +229,7 @@ def resolve_maneuver(
     defense_key = match.defense_maneuver
     offense_name = engine.maneuver_name(offense_key)
     defense_name = engine.maneuver_name(defense_key)
-    # 2.1 names the card each side played, beside the maneuver it plays.
+    # 2.2 names the card each side played, beside the maneuver it plays.
     offense_chose = _chose(engine, match, "offense", offense_name)
     defense_chose = _chose(engine, match, "defense", defense_name)
     offense_display = format_player_with_team(
@@ -665,16 +665,14 @@ def maneuver_pick_refusal(
     side: str,
     maneuver_key: str,
     card_id: Optional[str] = None,
-    extra_card_id: Optional[str] = None,
 ) -> Optional[str]:
     """
     Why this pick cannot be taken, or None -- **everything except who
     is allowed to make it**.
 
-    **In 2.1 a pick is a card** (`card_id`), and a flipped card names
-    the extra card it discards (`extra_card_id`); both are refused
-    against `RulesEngine.card_plays`, the list the buttons are built
-    from, as is the maneuver the card is said to play.
+    **In 2.2 a pick is a card** (`card_id`), refused against
+    `RulesEngine.card_plays`, the list the buttons are built from, as
+    is the maneuver the card is said to play.
 
     Authorization is a fact about a Discord user and stays in
     `SafeView` (see docs/design/permissions.md), and it is answered
@@ -730,9 +728,9 @@ def maneuver_pick_refusal(
 
     if engine.maneuver_deck_applies(game):
         return _card_pick_refusal(
-            engine, game, match, side, maneuver_key, card_id, extra_card_id,
+            engine, game, match, side, maneuver_key, card_id,
         )
-    if card_id is not None or extra_card_id is not None:
+    if card_id is not None:
         return "This game plays no maneuver cards."
     playable = {
         maneuver.key
@@ -754,9 +752,8 @@ def _card_pick_refusal(
     side: str,
     maneuver_key: str,
     card_id: Optional[str],
-    extra_card_id: Optional[str],
 ) -> Optional[str]:
-    """A 2.1 pick refused against the hand's own plays."""
+    """A 2.2 pick refused against the hand's own plays."""
     if card_id is None:
         return "Pick a card from your hand."
     play = next(
@@ -768,16 +765,7 @@ def _card_pick_refusal(
         return "That card isn't in your hand for this turn. Use your hand."
     if play.maneuver_key != maneuver_key:
         return "That card does not play that maneuver. Use your hand."
-    if play.flip and extra_card_id not in play.extra_ids:
-        return (
-            "Playing a card as the other side's maneuver discards an "
-            "extra card from your hand: choose one."
-        )
-    if not play.flip and extra_card_id is not None:
-        return "That card plays as itself and discards nothing extra."
-    current = match.maneuver_cards.get(side)
-    wanted = [card_id] + ([extra_card_id] if play.flip else [])
-    if current == wanted:
+    if match.maneuver_cards.get(side) == [card_id]:
         return "You have already chosen that card."
     return None
 
@@ -786,15 +774,12 @@ def _chose(
     engine: RulesEngine, match: MatchState, side: str, name: str,
 ) -> str:
     """What a side chose, as the reveal says it: the maneuver in 1.0,
-    and in 2.1 the card that played it -- flipped, or with its special
-    in play. A card's label names its maneuver already ("P3 Pass
-    (Pinpoint)"), so the reveal does not name it twice."""
+    and in 2.2 the half of the card that played it, and whether its
+    special is in play. A card's label names its maneuver already ("P3
+    Pass (Pinpoint)"), so the reveal does not name it twice."""
     label = engine.played_card_label(match, side)
     if not label:
         return f"**{name}**"
-    cards = match.maneuver_cards.get(side) or []
-    if len(cards) > 1:
-        return f"**{label}**"
     special = (
         ", its special in play"
         if engine.card_special(match, side) is not None else ""
@@ -808,7 +793,7 @@ def settle_tie_coin(
     match: MatchState,
 ) -> None:
     """
-    **D12 Ball 2.1's coin, set at the first turn** (rules-2.1 5.2; the
+    **D12 Ball 2.2's coin, set at the first turn** (rules-2.2 5.2; the
     author, 2026-11-01): it starts on the face the setup toss landed on
     (`D12BallGame.coin_face`, Law 3.1.2), so it is not flipped again --
     a game seated without a toss, which has no face to take, flips it
@@ -832,11 +817,10 @@ def maneuver_pick_step(
     side: str,
     maneuver_key: str,
     card_id: Optional[str] = None,
-    extra_card_id: Optional[str] = None,
 ) -> StepResult:
     """
-    One coach's pick, written down -- in 2.1 with the card behind it,
-    and the extra card a flip discards (`MatchState.maneuver_cards`).
+    One coach's pick, written down -- in 2.2 with the card behind it
+    (`MatchState.maneuver_cards`).
 
     **"Someone has picked, you can't see what" is only worth saying
     while the other side is still choosing**, which is a rule about the
@@ -867,9 +851,7 @@ def maneuver_pick_step(
     )
     confirming = match.pick_unconfirmed == side
     if card_id is not None:
-        match.maneuver_cards[side] = [card_id] + (
-            [extra_card_id] if extra_card_id is not None else []
-        )
+        match.maneuver_cards[side] = [card_id]
     if previous is not None and previous == maneuver_key and card_id is not None:
         # Another card for the same maneuver: the card changed, and the
         # pick with it, but there is no maneuver to change.
@@ -915,9 +897,9 @@ def play_maneuver_cards(
     match: MatchState,
 ) -> list[str]:
     """
-    **D12 Ball 2.1: the cards just revealed leave their hands** (the
+    **D12 Ball 2.2: the cards just revealed leave their hands** (the
     author, 2026-10-16). Each card played goes to its coach's discard
-    pile -- with the extra card a flip discards -- and the coach draws
+    pile and the coach draws
     back up to three; drawing the last card of a deck shuffles the
     discard into a new one, which is said out loud because it is
     public. Nothing in 1.0.
@@ -1540,8 +1522,8 @@ def start_turn(
         )
     carrying = match.ball_carrier_id in eligible_handlers
 
-    # 2.1's coin, set from the toss before the first turn's first
-    # question (rules-2.1 5.2); after that it is tossed only after a tie.
+    # 2.2's coin, set from the toss before the first turn's first
+    # question (rules-2.2 5.2); after that it is tossed only after a tie.
     settle_tie_coin(engine, game, match)
 
     # **A declared last possession becomes this side's here** (Law

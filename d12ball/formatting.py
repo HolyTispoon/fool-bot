@@ -1034,13 +1034,13 @@ GAME_MODE_DEFINITIONS: dict[GameMode, str] = {
 #: What each edition is called on a button and in a setup message.
 EDITION_NAMES: dict[Edition, str] = {
     Edition.ONE: "D12 Ball 1.0",
-    Edition.TWO: "D12 Ball 2.1",
+    Edition.TWO: "D12 Ball 2.2",
 }
 
-#: What 2.1 changes, for the setup screens (docs/rules-2.1.md). The
+#: What 2.2 changes, for the setup screens (docs/rules-2.2.md). The
 #: edition's saved value is still `Edition.TWO`'s "2.0": 2.1 replaced
-#: 2.0's cards on 2026-10-31, and the setting is the same one; its cards
-#: are split and its hand three since 2026-11-01.
+#: 2.0's cards on 2026-10-31 and 2.2 replaced 2.1's on 2026-11-01, each
+#: under the same setting.
 EDITION_TWO_DEFINITION = (
     "each coach plays from their own shuffled deck of 12 split maneuver "
     "cards -- an offensive maneuver on top and the defensive one of the "
@@ -1052,7 +1052,7 @@ EDITION_TWO_DEFINITION = (
 
 def describe_edition(game: D12BallGame) -> str:
     """
-    The setup screens' line for D12 Ball 2.1, or `""` for 1.0 -- the
+    The setup screens' line for D12 Ball 2.2, or `""` for 1.0 -- the
     game the rest of the screen already describes, so it adds nothing.
     """
     if Edition(game.edition) != Edition.TWO:

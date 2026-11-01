@@ -29,7 +29,7 @@ position, which is what the choice usually turns on.
 **In 2.0 the role is the one the card holds in the match, never the one it
 prints** (the author, 2026-10-28: "during the game buttons etc. should show
 the role assigned, but during assignment players on the bench have no
-role"). A 2.0 role is the formation's (docs/rules-2.1.md section 4), so a
+role"). A 2.0 role is the formation's (docs/rules-2.2.md section 4), so a
 card dealt as a Defender and standing in the Fullback's place is
 `Voltus [FB]`. `RulesEngine.player_name(match, player)` is the one place
 that reads it -- `role_of` handed to `player_with_role` as `role=` -- and

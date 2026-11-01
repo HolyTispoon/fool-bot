@@ -648,14 +648,14 @@ def offer_scoring_attempt_choice(
     match in
     the same state.
 
-    `loose_on_decline` is **a 2.1 deflection's set-up** (rules-2.1
+    `loose_on_decline` is **a 2.2 deflection's set-up** (rules-2.2
     7.4a): the shooter is the *defense's* player who played the card,
     so the ball is still the offense's while they are asked -- it
     changes hands only if they shoot (`take_scoring_opportunity`) --
     and declining lands the ball where it lies by the ordinary rule
     (Law 10.1), as the deflection otherwise would have.
 
-    `set_up=False` is **a 2.1 scoring opportunity that is not a
+    `set_up=False` is **a 2.2 scoring opportunity that is not a
     set-up** -- B1's (the author, 2026-10-31: "an opportunity but not
     off a set up"): the shot out of turn, without the shooter's token
     after the roll (Law 8.3.1; `MatchState.shot_is_set_up`).
@@ -736,7 +736,7 @@ def decline_scoring_attempt(
     loose = (match.pending_scoring_opportunity or {}).get("loose_on_decline")
     match.pending_scoring_opportunity = None
     if loose:
-        # A 2.1 deflection's set-up let go: the ball lands where it lies.
+        # A 2.2 deflection's set-up let go: the ball lands where it lies.
         return StepResult(
             narration=[lead_in] if lead_in else [],
             next=FollowOn(
@@ -1548,7 +1548,7 @@ def take_scoring_opportunity(
     """
     offer = match.pending_scoring_opportunity or {}
     match.pending_scoring_opportunity = None
-    # **2.1's terms of the offer**, kept while the shot waits
+    # **2.2's terms of the offer**, kept while the shot waits
     # (`MatchState.pending_shot_offer`): whether it is a set-up at all,
     # and what a step back from the shot puts back.
     terms: dict = {}
@@ -1556,7 +1556,7 @@ def take_scoring_opportunity(
         terms["loose_on_decline"] = True
     if offer.get("set_up", True) is False:
         terms["set_up"] = False
-    # **A set-up offered to the side without the ball** -- a 2.1
+    # **A set-up offered to the side without the ball** -- a 2.2
     # deflection's (`loose_on_decline`) -- changes hands as it is taken,
     # as Law 6.8.5's does: possession flips and the speed resets, so the
     # shot reads the right attacking and defending sides.

@@ -32,10 +32,10 @@ is a rule rather than an accident:
   the shootout, and not in the skill test or the score attempt.** See
   "Injured players" in docs/living-rules.md.
 - **A tie is re-rolled in the skill test and the loose ball**, at a
-  token each -- in 1.0; in 2.1 the coin's face settles it, unrolled and
+  token each -- in 1.0; in 2.2 the coin's face settles it, unrolled and
   free, and the coin is tossed again after it (`coin_settles_tie`,
-  rules-2.1 section 5). A score attempt scores on level totals in 1.0
-  (Law 5.2.3, the author 2026-10-18) and goes to the coin in 2.1, and a
+  rules-2.2 section 5). A score attempt scores on level totals in 1.0
+  (Law 5.2.3, the author 2026-10-18) and goes to the coin in 2.2, and a
   shootout tie simply scores for nobody.
 - **The tutorial scripts the skill test's dice and the loose ball's**,
   and deliberately scripts neither of the other two -- a beat only
@@ -264,7 +264,7 @@ def coin_settles_tie(
     defense_word: str = "defense",
 ) -> tuple[str, str]:
     """
-    **D12 Ball 2.1: a tie goes to the side the coin shows** (rules-2.1
+    **D12 Ball 2.2: a tie goes to the side the coin shows** (rules-2.2
     5.1; the author, 2026-10-20 and 2026-10-31) -- the offense on
     Fortune, the defense on Doom -- **and the coin is tossed again after
     the tie**, so both coaches always know how the next one goes: the
@@ -479,7 +479,7 @@ def score_skill_test(
         defense_player.player_id,
     )
 
-    # **S3 My Turf!** (2.1): a Fullback or Defender who played it adds
+    # **S3 My Turf!** (2.2): a Fullback or Defender who played it adds
     # 3 to this maneuver's skill test -- the card's special
     # (`RulesEngine.card_special`).
     if engine.card_special(match, "defense") == maneuver_deck.MY_TURF:
@@ -1466,7 +1466,7 @@ def settle_score_attempt(
         verdict = f"# {headline.text}\n{under}"
 
     # In 1.0 a plain score attempt costs no exhaustion -- only a shot
-    # taken off a set-up gains a token -- and in 2.1 every one does
+    # taken off a set-up gains a token -- and in 2.2 every one does
     # (`RulesEngine.shot_exhausts`); either way it is taken after the
     # roll regardless of outcome, and no score attempt owes an injury
     # check, which stays exclusive to skill tests.
@@ -1560,8 +1560,8 @@ def score_attempt_step(
     match.consume_overdrive()
 
     # A tie scores (Law 5.2.3, the author 2026-10-18): the attack has to
-    # equal or beat the defense's total -- in 1.0. **In 2.1 the coin is
-    # tossed for it** (rules-2.1 5.1, the author, 2026-10-31): Fortune
+    # equal or beat the defense's total -- in 1.0. **In 2.2 the coin is
+    # tossed for it** (rules-2.2 5.1, the author, 2026-10-31): Fortune
     # scores, Doom does not.
     tie_text = ""
     if attack_total == defense_total and engine.tie_coin_applies(game):
@@ -1710,7 +1710,7 @@ def retract_shot_step(
     shooter_id = match.active_player_id
     distance_moved = match.pending_shot_setup_cost
     contest_on_decline = match.pending_high_pass_overshoot
-    # 2.1's terms of the offer the shot came off: the ball goes back to
+    # 2.2's terms of the offer the shot came off: the ball goes back to
     # the side it was with, and the offer is asked on the same terms.
     terms = match.pending_shot_offer or {}
     if "possession" in terms:
