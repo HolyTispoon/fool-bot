@@ -97,6 +97,8 @@ from cogs.d12ball_helpers import (
     send_new_prompt,
 )
 from cogs.d12ball_views import (
+    HandButton,
+    hand_view,
     BallHandlerSelectionView,
     BallRecoveryView,
     CoachingHubView,
@@ -785,6 +787,9 @@ class CoreMixin:
             )
 
     async def cog_load(self) -> None:
+        # **My hand** answers on any message carrying it, a board
+        # posted hours ago included, through one registration.
+        self.bot.add_dynamic_items(HandButton)
         # One fetch, three lookups. Each loader used to make its own
         # call to the same endpoint, so every startup asked Discord for
         # the identical list three times over.
@@ -1723,12 +1728,14 @@ class CoreMixin:
                 await self.refresh_match_image(interaction, game, png=png)
                 if len(lines) > 1:
                     await send_new_prompt(interaction, " ".join(lines[:-1]))
+                view = hand_view(self, game)
                 posted = await send_new_prompt(
                     interaction,
                     lines[-1] if lines else "",
                     file=self.match_file_from_png(game, png),
+                    view=view,
                 )
-                await add_full_image_button(posted)
+                await add_full_image_button(posted, view)
                 return
             await self.announce_board_update(
                 interaction, game, " ".join(lines), snapshot=snapshot,

@@ -296,12 +296,7 @@ def render_deck_hand(
     flipped, which its green strip says. `players` is unused, kept so
     the cog's call reads as before.
     """
-    def order(card_id: str) -> tuple:
-        card = catalog.deck_card(card_id)
-        if card is None:
-            return (2, 0, 0)
-        return (0 if card.side == side else 1, card.rank, card.number)
-
+    order = maneuver_deck.hand_order(catalog, side)
     faces = [render_deck_card(catalog, card_id) for card_id in sorted(held, key=order)]
     scale = HAND_CARD_WIDTH / CARD_WIDTH
     card_height = round(CARD_HEIGHT * scale)

@@ -8,9 +8,17 @@ this is the frontend over them.
 import unittest
 from unittest import mock
 
+from cogs.d12ball_boards import d12ball_board_view
 from cogs.d12ball_helpers import HAND_BUTTON_LABEL
-from cogs.d12ball_views import ManeuverActionPromptView
-from cogs.d12ball_views.turn import FlipExtraView, ManeuverHandView
+from cogs.d12ball_views import ManeuverActionPromptView, PlayerActionView
+from cogs.d12ball_views.turn import (
+    FlipExtraView,
+    HandButton,
+    HandShowing,
+    ManeuverHandView,
+    describe_secret_hand,
+)
+from d12ball import maneuver_deck
 from d12ball.components import TeamSide
 from d12ball.game import Edition, GameMode
 from d12ball.prompts import PromptKind
@@ -81,12 +89,19 @@ class SecretHandTests(unittest.IsolatedAsyncioTestCase):
             )
             hand_view = sent[0].kwargs["view"]
             self.assertIsInstance(hand_view, ManeuverHandView)
-            # One button a way to play a card: its own, or flipped.
-            plays = cog.engine.card_plays(game, match, side)
+            # One button a way to play a card: its own, or flipped --
+            # in the picture's order, this side's cards before the flips.
+            order = maneuver_deck.hand_order(cog.maneuver_catalog, side)
+            plays = sorted(
+                cog.engine.card_plays(game, match, side),
+                key=lambda play: order(play.card_id),
+            )
             self.assertEqual(len(hand_view.children), len(plays))
             for item, play in zip(hand_view.children, plays):
                 self.assertIn(play.card_id, item.label)
                 self.assertEqual(item.label.startswith("\u21c5"), play.flip)
+            flips = [play.flip for play in plays]
+            self.assertEqual(flips, sorted(flips))
 
     async def test_somebody_coaching_neither_side_is_refused(self) -> None:
         cog, game = self.build()
@@ -182,3 +197,89 @@ class DiscardPictureTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HandEverywhereTests(unittest.IsolatedAsyncioTestCase):
+    """**My hand** on the turn's action prompt and under every board,
+    and what it shows while no maneuver is being picked (the author,
+    2026-11-01)."""
+
+    def build(self, edition=Edition.TWO, challenged=False):
+        cog = build_cog()
+        cog.build_deck_hand_file = mock.AsyncMock(
+            return_value=mock.sentinel.hand_file,
+        )
+        game = build_game(mode=GameMode.STANDARD, edition=edition)
+        cog.games[game.game_id] = game
+        cog.engine.rng.seed(3)
+        match = cog.engine.initialize_standard_match(game)
+        if challenged:
+            challenge(match)
+        game.match_state = match.to_dict()
+        return cog, game
+
+    @staticmethod
+    def hand_buttons(view):
+        return [item for item in view.children if isinstance(item, HandButton)]
+
+    def test_the_action_prompt_carries_my_hand_in_2_1_alone(self) -> None:
+        cog, game = self.build()
+        self.assertEqual(
+            len(self.hand_buttons(PlayerActionView(cog, game.game_id))), 1,
+        )
+        cog, game = self.build(edition=Edition.ONE)
+        self.assertEqual(
+            self.hand_buttons(PlayerActionView(cog, game.game_id)), [],
+        )
+
+    def test_the_board_message_carries_my_hand(self) -> None:
+        cog, game = self.build()
+        buttons = self.hand_buttons(d12ball_board_view(cog, game))
+        self.assertEqual(len(buttons), 1)
+        self.assertEqual(buttons[0].item.label, HAND_BUTTON_LABEL)
+        self.assertEqual(
+            buttons[0].custom_id, f"d12ball:hand:{game.game_id}",
+        )
+
+    async def test_away_from_a_pick_the_hand_is_a_picture_alone(self) -> None:
+        cog, game = self.build()
+        match = cog.engine.load_match_state(game)
+        shown = build_interaction(user_id=HOME_COACH)
+        await HandShowing(cog, game.game_id).show_own_hand(shown)
+        sent = shown.followup.send.await_args_list
+        self.assertEqual(len(sent), 1)
+        self.assertTrue(sent[0].kwargs["ephemeral"])
+        self.assertNotIn("view", sent[0].kwargs)
+        held, side = cog.build_deck_hand_file.await_args.args
+        self.assertEqual(
+            tuple(held), cog.engine.maneuver_deck_hand(match, TeamSide.HOME),
+        )
+        self.assertEqual(
+            side,
+            "offense" if match.ball.possession == TeamSide.HOME else "defense",
+        )
+
+    async def test_during_a_pick_a_coach_is_sent_the_playable_hand(self) -> None:
+        cog, game = self.build(challenged=True)
+        shown = build_interaction(user_id=HOME_COACH)
+        await HandShowing(cog, game.game_id).show_own_hand(shown)
+        sent = shown.followup.send.await_args_list
+        self.assertEqual(len(sent), 1)
+        self.assertIsInstance(sent[0].kwargs["view"], ManeuverHandView)
+
+    async def test_somebody_coaching_neither_side_sees_nothing(self) -> None:
+        cog, game = self.build()
+        refused = build_interaction(user_id=333)
+        await HandShowing(cog, game.game_id).show_own_hand(refused)
+        refused.followup.send.assert_not_awaited()
+        cog.build_deck_hand_file.assert_not_awaited()
+
+    def test_the_hand_text_does_not_explain_the_flip(self) -> None:
+        cog, game = self.build(challenged=True)
+        match = cog.engine.load_match_state(game)
+        for hand in ManeuverActionPromptView(cog, game.game_id).prompt_options(
+            game, match, PromptKind.MANEUVER_ACTION,
+        ).hands:
+            text = describe_secret_hand(hand)
+            self.assertNotIn("\u21c5", text)
+            self.assertNotIn("maneuver of its rank", text)
