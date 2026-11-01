@@ -1271,6 +1271,11 @@ class HandButton(
         )
         self.game_id = game_id
 
+    @property
+    def label(self) -> str:
+        """The button's own label, so a view's children read alike."""
+        return self.item.label
+
     @classmethod
     async def from_custom_id(
         cls, interaction: discord.Interaction, item, match,

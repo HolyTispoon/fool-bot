@@ -147,6 +147,10 @@ class FakeBot:
 
         return self.application_emojis
 
+    def add_dynamic_items(self, *items) -> None:
+        """`cog_load` registers My hand's dynamic button; a fake bot
+        routes no clicks, so there is nothing to keep."""
+
 
 # Real emoji ids, because discord.py only reads <:name:id> as a custom
 # emoji when the id is a full-length snowflake.
