@@ -207,7 +207,8 @@ class DribbleTests(unittest.TestCase):
         self.assertEqual(result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE)
         self.assertEqual(result.next.kwargs["shooter_id"], shooter)
         # A scoring opportunity, but not off a set-up (the author,
-        # 2026-10-31): offered, and shot with no token after the roll.
+        # 2026-10-31) -- and like every 2.1 score attempt it exhausts
+        # the shooter 1 after the roll (2026-11-01).
         self.assertIs(result.next.kwargs["set_up"], False)
         arrivals.offer_scoring_attempt_choice(
             ENGINE, game, match, lead_in="", **result.next.kwargs,
@@ -219,7 +220,7 @@ class DribbleTests(unittest.TestCase):
         self.assertFalse(saved.shot_is_set_up)
         before = match.exhaustion.get(shooter, 0)
         rolls.score_attempt_step(ENGINE, game, match)
-        self.assertEqual(match.exhaustion.get(shooter, 0), before)
+        self.assertEqual(match.exhaustion.get(shooter, 0), before + 1)
 
     def test_b1_a_step_back_offers_the_same_opportunity(self) -> None:
         from d12ball.flow import arrivals, rolls
@@ -368,6 +369,27 @@ class HighBallTests(unittest.TestCase):
         result = effects.high_pass_step(ENGINE, match, 1, game=game)
         self.assertFalse(match.vertical_ball)
         self.assertEqual(result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST)
+
+
+class ScoreAttemptTests(unittest.TestCase):
+
+    def test_every_score_attempt_exhausts_one_in_two_point_one(self) -> None:
+        # "Attempting a score -- whether off set up or not -- always
+        # exhausts 1" (the author, 2026-11-01); 1.0's plain shot is free.
+        from d12ball.flow import rolls
+        for edition, cost in ((Edition.TWO, 1), (Edition.ONE, 0)):
+            with self.subTest(edition=edition):
+                game = build_game(edition=edition, mode=GameMode.TRAINING)
+                match = build_match(9)
+                if edition is Edition.TWO:
+                    ENGINE.deal_maneuver_decks(game, match)
+                    ENGINE.deal_formation_roles(game, match)
+                shooter = match.eligible_ball_handlers()[0]
+                match.select_ball_handler(shooter)
+                match.pending_action = "shoot"
+                before = match.exhaustion.get(shooter, 0)
+                rolls.score_attempt_step(ENGINE, game, match)
+                self.assertEqual(match.exhaustion.get(shooter, 0), before + cost)
 
 
 class DeflectTests(unittest.TestCase):

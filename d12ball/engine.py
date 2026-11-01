@@ -3921,6 +3921,16 @@ class RulesEngine:
         passing side's Striker instead (rules-2.1 7.3)."""
         return self.card_special(match, "offense") == maneuver_deck.LONG_SHOT
 
+    def shot_exhausts(self, match: MatchState) -> bool:
+        """
+        Whether the waiting shot exhausts its shooter 1 after the roll:
+        **in 2.1 every score attempt does**, off a set-up or not (the
+        author, 2026-11-01: "Attempting a score -- whether off set up
+        or not -- always exhausts 1"); in 1.0 only one off a set-up
+        (Law 8.3.1, `MatchState.shot_is_set_up`).
+        """
+        return self.match_plays_deck(match) or match.shot_is_set_up
+
     def uncontested_throws(self, match: MatchState) -> tuple[int, ...]:
         """The 2.1 High Ball distances a teammate receives without a
         contest -- H3's 2 alone; H4's 0 and 1 are still contested (the

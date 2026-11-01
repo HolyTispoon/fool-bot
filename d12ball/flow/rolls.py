@@ -1465,12 +1465,12 @@ def settle_score_attempt(
         headline = Headline("Missed attempt!", defending_setup.side, under)
         verdict = f"# {headline.text}\n{under}"
 
-    # A plain score attempt costs no exhaustion and owes no injury
-    # check -- only a shot taken off a set-up gains a token, taken
-    # after the roll regardless of outcome, and injury checks stay
-    # exclusive to skill tests either way. 2.1's B1 shot is a scoring
-    # opportunity but not a set-up, and gains none (`shot_is_set_up`).
-    if match.shot_is_set_up:
+    # In 1.0 a plain score attempt costs no exhaustion -- only a shot
+    # taken off a set-up gains a token -- and in 2.1 every one does
+    # (`RulesEngine.shot_exhausts`); either way it is taken after the
+    # roll regardless of outcome, and no score attempt owes an injury
+    # check, which stays exclusive to skill tests.
+    if engine.shot_exhausts(match):
         verdict += "\n\n" + engine.apply_exhaustion(
             game, match, shooter.player_id, 1,
         )

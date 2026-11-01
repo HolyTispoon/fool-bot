@@ -131,12 +131,16 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
 - **What the readings are**, confirmed by the author on 2026-10-31: F4 and R4 are a contest
   between handler and challenger on the ball's space, the speed left alone; H2's Long shot is
   offered beside the 3; B4's teammate is the turn's own handler choice; moves cost exhaustion.
+- **Every 2.1 score attempt exhausts the shooter 1 after the roll**, off a set-up or not (the
+  author, 2026-11-01; rules-2.1 5.5), where 1.0 charges only a set-up's shot (Law 8.3.1).
+  `RulesEngine.shot_exhausts` is the one reading, and `rolls.score_attempt_step` asks it.
 - **B1's shot is a scoring opportunity but not a set-up** (the author, 2026-10-31): the shot out
-  of turn, without the shooter's token after the roll (Law 8.3.1). The offer carries
-  `set_up=False` (`arrivals.offer_scoring_attempt_choice`, `pending_scoring_opportunity`), and
-  the waiting shot `MatchState.pending_shot_offer` -- **the terms of the offer a shot was taken
-  off**, explicit and held only while the shot waits. `MatchState.shot_is_set_up` is the one
-  reading of what a set-up adds (the token, the Striker's +3, the shot's `set_up` statistic);
+  of turn. In 2.1 that changes only its wording and the shot's `set_up` statistic, since every
+  2.1 shot exhausts 1 and 2.1 has no Striker's +3. The offer carries `set_up=False`
+  (`arrivals.offer_scoring_attempt_choice`, `pending_scoring_opportunity`), and the waiting shot
+  `MatchState.pending_shot_offer` -- **the terms of the offer a shot was taken off**, explicit and
+  held only while the shot waits. `MatchState.shot_is_set_up` is the one reading of what a
+  set-up is (1.0's token and the Striker's +3, the shot's `set_up` statistic);
   `pending_shot_is_set_up` alone still means "the shot came off an offer", which is what the
   step back from it asks. The same terms carry F3 Boot's `loose_on_decline` and the possession
   and speed before the shot, so stepping back from a Boot shot gives the ball back and asks the
