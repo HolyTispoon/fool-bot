@@ -5,7 +5,7 @@ in a slot of the zone whose role it holds, and the role written beside
 the slot -- the printed 2.0 zone board's idea (docs/design/
 printed-boards.md, "The 2.0 boards") brought to the bot's board.
 
-In 2.0 a role is the formation's, not the card's (docs/rules-2.0.md
+In 2.0 a role is the formation's, not the card's (docs/rules-2.1.md
 section 4): a tile names no role, and the slot says which -- each
 zone's unique role, starred, on the label nearest that zone of the
 field, and its standard role beside it -- so a coach reads who holds

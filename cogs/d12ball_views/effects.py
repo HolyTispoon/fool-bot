@@ -707,6 +707,61 @@ class PasserAdvanceView(SafeView):
         await self.cog.present(interaction, game, result)
 
 
+class FollowBallView(SafeView):
+    """
+    2.1's F2 Follow or R2 Control: whether the defender follows the ball
+    onto its space, or stays ("defender may follow"; rules-2.1 7.4). The
+    defender is the prompt's, read back off `MatchState.pending_follow`
+    by the driver; the view holds them only to name them and gate the
+    click to their coach.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.player_id = player_id
+        player = cog.engine.get_player_definition(player_id)
+        for choice, label, style in (
+            ("follow", f"{self.player_name(player)} follows", discord.ButtonStyle.primary),
+            ("stay", f"{self.player_name(player)} stays", discord.ButtonStyle.secondary),
+        ):
+            button = discord.ui.Button(
+                label=label[:80], style=style,
+                custom_id=f"d12ball:follow_ball:{game_id}:{choice}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction, chosen: str = choice,
+            ) -> None:
+                await self._answer(interaction, chosen)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def _answer(self, interaction: discord.Interaction, choice: str) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if not self.may_act_for_player_side(
+            interaction, game, match, self.player_id,
+        ):
+            await interaction.response.send_message(
+                "Only the defender's coach can choose.", ephemeral=True,
+            )
+            return
+        result = await self.apply(
+            interaction, game, Action(PromptKind.FOLLOW_BALL, choice),
+        )
+        if result is None:
+            return
+        await interaction.response.edit_message(view=None)
+        lines = " ".join(result.answer)
+        if lines:
+            await send_new_prompt(interaction, lines)
+        await self.cog.present(interaction, game, result)
+
+
 class SetUpAttemptChoiceView(SafeView):
     """
     Whether to take an offered scoring-opportunity shot -- a High
@@ -775,7 +830,9 @@ class SetUpAttemptChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.may_act_for_possession(interaction, game, match):
+        if not self.may_act_for_player_side(
+            interaction, game, match, self.shooter_id,
+        ):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -807,7 +864,9 @@ class SetUpAttemptChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.may_act_for_possession(interaction, game, match):
+        if not self.may_act_for_player_side(
+            interaction, game, match, self.shooter_id,
+        ):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -916,95 +975,6 @@ class DribbleAdvanceChoiceView(SafeView):
             # see D12Ball.send_field_prompt.
             attachments=[],
         )
-        await self.cog.present(interaction, game, result)
-
-
-class SpinMoveView(SafeView):
-    """
-    2.0's won Spin: which teammate in the handler's zone moves, and
-    where -- a menu of the moves the prompt offers
-    (`MoveOptions.moves`), each with its distance, which in 2.0 is its
-    price -- or **Nobody moves**. The speed choice follows either way.
-    Built from the prompt's options and nothing else, and rebuilt from
-    them on a restart.
-    """
-
-    #: Discord's menu holds at most this many options.
-    MENU_LIMIT = 25
-
-    def __init__(self, cog: "D12Ball", game_id: str):
-        super().__init__(timeout=None)
-        self.cog = cog
-        self.game_id = game_id
-
-        game, match = self.load_match()
-        options = self.prompt_options(game, match, PromptKind.SPIN_MOVE)
-        if options is None:
-            return
-
-        if options.moves:
-            menu = discord.ui.Select(
-                placeholder="Move a teammate...",
-                custom_id=f"d12ball:spin_move:{game_id}",
-                options=[
-                    discord.SelectOption(
-                        label=(
-                            f"{self.player_name(move.player_id, match)}"
-                            f" to {space_label(move.zone, move.space_index, match.board)}"
-                            f" ({move.distance} away)"
-                        )[:100],
-                        value=f"{move.player_id}|{move.zone.value}|{move.space_index}",
-                    )
-                    for move in options.moves[:self.MENU_LIMIT]
-                ],
-            )
-
-            async def chosen(interaction: discord.Interaction) -> None:
-                player_id, zone, space_index = menu.values[0].split("|")
-                await self.answer(
-                    interaction, "move",
-                    player_id=player_id, zone=zone,
-                    space_index=int(space_index),
-                )
-
-            menu.callback = chosen
-            self.add_item(menu)
-
-        stay = discord.ui.Button(
-            label="Nobody moves",
-            style=discord.ButtonStyle.secondary,
-            custom_id=f"d12ball:spin_stay:{game_id}",
-        )
-
-        async def stay_put(interaction: discord.Interaction) -> None:
-            await self.answer(interaction, "stay")
-
-        stay.callback = stay_put
-        self.add_item(stay)
-
-    async def answer(
-        self, interaction: discord.Interaction, choice: str, **arguments,
-    ) -> None:
-        game, match = await self.require_match(interaction)
-        if game is None:
-            return
-        if not self.may_act_for_possession(interaction, game, match):
-            await interaction.response.send_message(
-                "Only the player resolving this effect can choose.",
-                ephemeral=True,
-            )
-            return
-        result = await self.apply(
-            interaction, game, Action(PromptKind.SPIN_MOVE, choice, arguments),
-        )
-        if result is None:
-            return
-        # The move is its own line, posted at once, as the passer's
-        # step is (`PasserAdvanceView`); staying says nothing.
-        await interaction.response.edit_message(view=None, attachments=[])
-        lines = " ".join(result.answer)
-        if lines:
-            await send_new_prompt(interaction, lines)
         await self.cog.present(interaction, game, result)
 
 

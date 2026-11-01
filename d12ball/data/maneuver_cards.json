@@ -1,0 +1,378 @@
+{
+  "data_version": 1,
+  "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1310773351",
+  "cards": [
+    {
+      "index": "P1",
+      "name": "Pass",
+      "side": "offense",
+      "rank": 1,
+      "number": 1,
+      "maneuver": "low_pass",
+      "effect": "Ball to the nearest teammate ahead or behind, ball speed +1.",
+      "special": "If passer is WG, may set up scoring.",
+      "roles": [
+        "winger"
+      ],
+      "spec": "Volatile",
+      "time": "1"
+    },
+    {
+      "index": "P2",
+      "name": "Pass and Run",
+      "side": "offense",
+      "rank": 1,
+      "number": 2,
+      "maneuver": "low_pass",
+      "effect": "Ball to the nearest teammate ahead or behind, ball speed +1.",
+      "special": "If passer is MF or SK, may run forward 1.",
+      "roles": [
+        "midfielder",
+        "striker"
+      ],
+      "spec": "Mind Pull",
+      "time": "1"
+    },
+    {
+      "index": "P3",
+      "name": "Pinpoint",
+      "side": "offense",
+      "rank": 1,
+      "number": 3,
+      "maneuver": "low_pass",
+      "effect": "Ball to the nearest teammate ahead or behind, ball speed +1.",
+      "special": "If passer is PM, may pick a teammate up to 2 spaces.",
+      "roles": [
+        "playmaker"
+      ],
+      "spec": "Merge",
+      "time": "1"
+    },
+    {
+      "index": "P4",
+      "name": "Reset",
+      "side": "offense",
+      "rank": 1,
+      "number": 4,
+      "maneuver": "low_pass",
+      "effect": "Ball to the nearest teammate ahead or behind, ball speed +1.",
+      "special": "If Passer is FB or DD, may pass to playmaker.",
+      "roles": [
+        "fullback",
+        "defender"
+      ],
+      "spec": "Overdrive",
+      "time": "1"
+    },
+    {
+      "index": "B1",
+      "name": "Dribble",
+      "side": "offense",
+      "rank": 2,
+      "number": 1,
+      "maneuver": "dribble_advance",
+      "effect": "Player and ball move forward 1 space. Ball speed +2.",
+      "special": "If handler is SK, may attempt scoring.",
+      "roles": [
+        "striker"
+      ],
+      "spec": "Overcharge",
+      "time": "1"
+    },
+    {
+      "index": "B2",
+      "name": "Advance",
+      "side": "offense",
+      "rank": 2,
+      "number": 2,
+      "maneuver": "dribble_advance",
+      "effect": "Player and ball move forward 1 space. Ball speed +2.",
+      "special": "If handler is MF or PM, may advance 1 more space.",
+      "roles": [
+        "midfielder",
+        "playmaker"
+      ],
+      "spec": "Mind Pull",
+      "time": "1"
+    },
+    {
+      "index": "B3",
+      "name": "Spin",
+      "side": "offense",
+      "rank": 2,
+      "number": 3,
+      "maneuver": "dribble_advance",
+      "effect": "Player and ball move forward 1 space. Ball speed +2.",
+      "special": "If handler is FB or DD, may manipulate ball speed up to dSkill.",
+      "roles": [
+        "fullback",
+        "defender"
+      ],
+      "spec": "Merge",
+      "time": "1"
+    },
+    {
+      "index": "B4",
+      "name": "Drive",
+      "side": "offense",
+      "rank": 2,
+      "number": 4,
+      "maneuver": "dribble_advance",
+      "effect": "Player and ball move forward 1 space. Ball speed +2.",
+      "special": "If handler is WG, teammate sharing space may take the ball.",
+      "roles": [
+        "winger"
+      ],
+      "spec": "Volatile",
+      "time": "1"
+    },
+    {
+      "index": "H1",
+      "name": "High Ball",
+      "side": "offense",
+      "rank": 3,
+      "number": 1,
+      "maneuver": "high_pass",
+      "effect": "Ball forward 3 spaces, receiver must win a contest, then may set up scoring.",
+      "special": "If passer is FB or DD, ball may go forward 4 spaces instead.",
+      "roles": [
+        "fullback",
+        "defender"
+      ],
+      "spec": "",
+      "time": "2"
+    },
+    {
+      "index": "H2",
+      "name": "Long shot",
+      "side": "offense",
+      "rank": 3,
+      "number": 2,
+      "maneuver": "high_pass",
+      "effect": "Ball forward 3 spaces, receiver must win a contest, then may set up scoring.",
+      "special": "If passer is PM, ball may go to Striker instead.",
+      "roles": [
+        "playmaker"
+      ],
+      "spec": "",
+      "time": "2"
+    },
+    {
+      "index": "H3",
+      "name": "Set up",
+      "side": "offense",
+      "rank": 3,
+      "number": 3,
+      "maneuver": "high_pass",
+      "effect": "Ball forward 3 spaces, receiver must win a contest, then may set up scoring.",
+      "special": "If passer is MF, ball may go 2 spaces with no contest instead.",
+      "roles": [
+        "midfielder"
+      ],
+      "spec": "",
+      "time": "2"
+    },
+    {
+      "index": "H4",
+      "name": "Vertical Ball",
+      "side": "offense",
+      "rank": 3,
+      "number": 4,
+      "maneuver": "high_pass",
+      "effect": "Ball forward 3 spaces, receiver must win a contest, then may set up scoring.",
+      "special": "If passer is WG or SK, ball may go 0-1 spaces instead.",
+      "roles": [
+        "winger",
+        "striker"
+      ],
+      "spec": "",
+      "time": "2"
+    },
+    {
+      "index": "F1",
+      "name": "Deflect",
+      "side": "defense",
+      "rank": 1,
+      "number": 1,
+      "maneuver": "deflect",
+      "effect": "Ball moves back 1 space. If reaches goal zone, set up scoring. Ball speed -1.",
+      "special": "If defender is a FB, ball goes 1 additional space.",
+      "roles": [
+        "fullback"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "F2",
+      "name": "Follow",
+      "side": "defense",
+      "rank": 1,
+      "number": 2,
+      "maneuver": "deflect",
+      "effect": "Ball moves back 1 space. If reaches goal zone, set up scoring. Ball speed -1.",
+      "special": "If defender is DD or MF, defender may follow.",
+      "roles": [
+        "defender",
+        "midfielder"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "F3",
+      "name": "Boot",
+      "side": "defense",
+      "rank": 1,
+      "number": 3,
+      "maneuver": "deflect",
+      "effect": "Ball moves back 1 space. If reaches goal zone, set up scoring. Ball speed -1.",
+      "special": "If defender is WG or SK, may set up scoring.",
+      "roles": [
+        "winger",
+        "striker"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "F4",
+      "name": "Block",
+      "side": "defense",
+      "rank": 1,
+      "number": 4,
+      "maneuver": "deflect",
+      "effect": "Ball moves back 1 space. If reaches goal zone, set up scoring. Ball speed -1.",
+      "special": "If defender is PM, ball is contested in place.",
+      "roles": [
+        "playmaker"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "S1",
+      "name": "Steal",
+      "side": "defense",
+      "rank": 2,
+      "number": 1,
+      "maneuver": "steal",
+      "effect": "Turnover. Defender and ball move back 1 space. Ball speed modifier for skill tests.",
+      "special": "If defender is PM, can manipulate ball speed up to oSkill after turnover.",
+      "roles": [
+        "playmaker"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "S2",
+      "name": "Pickpocket",
+      "side": "defense",
+      "rank": 2,
+      "number": 2,
+      "maneuver": "steal",
+      "effect": "Turnover. Defender and ball move back 1 space. Ball speed modifier for skill tests.",
+      "special": "If defender is MF, don't move back with ball.",
+      "roles": [
+        "midfielder"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "S3",
+      "name": "My Turf!",
+      "side": "defense",
+      "rank": 2,
+      "number": 3,
+      "maneuver": "steal",
+      "effect": "Turnover. Defender and ball move back 1 space. Ball speed modifier for skill tests.",
+      "special": "If defender is FB or DD, gain +3 for a skill test.",
+      "roles": [
+        "fullback",
+        "defender"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "S4",
+      "name": "Toss",
+      "side": "defense",
+      "rank": 2,
+      "number": 4,
+      "maneuver": "steal",
+      "effect": "Turnover. Defender and ball move back 1 space. Ball speed modifier for skill tests.",
+      "special": "If defender is WG or SK, ball to nearest teammate behind while defender stays in place.",
+      "roles": [
+        "winger",
+        "striker"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "R1",
+      "name": "Pressure",
+      "side": "defense",
+      "rank": 3,
+      "number": 1,
+      "maneuver": "pressure",
+      "effect": "Player and ball go back 1 space. Defender moves 1 forward. If reaches the goal zone, risk own goal.",
+      "special": "If defender is DD, turnover and players don't move.",
+      "roles": [
+        "defender"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "R2",
+      "name": "Control",
+      "side": "defense",
+      "rank": 3,
+      "number": 2,
+      "maneuver": "pressure",
+      "effect": "Player and ball go back 1 space. Defender moves 1 forward. If reaches the goal zone, risk own goal.",
+      "special": "If defender is FB or PM, ball to handler's nearest teammate behind. Defender may follow. If reaches goal zone, own goal risk.",
+      "roles": [
+        "fullback",
+        "playmaker"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "R3",
+      "name": "Stay Close",
+      "side": "defense",
+      "rank": 3,
+      "number": 3,
+      "maneuver": "pressure",
+      "effect": "Player and ball go back 1 space. Defender moves 1 forward. If reaches the goal zone, risk own goal.",
+      "special": "If defender is MF, handler exhausts 1.",
+      "roles": [
+        "midfielder"
+      ],
+      "spec": "",
+      "time": "1"
+    },
+    {
+      "index": "R4",
+      "name": "Stress",
+      "side": "defense",
+      "rank": 3,
+      "number": 4,
+      "maneuver": "pressure",
+      "effect": "Player and ball go back 1 space. Defender moves 1 forward. If reaches the goal zone, risk own goal.",
+      "special": "If defender is SK or WG, ball is contested in place.",
+      "roles": [
+        "striker",
+        "winger"
+      ],
+      "spec": "",
+      "time": "1"
+    }
+  ]
+}

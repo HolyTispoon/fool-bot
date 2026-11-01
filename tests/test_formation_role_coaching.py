@@ -1,6 +1,6 @@
 """
 D12 Ball 2.0's Coaching Choice: a player's role decides how they may
-be moved (docs/rules-2.0.md 4.6; "Roles" in
+be moved (docs/rules-2.1.md 4.6; "Roles" in
 docs/design/maneuver-deck.md).
 """
 
@@ -343,7 +343,7 @@ def open_setup(engine, match, side: TeamSide = HOME) -> None:
 class ArrangementTests(unittest.TestCase):
     """A 2.0 side has no formations: its coach names the Fullback, the
     Playmaker and the Striker, and places three more anywhere they may
-    stand, each taking their zone's standard role (docs/rules-2.0.md
+    stand, each taking their zone's standard role (docs/rules-2.1.md
     4.3, the author, 2026-10-24)."""
 
     def unique_cards(self, match) -> dict:

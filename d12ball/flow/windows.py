@@ -360,7 +360,7 @@ def apply_reposition(
     The Coaching Choice's space positioning: move one meeple within its
     own zone, trading with whoever is already there when the rule says
     so, and describe what happened. `game` says which of the side's
-    Oozes are Spreadable, which bends 2.0's rule (docs/rules-2.0.md
+    Oozes are Spreadable, which bends 2.0's rule (docs/rules-2.1.md
     4.6e).
     """
     setup = match.setup_for_side(side)
@@ -518,7 +518,7 @@ def open_substitution_window(
     side = TeamSide(side)
     occasion = CoachingOccasion(occasion)
 
-    # A 2.0 side keeps no arrangement to go back to (docs/rules-2.0.md
+    # A 2.0 side keeps no arrangement to go back to (docs/rules-2.1.md
     # 4.9): its Fullback, Playmaker and Striker go back onto their own
     # spaces and everybody else stays where they stand, for the coach
     # to put right -- which after a new play's run back moves nobody.
@@ -852,7 +852,7 @@ def finish_time_out(
     """
     match.pending_time_out = False
     if engine.restarts_by_run_back(match):
-        # A 2.0 time out resets nobody (docs/rules-2.0.md 4.9d): the
+        # A 2.0 time out resets nobody (docs/rules-2.1.md 4.9d): the
         # coaches have just put their sides right in their windows, and
         # there is no arrangement to reset to. The board the play
         # restarts from is still the one a frontend pins (`new_play`).

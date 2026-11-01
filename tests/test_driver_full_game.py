@@ -165,11 +165,25 @@ class Policy:
                 return Action(kind, "gambit", {"side": hand.side})
             if hand.unconfirmed and self.engine.rng.randint(1, 2) == 1:
                 return Action(kind, "confirm", {"side": hand.side})
+            if hand.cards:
+                # 2.1: a card from the hand, flips among them, each
+                # with an extra card off the same stream.
+                play = self.engine.rng.choice(hand.cards)
+                arguments = {
+                    "side": hand.side,
+                    "maneuver_key": play.maneuver_key,
+                    "card_id": play.card_id,
+                }
+                if play.flip:
+                    arguments["extra_card_id"] = self.engine.rng.choice(
+                        play.extra_ids,
+                    )
+                return Action(kind, "", arguments)
             card = self.engine.rng.choice(hand.maneuver_keys)
             return Action(kind, "", {"side": hand.side, "maneuver_key": card})
         if kind is PromptKind.COACHING_HUB:
             # Done, unless the window refuses it: a 2.0 time out or
-            # halftime moves nobody (docs/rules-2.0.md 4.9), so a coach
+            # halftime moves nobody (docs/rules-2.1.md 4.9), so a coach
             # may have a kickoff space to cover or a unique role's space
             # to step off first -- which Dinky's own hub answer does.
             if options.finish_refusal is not None:

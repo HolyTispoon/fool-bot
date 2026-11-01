@@ -23,23 +23,20 @@ gets a design of its own.
 python3 scripts/render_maneuver_cards.py --sheet  # d12ball/print/maneuver-cards/<tier>-{front,back}-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
 python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot sends
-python3 scripts/render_maneuver_cards.py --edition 2.0 --sheet  # 2.0's eighteen-card deck
+python3 scripts/render_maneuver_cards.py --edition 2.0 --sheet  # 2.1's twenty-four-card deck
 ```
 
-`--edition 2.0` draws one coach's 2.0 deck (`maneuver_deck.deck_cards`) with the faces the
-bot's 2.0 hand shows: the twelve two-headed basic cards, offense upright
-(`render_two_headed_card`), and the six advanced cards in their 2.0 wording
-(`render_maneuver_card(edition_two=True)`), with `--sheet` as three Avery 95328 pages.
-**Every 2.0 card takes the basic back** (the author, 2026-10-28): the deck is one shuffled
-pile, so every card needs the same back, and the basic six's hexagon is the one chosen.
+`--edition 2.0` draws one coach's 2.1 deck (`maneuver_deck.deck_cards`; the edition's saved
+value is still "2.0") with the faces the bot's 2.1 hand shows -- `deck_faces.render_deck_card`,
+drawn from scratch for 2.1 (the author, 2026-10-31): the name and rank badge, the effect, the
+role interaction in a tinted box, an empty labelled space for the spec ability, and the green
+flip strip, defense in navy -- see "The faces" in [maneuver-deck.md](maneuver-deck.md) -- with
+`--sheet` as Avery 95328 pages. **Every 2.x card takes the basic back** (the author,
+2026-10-28): the deck is one shuffled pile, so every card needs the same back, and the basic
+six's hexagon is the one chosen. 2.0's two-headed face and its band went with its cards; the
+1.0 faces, backs and hands are byte-identical across the change (hashed).
 
-**2.0 draws its ranks larger** (the author, 2026-10-28) -- the header's badge, the matchup
-row or the two-headed card's band (`EDITION_TWO_BADGE_RANK`, `TWO_HEADED_BADGE` and
-`TWO_HEADED_BADGE_RANK`, `TWO_HEADED_BAND_RANK`). The sizes are 2.0's alone, passed in where
-the 1.0 face's defaults stand, so every 1.0 card and hand is byte-identical; the bot's 2.0
-hand draws the same faces and carries the larger ranks too.
-
-**The 2.0 back is the basic back in a style of its own** (`EDITION_TWO_BACK`, a `BackStyle`;
+**The 2.x back is the basic back in a style of its own** (`EDITION_TWO_BACK`, a `BackStyle`;
 the author, 2026-10-28): the title, the ranks and the captions larger; each rank inside its
 node, in white above the name with `NODE_RANK_GAP` between them, rather than outside it; and
 the caption reading "arrow: beats what it points to" where 1.0's reads "solid".
@@ -733,7 +730,7 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
 `player-cards-2.0/`. In 2.0 a player has no role -- the formation's
 zones hold the roles, the zone board says which beside each slot, and a
 role token laid on the tile may too ([printed-tokens.md](printed-tokens.md),
-"Role tokens") -- and no role ability applies (rules-2.0 4.7), so a
+"Role tokens") -- and no role ability applies (rules-2.1 4.7), so a
 2.0 piece names no role anywhere.
 
 **It is a tile, smaller than a card, at the card's type sizes** (the

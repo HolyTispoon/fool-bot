@@ -32,10 +32,11 @@ is a rule rather than an accident:
   the shootout, and not in the skill test or the score attempt.** See
   "Injured players" in docs/living-rules.md.
 - **A tie is re-rolled in the skill test and the loose ball**, at a
-  token each -- in 1.0; in 2.0 the coin settles it, unrolled and free
-  (`coin_settles_tie`, rules-2.0 section 5). A score attempt scores on
-  level totals (Law 5.2.3, the author 2026-10-18), and a shootout tie
-  simply scores for nobody.
+  token each -- in 1.0; in 2.1 the coin's face settles it, unrolled and
+  free, and the coin is tossed again after it (`coin_settles_tie`,
+  rules-2.1 section 5). A score attempt scores on level totals in 1.0
+  (Law 5.2.3, the author 2026-10-18) and goes to the coin in 2.1, and a
+  shootout tie simply scores for nobody.
 - **The tutorial scripts the skill test's dice and the loose ball's**,
   and deliberately scripts neither of the other two -- a beat only
   fixes a roll the next beat depends on. See
@@ -259,17 +260,23 @@ def coin_settles_tie(
     match: MatchState,
     offense_total: int,
     defense_total: int,
+    offense_word: str = "offense",
+    defense_word: str = "defense",
 ) -> tuple[str, str]:
     """
-    **D12 Ball 2.0: a tied roll goes to the side the coin favours**
-    (rules-2.0 5.1; the author, 2026-10-20) -- the offense on Fortune,
-    the defense on Doom -- and is not rolled again, so nobody pays for
-    it. Shared, like `pay_contest_tie`, by the skill test and the
-    contest for the ball. Returns the winning maneuver side and the
-    tie's lines, headed like `pay_contest_tie`'s.
+    **D12 Ball 2.1: a tie goes to the side the coin shows** (rules-2.1
+    5.1; the author, 2026-10-20 and 2026-10-31) -- the offense on
+    Fortune, the defense on Doom -- **and the coin is tossed again after
+    the tie**, so both coaches always know how the next one goes: the
+    face is on every turn message and the board. Settles a skill
+    test's, a contest for the ball's and a shot's tie; nothing is rolled
+    again, so nobody pays for it. Returns the winning side ("offense" or
+    "defense") and the tie's lines, headed like `pay_contest_tie`'s;
+    `offense_word` and `defense_word` are what the lines call the two (a
+    shot's "attack").
 
-    A 2.0 game saved before the coin, mid-maneuver, has none flipped
-    yet: it is flipped here, and said.
+    A coin never flipped -- a tie before the first turn's flip
+    (`turn.settle_tie_coin`) -- is flipped here first, and said.
     """
     flipped = ""
     if match.tie_coin is None:
@@ -277,11 +284,15 @@ def coin_settles_tie(
         flipped = "The coin is flipped. "
     face = CoinFace(match.tie_coin)
     outcome = engine.tie_coin_winner(match)
-    side = "offense" if outcome == "offense" else "defense"
+    side = offense_word if outcome == "offense" else defense_word
+    after = engine.flip_coin()
+    match.tie_coin = after.value
     return outcome, (
         f"## **It's a tie ({offense_total}-{defense_total})!**\n"
         f"{flipped}The coin shows {tokens.coin(face)} "
-        f"**{COIN_FACE_WORDS[face]}**, so the {side} wins it."
+        f"**{COIN_FACE_WORDS[face]}**, so the {side} wins it. It is tossed "
+        f"again: {tokens.coin(after)} **{COIN_FACE_WORDS[after]}** -- "
+        f"{engine.tie_coin_caption(match).lower()} from now."
     )
 
 
@@ -468,17 +479,12 @@ def score_skill_test(
         defense_player.player_id,
     )
 
-    # **My Turf!** (2.0): a Defender or a Midfielder who played it adds
-    # 3 to the tie's skill test -- the card reads the role, which 2.0
-    # still has though it plays no role abilities (rules-2.0 4.7).
-    if match.defense_maneuver == "my_turf" and engine.role_of(
-        match, defense_player.player_id,
-    ) in (PlayerRole.DEFENDER, PlayerRole.MIDFIELDER):
+    # **S3 My Turf!** (2.1): a Fullback or Defender who played it adds
+    # 3 to this maneuver's skill test -- the card's special
+    # (`RulesEngine.card_special`).
+    if engine.card_special(match, "defense") == maneuver_deck.MY_TURF:
         defense_total += maneuver_deck.MY_TURF_BONUS
-        defense_detail.append(
-            f"+{maneuver_deck.MY_TURF_BONUS} "
-            f"{engine.maneuver_name('my_turf')}"
-        )
+        defense_detail.append(f"+{maneuver_deck.MY_TURF_BONUS} My Turf!")
 
     # Role ability -- Midfielder: +3 on a skill test when attempting
     # Pass (offense) or Steal (defense).
@@ -1344,7 +1350,7 @@ def score_score_attempt(
     # contesting, and nobody contests a shot (see "Injured players" in
     # docs/living-rules.md). Don't add `match.injured` here to match
     # the skill test.
-    if match.pending_shot_is_set_up and engine.has_role_ability(
+    if match.shot_is_set_up and engine.has_role_ability(
         match, shooter.player_id, PlayerRole.STRIKER,
     ):
         attack_total += 3
@@ -1459,11 +1465,12 @@ def settle_score_attempt(
         headline = Headline("Missed attempt!", defending_setup.side, under)
         verdict = f"# {headline.text}\n{under}"
 
-    # A plain score attempt costs no exhaustion and owes no injury
-    # check -- only a shot taken off a set-up gains a token, taken
-    # after the roll regardless of outcome, and injury checks stay
-    # exclusive to skill tests either way.
-    if match.pending_shot_is_set_up:
+    # In 1.0 a plain score attempt costs no exhaustion -- only a shot
+    # taken off a set-up gains a token -- and in 2.1 every one does
+    # (`RulesEngine.shot_exhausts`); either way it is taken after the
+    # roll regardless of outcome, and no score attempt owes an injury
+    # check, which stays exclusive to skill tests.
+    if engine.shot_exhausts(match):
         verdict += "\n\n" + engine.apply_exhaustion(
             game, match, shooter.player_id, 1,
         )
@@ -1553,8 +1560,17 @@ def score_attempt_step(
     match.consume_overdrive()
 
     # A tie scores (Law 5.2.3, the author 2026-10-18): the attack has to
-    # equal or beat the defense's total.
-    scored = attack_total >= defense_total
+    # equal or beat the defense's total -- in 1.0. **In 2.1 the coin is
+    # tossed for it** (rules-2.1 5.1, the author, 2026-10-31): Fortune
+    # scores, Doom does not.
+    tie_text = ""
+    if attack_total == defense_total and engine.tie_coin_applies(game):
+        outcome, tie_text = coin_settles_tie(
+            engine, match, attack_total, defense_total, "attack", "defense",
+        )
+        scored = outcome == "offense"
+    else:
+        scored = attack_total >= defense_total
     dice = ShotDice(
         contestants,
         ((shooter.player_id, attack_ignite),),
@@ -1575,7 +1591,7 @@ def score_attempt_step(
         side=match.ball.possession,
         player_id=shooter.player_id,
         scored=scored,
-        set_up=bool(match.pending_shot_is_set_up),
+        set_up=match.shot_is_set_up,
         speed_modifier=match.shot_speed_modifier(),
         # The defenders the shot was up against: one Flickerwing passed
         # was in the way and added nothing, so the count leaves them out.
@@ -1614,7 +1630,7 @@ def score_attempt_step(
     )
 
     return dice, StepResult(
-        narration=[verdict],
+        narration=[f"{tie_text}\n{verdict}" if tie_text else verdict],
         headlines=(headline,),
         board_changed=True,
         next=FollowOn(
@@ -1694,10 +1710,17 @@ def retract_shot_step(
     shooter_id = match.active_player_id
     distance_moved = match.pending_shot_setup_cost
     contest_on_decline = match.pending_high_pass_overshoot
+    # 2.1's terms of the offer the shot came off: the ball goes back to
+    # the side it was with, and the offer is asked on the same terms.
+    terms = match.pending_shot_offer or {}
+    if "possession" in terms:
+        match.ball.possession = TeamSide(terms["possession"])
+        match.ball.speed = terms["speed"]
 
     match.pending_action = None
     match.pending_shot_is_set_up = False
     match.pending_shot_setup_cost = 0
+    match.pending_shot_offer = None
     # **The offer is outstanding again**, so the field that records it
     # is armed again -- a restart here would otherwise come back to a
     # turn that has already resolved. See
@@ -1708,6 +1731,10 @@ def retract_shot_step(
         "distance_moved": distance_moved,
         "contest_on_decline": contest_on_decline,
     }
+    if terms.get("loose_on_decline"):
+        match.pending_scoring_opportunity["loose_on_decline"] = True
+    if terms.get("set_up", True) is False:
+        match.pending_scoring_opportunity["set_up"] = False
     return StepResult(
         narration=called_off,
         next=scoring_opportunity_prompt(engine, game, match),

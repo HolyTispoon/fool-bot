@@ -1145,7 +1145,7 @@ ROLE_MARK_INSET = 0.06
 
 def role_marks(layout: BoardLayout) -> list[tuple[TeamSide, int, PlayerRole]]:
     """
-    **Where each side's unique roles stand on a 2.0 field** (rules-2.0
+    **Where each side's unique roles stand on a 2.0 field** (rules-2.1
     4.3b): (side, the space's place along the whole strip, role) for
     each side's Fullback, Playmaker and Striker. Read off
     `unique_role_space_index`, the rule the game plays, so the printed
@@ -3044,7 +3044,7 @@ def draw_zone_cell(
 # -- tabloid, landscape, or its two letter halves
 # (`render_zone_board_two_halves`) -- cut to the depth three tiles need.
 # In each column the slot nearest the field is the zone's unique role,
-# which the first player in a zone takes (rules-2.0 4.2), and the two
+# which the first player in a zone takes (rules-2.1 4.2), and the two
 # under it its standard role; **each slot's role is marked beside it,
 # outside where the tile lies** (the author, 2026-10-25), so a tile on
 # the slot leaves its role in sight.

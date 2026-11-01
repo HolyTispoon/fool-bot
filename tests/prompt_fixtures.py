@@ -793,6 +793,33 @@ def low_pass_choice() -> PromptFixture:
     return fixture
 
 
+def follow_ball() -> PromptFixture:
+    """
+    2.1's F2 Follow won and its defender not yet moved or kept (rules-2.1
+    7.4): the deflection is still the live maneuver, so without
+    `MatchState.pending_follow` a restart would offer it again.
+    """
+    fixture = _settled("high_pass", "deflect")
+    defender = fixture.match.challenger_id
+    zone, space_index = fixture.match.ball.zone, fixture.match.ball.space_index
+    fixture.match.pending_follow = {
+        "player_id": defender,
+        "zone": zone.value,
+        "space_index": space_index,
+        "spaces": 1,
+        "then": "deflection",
+        "reaches_goal_zone": False,
+    }
+    from d12ball.formatting import space_label
+    fixture.ask = (
+        f"{label(fixture.match, defender)} may follow the ball to "
+        f"{space_label(zone, space_index, fixture.match.board)}, or stay "
+        "where they are:"
+    )
+    fixture.params = {"player_id": defender}
+    return fixture
+
+
 def passer_advance() -> PromptFixture:
     """
     A Pass played and its passer not yet moved or kept (Law 6.5.3).
@@ -908,12 +935,6 @@ def dribble_burst_with_nothing_to_ask() -> PromptFixture:
     match.ball.space_index = last
     fixture.ask = ""
     return fixture
-
-
-def spin_move() -> PromptFixture:
-    """2.0's Spin won, its teammate not yet moved: the handler's zone
-    holds a teammate in the standard deal."""
-    return _settled("spin", "deflect")
 
 
 def steal_speed_choice() -> PromptFixture:
@@ -1118,6 +1139,7 @@ CASES: tuple[PromptCase, ...] = (
                low_pass_choice),
     PromptCase("passer advance", "PASSER_ADVANCE", "PasserAdvanceView",
                passer_advance),
+    PromptCase("follow ball", "FOLLOW_BALL", "FollowBallView", follow_ball),
     PromptCase("skilled pass", "LOW_PASS_CHOICE", "LowPassChoiceView",
                skilled_pass_choice),
     PromptCase("free low pass", "LOW_PASS_CHOICE", "LowPassChoiceView",
@@ -1139,7 +1161,6 @@ CASES: tuple[PromptCase, ...] = (
                "DribbleBurstChoiceView", dribble_burst_choice),
     owed_case("dribble burst, nothing to ask", "BEGIN_EFFECT_RESOLUTION",
               dribble_burst_with_nothing_to_ask),
-    PromptCase("spin", "SPIN_MOVE", "SpinMoveView", spin_move),
     PromptCase("steal", "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",
                steal_speed_choice),
     PromptCase("intercept", "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",

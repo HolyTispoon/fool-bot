@@ -55,7 +55,7 @@ writes the data: the Drive connector exports the workbook as `.xlsx`, and
 `scripts/import_from_workbook.py` runs all four importers on it (the author, 2026-10-02:
 *"every time you need to get to the spreadsheet, you can just write the importer script"*). It
 writes the six tabs they read (`player cards `, `basic_abilities`, `advanced_abilities `,
-`spec_abilities`, `maneuvers`, `maneuvers 2.0`, matched with their trailing spaces ignored) as
+`spec_abilities`, `maneuvers`, `maneuvers 2.1`, matched with their trailing spaces ignored) as
 CSVs and passes
 them through `--source`, `--abilities` and `--advanced`. The importers are the same either way;
 only where the rows come from differs, and the `source` fields they write still name the
@@ -68,13 +68,19 @@ sheet's own URLs. Three things it settles that a hand conversion got wrong:
 - **Each file keeps its `data_version`.** The importers default to 1, and `maneuvers.json` is
   past that; `--data-version maneuvers=15` sets a new one where a change calls for it.
 
-**D12 Ball 2.0's cards are a tab of their own**, `maneuvers 2.0`, imported by
-`scripts/import_d12ball_maneuvers_2.py` into `d12ball/data/maneuvers_2.json` -- five rows a rank
-on each side, numbered by the tab's `Index`. It has no `Defeats` column, so the importer reads
-each rank's cycle from `maneuvers.json` (the workbook script runs `maneuvers` first), and it
-fills a blank `Mode` with Basic and a blank `Time` with 1, printing each cell it filled (the
-author, 2026-10-27). How the catalog folds it in is "The 2.0 cards" in
-[maneuver-deck.md](maneuver-deck.md).
+**D12 Ball 2.1's cards are a tab of their own**, `maneuvers 2.1` (gid 1310773351, the tab
+2.0 read, renamed and rewritten in place on 2026-10-31), imported by
+`scripts/import_d12ball_maneuver_cards.py` into `d12ball/data/maneuver_cards.json` -- four
+cards a basic maneuver, **keyed by the tab's `Index`** (P1 to R4), never by name, since two
+names are 1.0 cards'. Each card's `Maneuver` has to be 1.0's basic card on its rank, read from
+`maneuvers.json` (the workbook script runs `maneuvers` first); its `Effect` has to match its
+rank's; its `Special` has to read "If <player> is A [or B], ..." in the sheet's role
+abbreviations (FB, DD, MF, PM, WG, SK), and each rank's four specials have to name the six
+roles once each -- every one refused otherwise. An `Advanced` row is skipped and a blank `Mode`
+or `Time` filled with Basic and 1, each printed (the author, 2026-10-27 and 2026-10-31). The
+spaces at a cell's ends are stripped, which is normalisation, not correction: a typo on the tab
+is fixed on the tab. 2.0's importer and its file are in `archive/maneuvers-2.0/`. How the
+catalog reads the cards is "The 2.1 cards" in [maneuver-deck.md](maneuver-deck.md).
 
 It needs `openpyxl`, which the bot does not, so it is not in `requirements.txt`. Copying rows out
 of the connector by hand is not a substitute: a typo there is a data change nobody made.

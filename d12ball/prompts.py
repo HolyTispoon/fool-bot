@@ -84,6 +84,7 @@ from d12ball.formatting import (
 from d12ball.game import D12BallGame, Formation
 from d12ball.wire import jsonable
 from d12ball import maneuver_deck, tokens, tutorial
+from d12ball.maneuver_deck import CardPlay
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from d12ball.engine import RulesEngine
@@ -156,14 +157,14 @@ class PromptKind(Enum):
     # Whether a Pass's passer moves 1 space forward once the ball
     # has gone (Law 6.5.3, 6.5.5).
     PASSER_ADVANCE = "passer_advance"
+    # 2.1's F2 Follow and R2 Control: whether the defender follows the
+    # ball (rules-2.1 7.4), or stays.
+    FOLLOW_BALL = "follow_ball"
     HIGH_PASS_CHOICE = "high_pass_choice"
     SETUP_PASS_CHOICE = "setup_pass_choice"
     SPEED_DELTA_CHOICE = "speed_delta_choice"
     DRIBBLE_ADVANCE_CHOICE = "dribble_advance_choice"
     DRIBBLE_BURST_CHOICE = "dribble_burst_choice"
-    # 2.0's Spin: which teammate in the handler's zone moves up to 2
-    # spaces, if any, before the speed choice.
-    SPIN_MOVE = "spin_move"
     # Which tied defender joins a Double Team, won or beaten (Law
     # 19.10.3): asked of the defense before the card resolves. The
     # failed Cross's push back that used to sit here went with the
@@ -453,6 +454,13 @@ class DistanceOptions:
     #: measure, and no frontend decides which way a kind moves. Empty
     #: where there is nobody to move (a dribble with no handler).
     landings: tuple[tuple[Zone, int], ...] = ()
+    #: **2.1's High Ball specials** (rules-2.1 7.3): whether H2's throw
+    #: to the Striker is on offer -- answered with the choice
+    #: `"long_shot"` and no distance -- and which of `distances` a
+    #: teammate receives with no contest (H3's 2, H4's 0 and 1), for a
+    #: label; the step reads the same off the distance.
+    long_shot: bool = False
+    uncontested: tuple[int, ...] = ()
 
     def landing(self, distance: int) -> Optional[tuple[Zone, int]]:
         """The space `distance` lands on, or `None` where the prompt
@@ -473,6 +481,8 @@ class DistanceOptions:
                 {"zone": Zone(zone).value, "space_index": space_index}
                 for zone, space_index in self.landings
             ],
+            "long_shot": self.long_shot,
+            "uncontested": list(self.uncontested),
         }
 
 
@@ -502,48 +512,6 @@ class LowPassOptions:
         return {
             "shape": "low_pass",
             "passes": [option.to_dict() for option in self.passes],
-        }
-
-
-@dataclass(frozen=True)
-class TeammateMove:
-    """One move Spin offers: a teammate, the space, how far."""
-
-    player_id: str
-    zone: Zone
-    space_index: int
-    distance: int
-
-    def to_dict(self) -> dict:
-        return {
-            "player_id": self.player_id,
-            "zone": Zone(self.zone).value,
-            "space_index": self.space_index,
-            "distance": self.distance,
-        }
-
-
-@dataclass(frozen=True)
-class MoveOptions:
-    """SPIN_MOVE: every move on offer (`RulesEngine.spin_moves`), each
-    a token a space in 2.0, and staying -- `choices`' second."""
-
-    moves: tuple[TeammateMove, ...]
-    choices: tuple[str, ...] = ("move", "stay")
-
-    def offers(self, player_id: str, zone: Zone, space_index: int) -> bool:
-        return any(
-            move.player_id == player_id
-            and Zone(move.zone) == Zone(zone)
-            and move.space_index == space_index
-            for move in self.moves
-        )
-
-    def to_dict(self) -> dict:
-        return {
-            "shape": "move",
-            "moves": [move.to_dict() for move in self.moves],
-            "choices": list(self.choices),
         }
 
 
@@ -629,6 +597,12 @@ class ManeuverHand:
     held: tuple[str, ...] = ()
     deck_count: int = 0
     discard_count: int = 0
+    #: **D12 Ball 2.1: every way this hand may be played on this side**
+    #: (`RulesEngine.card_plays`) -- a card as itself, its special live
+    #: or not, or flipped with an extra card to discard. A pick answers
+    #: with one's `card_id` (and, flipped, one of its `extra_ids`)
+    #: beside its `maneuver_key`. Empty in 1.0.
+    cards: tuple[CardPlay, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -647,6 +621,7 @@ class ManeuverHand:
             "held": list(self.held),
             "deck_count": self.deck_count,
             "discard_count": self.discard_count,
+            "cards": [play.to_dict() for play in self.cards],
         }
 
 
@@ -956,7 +931,7 @@ class ArrangementEdit:
     places and roles), `replace` (`other`, off the bench before
     kickoff, takes the player's place) or `role` (a player a time out
     or halftime left outside their zone takes the standard role of
-    `space`, where they stand -- docs/rules-2.0.md 4.9d). The
+    `space`, where they stand -- docs/rules-2.1.md 4.9d). The
     arrangement is what the hub's `arrange` answer sends.
     """
 
@@ -966,7 +941,7 @@ class ArrangementEdit:
     other: Optional[str] = None
     space: Optional[ArrangementSpace] = None
     #: Who still keeps their role outside its zone after this change
-    #: (docs/rules-2.0.md 4.9d).
+    #: (docs/rules-2.1.md 4.9d).
     strays: tuple[str, ...] = ()
 
     def answer(self) -> dict:
@@ -1007,7 +982,7 @@ class ArrangementEdit:
 @dataclass(frozen=True)
 class ArrangementOptions:
     """
-    **A 2.0 side's arrangement** (docs/rules-2.0.md 4.3, 4.6a): the
+    **A 2.0 side's arrangement** (docs/rules-2.1.md 4.3, 4.6a): the
     one the side stands in -- `holders`, the Fullback, the Playmaker
     and the Striker by role, and `placed`, the other three where they
     stand -- and, through `edits`, every change a coach may make to it
@@ -1016,7 +991,7 @@ class ArrangementOptions:
     the reading `MatchState.arrange_side` refuses on, lets what it
     leaves stand -- or, while a time out or halftime has left the side
     out of place, where a move leaves fewer players out of place
-    (`arrangement_faults`, docs/rules-2.0.md 4.9d).
+    (`arrangement_faults`, docs/rules-2.1.md 4.9d).
     """
 
     #: Who may be arranged: the six on the field, and before kickoff
@@ -1034,7 +1009,7 @@ class ArrangementOptions:
     spreadable: tuple[str, ...] = ()
     #: The players a time out or halftime left outside the zone of
     #: their role, with the role they keep until their coach moves them
-    #: back or gives them a new one (docs/rules-2.0.md 4.9d).
+    #: back or gives them a new one (docs/rules-2.1.md 4.9d).
     strays: tuple[tuple[str, str], ...] = ()
 
     @property
@@ -1127,7 +1102,7 @@ class ArrangementOptions:
         them the role of where they stand -- each kept only if what it
         leaves may stand, or, while a time out or halftime has left the
         side out of place, leaves fewer players out of place
-        (docs/rules-2.0.md 4.9d), as `MatchState.arrange_side` accepts.
+        (docs/rules-2.1.md 4.9d), as `MatchState.arrange_side` accepts.
         Whoever a change moves or re-roles is a stray no longer.
         """
         holders = list(self.holders)
@@ -1637,7 +1612,7 @@ def passer_advance_prompt(
     from the moment the ball goes until the coach answers. Shared by
     the live offer (`d12ball.flow.effects.offer_passer_advance`) and a
     restart, so the two word it the same. In 2.0 the step costs a
-    token (rules-2.0 5.4), so the ask says so.
+    token (rules-2.1 5.4), so the ask says so.
     """
     outstanding = match.pending_passer_advance
     if not outstanding:
@@ -1652,6 +1627,34 @@ def passer_advance_prompt(
         f"{engine.format_player_label(match, passer)} may move a space "
         f"forward{cost}, or stay where they are:",
         player_id=passer.player_id,
+    )
+
+
+def follow_prompt(
+    engine: "RulesEngine",
+    game: Optional[D12BallGame],
+    match: MatchState,
+) -> Optional[PendingPrompt]:
+    """
+    Whether 2.1's F2 or R2 defender follows the ball ("defender may
+    follow"; rules-2.1 7.4), read off `MatchState.pending_follow`, which
+    holds the question until the coach answers. Shared by the live
+    offer (`effects.offer_follow`) and a restart. The move costs its
+    spaces (rules-2.1 5.4), so the ask says how many.
+    """
+    outstanding = match.pending_follow
+    if not outstanding:
+        return None
+    player = engine.get_player_definition(outstanding["player_id"])
+    spaces = outstanding.get("spaces", 1)
+    noun, _ = engine.token_word_and_mark(game, player.player_id)
+    cost = f" for {spaces} {noun}" if engine.moving_costs(game) and spaces else ""
+    return PendingPrompt(
+        PromptKind.FOLLOW_BALL,
+        f"{engine.format_player_label(match, player)} may follow the ball "
+        f"to {space_label(Zone(outstanding['zone']), outstanding['space_index'], match.board)}"
+        f"{cost}, or stay where they are:",
+        player_id=player.player_id,
     )
 
 
@@ -1903,33 +1906,20 @@ def effect_choice_prompt(
     # prompt restored has to be that card's -- see
     # `RulesEngine.resolving_maneuver`.
     winner_key = engine.resolving_maneuver(match, winner_key)
-    if winner_key in (
-        "low_pass", "skilled_pass", "curved_pass", "pass_and_run", "drive",
-    ):
+    if winner_key in ("low_pass", "skilled_pass"):
         return PendingPrompt(
             PromptKind.LOW_PASS_CHOICE, EFFECT_ASK, maneuver_key=winner_key,
         )
-    if winner_key in ("high_pass", "set_up"):
-        # 2.0's two are thrown one distance, and asked only where
-        # Quantor may run onto it (`offer_high_pass`).
-        if engine.high_pass_fixed_distance(match) is not None:
-            distances = engine.high_pass_distance_options(match)
-            if not distances or engine.pass_runner(
-                game, match, distances,
-            )[0] is None:
-                return None
-        return PendingPrompt(PromptKind.HIGH_PASS_CHOICE, EFFECT_ASK)
-    if winner_key == "spin":
-        # Spin's teammate first, then the speed: the record of the
-        # move says which (`effects.SPIN_MOVED`).
-        if continuation.get("kind") != "spin_moved" and engine.spin_moves(
-            match,
+    if winner_key == "high_pass":
+        # 2.1's is thrown 3 with nothing to choose, and asked only where
+        # a special offers another throw or Quantor may run onto it
+        # (`RulesEngine.high_pass_asks`).
+        if engine.match_plays_deck(match) and not engine.high_pass_asks(
+            game, match,
         ):
-            return PendingPrompt(PromptKind.SPIN_MOVE, EFFECT_ASK)
-        return _speed_delta(
-            engine, game, match, match.active_player_id, "offense", winner_key,
-        )
-    if winner_key in ("setup_pass", "vertical_ball"):
+            return None
+        return PendingPrompt(PromptKind.HIGH_PASS_CHOICE, EFFECT_ASK)
+    if winner_key == "setup_pass":
         # Straight to the pass: the card sets no speed (Law 19.7.2,
         # 2026-10-03). With nowhere to throw it the pass goes out,
         # which is the effect's own step, as a Burst's nothing is.
@@ -1938,7 +1928,7 @@ def effect_choice_prompt(
         if engine.setup_pass_distances(match):
             return PendingPrompt(PromptKind.SETUP_PASS_CHOICE, EFFECT_ASK)
         return None
-    if winner_key in ("dribble_advance", "dribble_burst", "advance"):
+    if winner_key in ("dribble_advance", "dribble_burst"):
         handler = engine.get_player_definition(match.active_player_id)
         # **A Playmaker's advance has two prompts, and the carrier
         # tells them apart.** `select_ball_handler` clears
@@ -1951,7 +1941,7 @@ def effect_choice_prompt(
         # checked against this reading now, and a speed choice read
         # as a distance choice is a refused click.
         if (
-            winner_key in ("dribble_advance", "advance")
+            winner_key == "dribble_advance"
             and engine.dribble_advance_asked(match)
             and match.ball_carrier_id != match.active_player_id
         ):
@@ -1971,15 +1961,28 @@ def effect_choice_prompt(
                     PromptKind.DRIBBLE_BURST_CHOICE, EFFECT_ASK,
                 )
             return None
-        # 2.0's Dribble and Advance ask no speed: their effect is the
-        # move, and a crash window falls back as a Deflect's does.
+        # 2.1's Dribble asks no speed -- but B3's Spin, its Fullback's
+        # or Defender's change of up to their defensive skill, once the
+        # handler has moved (and so carries it). Otherwise a crash
+        # window falls back as a Deflect's does.
         if engine.match_plays_deck(match):
+            if (
+                engine.card_special(match, "offense") == maneuver_deck.SPIN
+                and match.ball_carrier_id == match.active_player_id
+            ):
+                return _speed_delta(
+                    engine, game, match, match.active_player_id, "defense",
+                    winner_key,
+                )
             return None
         return _speed_delta(
             engine, game, match, match.active_player_id, "offense", winner_key,
         )
-    if winner_key in ("steal", "intercept") or (
-        winner_key in ("pressure", "double_team", "control", "stay_close", "stress")
+    if (
+        winner_key in ("steal", "intercept")
+        and not engine.match_plays_deck(match)
+    ) or (
+        winner_key in ("pressure", "double_team")
         and engine.gambit_cost(match, winner_key) == "dribble_burst"
     ):
         # The defense's speed step after a steal -- the card's own,
@@ -2007,6 +2010,20 @@ def effect_choice_prompt(
             match,
             match.pending_run_back_stays_player_id or match.challenger_id,
             "defense",
+            winner_key,
+        )
+    if winner_key == "steal" and engine.card_special(
+        match, "defense",
+    ) == maneuver_deck.STEAL_SPEED:
+        # **S1's Playmaker** changes the speed by up to their
+        # *offensive* skill once everyone is back (rules-2.1 7.4); the
+        # plain 2.1 Steal changes none.
+        return _speed_delta(
+            engine,
+            game,
+            match,
+            match.pending_run_back_stays_player_id or match.challenger_id,
+            "offense",
             winner_key,
         )
     # A failed Cross gambit asks nothing: the Deflect or Clear that
@@ -2181,6 +2198,11 @@ PLAYERS_OWN_QUESTIONS = frozenset({
     PromptKind.SPEED_DELTA_CHOICE,
     PromptKind.RUN_BACK_PLAYER,
     PromptKind.RUN_BACK_SPACE,
+    # The shooter's: the side with the ball, but for a 2.1 deflection's
+    # set-up, offered to the defense's player who played the card.
+    PromptKind.SET_UP_ATTEMPT,
+    # The follower's: the defense's, for 2.1's F2 and R2.
+    PromptKind.FOLLOW_BALL,
 })
 
 #: The two questions put to the defense: who challenges, and which of
@@ -2452,6 +2474,12 @@ def _pending(
             PromptKind.OWN_GOAL_ROLL,
             "Either player can roll for the own goal.",
         )
+
+    follow = follow_prompt(engine, game, match)
+    if follow is not None:
+        # Ahead of the effect branch, as the passer's step is: the
+        # maneuver is still live and would otherwise be offered again.
+        return follow
 
     passer_advance = passer_advance_prompt(engine, game, match)
     if passer_advance is not None:
@@ -2828,7 +2856,10 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.PASSER_ADVANCE: ("advance", "stay"),
-    PromptKind.SPIN_MOVE: ("move", "stay"),
+    PromptKind.FOLLOW_BALL: ("follow", "stay"),
+    # A 2.1 High Ball is thrown a distance, or by H2's special to the
+    # Striker wherever they are (`DistanceOptions.long_shot`).
+    PromptKind.HIGH_PASS_CHOICE: ("", "long_shot"),
     PromptKind.SMOOTH: ("take", "decline"),
     PromptKind.MIND_PULL: ("take", "decline"),
     PromptKind.FLY: ("fly", "decline"),
@@ -3054,6 +3085,7 @@ def _maneuver_options(
             declared=match.gambit_declared_by == side,
             unconfirmed=match.pick_unconfirmed == side,
             **_deck_fields(engine, match, side),
+            **_card_fields(engine, game, match, side),
         ))
 
     return ManeuverOptions(tuple(hands))
@@ -3073,6 +3105,15 @@ def _deck_fields(
         "deck_count": deck_count,
         "discard_count": discard_count,
     }
+
+
+def _card_fields(
+    engine: "RulesEngine", game: D12BallGame, match: MatchState, side: str,
+) -> dict:
+    """A 2.1 hand's plays, for `ManeuverHand` -- nothing in 1.0."""
+    if not engine.maneuver_deck_applies(game):
+        return {}
+    return {"cards": engine.card_plays(game, match, side)}
 
 
 def _challenge_options(
@@ -3287,6 +3328,8 @@ def _high_pass_options(
         runner_id=runner_id,
         runner_distances=runner_distances,
         landings=_ball_landings(match, distances),
+        long_shot=engine.long_shot_offered(match),
+        uncontested=engine.uncontested_throws(match),
     )
 
 
@@ -3369,22 +3412,6 @@ def _dribble_advance_options(
     )
 
 
-def _spin_move_options(
-    engine: "RulesEngine",
-    game: D12BallGame,
-    match: MatchState,
-    prompt: PendingPrompt,
-) -> MoveOptions:
-    return MoveOptions(
-        tuple(
-            TeammateMove(player_id, zone, space_index, distance)
-            for player_id, zone, space_index, distance
-            in engine.spin_moves(match)
-        ),
-        CHOICES[prompt.kind],
-    )
-
-
 def _dribble_burst_options(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -3440,7 +3467,7 @@ def _coaching_hub_options(
 
     swaps: list[SwapOptions] = []
     repositions: list[RepositionOptions] = []
-    # A 2.0 side is moved by rearranging alone (docs/rules-2.0.md 4.6,
+    # A 2.0 side is moved by rearranging alone (docs/rules-2.1.md 4.6,
     # the author, 2026-10-25): its trades and moves cover both, so it
     # is offered no zone assignment and no space positioning.
     roles = match.formation_roles.get(side.value)
@@ -3468,7 +3495,7 @@ def _coaching_hub_options(
 
 
     # A 2.0 side is arranged by its roles and has no formations to
-    # pick (docs/rules-2.0.md 4.3).
+    # pick (docs/rules-2.1.md 4.3).
     arrangement = None
     if positioning and roles is not None:
         arranged = tuple(match.arrangement_pool(side))
@@ -3566,11 +3593,11 @@ OPTIONS = {
     PromptKind.SKILL_TEST: _roll_options,
     PromptKind.LOW_PASS_CHOICE: _low_pass_options,
     PromptKind.PASSER_ADVANCE: _decision_options,
+    PromptKind.FOLLOW_BALL: _decision_options,
     PromptKind.HIGH_PASS_CHOICE: _high_pass_options,
     PromptKind.SETUP_PASS_CHOICE: _setup_pass_options,
     PromptKind.SPEED_DELTA_CHOICE: _speed_options,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _dribble_advance_options,
     PromptKind.DRIBBLE_BURST_CHOICE: _dribble_burst_options,
-    PromptKind.SPIN_MOVE: _spin_move_options,
     PromptKind.DOUBLE_TEAM_PARTNER: _named_players,
 }
