@@ -3211,6 +3211,8 @@ turn message again at the foot of the channel -- the old one deleted,
 the player whose turn it is pinged -- and hands the clicker their panel
 afresh -- the
 actions for the active player, the open tech picker for the other.
+In a channel whose game was won but whose end was never posted, it
+posts that end instead ("The end of a game").
 **It is also how the board is brought back down** when talk in the
 channel has pushed it up (the author, 2026-10-12): with no restart
 behind it there is no step owed and the turn's lines are still known,
@@ -3364,6 +3366,20 @@ way and nothing is written from it.
   a request on the channel's own route, not the messages' edit bucket,
   so the end spends two from the bucket: the edit and the line -- three
   until 2026-10-21, when the pins became each turn's start.
+- **A game ends where its winner is set, at whatever step**: a base
+  destroyed by the end of the turn -- an ephemeral unit dying under
+  Pirate-Gang Commander's grant -- ends the draw phase there
+  (`turn.draw_phase` asks `pending`, which answers `GAME_OVER`), and the
+  turn does not pass. Until 2026-11-02 it went on to `BEGIN_TECH`: the
+  turn passed with the winner set, the cog rolled the turn message over
+  instead of posting the end, and the record -- finished by the same
+  save (`GameService.persist`) -- was out of reach of both `/codex
+  resume` and `/codex abandon`. **`/codex resume` now posts an end that
+  is owed** (`ending_owed_for_channel`, `post_owed_ending`): a finished
+  record in the channel with no `final_message_id` and no rematch gets
+  `finish_game`'s end, the turn message's buttons taken off, the
+  winner's line with **Rematch**, the channel archived -- also the
+  recovery where the final line's post itself failed.
 - **`/codex abandon` is either player's own, or a helper's** (the
   author, 2026-10-09: "any player should be able to abandon their own
   game"): the game played in the channel, or the lobby open in it, ends
@@ -3745,6 +3761,13 @@ put at the front of `MatchState.resolving` where the kill happened
 (`board.level_gain_owed`), on the attack's stack or the effect's, so
 nothing after the kill resolves before it; the answer pops it and the
 stack goes on. A kill by a player's own effect still gives nobody levels.
+**The ask names whose heroes only where they are one seat's** ("choose
+which of {player:2}'s heroes gains the 2 levels"); where the heroes
+offered are several seats' -- every opponent of the dead hero's
+controller in a free-for-all, or the other team in a dragon (Rulebook
+p. 11) -- it is "choose which hero gains the 2 levels" (the author,
+2026-11-02: the free-for-all named one seat and showed three seats'
+heroes).
 
 ### Building cards and upgrades in play
 

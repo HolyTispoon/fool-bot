@@ -30,7 +30,7 @@ from codex.formatting import team_name
 from codex.components import MatchState
 from codex.flow.result import FollowOnStep
 from codex import history
-from codex.game import CodexGame, RuleRefusal
+from codex.game import CodexGame, GameStatus, RuleRefusal
 from codex.render import render_board, render_hand, render_side
 from codex.prompts import (
     PendingPrompt, PromptKind, owed_step, pending, pending_prompt, standing_prompts,
@@ -41,7 +41,7 @@ from cogs.codex_views import (
 )
 from cogs.codex.core import TECH_GATE_KINDS
 from cogs.codex_helpers import elapsed_ms, mention_ids, pictures_size, seat_label, seat_labels
-from cogs.game_auth import send_new_prompt
+from cogs.game_auth import is_game_helper, send_new_prompt
 from gamesaves.codex.service import GameResult
 
 LOGGER = logging.getLogger(__name__)
@@ -714,6 +714,37 @@ class TurnsMixin:
         self.boards_drawn.pop(game.game_id, None)
         self.turn_start_boards.pop(game.game_id, None)
         await self.archive_channel(channel, game)
+
+    def ending_owed_for_channel(self, channel_id: Optional[int]) -> Optional[CodexGame]:
+        """The game in this channel that was won but whose end was never
+        posted: its record finished (the service finishes it in the save
+        that set the winner), no final line, no rematch -- a final line
+        whose post failed, or the end of a turn that once passed after
+        the game was over. `/codex resume` posts it (`post_owed_ending`)."""
+        owed = [
+            game for game in self.games.values()
+            if game.channel_id == channel_id and game.status is GameStatus.FINISHED
+            and game.final_message_id is None and game.rematch_game_id is None
+        ]
+        return owed[-1] if owed else None
+
+    async def post_owed_ending(self, interaction: discord.Interaction, game: CodexGame) -> None:
+        """`/codex resume` on a game whose end is owed: the end posted as
+        `finish_game` posts it -- the turn message standing without its
+        buttons, the winner's line with the board and **Rematch**, the
+        channel archived. Its players' own, or a helper's."""
+        if game.seat_of(interaction.user.id) is None and not is_game_helper(interaction.user):
+            await send_ephemeral(interaction, "Only the players, or a helper with Manage Channels, can resume this game.")
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        async with self.locks.hold(game.game_id):
+            if self.ending_owed_for_channel(game.channel_id) is not game:
+                await interaction.followup.send("This game's end is already posted.", ephemeral=True)
+                return
+            match = self.service.load(game)
+            result = GameResult(prompt=self.service.waiting_on(game, match), match=match)
+            await self.finish_game(game, result)
+        await interaction.followup.send("The game was over: its end is posted.", ephemeral=True)
 
     # -- The undos ---------------------------------------------------------------
 

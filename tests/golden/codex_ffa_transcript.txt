@@ -333,7 +333,7 @@ To end your main phase, assign patrollers.
 {hero:troq_bashar} deals 2; {player:1}'s {hero:troq_bashar} deals 2.
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes. As scavenger, it gives {player:1} {gold:1}: now {gold:1}.
 --- prompt LEVEL_GAIN (player 3)
-{player:3}, a hero was destroyed: choose which of {player:2}'s heroes gains the 2 levels.
+{player:3}, a hero was destroyed: choose which hero gains the 2 levels.
 --- standing TECH_CHOICE (player 1)
 --- standing TECH_CHOICE (player 2)
 --- board changed

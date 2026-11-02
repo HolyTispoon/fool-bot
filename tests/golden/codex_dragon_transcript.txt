@@ -1087,7 +1087,7 @@ To end your main phase, assign patrollers.
 {player:3}'s {card:older_brother} is destroyed.
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes.
 --- prompt LEVEL_GAIN (player 1)
-{player:1}, a hero was destroyed: choose which of {player:3}'s heroes gains the 2 levels.
+{player:1}, a hero was destroyed: choose which hero gains the 2 levels.
 --- standing TECH_CHOICE (player 3)
 --- standing TECH_CHOICE (player 4)
 --- board changed

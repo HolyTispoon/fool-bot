@@ -633,6 +633,38 @@ class EndTests(unittest.IsolatedAsyncioTestCase):
         await self.table.cog.present(game, result)
         return result
 
+    async def test_resume_posts_an_end_that_was_never_posted(self) -> None:
+        """A game won in a save whose end never reached the channel --
+        the end of a turn that once passed after the game was over: its
+        record is finished, so `/codex resume` posts the end -- the turn
+        message without buttons, the winner's line with **Rematch**."""
+        service, game = self.table.cog.service, self.game
+        match = service.load(game)
+        victim = next(seat for seat in (1, 2, 3) if seat != match.active)
+        for seat in (1, 2, 3):
+            match.set_base(seat, 0 if seat == victim else 20 if seat == match.active else 12)
+        from codex.flow import turn
+        from codex.flow.result import StepResult
+
+        turn.base_destroyed(match, victim, StepResult())
+        service.persist(game, match)
+        self.assertIs(game.status, GameStatus.FINISHED)
+        self.assertIsNone(game.final_message_id)
+        turn_message = game.turn_message_id
+        mark = len(self.table.game_channel.requests)
+        call = self.table.interaction(self.table.fencer)
+        await self.table.cog.resume.callback(self.table.cog, call)
+        self.assertIsNotNone(game.final_message_id)
+        sent = self.table.game_channel.since(mark)
+        self.assertIn(("edit", turn_message), [(kind, one) for kind, one, _ in sent])
+        final = next(kwargs for kind, one, kwargs in sent if kind == "send" and one == game.final_message_id)
+        self.assertIsInstance(final["view"], RematchView)
+        self.assertIn("wins", final["content"])
+        # A second resume finds no end owed and no game to resume.
+        again = self.table.interaction(self.table.fencer)
+        await self.table.cog.resume.callback(self.table.cog, again)
+        self.assertEqual(len([1 for kind, *_ in self.table.game_channel.since(mark) if kind == "send"]), 1)
+
     async def test_a_finished_free_for_all_offers_a_rematch_of_the_same_seats(self) -> None:
         result = await self.finish()
         self.assertIs(self.game.status, GameStatus.FINISHED)

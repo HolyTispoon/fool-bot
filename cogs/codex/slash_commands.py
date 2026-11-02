@@ -121,8 +121,18 @@ class SlashCommandsMixin:
         asked: the panel for the active player, the tech picker for the
         other while their choice is open. Either player's, or a game
         helper's.
+
+        A game whose match was won but whose end was never posted -- the
+        final line, **Rematch**, the channel archived -- gets its end
+        posted instead (`post_owed_ending`): its record is finished, so
+        nothing else reaches it.
         """
         game = self.game_for_channel(interaction.channel_id)
+        if game is None:
+            ending = self.ending_owed_for_channel(interaction.channel_id)
+            if ending is not None:
+                await self.post_owed_ending(interaction, ending)
+                return
         if game is None or game.status is not GameStatus.PLAYING:
             await send_ephemeral(interaction, NO_GAME_HERE)
             return
