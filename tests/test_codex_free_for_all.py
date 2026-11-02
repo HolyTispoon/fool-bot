@@ -292,6 +292,30 @@ class EndingTests(unittest.TestCase):
         self.assertEqual(prompt.options.base_hp, ((1, 12), (2, 0), (3, 14)))
         self.assertEqual(prompt.options.to_dict()["winners"], [3])
 
+    def test_a_base_falling_at_the_end_of_the_turn_ends_the_game_there(self) -> None:
+        """Crashbarrow, ephemeral, dies at the end of the turn and Pirate-Gang
+        Commander's grant deals 1 to each opponent's base: a base at 1
+        falls, and the game ends there -- the turn does not pass, so no
+        "End of turn" line and no next turn (the live game of 2026-11-02
+        rolled on to turn 23 with its winner set)."""
+        engine, game, match = free_for_all()
+        put(match, 1, "pirategang_commander")
+        put(match, 1, "crashbarrow")
+        match.set_base(2, 1)
+        match.set_base(3, 15)
+        match.set_base(1, 16)
+        turn = match.turn
+        run = apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
+        run = apply(engine, game, match, Action(PromptKind.PATROL, arguments={"assignment": {}}))
+        heard = said(run)
+        self.assertEqual(match.winner, 1)
+        self.assertIn(f"{tokens.player(1)} wins with 16 base HP!", heard)
+        self.assertNotIn("End of turn", heard)
+        self.assertEqual(match.turn, turn)
+        self.assertEqual(match.active, 1)
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.GAME_OVER)
+        self.assertIsNone(owed_step(engine, game, match))
+
     def test_a_duel_says_its_winner_as_before(self) -> None:
         engine, game, match = new_game()
         begin(engine, game, match)
@@ -654,6 +678,10 @@ class OpponentCardTests(unittest.TestCase):
         prompt = pending_prompt(engine, game, match)
         self.assertIs(prompt.kind, PromptKind.LEVEL_GAIN)
         self.assertEqual(prompt.asked_player, 1)
+        # The heroes offered are two players', so the ask names nobody's.
+        self.assertEqual(
+            prompt.ask, f"{tokens.player(1)}, a hero was destroyed: choose which hero gains the 2 levels.",
+        )
         self.assertEqual(set(zip(prompt.options.seats, prompt.options.heroes)),
                          {(1, "hero:troq_bashar"), (3, "hero:jaina_stormborne")})
         apply(engine, game, match, Action(PromptKind.LEVEL_GAIN, arguments={"hero": "hero:jaina_stormborne", "seat": 3}))

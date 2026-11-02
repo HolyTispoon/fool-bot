@@ -673,7 +673,13 @@ def _upkeep_ask(seat: int, effects_due=("healing", "starlet")) -> str:
     return f"{tokens.player(seat)}, your upkeep: which of its effects goes next?"
 
 
-def _level_ask(seat: int, owner: int) -> str:
+def _level_ask(seat: int, owner: int, seats=()) -> str:
+    """Whose heroes are offered: one seat's named as that seat's, and
+    several seats' -- every opponent of the dead hero's controller in a
+    free-for-all (Rulebook p. 11) -- named as no one's, since the choice
+    spans them."""
+    if len(set(seats)) > 1:
+        return f"{tokens.player(seat)}, a hero was destroyed: choose which hero gains the 2 levels."
     whose = "your" if seat == owner else f"{tokens.player(owner)}'s"
     return f"{tokens.player(seat)}, a hero was destroyed: choose which of {whose} heroes gains the 2 levels."
 
@@ -998,7 +1004,8 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
                                  _upkeep_ask(top["seat"], upkeep_asks(match) or ()), top["seat"])
         if kind == "level_gain":
             asked = top.get("asked", seat)
-            return PendingPrompt(PromptKind.LEVEL_GAIN, _level_ask(asked, top["seat"]), asked)
+            return PendingPrompt(PromptKind.LEVEL_GAIN,
+                                 _level_ask(asked, top["seat"], top.get("seats") or ()), asked)
         from codex.flow.resolve import (
             ASKS_DIVIDE, ASKS_MODE, ASKS_NUMBER, ASKS_OATH, asking, current_part, damage_amount,
         )

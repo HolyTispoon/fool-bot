@@ -937,10 +937,13 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     end_of_turn(engine, match, result)
     from codex.flow import resolve
 
-    if not resolve.run(engine, match, result):
+    if not resolve.run(engine, match, result) or match.winner is not None:
         # A death at the end of the turn asks something -- Crash Bomber's
         # target on its controller's turn: asked, and the turn ends on
         # the answer (`pending` names BEGIN_TECH once the stack is empty).
+        # Or the end of the turn ended the game -- Crashbarrow's damage
+        # destroying a base: the turn does not pass, and `pending`
+        # answers GAME_OVER.
         result.next = pending(engine, game, match)
         return result
     result.next = FollowOn(FollowOnStep.BEGIN_TECH)
