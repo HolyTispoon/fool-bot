@@ -740,6 +740,30 @@ class ResourcesTests(unittest.TestCase):
                 resolve.run(engine, match, result)
                 self.assertEqual(match.player(2).base_hp, hp - damage)
 
+    def test_two_pirategangs_each_grant_their_dies_line(self) -> None:
+        """Each Commander grants the line, so a unit dying under two deals
+        its 1 twice -- a Commander dying beside the other included (the
+        author, 2026-11-02)."""
+        from codex.flow import resolve
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("blood", "fire", "anarchy"), ("growth", "feral", "balance")))
+        put(match, 1, "pirategang_commander")
+        second = put(match, 1, "pirategang_commander")
+        for dying, damage in ((put(match, 1, "pirate"), 2), (second, 2)):
+            with self.subTest(dying=dying.slug):
+                hp = match.player(2).base_hp
+                result = driver.StepResult()
+                board.destroy(engine, match, [(1, dying.ref)], result)
+                resolve.run(engine, match, result)
+                self.assertEqual(match.player(2).base_hp, hp - damage)
+        lone = put(match, 1, "pirate")
+        hp = match.player(2).base_hp
+        result = driver.StepResult()
+        board.destroy(engine, match, [(1, lone.ref)], result)
+        resolve.run(engine, match, result)
+        self.assertEqual(match.player(2).base_hp, hp - 1, "one Commander left, one line")
+
     def test_merfolk_prospector_gains_a_gold_for_its_exhaust(self) -> None:
         from test_codex_card_rulings import red_green
 

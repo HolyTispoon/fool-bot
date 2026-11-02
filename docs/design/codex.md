@@ -959,7 +959,9 @@ ruling's own words and a ratchet counting them.
   `origin` -- the red card the effect came from, Rickety Mine's tails
   among them -- and never combat damage. A dies line Pirate-Gang
   Commander grants is the dying unit's, so it gets the +1 only where that
-  unit is red (the author, 2026-10-09).
+  unit is red (the author, 2026-10-09). Each Commander grants it, so a
+  unit dying under two deals 1 to each opposing base twice (the author,
+  2026-11-02).
 - **Read as the author answered** (2026-10-09): Dothram's total ATK
   counts heroes as well as units; Feral Strike boosted fetches before it
   puts into play, so a unit just fetched may go into play in the same

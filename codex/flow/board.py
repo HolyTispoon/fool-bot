@@ -793,7 +793,7 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
             if slug in effects.ON_ANY_DEATH:
                 found["bugblatters"].append((player.seat, slug))
             if slug in effects.GRANTS_DIES:
-                found["pirategang"][player.seat] = slug
+                found["pirategang"].setdefault(player.seat, []).append(slug)
             if slug in effects.RETELLERS:
                 found["retellers"][player.seat] = found["retellers"].get(player.seat, 0) + 1
             if slug in effects.INSURERS and engine.texted(card):
@@ -825,11 +825,10 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
             engine.text_slug(card) or "")
         if effect is not None:
             frames.append(resolve.frame(effect, seat, by, origin=card.slug))
-        granted = witnesses["pirategang"].get(seat)
-        if granted is not None:
-            # The line is the dying unit's, granted by the Commander --
-            # so Hotter Fire adds to it only where that unit is red (the
-            # author, 2026-10-09).
+        for granted in witnesses["pirategang"].get(seat, ()):
+            # The line is the dying unit's, granted by each Commander its
+            # controller has -- so two grant it twice, and Hotter Fire adds
+            # to it only where that unit is red (the author, 2026-10-09).
             frames.append(resolve.frame(
                 effects.GRANTS_DIES[granted], seat, f"{by} (from {tokens.card(granted)})",
                 origin=card.slug,
