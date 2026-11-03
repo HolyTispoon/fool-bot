@@ -4,9 +4,8 @@
 deck of twelve split maneuver cards in place of how a coach chooses a maneuver, each card an
 offensive basic maneuver on its top half and the defensive one of the same rank on its bottom
 half, each half with a role special, and a hand of three (sections 1 to 3, and 7); roles that belong to the formation rather than
-to the players, whose only abilities are the cards' specials (section 4); a coin whose face
-settles every tie and is tossed again after it, with moving on the board costing exhaustion a space (section 5); and no
-shooting range (section 6). There are no advanced maneuvers.**
+to the players, whose only abilities are the cards' specials (section 4); and no shooting range (section 6). The coin that settles every tie, and moving on the board costing
+exhaustion a space, began here and have been the Charter's since 2026-11-03 (section 5). There are no advanced maneuvers.**
 Everything the Charter does not change here plays exactly as it says. D12 Ball 1.0 is the
 Charter unchanged. The edition is chosen at setup, beside the mode, and either edition goes
 with any of the three modes: the mode still decides which abilities are played (Law 18). Where
@@ -60,8 +59,8 @@ as section 7 says, and is the only role ability in 2.2 (4.7). **Whatever a card 
 **2.3** **Every card plays on either side**, as the half of that side, and a card is played
 alone. A hand of three may not hold every rank; a coach plays what they hold.
 
-**2.4** **There is no gambit declaration and no gambit coin** (Law 19.3 does not apply). The
-coin 2.2 does have settles ties (section 5).
+**2.4** **There is no gambit declaration** (Law 19.3 does not apply). The coin settles ties,
+as the Charter's does (section 5), and nothing else.
 
 **2.5** The cards are revealed together, as the Charter says; until both are down a coach may
 change the card they chose. Against no challenge (Law 6.1.4)
@@ -232,58 +231,44 @@ kickoff, and where a player goes in a new play's run back.
 
 ## 5. Ties, the coin and moving
 
-**5.1** **The coin settles every tie** -- a maneuver's skill test (Law 6.4), a contest for the
-ball, a High Ball contest included (Law 10.2, 10.4), and a score attempt (Law 5.2.3). Nothing
-is rolled again, so nothing is paid for a re-roll (Law 6.4.4, 10.2.2 and the re-roll in Law
-15.1.1 do not apply), and a tied shot is not a goal by itself.
+**Since 2026-11-03 these are the Charter's rules, in every edition**: 2.0 made them, and D12 Ball
+1.0 took them over. They are kept here under their old numbers, each pointing at the Law that
+now holds it, because 2.2 was where they began.
 
-- **a.** **Fortune: the offense wins the tie; Doom: the defense does.** At a score attempt the
-  offense is the attack: Fortune scores, Doom does not.
-- **b.** In a skill test the offense is the handler's side. In a contest for the ball it is the
-  side that last held the ball -- the side that adds its offensive skill (Law 10.2.1).
-- **c.** A tie on the cards is still a skill test (Law 6.3.1), and a tie a player loses for being
-  injured is still lost with nothing rolled (Law 15.4.2a). Only an equal total on the dice goes to
-  the coin.
+**5.1** **The coin settles every tie** on the dice, and nothing is rolled again ([Law
+6.11](living-rules.md#611-ties-and-the-coin), 6.4.4, 10.2.2, 5.2.3).
 
-**5.2** **The coin starts on the face the toss landed on** (Law 3.1.2): the coin that decided
-who chooses home or the visitors is not flipped again before the first turn, and that face settles
-the first tie. **After every tie it settles, it is tossed again**, and its new face holds until
-the next tie -- so both coaches always know how the next tie will go. The face is public, shown
-on every turn.
+- **a.** **Fortune: the offense wins the tie; Doom: the defense does** (Law 6.11.2).
+- **b.** In a skill test the offense is the handler's side, in a contest for the ball the side
+  that last held it, at a score attempt the attack (Law 6.11.2).
+- **c.** A tie on the cards is still a skill test, and an injured player's lost tie is still lost
+  with nothing rolled (Law 6.11.4).
 
-**5.3** **A tied shootout test is no goal for either side** (Law 17.4.3); the coin neither
-settles it nor is tossed for it.
+**5.2** **The coin starts on the face the toss landed on and is tossed again after every tie it
+settles**, and nothing else turns it over; its face is public, shown on every turn (Law 6.11.3).
+2.2 has no gambits (2.4), so the coin settles ties and does nothing else.
+
+**5.3** **A tied shootout test is no goal for either side**, and the coin neither settles it nor
+is tossed for it (Law 6.11.4, 17.4.3).
 
 **5.4** **Moving costs exhaustion: a player who moves on the board during play exhausts 1 for
-every space they travel**, whoever moved them and whichever card did -- the handler of a won
-Dribble (Law 6.6.2), the passer stepping forward after P2's Pass (6.5.3), the handler a Pressure
-shoves back and the challenger who moves onto their space (6.10.2), the thief a Steal carries
-off with the ball (6.9.2), and the player who follows the ball after F2's Deflect or R2's
-Pressure (7.4), as well as every move the Charter already charges a space -- a player sent to
-the ball (9.4) and a player running back after a steal (12.4.3).
+every space they travel** (Law 15.1.1-15.1.2). What 2.2 adds is its own moves: the passer
+stepping forward after P2's Pass (7.2a), and the player who follows the ball after F2's Deflect
+or R2's Pressure (7.4), each cost their spaces as the Charter's moves do.
 
-- **a.** **Two kinds of move are free**: the run back after a new play (4.9), and every move a
-  Coaching Choice makes -- a rearrangement, a substitution and stepping off a unique role's
-  space (Law 14; section 4).
-- **b.** **An ability or a card that prices its own move keeps that price**: Emberdash's Burst
-  costs nothing and so, in 2.2, does their Dribble (Law 21.3.4); a Strider runs back for at most
-  1 (21.4.4); Quantor's run and Glompex's step onto the ball cost what their abilities say
-  (21.4.5, 21.6.1).
-- **c.** **Playing a card costs nothing, and so does entering a skill test** (Law 6.4.1 does not
-  apply), except that a test Scorchit forces in advanced mode still costs Scorchit 2, the price
-  of the ability (Law 21.3.8), and their opponent nothing. Merging into a roll still costs 1
-  (Law 20.5).
-
-So the first three rows of Law 15.1.1 -- entering a skill test, being sent to the ball and
-running back -- are one:
-
-| What costs tokens | How many |
-| --- | --- |
-| Moving on the board during play, but for a reset or a Coaching Choice | 1 per space traveled |
+- **a.** **Two kinds of move are free**: the run back after a new play (4.9), which in 2.2 takes
+  the place of the Charter's reset (Law 12.5), and every move a Coaching Choice makes -- a
+  rearrangement, a substitution and stepping off a unique role's space (Law 14; section 4).
+- **b.** **An ability or a card that prices its own move keeps that price** (Law 15.1.2):
+  Emberdash's Dribble and Burst cost nothing (Law 21.3.4); a Strider runs back for at most 1
+  (21.4.4); Quantor's run and Glompex's step onto the ball cost what their abilities say (21.4.5,
+  21.6.1).
+- **c.** **Playing a card costs nothing, and so does entering a skill test** (Law 6.4.1), except
+  that a test Scorchit forces in advanced mode still costs Scorchit 2, the price of the ability
+  (Law 21.3.8), and their opponent nothing. Merging into a roll still costs 1 (Law 20.5).
 
 **5.5** **Every score attempt exhausts the shooter 1, after the roll, whether it is off a set-up
-or not** -- an ordinary turn's shot as much as a scoring opportunity's (Law 8.3.1, for every
-shot; Law 5 charges a plain one nothing). It owes no injury check, as no shot does.
+or not** (Law 5.4.1, 15.1.1). It owes no injury check, as no shot does.
 
 ## 6. No shooting range
 
