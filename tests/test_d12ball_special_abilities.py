@@ -810,16 +810,17 @@ class ZorchTests(unittest.TestCase):
         self.assertFalse(zorch.safe)
         self.assertNotIn("ball speed modifier", " ".join(result.narration))
 
-    def test_tests_are_no_longer_free(self) -> None:
+    def test_zorch_pays_what_everybody_pays_for_a_test(self) -> None:
+        # Zorch's free tests went on 2026-09-27; since 2026-11-03 a test
+        # is free for everybody (Law 6.4.1), Zorch no differently.
         with holding(self.offense, SpecialAbility.SPEED_ROLLS):
-            self.assertEqual(
-                ENGINE.re_roll_tokens(self.game, self.offense), 1,
-            )
             self.assertEqual(
                 ENGINE.skill_test_tokens(
                     self.game, self.match, self.offense,
                 ),
-                1,
+                ENGINE.skill_test_tokens(
+                    self.game, self.match, self.defense,
+                ),
             )
 
 

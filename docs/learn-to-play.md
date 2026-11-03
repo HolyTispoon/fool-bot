@@ -14,7 +14,7 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 - **Twelve maneuver cards.** Six are the basic cards this book teaches; the six advanced maneuvers are advanced mode's and stay in the box for now.
 - **The ball**: a d12. **Four more d12s** for rolling.
 - **Exhaustion tokens**, and the two condition markers, Exhausted and Injured.
-- **The coin**, for the toss.
+- **The coin**, for the toss and every tie after it.
 
 > **Training, standard and advanced mode.** Training mode is everything in this book. Standard mode gives each species an ability; advanced mode adds a second card to every maneuver and some players' own abilities on top. The appendix on the last page says what each adds, and Part II of the Charter says all of it.
 
@@ -35,7 +35,7 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 **Set up your first game**
 
-1. Choose the 7-space board and flip the coin: a fortune face wins the toss, and the winner picks home or the visitors. *(Law 3.1)*
+1. Choose the 7-space board and flip the coin: a fortune face wins the toss, and the winner picks home or the visitors. Leave the coin on the table as it landed: it settles the first tie. *(Law 3.1)*
 2. Deal both sides 2-2-2, exactly as Figure 1 shows.
 3. Put the ball on space 0 showing **1** -- that is its speed -- in home's hands, and the clock marker on 00. *(Law 3.4)*
 4. Skip the setup Coaching Choice for your first game. The Charter offers one before kickoff *(Law 3.3)*; you will meet it on page 11.
@@ -59,7 +59,11 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 **Rank decides, not dice.** Each card beats one of the other side's cards, ties one, and loses to one. The card that wins is what happens. *(Law 6.3)*
 
-**A tie is not a draw.** It goes to a **skill test**: each player rolls a d12, the handler adds their offensive skill and the defender their defensive skill, and the higher total wins -- their card is what happens. Both players **exhaust 1** -- take one exhaustion token -- for the effort. A tied test is rolled again, and each exhausts 1 more. *(Law 6.4)*
+**A tie is not a draw.** It goes to a **skill test**: each player rolls a d12, the handler adds their offensive skill and the defender their defensive skill, and the higher total wins -- their card is what happens. Rolling costs nothing. *(Law 6.4)*
+
+**Level totals go to the coin.** Fortune face up, the offense wins the tie; Doom, the defense does. Then toss the coin again and leave it as it lands, so both of you always know how the next tie goes. Nothing is ever rolled again. *(Law 6.11)*
+
+**Moving costs.** Every space a player moves on the board during play -- carrying the ball, being pushed, walking to it, running back -- costs them 1 **exhaustion** token. A reset and a Coaching Choice move players for free. *(Law 15.1)*
 
 **Who defends?** A defender already standing on the ball challenges, and cannot refuse. Otherwise the defending coach may **send** one of their two nearest players to the ball -- the nearest in front of it or the nearest behind it -- who exhausts 1 for every space walked. Or they may send nobody, and the maneuver simply succeeds. *(Law 6.1, Law 9)*
 
@@ -74,7 +78,7 @@ Your Playmaker, Emberdash, is on the ball at space 0, with the visitors' Playmak
 
 ![Figure 5 - Beat 1](rulebooks/figures/fig-05-beat-1.png)
 
-Dribble beats Deflect on rank alone, so nothing is rolled. Your Playmaker carries the ball forward -- **two spaces**, space 0 to space 2, which is the Playmaker's own ability; anyone else moves one -- and then sets the ball's speed by up to their offensive skill. Pick any speed you like this turn; it will not survive to matter. *(Law 6.6, 2.6)*
+Dribble beats Deflect on rank alone, so nothing is rolled. Your Playmaker carries the ball forward -- **two spaces**, space 0 to space 2, which is the Playmaker's own ability; anyone else moves one -- and exhausts 2, one for each space. Then they set the ball's speed by up to their offensive skill. Pick any speed you like this turn; it will not survive to matter. *(Law 6.6, 2.6)*
 
 You are standing in your shooting range now, so next turn a shot would be offered.
 
@@ -96,7 +100,7 @@ The visitors have the ball on space 1 and nobody of yours is standing there, so 
 
 ![Figure 7 - Beat 3](rulebooks/figures/fig-07-beat-3.png)
 
-Pressure beats Dribble. Their handler and the ball are **shoved one space back** for them, to space 2, and your challenger moves forward onto the same space. Possession does not change -- they still have the ball -- but they have lost ground, and you are standing on it. *(Law 6.10, Law 9)*
+Pressure beats Dribble. Their handler and the ball are **shoved one space back** for them, to space 2, and your challenger moves forward onto the same space; each exhausts 1 for their space. Possession does not change -- they still have the ball -- but they have lost ground, and you are standing on it. *(Law 6.10, Law 9)*
 
 > Push a handler who is already on their last space and the ball reaches their own goal zone: they roll to avoid an **own goal** *(Law 11)*.
 
@@ -106,7 +110,7 @@ The visitors' Midfielder has the ball on space 2 with your Playmaker and Winger 
 
 ![Figure 8 - Beat 4](rulebooks/figures/fig-08-beat-4.png)
 
-Steal beats Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to space 1. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to space 1 and exhausts 2. *(Law 6.9, 12.1, 12.4)*
+Steal beats Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to space 1, exhausting 1. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to space 1 and exhausts 2. *(Law 6.9, 12.1, 12.4)*
 
 Last, the stealer **sets the ball's speed**, up or down by up to their defensive skill. Take the most: 1 + 3 = **4**. Half the speed, rounded down, is added to a shot -- speed 4 is worth **+2** on the one you are about to take. *(Law 6.9, 7.1)*
 
@@ -118,7 +122,7 @@ Your Playmaker has the ball on space 1, in range, with the visitors' Midfielder 
 
 You are asked how far to throw: **2 spaces** lands on space 3, where your Striker has been standing all game. A pass of exactly 2 is caught cleanly; a pass of 3 or more has to be won by the receiver. And a catch inside shooting range is a **scoring opportunity**: the Striker shoots at once, out of turn, and the Striker's ability adds 3 to exactly that shot. *(Law 6.7, 8.1, 8.3)*
 
-**Roll the shot.** Attack: d12 + 6 (the Striker's skill) + 3 (a Striker off a set-up) + 2 (ball speed 4, halved). Defense: d12 + 6 -- the visitors' Fullback is standing on the ball and adds their whole defensive skill. **The attack has to be at least as high; a tie is a goal.** About six times in seven, that is a goal. *(Law 5.2, 5.3)*
+**Roll the shot.** Attack: d12 + 6 (the Striker's skill) + 3 (a Striker off a set-up) + 2 (ball speed 4, halved). Defense: d12 + 6 -- the visitors' Fullback is standing on the ball and adds their whole defensive skill. **The attack has to be higher; a tie goes to the coin** -- Fortune scores, Doom does not. With the coin on Fortune that is a goal about six times in seven, on Doom four in five. Goal or miss, the Striker exhausts 1. *(Law 5.2, 5.3, 5.4)*
 
 Goal or miss, the ball is dead and the game restarts as a **new play**: both sides go back to where they started, and the side restarting -- the visitors, from their kickoff space after a goal -- may take a Coaching Choice, which page 11 explains. Then keep playing: you know enough now. *(Law 5.5, 12.5)*
 
@@ -127,7 +131,7 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 ![Figure 10 - What a shot is up against](rulebooks/figures/fig-10-the-shot.png)
 
-**What a shot is up against.** Every defender between the ball and the goal counts. One standing **on** the ball adds their whole defensive skill. One anywhere **beyond** it, between the ball and the goal, adds half of it, rounded up -- each one, not the group. One **behind** the ball adds nothing. The attack is d12 + the shooter's offensive skill + the ball's speed modifier; the defense is d12 + all of that; the attack has to be at least as high, and a tie is a goal. *(Law 5.2, 5.3)*
+**What a shot is up against.** Every defender between the ball and the goal counts. One standing **on** the ball adds their whole defensive skill. One anywhere **beyond** it, between the ball and the goal, adds half of it, rounded up -- each one, not the group. One **behind** the ball adds nothing. The attack is d12 + the shooter's offensive skill + the ball's speed modifier; the defense is d12 + all of that; the attack has to be higher, and a tie goes to the coin. Every shot exhausts the shooter 1. *(Law 5.2, 5.3, 5.4)*
 
 **A shot costs** one minute on the clock and nothing else. Goal or miss, it is a new play. A goal restarts from the conceding side's kickoff space with them in possession; a miss gives the ball to the defending side on their own last space. *(Law 5.4, 5.5)*
 
@@ -151,7 +155,7 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 **Time out.** Out of range, once a half, and not in the last minute, a side may call a time out instead of playing the ball. It is a new play: it advances time by one, the ball stays where it is at speed 1, both coaches take a Coaching Choice, the caller first, and then both sides reset to their coaches' positions. If nobody of the calling side is then on the ball, one of their two nearest goes and gets it, exhausting 1 a space. *(Law 13)*
 
-**Exhaustion and injury.** Tokens come from skill tests, from walking to the ball, from running back, and from taking a set-up shot. A player carrying **more tokens than their defensive skill is Exhausted**, and rolls an **injury check** after every skill test they are in: a d12, safe if it is higher than their tokens. An **Injured** player loses their tokens, loses ties outright, and adds no skill in a contest for the ball -- until a substitution takes them off, which nothing forces. Halftime takes one token off every player on the field, and one more off a player of each coach's choice. *(Law 15)*
+**Exhaustion and injury.** Tokens come from moving on the board -- a space each, whatever moved you -- and from taking a shot. A player carrying **more tokens than their defensive skill is Exhausted**, and rolls an **injury check** after every skill test they are in: a d12, safe if it is higher than their tokens. An **Injured** player loses their tokens, loses ties outright, and adds no skill in a contest for the ball -- until a substitution takes them off, which nothing forces. Halftime takes one token off every player on the field, and one more off a player of each coach's choice. *(Law 15)*
 
 **The clock.** Every maneuver advances time by one, a High Ball by two, a shot by one; running back, contests and Coaching Choices cost nothing. The clock moves the moment an action's outcome is decided -- as a maneuver's winner is known, once a shot has gone in or missed, as a time out is called -- and never stops. When it reaches the period's last minute, whoever holds the ball once the action resolves has **last possession**: their next turnover ends the half. Halftime recovers a token, offers both coaches a Coaching Choice, and the second half starts at 15 with the visitors kicking off. *(Law 16)*
 
@@ -164,7 +168,7 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 
 ![Figure 14 - The twelve cards on the cycle](rulebooks/figures/fig-14-the-gambits.png)
 
-**Advanced maneuvers and gambits (advanced).** Every rank gets a second card, the **advanced maneuver**: the same maneuver, bigger. Playing one is **making a gambit**. Win on rank and the gambit succeeds; lose on rank and it fails, and a failed gambit has a price. Pinpoint reaches any teammate within 3; Burst runs up to 4; Cross sets up a shot; Clear knocks the ball back 3; Intercept steals forward; Double Team pushes with help. An advanced maneuver is the advanced version of the basic card on its rank, so the cycle does not change. Only against a challenge, and only the coach holding **the coin** may make one: they declare it, swap their three cards for their three advanced ones, and hand the coin across for the other coach to flip. The other coach, only while their team is **behind** -- fewer goals, or more Exhausted-or-Injured players on the field -- then says whether they answer with a gambit of their own, before either of you picks a card. Each of you always chooses from three. *(Law 19)*
+**Advanced maneuvers and gambits (advanced).** Every rank gets a second card, the **advanced maneuver**: the same maneuver, bigger. Playing one is **making a gambit**. Win on rank and the gambit succeeds; lose on rank and it fails, and a failed gambit has a price. Pinpoint reaches any teammate within 3; Burst runs up to 4; Cross sets up a shot; Clear knocks the ball back 3; Intercept steals forward; Double Team pushes with help. An advanced maneuver is the advanced version of the basic card on its rank, so the cycle does not change. Only against a challenge, and either coach may make one, once a maneuver: they declare it and swap their three cards for their three advanced ones. The coin has nothing to do with it. The other coach, only while their team is **behind** -- fewer goals, or more Exhausted-or-Injured players on the field -- then says whether they answer with a gambit of their own, before either of you picks a card. Each of you always chooses from three. *(Law 19)*
 
 ![Figure 15 - The four species](rulebooks/figures/fig-15-the-species.png)
 
@@ -190,8 +194,8 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 
 | Roll | Dice | How it reads |
 | --- | --- | --- |
-| Score attempt | 1d12 each | Attack adds offense and the speed modifier, half the speed rounded down; defense adds full skill on the ball and half beyond it. A tie scores. |
-| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
+| Score attempt | 1d12 each | Attack adds offense and the speed modifier, half the speed rounded down; defense adds full skill on the ball and half beyond it. A tie goes to the coin. The shooter exhausts 1. |
+| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie goes to the coin, which is tossed again. Free to enter. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |
 | Shootout test | 1d12 each | Both add offensive skill. Higher scores; a tie stands. |

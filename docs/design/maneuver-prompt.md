@@ -61,13 +61,13 @@ extra click bought a round trip and nothing else.
     disabled a row would tell the other coach that side had answered. The "X
     has picked their maneuver" message says that already, deliberately and in
     its own message.
-- **The coin's two buttons share the reference's row** (Law 19.3):
-  "Gambit" on the hand whose coach holds the coin, while nobody has
-  declared, and "Confirm maneuver" on a hand whose pick a gambit has
-  put back in question -- `ManeuverHand.may_declare` and `unconfirmed`,
-  the prompt's own options. Anyone may press Gambit and only the coin
-  holder is answered: who holds the coin is public, so the refusal
-  gives nothing away. Neither names a card; the confirm's ephemeral
+- **The gambit's two buttons share the reference's row** (Law 19.3):
+  "Gambit" on each hand while nobody has declared -- either coach may,
+  since 2026-11-03, when the coin stopped deciding it -- and "Confirm
+  maneuver" on a hand whose pick a gambit has put back in question --
+  `ManeuverHand.may_declare` and `unconfirmed`, the prompt's own
+  options. Anyone may press Gambit and only that hand's coach is
+  answered, so the refusal gives nothing away. Neither names a card; the confirm's ephemeral
   reply does, to its own coach.
   - **A declaration is the one click that replaces the prompt.** Both
     hands change, so the model puts the pick up again and the view

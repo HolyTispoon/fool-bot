@@ -3996,22 +3996,21 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         ]
 
     def behind(self) -> PromptFixture:
-        """An advanced game where the visitors held the coin and have
-        declared a gambit, and the home side (seat 1, on the ball), a
-        goal down, has answered with one of its own: both play their
-        three advanced maneuvers (Law 19.3)."""
+        """An advanced game where the visitors have declared a gambit,
+        and the home side (seat 1, on the ball), a goal down, has
+        answered with one of its own: both play their three advanced
+        maneuvers (Law 19.3)."""
         ENGINE.rng.seed(11)
         fixture = case("maneuver picks")
         fixture.game.mode = GameMode.ADVANCED
-        fixture.match.coin_holder = TeamSide.VISITING
-        fixture.match.declare_gambit("defense", TeamSide.VISITING)
+        fixture.match.declare_gambit("defense")
         fixture.match.scoreboard.visiting_score = 1
         fixture.match.answer_gambit("offense", True)
         return fixture
 
     def level(self) -> PromptFixture:
-        """An advanced game, level, with nobody declared: home (seat 1)
-        holds the coin by default, so both hands are the basic three."""
+        """An advanced game, level, with nobody declared: either coach
+        may declare, and both hands are the basic three."""
         ENGINE.rng.seed(11)
         fixture = case("maneuver picks")
         fixture.game.mode = GameMode.ADVANCED
@@ -4077,10 +4076,11 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(all(control["card"]["gambit"] for control in three))
 
-    async def test_the_coin_holder_is_offered_the_declaration(self) -> None:
+    async def test_each_coach_is_offered_the_declaration(self) -> None:
+        """Either coach may declare a gambit (Law 19.3; the author,
+        2026-11-03), so each is offered it, as a neutral control."""
         from webapp.present import (
             DECLARE_LABEL,
-            WITHHELD_NOTE,
             WITHHELD_TO_DECLARE_NOTE,
         )
 
@@ -4103,9 +4103,11 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
             ]
 
         self.assertEqual(len(declarations(home)), 1)
-        self.assertEqual(declarations(away), [])
+        self.assertEqual(len(declarations(away)), 1)
+        self.assertIsNone(declarations(home)[0]["place"])
+        self.assertEqual(declarations(home)[0]["style"], "neutral")
         for state, note in (
-            (home, WITHHELD_TO_DECLARE_NOTE), (away, WITHHELD_NOTE),
+            (home, WITHHELD_TO_DECLARE_NOTE), (away, WITHHELD_TO_DECLARE_NOTE),
         ):
             dimmed = [c for c in self.cards(state) if c["disabled"]]
             self.assertEqual(len(dimmed), 3)
@@ -4214,37 +4216,26 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         ))
 
     async def test_the_pick_is_asked_of_nobody_by_name(self) -> None:
-        """The page's ask names no coach: the holder of the coin is told
-        about it beside the coin itself, and everybody else reads the
-        model's sentence about who holds it."""
-        from webapp.present import (
-            COIN_LINE,
-            MANEUVER_ASK,
-        )
+        """The page's ask names no coach, and says who may make a
+        gambit in the model's sentence -- the same to every reader,
+        since either coach may."""
+        from webapp.present import MANEUVER_ASK
 
         fixture = self.level()
         client, _ = await self.serve(fixture)
-        holder, other, watching = [
+        states = [
             await self.state_of(client, fixture, as_coach(coach_id))
             for coach_id in (
                 fixture.game.player_1_id, fixture.game.player_2_id, STRANGER,
             )
         ]
 
-        self.assertEqual(
-            html.unescape(holder["prompt"]["ask"]), MANEUVER_ASK,
-        )
-        coin = holder["prompt"]["controls"][0]["controls"][0]
-        self.assertEqual(coin["place"], {"at": "coin"})
-        self.assertEqual(coin["said"], COIN_LINE)
-        self.assertTrue(coin["image"].startswith("/emoji/"))
-        for state in (other, watching):
-            first, coin_said = html.unescape(
+        for state in states:
+            first, gambit_said = html.unescape(
                 state["prompt"]["ask"],
             ).split("\n\n")
             self.assertEqual(first, MANEUVER_ASK)
-            self.assertIn("holds the coin, ", coin_said)
-            self.assertIn("Fortune up, and may declare a gambit.", coin_said)
+            self.assertEqual(gambit_said, "Either coach may declare a gambit.")
             self.assertNotIn('class="coach"', state["prompt"]["ask"])
 
     def test_no_player_s_ability_is_listed_twice(self) -> None:
@@ -4286,31 +4277,29 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
                 "names a card -- pick two that do",
             )
 
-    async def test_the_coin_shows_the_face_it_landed_on(self) -> None:
-        """Law 19.3.3: the coin in the holder's box and on the jumbotron
-        is the game's own coin on the face it landed on when it last
-        passed -- the same face in both places, and in the sentence."""
+    async def test_the_jumbotron_shows_the_coin_s_face(self) -> None:
+        """Law 6.11.3: the jumbotron carries the game's own coin on the
+        face that settles the next tie, with what it means -- the same
+        to every reader -- and a gambit's prompt draws no coin."""
         from d12ball.game import CoinFace, coin_face_name
 
         fixture = self.level()
-        fixture.match.coin_face = CoinFace.DOOM
+        fixture.match.tie_coin = CoinFace.DOOM.value
         client, _ = await self.serve(fixture)
-        holder, other = [
+        states = [
             await self.state_of(client, fixture, as_coach(coach_id))
             for coach_id in (
-                fixture.game.player_1_id, fixture.game.player_2_id,
+                fixture.game.player_1_id, fixture.game.player_2_id, STRANGER,
             )
         ]
 
         doom = f"/emoji/{coin_face_name(fixture.game.game_coin, CoinFace.DOOM)}.png"
-        coin = holder["prompt"]["controls"][0]["controls"][0]
-        self.assertEqual(coin["image"], doom)
-        for state in (holder, other):
+        for state in states:
             self.assertEqual(
-                state["board"]["layout"]["jumbotron"]["coin"], doom,
+                state["board"]["layout"]["jumbotron"]["coin"],
+                {"image": doom, "face": "doom", "caption": "Defense wins ties"},
             )
-        self.assertIn(doom, other["prompt"]["ask"])
-        self.assertIn("Doom up", other["prompt"]["ask"])
+            self.assertNotIn("/emoji/coin", state["prompt"]["ask"])
 
     async def test_an_observer_sees_two_backs_and_no_face(self) -> None:
         fixture = self.behind()

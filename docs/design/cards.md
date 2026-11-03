@@ -80,8 +80,8 @@ the caption reading "arrow: beats what it points to" where 1.0's reads "solid".
     `RulesEngine.maneuver_pick_sides` and which tiers is
     `RulesEngine.maneuver_tiers`, the same two questions the buttons under the
     image ask, and `maneuver_hand_combinations` is the enumeration the cog
-    draws at startup. **The tiers are each side's own**: since 2026-09-28 the
-    coach holding the coin declares a gambit and plays from the advanced three
+    draws at startup. **The tiers are each side's own**: since 2026-09-28 a
+    coach who declares a gambit (either may, since 2026-11-03) plays from the advanced three
     alone, and the other coach, where behind, answers first with the advanced
     three or the basic three (Law 19.3) -- so a contested prompt can carry
     three advanced cards on one side and three basic on the other. Since the

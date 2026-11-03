@@ -1065,9 +1065,10 @@ renderer (`d12ball/dice_brief.py`) so the web page draws the same dice.
 - **What differs between the four is a rule every time**, which is why
   they are four functions and not one with flags. Injury withholds a
   contestant's own skill in the loose ball and the shootout and not in
-  the other two; a tie is re-rolled at a token each in the skill test
-  and the loose ball, is a miss in a score attempt, and
-  scores for nobody in a shootout; the tutorial scripts the first
+  the other two; a tie goes to the coin in the skill test, the loose
+  ball and the score attempt (Law 6.11; re-rolled at a token each, and
+  a goal at a shot, in 1.0 until 2026-11-03), and scores for nobody in
+  a shootout; the tutorial scripts the first
   two's dice and deliberately scripts neither of the others; only the
   skill test and the shot write an event.
 - **A tie comes back as the prompt the position reads as**, worded by
@@ -1246,8 +1247,8 @@ species ability or the coach it is put to writes a token --
 `{team:purple}`, `{role:fullback:orange}`, `{condition:exhaust}`,
 `{species:cyborg}`, `{coach:1}` -- through the five builders in
 `d12ball/tokens.py`, and the cog renders every one of them once, at
-its door. A sixth, `{coin:doom}`, came with the coin's flip (Law
-19.3.3, 2026-10-01): the face of the game's own coin, which Discord
+its door. A sixth, `{coin:doom}`, came with the gambit coin's flip
+(2026-10-01) and now marks the one coin's face (Law 6.11): the face of the game's own coin, which Discord
 draws as that face's emoji (`format_coin_emoji`, over the cog's
 `coin_emojis`) and the web page as its picture. The token names only
 the face; which of the six coins it is, is the record's

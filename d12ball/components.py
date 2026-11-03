@@ -1836,18 +1836,15 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("pending_action"),
     SavedField("challenger_id"),
     SavedField("maneuver_uncontested", default=False),
-    # The coin and this maneuver's declaration (Law 19.3). Absent in a
-    # save that predates them: nobody has declared, and the toss winner
-    # holds the coin -- `RulesEngine.coin_holder`.
+    # The gambit coin's holder and face, which nothing has read or
+    # written since 2026-11-03, when a gambit stopped touching the coin
+    # (Law 19.3.1): kept so a game saved before reads and writes back
+    # unchanged. This maneuver's declaration follows them.
     SavedField(
         "coin_holder",
         write=_optional_team_side_value,
         read=_optional_team_side,
     ),
-    # The face the coin landed on when it last passed (Law 19.3.3).
-    # Absent in a save that predates the flip: it has not passed since,
-    # or was never flipped when it did, and shows the toss --
-    # `RulesEngine.coin_face`.
     SavedField(
         "coin_face",
         write=_optional_coin_face_value,
@@ -2101,16 +2098,13 @@ class MatchState:
     # load.
     offense_maneuver: Optional[str] = None
     defense_maneuver: Optional[str] = None
-    # **The coin** (Law 19.3): the team whose coach may declare a
-    # gambit. `None` until a declaration first hands it over -- until
-    # then the toss winner holds it, which `RulesEngine.coin_holder`
-    # reads off the game record. That is also how a game saved before
-    # the coin existed reads it, so there is nothing to migrate.
+    # **The gambit coin, as it was until 2026-11-03**: the team a
+    # declaration last handed it to, and the face it was flipped to.
+    # Nothing reads or writes either since a gambit stopped touching
+    # the coin (Law 19.3.1, the author); they are kept, saved as they
+    # were, so a game saved before reads back. The one coin's face is
+    # `tie_coin`.
     coin_holder: Optional[TeamSide] = None
-    # The face the coin landed on when a declaration last handed it
-    # over -- the coach it went to flips it (Law 19.3.3). `None` until
-    # then, when it shows the toss, which `RulesEngine.coin_face` reads
-    # off the game record. It decides nothing.
     coin_face: Optional[CoinFace] = None
     # This maneuver's gambit, if one was declared: the maneuver side
     # ("offense" or "defense") whose coach declared it, and the side
@@ -4178,21 +4172,16 @@ class MatchState:
             if self.pick_unconfirmed == side:
                 self.pick_unconfirmed = None
 
-    def declare_gambit(
-        self,
-        side: str,
-        declaring_team: TeamSide,
-        coin_face: Optional[CoinFace] = None,
-    ) -> None:
+    def declare_gambit(self, side: str) -> None:
         """
         Record a gambit declared by this maneuver side's coach (Law
-        19.3): their own pick is withdrawn, a pick the other side has
-        already made waits to be confirmed, and the coin passes to the
-        other team, landing on `coin_face` -- the flip is the engine's
-        (`declare_gambit_step`), and without one the face stands. Who
-        may declare is the engine's question
-        (`RulesEngine.may_declare_gambit`); this only writes it down,
-        and refuses a second declaration in one maneuver.
+        19.3): their own pick is withdrawn and a pick the other side has
+        already made waits to be confirmed. Who may declare is the
+        engine's question (`RulesEngine.may_declare_gambit`); this only
+        writes it down, and refuses a second declaration in one
+        maneuver. **The coin is not touched** (the author, 2026-11-03):
+        `coin_holder` and `coin_face` are no longer written, and are
+        kept only so a game saved before reads back.
         """
         if self.gambit_declared_by is not None:
             raise RuleRefusal(
@@ -4210,12 +4199,6 @@ class MatchState:
         )
         self.gambit_declared_by = side
         self.pick_unconfirmed = other if theirs is not None else None
-        self.coin_holder = (
-            TeamSide.VISITING if TeamSide(declaring_team) == TeamSide.HOME
-            else TeamSide.HOME
-        )
-        if coin_face is not None:
-            self.coin_face = CoinFace(coin_face)
 
     def begin_loose_ball(
         self, distance_moved: int, is_high_pass: bool = False,

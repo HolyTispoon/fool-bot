@@ -103,7 +103,10 @@
     {
       "details": {
         "action": "maneuver",
-        "by_ai": false
+        "by_ai": false,
+        "exhaustion": {
+          "sizzifizik_playmaker": 2
+        }
       },
       "kind": "turn_action",
       "period": "first_half",
@@ -130,8 +133,7 @@
         "action": "maneuver",
         "by_ai": false,
         "exhaustion": {
-          "dravox_defender": 1,
-          "sizzifizik_playmaker": 3
+          "sizzifizik_playmaker": 2
         }
       },
       "kind": "turn_action",
@@ -173,7 +175,8 @@
         "action": "maneuver",
         "by_ai": true,
         "exhaustion": {
-          "sizzifizik_playmaker": 1
+          "glompex_midfielder": 1,
+          "sizzifizik_playmaker": 2
         }
       },
       "kind": "turn_action",
@@ -201,7 +204,8 @@
         "action": "maneuver",
         "by_ai": true,
         "exhaustion": {
-          "glompex_midfielder": 3
+          "glompex_midfielder": 3,
+          "sizzifizik_playmaker": 1
         }
       },
       "kind": "turn_action",
@@ -255,7 +259,7 @@
     },
     {
       "details": {
-        "attack_total": 12,
+        "attack_total": 13,
         "defender_count": 1,
         "defense_total": 8,
         "scored": true,
@@ -296,9 +300,9 @@
   ],
   "exhaustion": {
     "acidel_striker": 1,
-    "dravox_defender": 2,
-    "glompex_midfielder": 3,
-    "sizzifizik_playmaker": 4
+    "dravox_defender": 1,
+    "glompex_midfielder": 4,
+    "sizzifizik_playmaker": 7
   },
   "forced_test_player": null,
   "gambit_answer": null,
@@ -354,7 +358,7 @@
   "maneuver_uncontested": false,
   "merge_joined": [],
   "merged_this_test": [],
-  "offense_maneuver": "low_pass",
+  "offense_maneuver": "dribble_advance",
   "overdrive_passed": [],
   "pending_action": null,
   "pending_ball_recovery": false,
@@ -423,6 +427,7 @@
   "shootout_shooters": {},
   "shootout_used": {},
   "skill_test_winner": null,
+  "tie_coin": "fortune",
   "time_outs_used": [],
   "visiting": {
     "side": "visiting",

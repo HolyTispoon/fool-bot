@@ -287,25 +287,24 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("discord.File"):
             await press_roll(view, interaction)
 
-        # The tie follows the dice in a message of its own, which
-        # carries the roll-again button: the clicked prompt becomes the
-        # dice and loses its buttons, so a reply posted under it -- an
-        # Overdrive declared on the tied roll -- stays above the
-        # re-roll rather than under it.
+        # The tie follows the dice like every other verdict, and the
+        # coin settles it (Law 6.11, 2026-11-03): nothing is rolled
+        # again, so no roll-again button goes up.
         edit = interaction.edit_original_response.await_args.kwargs
         self.assertIsNone(edit["content"])
         self.assertIsNone(edit["view"])
-        [tie] = interaction.followup.send.await_args_list
-        content = tie.args[0]
-        self.assertTrue(content.startswith("## "), content)
-        self.assertIn("It's a tie (7-7)!", content)
-        self.assertIsInstance(tie.kwargs["view"], SkillTestView)
+        texts = sent_texts(interaction)
+        [tie] = [text for text in texts if "It's a tie (7-7)!" in text]
+        self.assertIn("## **It's a tie (7-7)!**", tie)
+        self.assertIn("The coin shows", tie)
+        for call in interaction.followup.send.await_args_list:
+            self.assertNotIsInstance(call.kwargs.get("view"), SkillTestView)
 
-    async def test_a_tied_loose_ball_asks_again_below_its_dice(
+    async def test_a_tied_loose_ball_goes_to_the_coin_below_its_dice(
         self,
     ) -> None:
         # The loose ball's tie follows its dice the way the skill
-        # test's does, roll-again button and all.
+        # test's does, and the coin settles it.
         cog = build_cog()
         game, _ = self.build_contest(cog, is_high_pass=False)
         interaction = build_interaction()
@@ -322,9 +321,13 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         edit = interaction.response.edit_message.await_args.kwargs
         self.assertIsNone(edit["content"])
         self.assertIsNone(edit["view"])
-        [tie] = interaction.followup.send.await_args_list
-        self.assertIn("It's a tie (7-7)!", tie.args[0])
-        self.assertIsInstance(tie.kwargs["view"], LooseBallSkillTestView)
+        texts = sent_texts(interaction)
+        [tie] = [text for text in texts if "It's a tie (7-7)!" in text]
+        self.assertIn("The coin shows", tie)
+        for call in interaction.followup.send.await_args_list:
+            self.assertNotIsInstance(
+                call.kwargs.get("view"), LooseBallSkillTestView,
+            )
 
     # -- Maneuver won outright -----------------------------------------
 

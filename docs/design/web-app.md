@@ -1382,26 +1382,29 @@ chooser, or puts a refusal away.
   it, so `card.gambit` is read off the catalog to lay it out and decides
   nothing.
 - **A gambit the side does not hold is shown dimmed**, with a note
-  saying why (`withheld_note`, since the coin on 2026-09-28: "declare a
-  gambit to play these" to the coach holding the coin, "only a side that
-  is behind may answer a gambit" to one facing a gambit it may not answer,
-  and "only the coach holding the coin may make a gambit" otherwise), as a
-  dead control the page cannot send (and the offer check refuses if it is
-  sent anyway). **The coin is a section of its own, above the hand**
-  (the author, 2026-09-30): the game's own coin, lit gold, a box object
-  like the die (`ON_COIN`), to the right of "You hold the coin and may
-  declare a gambit." and the line under it saying what declaring does
-  (`DECLARE_NOTE`, the author's words of 2026-10-01) -- the prompt's
-  `may_declare`, answered with the choice `"gambit"`. On the jumbotron
-  the coin and the ball's d12 are one size, `--token` on `.jumbotron`
-  (30px on a desktop and a tablet, 20px on a phone), and on a phone the
-  names, the score, the ball and the coin are centred on one line: the
-  visitors' row is reversed, and on a baseline it took its baseline off
-  the tokens and stood them high, while the Goal face's capitals sit
-  within half a pixel of the middle of its box. The coin shows the face it landed on when it last
-  passed -- it is flipped each time (Law 19.3.3) -- or the toss's until
-  then, in the box and on the jumbotron alike (`RulesEngine.coin_face`,
-  see [maneuvers.md](maneuvers.md), "The coin"). **The pick's ask names nobody** (`present.page_ask`): the
+  saying why (`withheld_note`: "declare a gambit to play these" to a
+  coach who may declare, "only a side that is behind may answer a
+  gambit" to one facing a gambit it may not answer), as a dead control
+  the page cannot send (and the offer check refuses if it is sent
+  anyway). **The declaration is a section of its own, above the hand**:
+  a neutral "Declare a gambit" control, the line saying what declaring
+  does as its note (`DECLARE_NOTE`, the author's words of 2026-10-01,
+  less the coin) -- the prompt's `may_declare`, answered with the choice
+  `"gambit"`. From 2026-09-30 to 2026-11-03 it was the game's own coin,
+  lit gold in the box (`ON_COIN`), because the coin decided who might
+  declare; once a gambit stopped touching the coin (the author,
+  2026-11-03) the coin was the wrong thing to light, and no other board
+  object stands for a gambit, so it is the one neutral style.
+  **The coin is on the jumbotron, under the score** (`board.jumbotron`'s
+  `coin`: its picture, its face and `tie_coin_caption`), in every game
+  once the first turn sets it (Law 6.11.3): the game's own coin on the
+  face that settles the next tie, with "Offense wins ties" or "Defense
+  wins ties" beside it in place of the D12 BALL brand, as the Discord
+  board draws it. It belongs to neither team, so it sits between them,
+  where it once sat beside the team holding it. The coin is the ball's
+  d12's size, `--token` on `.jumbotron` (30px on a desktop and a
+  tablet, 20px on a phone), and on a phone and a sideways phone the
+  words go and the coin stays, its caption its title. **The pick's ask names nobody** (`present.page_ask`): the
   model's ask addresses each coach by name, which a Discord message
   needs to ping them, but a page is read by one person who sees only
   their own hand, so it says "Both sides pick a maneuver privately. The
@@ -1411,14 +1414,12 @@ chooser, or puts a refusal away.
   the bot's, kept "the picks are revealed together" and took the
   hands' "turned over together" line, which said it twice). The
   instruction is a frontend's own, as the Discord caption's row colours
-  are; who holds the coin stays the model's sentence
-  (`describe_gambit_access`), left out only for the coach it names,
-  whose coin is in the box. A coach a sentence is put to elsewhere is
+  are; who may make a gambit stays the model's sentence
+  (`describe_gambit_access`), the same for every reader since either
+  coach may. A coach a sentence is put to elsewhere is
   named in bold rather than drawn as a Discord mention. A card a gambit has put back in question is ringed and
   **live** -- pressed, it confirms the pick (`"confirm"`) -- and the rest
-  of the hand may replace it. The jumbotron draws the game's own coin
-  beside the team holding it (`board.jumbotron`, off
-  `RulesEngine.coin_holder`). The answer to a gambit
+  of the hand may replace it. The answer to a gambit
   (`GAMBIT_ANSWER`) is two neutral controls in the Discord view's words;
   **once a gambit is declared nothing is dimmed** -- each hand is its
   three cards (the author: "show only the gambits"). Which gambits those are is

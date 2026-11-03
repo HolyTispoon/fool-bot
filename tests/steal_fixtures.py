@@ -57,6 +57,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball import tokens
 from d12ball.engine import RulesEngine
 from d12ball.formatting import format_team_side_label
 from d12ball.game import (
@@ -174,6 +175,19 @@ def label(match: MatchState, player_id: str) -> str:
         match, ENGINE.get_player_definition(player_id),
     )
 
+def paid(match: MatchState, player_id: str, tokens_paid: int, total: Optional[int] = None) -> str:
+    """The line a move's charge adds, on a line of its own: every move
+    on the board costs a token a space (Law 15.1, 2026-11-03)."""
+    if tokens_paid <= 0:
+        return ""
+    total = tokens_paid if total is None else total
+    return (
+        f"\n{label(match, player_id)} exhausts {tokens_paid} "
+        f"{tokens.condition(tokens.CONDITION_EXHAUST) * tokens_paid} "
+        f"(now {total} total)."
+    )
+
+
 
 def new_possession_label(match: MatchState) -> str:
     """
@@ -266,6 +280,8 @@ def turnover_text(
         f"{label(match, challenger)} steals the ball. "
         f"{new_possession_label(match)} now has possession, "
         f"{travel}."
+        # The carry costs its spaces (Law 15.1, 2026-11-03).
+        + paid(match, challenger, actual_distance)
     )
 
 

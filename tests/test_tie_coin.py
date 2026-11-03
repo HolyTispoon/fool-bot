@@ -1,12 +1,13 @@
 """
-D12 Ball 2.2's coin (docs/rules-2.2.md, section 5): the setup toss's
-face at the first turn, its face settles every tie -- a skill test's, a contest for
-the ball's, a shot's -- rather than a re-roll or a goal, and it is tossed
-again after the tie, so the next tie's answer is always known and shown
-on the turn message; a tied shootout test scores for nobody -- and
-moving on the board costs a
-token a space (rules-2.2 5.4), where a card costs nothing. 1.0 is
-untouched. See docs/design/maneuver-deck.md, "The coin" and "Moving
+The coin (Law 6.11, 2.x's since 2026-10-20 and 1.0's too since
+2026-11-03): the setup toss's face at the first turn, its face settles
+every tie -- a skill test's, a contest for the ball's, a shot's --
+rather than a re-roll or a goal, and it is tossed again after the tie,
+so the next tie's answer is always known and shown on the turn message;
+a tied shootout test scores for nobody -- and moving on the board costs
+a token a space (Law 15.1), where entering a skill test costs nothing.
+Both editions play it alike, so each test that was 2.x's alone is asked
+of both. See docs/design/maneuver-deck.md, "The coin" and "Moving
 costs".
 """
 
@@ -96,14 +97,20 @@ class TieCoinTests(unittest.TestCase):
         self.assertEqual(self.match.skill_test_winner, "steal")
         self.assertIn("Doom", result.narration[0])
 
-    def test_one_point_oh_still_rolls_a_tie_again(self) -> None:
+    def test_one_point_oh_settles_a_tie_with_the_coin_too(self) -> None:
+        # Nothing is rolled again, and nothing is paid (the author,
+        # 2026-11-03).
         self.game.edition = Edition.ONE
         self.stage_skill_test()
-        _, result = self.tied_skill_test()
-        self.assertIsInstance(result.next, PendingPrompt)
-        self.assertEqual(result.next.kind, PromptKind.SKILL_TEST)
-        self.assertIsNone(self.match.skill_test_winner)
-        self.assertEqual(self.match.exhaustion.get(self.handler), 1)
+        self.match.tie_coin = CoinFace.FORTUNE.value
+        with tossed(CoinFace.DOOM):
+            _, result = self.tied_skill_test()
+        self.assertNotEqual(
+            getattr(result.next, "kind", None), PromptKind.SKILL_TEST,
+        )
+        self.assertEqual(self.match.skill_test_winner, "dribble_advance")
+        self.assertEqual(self.match.tie_coin, "doom")
+        self.assertEqual(self.match.exhaustion.get(self.challenger, 0), 0)
 
     def test_the_face_settles_the_tie_and_is_tossed_again_after(self) -> None:
         # The face shown before the tie is what decides it; the toss
@@ -178,12 +185,25 @@ class TieCoinTests(unittest.TestCase):
                     result.narration[0],
                 )
 
-    def test_a_tied_shot_still_scores_in_one_point_oh(self) -> None:
+    def test_a_tied_shot_goes_to_the_coin_in_one_point_oh(self) -> None:
+        # No longer a goal by itself (Law 5.2.3, the author, 2026-11-03).
         self.game.edition = Edition.ONE
-        with mock.patch.object(ENGINE, "flip_coin") as flip:
+        self.match.tie_coin = CoinFace.DOOM.value
+        with tossed(CoinFace.FORTUNE):
             dice, _ = self.tied_shot()
-        self.assertTrue(dice.scored)
-        flip.assert_not_called()
+        self.assertFalse(dice.scored)
+        self.assertEqual(self.match.tie_coin, "fortune")
+
+    def test_every_shot_exhausts_its_shooter_in_both_editions(self) -> None:
+        # An ordinary shot, not off a set-up (Law 5.4.1).
+        for edition in (Edition.TWO, Edition.ONE):
+            with self.subTest(edition=edition):
+                self.setUp()
+                self.game.edition = edition
+                self.match.tie_coin = CoinFace.FORTUNE.value
+                with tossed(CoinFace.FORTUNE):
+                    self.tied_shot()
+                self.assertEqual(self.tokens(self.handler), 1)
 
     # -- A card costs nothing; moving costs a token a space ------------
 
@@ -200,18 +220,17 @@ class TieCoinTests(unittest.TestCase):
     def tokens(self, player_id: str) -> int:
         return self.match.exhaustion.get(player_id, 0)
 
-    def test_entering_the_skill_test_is_free_in_two_point_oh(self) -> None:
+    def test_entering_the_skill_test_is_free_in_both_editions(self) -> None:
         self.stage_skill_test()
-        self.assertEqual(
-            ENGINE.skill_test_tokens(self.game, self.match, self.handler), 0,
-        )
-        self.game.edition = Edition.ONE
-        self.assertEqual(
-            ENGINE.skill_test_tokens(self.game, self.match, self.handler), 1,
-        )
+        for edition in (Edition.TWO, Edition.ONE):
+            self.game.edition = edition
+            self.assertEqual(
+                ENGINE.skill_test_tokens(self.game, self.match, self.handler),
+                0,
+            )
 
     def test_a_dribble_costs_the_handler_its_space(self) -> None:
-        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 1)):
             with self.subTest(edition=edition):
                 self.setUp()
                 self.game.edition = edition
@@ -225,7 +244,7 @@ class TieCoinTests(unittest.TestCase):
                 )
 
     def test_a_steal_costs_the_thief_its_carry(self) -> None:
-        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 1)):
             with self.subTest(edition=edition):
                 self.setUp()
                 self.game.edition = edition
@@ -234,7 +253,7 @@ class TieCoinTests(unittest.TestCase):
                 self.assertEqual(self.tokens(self.challenger), paid)
 
     def test_a_pressure_costs_the_handler_and_the_challenger_who_follows(self) -> None:
-        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 1)):
             with self.subTest(edition=edition):
                 self.setUp()
                 self.game.edition = edition
@@ -272,13 +291,10 @@ class TieCoinTests(unittest.TestCase):
                     - start
                 )
                 self.assertGreater(came, 0)
-                self.assertEqual(
-                    self.tokens(partner),
-                    came if edition == Edition.TWO else 0,
-                )
+                self.assertEqual(self.tokens(partner), came)
 
     def test_a_beaten_double_team_costs_its_step_forward(self) -> None:
-        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 1)):
             with self.subTest(edition=edition):
                 self.setUp()
                 self.game.edition = edition
@@ -292,7 +308,7 @@ class TieCoinTests(unittest.TestCase):
                 self.assertEqual(self.tokens(self.challenger), paid)
 
     def test_the_passers_step_costs_its_space_and_the_ask_says_so(self) -> None:
-        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 0)):
+        for edition, paid in ((Edition.TWO, 1), (Edition.ONE, 1)):
             with self.subTest(edition=edition):
                 self.setUp()
                 self.game.edition = edition
@@ -347,12 +363,18 @@ class TieCoinTests(unittest.TestCase):
         prompt = ENGINE.build_turn_prompt(self.game, self.match)
         self.assertIn("{coin:doom} **Doom**: defense wins ties.", prompt)
         self.game.edition = Edition.ONE
-        self.assertNotIn("{coin:", ENGINE.build_turn_prompt(self.game, self.match))
+        self.assertIn(
+            "{coin:doom} **Doom**: defense wins ties.",
+            ENGINE.build_turn_prompt(self.game, self.match),
+        )
 
-    def test_one_point_oh_has_no_tie_coin(self) -> None:
+    def test_one_point_oh_takes_the_toss_face_too(self) -> None:
+        # A 1.0 game saved before 2026-11-03 has no face; its next turn
+        # takes the toss's.
         self.game.edition = Edition.ONE
+        self.game.coin_face = CoinFace.FORTUNE
         settle_tie_coin(ENGINE, self.game, self.match)
-        self.assertIsNone(self.match.tie_coin)
+        self.assertEqual(self.match.tie_coin, "fortune")
 
     def test_the_board_is_drawn_with_the_coin(self) -> None:
         from d12ball.render import render_match_image

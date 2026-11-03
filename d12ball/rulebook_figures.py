@@ -318,12 +318,12 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
     sketches.append(Sketch(
         title="Figure 5 - Beat 1: Dribble beats Deflect",
         match=MatchState.from_dict(match.to_dict(), load_basic_ruleset()),
-        arrows=[Arrow("M2", "V1", "Dribble, 2 spaces")],
+        arrows=[Arrow("M2", "V1", "Dribble, 2 spaces, 2 tokens")],
         markers=[Marker("V1", 1)],
         notes=[
             "Home played Dribble and the visitors played Deflect. Dribble beats Deflect on rank "
             "alone, so nothing was rolled. The Playmaker carried the ball from space 0 to space 2 - two spaces, "
-            "the Playmaker's own ability - and set its speed.",
+            "the Playmaker's own ability, a token a space - and set its speed.",
             "Space 2 is inside home's shooting range, so next turn a shot would be offered.",
         ],
     ))
@@ -346,7 +346,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         markers=[Marker("M3", 1), Marker("M2", 2)],
         notes=[
             "Pass and Deflect are both rank 1, so they tie and go to a skill test: d12 + offensive skill "
-            "against d12 + defensive skill, and a token to each. The visitors won it, and their Deflect knocked "
+            "against d12 + defensive skill, free to roll, a tie going to the coin. The visitors won it, and their Deflect knocked "
             "the ball back one space to space 1 - where their Midfielder was already standing. A ball that lands on "
             "one side's player is simply theirs: no roll, and never loose.",
             "That is a turnover, so everybody outside their own zone runs back. Home's Playmaker walks from space 2 "
@@ -366,14 +366,15 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         match=MatchState.from_dict(match.to_dict(), load_basic_ruleset()),
         arrows=[
             Arrow("M2", "M3", "Sent to challenge, 1 token"),
-            Arrow("M3", "V1", "Pressure: handler and ball back 1", row=1),
+            Arrow("M3", "V1", "Pressure: handler and ball back 1, a token each", row=1),
         ],
         markers=[Marker("V1", 1)],
         notes=[
             "Nobody of home's was standing on the ball at space 1, so home sent the nearest player to it - the "
             "Playmaker from space 0, one token for the one space. The visitors played Dribble and home "
             "played Pressure, which beats it: the handler and the ball are shoved back one space to space 2, "
-            "and the challenger moves forward onto them. Possession does not change.",
+            "and the challenger moves forward onto them, each paying a token for their space. Possession does "
+            "not change.",
         ],
     ))
 
@@ -390,13 +391,14 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         title="Figure 8 - Beat 4: Steal beats Pass, and everyone runs back",
         match=MatchState.from_dict(match.to_dict(), load_basic_ruleset()),
         arrows=[
-            Arrow("V1", "M3", "Steal: ball and stealer back 1"),
+            Arrow("V1", "M3", "Steal: ball and stealer back 1, 1 token"),
             Arrow("V1", "M3", "Visitors' Midfielder runs back, 2 tokens", row=1),
         ],
         markers=[Marker("M3", 1)],
         notes=[
             "The visitors played Pass and home played Steal, which beats it. Possession flips and the "
-            "ball's speed resets to 1; the stealer carries it one space back toward their own goal, to space 1. "
+            "ball's speed resets to 1; the stealer carries it one space back toward their own goal, to space 1, "
+            "for a token. "
             "Then everyone outside their own zone runs back - the visitors' Midfielder to space 1, two tokens - "
             "and the stealer sets the ball's speed by up to their defensive skill: 1 + 3 = 4, worth +2 on a shot.",
         ],
@@ -415,7 +417,8 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
             "High Ball beats the visitors' Steal. A pass of exactly 2 spaces is caught cleanly, and a catch "
             "inside shooting range is a scoring opportunity: the Striker shoots at once, out of turn. "
             "Attack: d12 + 6 (skill) + 3 (Striker off a set-up) + 2 (ball speed 4, halved). Defense: d12 + 6, "
-            "the Fullback standing on the ball adding their whole defensive skill. A tie is a goal.",
+            "the Fullback standing on the ball adding their whole defensive skill. A tie goes to the coin: "
+            "Fortune scores, Doom does not. Goal or miss, the Striker exhausts 1.",
         ],
     ))
     return sketches

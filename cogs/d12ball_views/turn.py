@@ -895,10 +895,10 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
             custom_id=f"d12ball:maneuver_reference:{game_id}",
         )
         reference.callback = self.show_reference
-        # **The coin's two buttons share the reference's row** (Law
-        # 19.3): "Gambit" for the hand whose coach holds the coin, while
-        # nobody has declared -- pressed by anybody else it answers with
-        # the model's refusal -- and "Confirm maneuver" for a hand whose
+        # **The gambit's two buttons share the reference's row** (Law
+        # 19.3): "Gambit" for each hand whose coach may declare one --
+        # either coach, while nobody has declared -- pressed by anybody
+        # else it answers with a refusal -- and "Confirm maneuver" for a hand whose
         # pick a gambit has put back in question. Neither names a card:
         # the pick is secret and this message is public.
         extras: list[discord.ui.Button] = []
@@ -1040,10 +1040,11 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
         self, interaction: discord.Interaction, side: str,
     ) -> None:
         """
-        The coin holder's gambit (Law 19.3), declared from the prompt's
-        "Gambit" button. **Anyone may press it and only the coach
-        holding the coin is answered**: who holds the coin is public,
-        so refusing somebody else says nothing a coach could not see.
+        A coach's gambit (Law 19.3), declared from the prompt's "Gambit"
+        button under their hand. **Anyone may press it and only the
+        coach of that hand is answered**: either coach may declare one
+        (the author, 2026-11-03), so refusing somebody else says
+        nothing a coach could not see.
 
         The declaration puts the pick up again -- both hands have
         changed -- so this prompt goes, and the new one is what
@@ -1055,7 +1056,7 @@ class ManeuverActionPromptView(ManeuverPicking, SafeView):
             return
         if self.pick_refusal(game, match, side, interaction) is not None:
             await interaction.response.send_message(
-                "Only the coach holding the coin may declare a gambit.",
+                "Only that hand's coach may declare its gambit.",
                 ephemeral=True,
             )
             return

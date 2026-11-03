@@ -263,7 +263,7 @@ fact.
   | --- | --- | --- |
   | `turn_action` | `d12ball.flow.turn.record_turn_action`, from `begin_shot_step` and `begin_maneuver_step` -- the turn action's answer, a coach's or the AI's, which is how `by_ai` is read off the game rather than passed | after the answer's own stale-click guard -- a refused click is not a turn |
   | `maneuver` | `begin_effect_resolution` | every maneuver in the game reaches it exactly once, decisive, unchallenged or through the skill test |
-  | `skill_test` | `SkillTestView.roll` | before either branch, so a tie that re-rolls is in the record as well as the roll that settles it |
+  | `skill_test` | `SkillTestView.roll` | before the effect, with whether it tied -- `record_maneuver` reads it to tell a win on the dice from a win on the cards; a game saved before 2026-11-03 may hold a re-rolled tie, a roll each |
   | `shot` | `ScoreAttemptView.roll` | before `settle_score_attempt`, which awards the goal |
   | `own_goal_roll` | `run_own_goal_roll` | both outcomes: the rate needs the attempts as well as the concessions |
   | `injury_test` | `run_injury_test` | both outcomes, same reason -- `mark_injured` deliberately logs nothing, or a failed test would be in twice |

@@ -483,11 +483,6 @@ ON_WHISTLE = {"at": "whistle"}
 ON_NOTE = {"at": "note"}
 #: The REMATCH mark in the box.
 ON_REMATCH = {"at": "rematch"}
-#: The coin, in the box of the coach holding it: clicking it declares
-#: a gambit (Law 19.3).
-ON_COIN = {"at": "coin"}
-
-
 def on_player(player_id: str) -> dict:
     return {"at": "player", "id": player_id}
 
@@ -680,11 +675,10 @@ def _asked(
 
 #: The objects the question box draws itself -- the die, a speed's
 #: faces, the whistle, the note, the REMATCH mark, the hand's cards,
-#: the formation tiles, the coin --
+#: the formation tiles --
 #: which the lit line does not repeat: it says what is lit elsewhere.
 IN_THE_BOX = frozenset({
     "die", "face", "whistle", "note", "rematch", "card", "formation",
-    "coin",
 })
 
 
@@ -723,23 +717,14 @@ def page_ask(
     Discord message somebody must be pinged from.
 
     There the page says `MANEUVER_ASK`, and under it who may make a
-    gambit -- the model's sentence (`describe_gambit_access`), except
-    to the coach it would name as holding the coin: their coin is in
-    the box with its own line (`_maneuver`), so the paragraph would be
-    the same thing said twice.
+    gambit -- the model's sentence (`describe_gambit_access`), the same
+    for every reader since either coach may declare one (the author,
+    2026-11-03).
     """
     if match is None or prompt.kind is not PromptKind.MANEUVER_ACTION:
         return ask
-    mine = set(coached_sides(engine, game, viewer))
-    wire = prompt.to_dict() if wire is None else wire
-    holds_the_coin = any(
-        hand.get("may_declare") and _side(hand["team_side"]) in mine
-        for hand in wire["options"]["hands"]
-    )
     return maneuver_gambit_paragraph(
-        MANEUVER_ASK,
-        "" if holds_the_coin
-        else engine.describe_gambit_access(game, match),
+        MANEUVER_ASK, engine.describe_gambit_access(game, match),
     )
 
 
@@ -896,7 +881,6 @@ def _object_name(asked: Asked, place: Mapping[str, Any]) -> str:
         "whistle": "The whistle",
         "note": "The note",
         "rematch": "Rematch",
-        "coin": "The coin",
     }.get(at, at)
 
 
@@ -1656,17 +1640,16 @@ def _maneuver(asked: Asked) -> list:
     **The gambits the side does not hold are shown dimmed** --
     `ManeuverHand.withheld`, the model's answer, never worked out here
     -- as dead controls with a note saying why (`withheld_note`), so a
-    coach reads what the coin would put in their hand (step 5 of
+    coach reads what a gambit would put in their hand (step 5 of
     docs/web-app-redesign.md). A side that holds its gambits has them
     in `maneuver_keys` like any card; either way the page lays the
     gambits out as a second row (`card.gambit`), since a card's tier is
     printed on it.
 
-    **The coin is its own section, above the hand** (Law 19.3): the
-    coach holding it is shown the coin itself, lit, with `COIN_LINE`
-    beside it, and clicking it declares -- the prompt's `may_declare`,
-    answered with the choice `"gambit"`. The ask leaves its own
-    sentence about the coin out for that coach (`page_ask`). A coach
+    **The declaration is its own section, above the hand** (Law 19.3):
+    a neutral control, since a gambit is not the coin's any more (the
+    author, 2026-11-03) -- the prompt's `may_declare`, answered with the
+    choice `"gambit"`, with what declaring does as its note. A coach
     whose card a gambit has put back in question has it ringed and
     live, pressed to confirm it (`unconfirmed`, the choice
     `"confirm"`), with the rest of the hand to change it for.
@@ -1727,24 +1710,14 @@ def _maneuver(asked: Asked) -> list:
     sections = []
     for hand, controls in groups:
         if hand.get("may_declare"):
-            coin = button(
+            sections.append(section(None, [button(
                 DECLARE_LABEL,
                 asked.kind,
                 "gambit",
-                place=ON_COIN,
                 chip=DECLARE_CHIP,
-                said=COIN_LINE,
                 note=DECLARE_NOTE,
                 side=hand["side"],
-            )
-            # The game's own coin, on the face it landed on when it
-            # last passed (`RulesEngine.coin_face`), as the jumbotron
-            # draws it.
-            face = asked.engine.coin_face(asked.game, asked.match)
-            coin["image"] = (
-                f"/emoji/{coin_face_name(asked.game.game_coin, face)}.png"
-            )
-            sections.append(section(None, [coin]))
+            )]))
         sections.append(section(
             f"Your hand · {controls[0]['card']['side']}" if labelled
             else "Your hand",
@@ -1830,26 +1803,26 @@ def waiting_on(
 
 #: What a dimmed gambit says: the reason it is not in the hand (Law
 #: 19.3), by where the maneuver is -- `withheld_note` picks one.
-WITHHELD_NOTE = "Only the coach holding the coin may make a gambit."
+WITHHELD_NOTE = "A gambit is declared before the cards are revealed."
 WITHHELD_TO_DECLARE_NOTE = "Declare a gambit to play these."
 WITHHELD_UNANSWERED_NOTE = "Only a side that is behind may answer a gambit."
 
-#: The coin's control (Law 19.3.2-19.3.3): the coin itself, above the
-#: hand, with its line beside it.
+#: The declaration's control (Law 19.3.2): a neutral button above the
+#: hand, what declaring does as its note.
 DECLARE_LABEL = "Declare a gambit"
 DECLARE_CHIP = "declare a gambit"
-COIN_LINE = "You hold the coin and may declare a gambit."
 DECLARE_NOTE = (
-    "Hand the coin to the other coach and replace your hand with three "
-    "advanced maneuvers, offering higher reward and carrying higher risk."
+    "Replace your hand with three advanced maneuvers, offering higher "
+    "reward and carrying higher risk."
 )
 
 
 def withheld_note(match: MatchState, hand: Mapping[str, Any]) -> str:
-    """Why this hand's gambits are dimmed: it holds the coin and has not
-    declared, the other side has declared and it is not behind, or it
-    holds no coin and nobody has declared -- off the prompt's own
-    `may_declare` and the position, never worked out again."""
+    """Why this hand's gambits are dimmed: it may declare and has not,
+    or the other side has declared and it is not behind, or -- with no
+    declaration open to it -- the reason is the moment, since either
+    coach may declare one (the author, 2026-11-03). Off the prompt's
+    own `may_declare` and the position, never worked out again."""
     if hand.get("may_declare"):
         return WITHHELD_TO_DECLARE_NOTE
     if match.gambit_declared_by not in (None, hand["side"]):

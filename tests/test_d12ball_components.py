@@ -56,6 +56,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import (
     COLOR_TEAMS,
+    GameMode,
     SPECIES_TEAMS,
     TEAM_PAIRS,
     Edition,
@@ -3894,9 +3895,11 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace(followup=SimpleNamespace(
             send=mock.AsyncMock(),
         ))
-        # The passer's step is asked of the edition (rules-2.2 5.4).
+        # The passer's step is charged (Law 15.1), which asks the
+        # record's mode whose words a token is said in.
         game = SimpleNamespace(
             match_state=None, edition=Edition.ONE, tutorial=False,
+            mode=GameMode.TRAINING, species_abilities=False,
         )
         with suppressed_cog_saves():
             await resolve_low_pass(cog, interaction, game, match)

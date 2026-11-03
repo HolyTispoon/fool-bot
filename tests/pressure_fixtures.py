@@ -67,6 +67,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball import tokens
 from d12ball.engine import RulesEngine
 from d12ball.formatting import format_team_side_label
 from d12ball.game import (
@@ -199,6 +200,19 @@ def label(match: MatchState, player_id: str) -> str:
         match, ENGINE.get_player_definition(player_id),
     )
 
+def paid(match: MatchState, player_id: str, tokens_paid: int, total: Optional[int] = None) -> str:
+    """The line a move's charge adds, on a line of its own: every move
+    on the board costs a token a space (Law 15.1, 2026-11-03)."""
+    if tokens_paid <= 0:
+        return ""
+    total = tokens_paid if total is None else total
+    return (
+        f"\n{label(match, player_id)} exhausts {tokens_paid} "
+        f"{tokens.condition(tokens.CONDITION_EXHAUST) * tokens_paid} "
+        f"(now {total} total)."
+    )
+
+
 
 def defense_label(match: MatchState) -> str:
     """
@@ -291,10 +305,11 @@ def shove_text(
     challenger: str,
     actual_distance: int,
     partner: Optional[str] = None,
+    partner_came: int = 1,
 ) -> str:
     """
     The sentence both cards share, built rather than spelled out, plus
-    the Double Team's partner joining in.
+    the Double Team's partner joining in, and what each move costs.
     """
     space_word = "space" if actual_distance == 1 else "spaces"
     content = (
@@ -306,6 +321,12 @@ def shove_text(
     )
     if partner is not None:
         content += f" {label(match, partner)} joins them."
+    # Every move costs its spaces (Law 15.1, 2026-11-03): the handler
+    # shoved, the challenger who follows, the partner who joins.
+    content += paid(match, handler, actual_distance)
+    content += paid(match, challenger, actual_distance)
+    if partner is not None:
+        content += paid(match, partner, partner_came)
     return content
 
 
@@ -580,6 +601,7 @@ def double_team_that_overshoots() -> PressureFixture:
         narration=(
             shove_text(
                 match, "double_team", handler, challenger, 0, partner,
+                partner_came=0,
             )
             + OVERSHOOT_NOTE
         ),

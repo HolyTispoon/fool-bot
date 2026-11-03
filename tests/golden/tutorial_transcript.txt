@@ -23,6 +23,8 @@ A handler can do three things: shoot, maneuver, or call a time out to buy both c
 --- message
 🟠 <@111>, it is your turn.
 
+🪙 **Fortune**: offense wins ties.
+
 Sizzifizik [PM] will be handling the ball.
 
 Out of shooting range. Maneuver, or take a time out:
@@ -63,6 +65,7 @@ Time has advanced 1, now at 01.
 Chose **2 spaces**.
 --- message
 **Dribble:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+🟠 Sizzifizik [PM] exhausts 2 😮‍💨😮‍💨 (now 2 total).
 
 ### Ball speed
 You get a choice here too: the ball's own speed, up to your player's skill. It cuts both ways -- a faster ball adds to *your* next score attempt, but it adds just as much to a defense stealing it off you with Steal. We will come back to it properly in a few turns, when it actually matters. This turn it does not: the turnover in beat 2 resets it to 1 regardless, so **pick whatever you like.**
@@ -76,7 +79,7 @@ Ball speed is now **1**.
 Ball is now in space 2, 🟠 Player 1 (Home) has possession.
 --- message
 ## 2. Every role has an ability
-Dribble beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from space 0 to **space 2**.
+Dribble beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from space 0 to **space 2**, and **exhausted 2** doing it: every space a player moves on the board costs them 1 exhaustion token.
 
 Moving forward two spaces is not the ordinary move. A Dribble typically moves the player one space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Ball, the Midfielder gets +3 on a Pass or Steal test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities_reference`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
 
@@ -87,13 +90,17 @@ You are on space 2 now, which is inside your shooting range, so the **Shoot** bu
 --- message
 🟠 <@111>, it is your turn.
 
+🪙 **Fortune**: offense wins ties.
+
 The ball was left with Sizzifizik [PM], who takes this turn.
 
 Choose an action:
 === press 10: PlayerActionView -> 'Maneuver'
 --- message
 ### When both cards are the same rank
-Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and both players **exhaust 1** for the effort. Exhaustion is the game's running cost; enough of it and a player risks getting injured.
+Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and rolling costs nothing. Level totals go to **the coin**, whose face is under every turn's heading: **Fortune**, the attacker wins the tie; **Doom**, the defender does -- and then it is tossed again, so you always know how the next tie goes.
+
+Exhaustion is what moving costs, and it is the game's running cost: enough of it and a player risks getting injured.
 
 **Pick Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on space 1, so the ball is simply theirs: no roll, no contest, never loose.
 === press 11: TutorialContinueView -> 'Continue'
@@ -114,9 +121,6 @@ You chose **Pass**.
 
 🟠 Sizzifizik [PM]: offense skill 4
 🟣 Dravox [DD]: defense skill 5
-
-🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 1 total).
-🟣 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
 --- message
 Either player can roll:
 === press 13: SkillTestView -> 'Roll the skill test'
@@ -135,7 +139,8 @@ Space 0 (2 away) or space 1 (1 away).
 === press 14: RunBackChoiceView -> 'Space 0 (2 away)'
 --- message
 🟠 Sizzifizik [PM] runs back to space 0.
-🟠 Sizzifizik [PM] exhausts 2 😮‍💨😮‍💨 (now 3 total).
+🟠 Sizzifizik [PM] exhausts 2 😮‍💨😮‍💨 (now 4 total).
+🟠 Sizzifizik [PM] is now *exhausted* 🥵
 --- message
 Ball is now in space 1, 🟣 Dinky AI (Visitors) has possession.
 --- message
@@ -153,8 +158,7 @@ Once your challenger is in position, Dinky moves, and then you are asked for a c
 === press 16: ManeuverChallengeView -> 'Sizzifizik [PM] (1)'
 --- message
 Sizzifizik has moved 1 space.
-🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 4 total).
-🟠 Sizzifizik [PM] is now *exhausted* 🥵
+🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 5 total).
 --- message
 ### The other three cards
 Defending, your hand is the other half of the cycle:
@@ -182,11 +186,13 @@ You chose **Pressure**.
 Time has advanced 1, now at 03.
 --- message
 **Pressure:** 🟣 Glompex [MF] and the ball go back 1 space. 🟠 Sizzifizik [PM] moves forward.
+🟣 Glompex [MF] exhausts 1 😮‍💨 (now 1 total).
+🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 6 total).
 
 Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
 --- message
 ## 4. Winning the ball back
-Pressure drove them backwards: their handler and the ball went back a space to **space 2**, and your challenger moved up onto them. Dinky still has it -- but they have lost ground, and you are standing on the ball.
+Pressure drove them backwards: their handler and the ball went back a space to **space 2**, and your challenger moved up onto them -- a space each, and a token each for it. Dinky still has it -- but they have lost ground, and you are standing on the ball.
 
 Now take it off them.
 === press 19: TutorialContinueView -> 'Continue'
@@ -199,7 +205,7 @@ Now take it off them.
 ### Turnovers, the run back, and ball speed
 **Pick Steal.** Dinky is playing Pass, and Steal beats it -- the ball will be yours again!
 
-Two things happen after it. Your player takes the ball back a space with them, and **anyone left standing outside their own zone runs back into it**, exhausting 1 per space, the same cost you watched Dinky pay two turns ago.
+Two things happen after it. Your player takes the ball back a space with them, exhausting 1 for it, and **anyone left standing outside their own zone runs back into it**, exhausting 1 per space, the same cost you watched Dinky pay two turns ago.
 
 Then you get to set the **ball's speed**, up to your stealer's defensive skill. Half the speed, rounded down, is **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are grayed out.
 === press 21: TutorialContinueView -> 'Continue'
@@ -222,12 +228,13 @@ Time has advanced 1, now at 04.
 **Steal:**
 # Turnover!
 🟠 Sizzifizik [PM] steals the ball. 🟠 Player 1 (Home) now has possession, then falls back 1 space toward their own goal with the ball.
+🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 7 total).
 
 # Players run back!
 Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
 --- message
 🟣 Glompex [MF] runs back to space −1.
-🟣 Glompex [MF] exhausts 3 😮‍💨😮‍💨😮‍💨 (now 3 total).
+🟣 Glompex [MF] exhausts 3 😮‍💨😮‍💨😮‍💨 (now 4 total).
 --- message
 <@111>, manipulate the ball's speed (up to 3):
 === press 23: SpeedDeltaChoiceView -> '4 (+3)'
@@ -250,22 +257,24 @@ A High Ball of exactly 2 spaces lands on space 3. A pass that reaches a teammate
 --- message
 🟠 <@111>, it is your turn.
 
+🪙 **Fortune**: offense wins ties.
+
 The ball was left with Sizzifizik [PM], who takes this turn.
 
 Choose an action:
 === press 25: PlayerActionView -> 'Maneuver'
 --- message
 Dravox has moved 1 space.
-🟣 Dravox [DD] exhausts 1 😮‍💨 (now 2 total).
+🟣 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
 --- message
 ### High Ball, and what a shot is up against
 **Pick High Ball.** Dinky is playing Steal, and High Ball beats it, so the pass gets through.
 
 You will be asked how far to throw. **2 spaces** is the only distance offered here -- a longer throw would reach the goal zone, and the menu never offers one that would. It is also the distance you want: a pass of 2 is caught cleanly, where a 3-space throw has to be *won* by whoever it lands near, with the ball's speed counting against them.
 
-Then take the shot. A score attempt is your d12 plus the shooter's offensive skill and half the ball's speed, against Dinky's d12 plus every defender in the way -- one standing **on** the ball adds all of their defensive skill, one further back adds half, rounded up. A tie is a goal: the shooter has to be at least as high.
+Then take the shot. A score attempt is your d12 plus the shooter's offensive skill and half the ball's speed, against Dinky's d12 plus every defender in the way -- one standing **on** the ball adds all of their defensive skill, one further back adds half, rounded up. A tie goes to the coin: on Fortune it scores, on Doom it does not. Win or miss, the shot exhausts your striker 1.
 
-Their fullback is standing on space 3, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+11** against their **d12+6**. That is a real roll and it can miss -- but you should score about six times in seven.
+Their fullback is standing on space 3, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+11** against their **d12+6**. That is a real roll and it can miss -- but you should score about six times in seven with the coin on Fortune, and four in five on Doom.
 === press 26: TutorialContinueView -> 'Continue'
 --- message
 🟣 Dinky AI has picked their maneuver.

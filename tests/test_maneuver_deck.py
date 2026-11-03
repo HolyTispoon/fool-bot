@@ -184,11 +184,9 @@ class EngineTests(unittest.TestCase):
         self.engine.deal_maneuver_decks(game, match)
         self.assertEqual(match.maneuver_decks, {})
 
-    def test_two_point_one_has_no_gambits_and_no_gambit_coin(self) -> None:
+    def test_two_point_one_has_no_gambits(self) -> None:
         game = two_point_oh()
         self.assertFalse(self.engine.gambits_apply(game))
-        self.assertFalse(self.engine.coin_applies(game))
-        self.assertIsNone(self.engine.coin_holder(game, build_match()))
 
     def test_halftime_reshuffles_in_two_point_oh_alone(self) -> None:
         one = build_game()

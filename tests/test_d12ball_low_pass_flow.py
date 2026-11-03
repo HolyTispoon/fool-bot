@@ -451,9 +451,15 @@ class PasserAdvanceTests(unittest.TestCase):
         )
         result = answer_passer_advance(ENGINE, self.game, self.match, True)
         self.assertEqual(self.flat(self.handler), before + 1)
+        # The step costs its space (Law 6.5.3, 15.1; 2026-11-03).
         self.assertEqual(
-            result.narration, [f"{label(self.match, self.handler)} moves a space forward."],
+            result.narration, [
+                f"{label(self.match, self.handler)} moves a space forward."
+                f"\n{label(self.match, self.handler)} exhausts 1 "
+                "{condition:exhaust} (now 1 total)."
+            ],
         )
+        self.assertEqual(self.match.exhaustion.get(self.handler), 1)
         self.assertEqual(result.next.step, FollowOnStep.FINISH_MANEUVER_RESOLUTION)
         self.assertIsNone(self.match.pending_passer_advance)
 

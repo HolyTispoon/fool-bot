@@ -41,8 +41,8 @@ beats rail cards a shuffled hand may not hold (`configure` refuses 2.x there and
 `pin_tutorial` sets 1.0).
 
 - **`gambits_apply` answers no in 2.2**, whatever the mode: there are no advanced maneuvers.
-  `coin_applies` -- the gate over everything Law 19.3 adds -- is the same answer, 1.0's
-  advanced mode alone.
+  It is the gate over everything Law 19.3 adds, 1.0's advanced mode alone; `coin_applies`,
+  which fronted it while the coin decided who might declare, went on 2026-11-03.
 - **The record leaves the field out of `to_dict` while it is 1.0**, as it does `ai_seats`, so a
   1.0 save is written byte for byte as before.
 - **The rematch carries it**, in the service's `rematch` and the cog's.
@@ -153,9 +153,10 @@ cell's ends and nothing else: a typo on the tab is the author's to fix there.
   Long shot is offered beside the 3; B4's teammate is the turn's own handler choice; S2 moves
   neither the defender nor the ball; S3's +3 is this maneuver's skill test alone; R1 is a
   turnover with nobody moving; R3's token comes on top of the shove's; moves cost exhaustion.
-- **Every 2.1 score attempt exhausts the shooter 1 after the roll**, off a set-up or not (the
-  author, 2026-11-01; rules-2.2 5.5), where 1.0 charges only a set-up's shot (Law 8.3.1).
-  `RulesEngine.shot_exhausts` is the one reading, and `rolls.score_attempt_step` asks it.
+- **Every score attempt exhausts the shooter 1 after the roll**, off a set-up or not (the
+  author, 2026-11-01 for 2.1; rules-2.2 5.5), and since 2026-11-03 in 1.0 too (Law 5.4.1), so
+  `rolls.score_attempt_step` charges it unasked; `RulesEngine.shot_exhausts`, the reading that
+  told the editions apart, went with the difference.
 - **B1's shot is a scoring opportunity but not a set-up** (the author, 2026-10-31): the shot out
   of turn. In 2.1 that changes only its wording and the shot's `set_up` statistic, since every
   2.1 shot exhausts 1 and 2.1 has no Striker's +3. The offer carries `set_up=False`
@@ -318,61 +319,81 @@ message. A 1.0 halftime is unchanged, which the windows golden pins.
 
 ## The coin
 
-**2.1's coin settles every tie, and is tossed again after it** (rules-2.2 section 5; the author,
-2026-10-20 and 2026-10-31: *"The coin is tossed after any tie so players always know how it'll be
-resolved next and it has to be presented in turn messages"*). A skill test's, a contest for the
-ball's and, new in 2.1, a score attempt's tie goes to the face the coin shows -- Fortune to the
-offense (at a shot, the attack scores), Doom to the defense -- and then the coin is tossed, and
-its new face holds until the next tie. A tied shootout test scores for nobody and leaves the coin
-alone. It is not 1.0's gambit coin, which `coin_applies` gates and 2.2 has none of.
+**The coin settles every tie, and is tossed again after it** -- 2.x's rule (rules-2.2 section 5;
+the author, 2026-10-20 and 2026-10-31: *"The coin is tossed after any tie so players always know
+how it'll be resolved next and it has to be presented in turn messages"*), and **since
+2026-11-03 the Charter's, in every edition** (Law 6.11; the author: *"some revisions to d12ball
+1.0 to match the rules from 2.0: the coin and tie breaking"*). A skill test's, a contest for the
+ball's and a score attempt's tie goes to the face the coin shows -- Fortune to the offense (at a
+shot, the attack scores), Doom to the defense -- and then the coin is tossed, and its new face
+holds until the next tie. A tied shootout test scores for nobody and leaves the coin alone.
 
+- **One coin, which a gambit never touches** (the author, 2026-11-03: *"one coin. gambit doesn't
+  hand it over or toss it, it is only tossed when it breaks a tie"*). 1.0's advanced mode had
+  a gambit coin -- held by the toss winner, handed over and flipped by every declaration, its
+  face deciding nothing. It is gone: **either coach may declare a gambit** (the author's answer
+  when asked who may then), one a maneuver (Law 19.3). `MatchState.coin_holder` and
+  `coin_face` are still saved fields, read and written back unchanged so a game saved before
+  loads, and nothing reads them; `RulesEngine.coin_holder`, `coin_face` and `coin_applies` went.
 - **`MatchState.tie_coin` is the face it shows**, saved only once flipped (`MATCH_EXPLICIT_FIELDS`),
-  so a 1.0 match is written as before. `RulesEngine.tie_coin_applies` is the gate, the deck's
-  answer under its own name, and `tie_coin_winner` the one reading of whom the face favours.
+  so a match from before its first turn is written as before. There is no gate any more --
+  `tie_coin_applies` went when both editions came to play it -- and `tie_coin_winner` is the one
+  reading of whom the face favours.
 - **Set at the first turn from the setup toss** (`turn.settle_tie_coin`, in `start_turn`), before
   anybody is asked anything, and never again there: the coin starts on the face the toss for home
-  or the visitors landed on (`D12BallGame.coin_face`; rules-2.2 5.2, the author, 2026-11-01:
+  or the visitors landed on (`D12BallGame.coin_face`; Law 6.11.3, the author, 2026-11-01:
   *"it should just use the toss from the team selection"*), and only a game seated without a toss
-  flips it there. It says nothing: the turn message's coin line is the one place the face is
-  said, and a "The coin is flipped" line beside it put the face in one message twice. 2.0 tossed
-  it at a turn's start after an advanced card, and with no advanced cards the turn-start toss and
-  `tie_coin_owed` are gone.
+  flips it there. **A 1.0 game saved before 2026-11-03 has no face**, so its next turn takes the
+  toss's -- the same reading, with nothing to migrate. It says nothing: the turn message's coin
+  line is the one place the face is said, and a "The coin is flipped" line beside it put the face
+  in one message twice.
 - **Settled and tossed in one place**, `rolls.coin_settles_tie`: it reads the face, says who wins
   and why, tosses (`engine.flip_coin`, the engine's `rng`) and says the new face and what it means
-  -- asked where 1.0 re-rolls a tied test or contest (`skill_test_step`, `loose_ball_test_step`)
-  and where 1.0 scores a tied shot (`score_attempt_step`). A tie met before any flip flips it
-  first, and says so.
+  -- asked wherever totals come out level (`skill_test_step`, `loose_ball_test_step`,
+  `score_attempt_step`). A tie met before any flip flips it first, and says so. **Nothing is
+  rolled again for a tie**, so `pay_contest_tie` and `re_roll_tokens` went with the re-roll; a
+  1.0 game saved waiting on a re-roll's button rolls it as an ordinary roll, whose tie the coin
+  settles.
 - **The face is always in view** (the author, 2026-10-20 and 2026-10-31): every turn message
   carries it (`build_turn_prompt`, "Doom: defense wins ties.") and the board draws the game's own
-  coin showing it on the jumbotron, with the same words under it (`draw_jumbotron_coin`). The
-  engine answers both -- `tie_coin_face` and `tie_coin_caption` -- and the cog hands the renderer
-  the picture's name and the caption (`D12Ball.tie_coin_brief`), so the renderer reads no rule.
-  With no coin the jumbotron is drawn exactly as before, byte for byte.
+  coin showing it on the jumbotron, with the same words under it (`draw_jumbotron_coin`) -- the
+  1.0 board as the 2.0 one. The engine answers both -- `tie_coin_face` and `tie_coin_caption` --
+  and the cog hands the renderer the picture's name and the caption (`D12Ball.tie_coin_brief`),
+  so the renderer reads no rule. With no face yet the jumbotron is drawn exactly as before, byte
+  for byte. The web app draws the same coin under the score (`webapp/board.py`'s `jumbotron`) --
+  see web-app.md.
 
 ## Moving costs
 
-**In 2.x a move on the board costs a token a space, and a card costs nothing** (rules-2.2 5.4;
-the author, 2026-10-21, replacing the rank cost of 2026-10-20, which had each player pay their
-card's rank at the reveal). `RulesEngine.moving_costs` is the gate -- the deck's answer under its
-own name, like `tie_coin_applies` -- and `pay_for_move(game, match, player_id, tokens)` the one
-charge, "" in 1.0 or for a move that went nowhere.
+**A move on the board costs a token a space, and entering a skill test costs nothing** -- 2.x's
+rule (rules-2.2 5.4; the author, 2026-10-21, replacing the rank cost of 2026-10-20, which had each
+player pay their card's rank at the reveal), and **since 2026-11-03 the Charter's** (Law 15.1;
+the author chose "both halves" when asked whether 1.0 took the free test with the moves).
+`pay_for_move(game, match, player_id, tokens)` is the one charge, "" for a move that went nowhere;
+`moving_costs`, the gate that told the editions apart, went.
 
-- **Charged where the move is made, off what it came to.** The Charter already charges a send and
-  a run back a space in both editions (`choose_challenger`, `walk_in_contestants`,
-  `run_back_space_step`, the pickup), so those never reach `pay_for_move`. What does is every move
-  1.0 makes free during play: a won Dribble's handler (`dribble_advance_step`, at
-  `dribble_burst_cost`, so Emberdash's free Burst covers their Dribble), the passer's step
+- **Charged where the move is made, off what it came to.** The Charter has always charged a send
+  and a run back a space (`choose_challenger`, `walk_in_contestants`, `run_back_space_step`, the
+  pickup), so those never reach `pay_for_move`. What does is every move that was free in 1.0
+  until 2026-11-03: a won Dribble's handler (`dribble_advance_step`, at `dribble_burst_cost`, so
+  Emberdash's free Burst covers their Dribble, Law 21.3.4), the passer's step
   (`answer_passer_advance`, whose ask names the token -- `passer_advance_prompt`), Pressure's
   shove, the challenger who follows it and a Double Team's partner who joins them (`pressure_step`,
-  each measured from where they stood -- the partner too, though Law 19.10.2 makes their join free
-  in 1.0; the author on PR #665), a Steal's or an Intercept's carry (`steal_step`), and a beaten Double Team's two
-  (`pay_double_team_cost`). Each reads the distance `move_player_relative` hands back, never the
-  one asked for, because a clamped move pays for where it got to.
-- **What stays free** (5.4a, 5.4b): the reset after a new play and every Coaching Choice move,
-  which rearrange a formation rather than play; and the moves an ability prices -- Strider's run back,
-  Quantor's run, Glompex's step -- which keep their price.
-- **Entering a skill test stays free** (5.4c, the author's answer): `skill_test_tokens` answers 0
-  in 2.0 but for the 2 Scorchit pays to force a test, which is the ability's price.
+  each measured from where they stood -- the partner too, the author's 2.0 ruling on PR #665, which
+  Law 19.10.2 now says for 1.0), a Steal's or an Intercept's carry (`steal_step`), and a beaten
+  Double Team's two (`pay_double_team_cost`, Law 19.10.6). Each reads the distance
+  `move_player_relative` hands back, never the one asked for, because a clamped move pays for
+  where it got to. The two Double Team prices are Claude's reading of "exhaustion costs of moves"
+  for the one place the Charter had called a move free in its own words, and the rules log flags
+  them for review.
+- **A step a test calls with no record still charges**: with no game, `species_abilities_apply`
+  answers no, as `maneuver_deck_applies` does, so the token is the plain one.
+- **What stays free** (Law 15.1.2): the reset after a new play -- in 2.2 the run back that takes
+  its place -- and every Coaching Choice move, which rearrange a formation rather than play; and
+  the moves an ability prices -- Strider's run back, Quantor's run, Glompex's step -- which keep
+  their price.
+- **Entering a skill test is free** (Law 6.4.1, rules-2.2 5.4c): `skill_test_tokens` answers 0
+  but for the 2 Scorchit pays to force a test, which is the ability's price (Law 21.3.8).
 - **The Dribble menu does not price its buttons yet**; a Playmaker choosing 1 or 2 spaces reads
   the cost in the narration. Pricing them is an option field on `DRIBBLE_ADVANCE_CHOICE`, both
   sides reading it, as the Burst's `dribble_burst_note` does.

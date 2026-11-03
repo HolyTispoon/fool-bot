@@ -94,22 +94,25 @@ it. Three things narrow it, and all three are rules:
   into the unopposed branch settle it before the offense is prompted.
   That also makes declining a challenge a defensive weapon rather than
   only a saving;
-- **the coin decides who may make a gambit** (the author, 2026-09-28),
-  below.
+- **either coach may make a gambit** (the author, 2026-11-03; the coin
+  decided from 2026-09-28), below.
 
-### The coin
+### Who may make a gambit
 
 Until 2026-09-28 a gambit needed a reason -- a coach held their gambits
-only while their team was behind. **Now the coin decides** (Law 19.3):
-the toss winner keeps it, its holder may declare a gambit at any
-challenged maneuver, and declaring hands it to the other coach. Being
-behind survives as the condition for **answering** a gambit.
+only while their team was behind. From then until 2026-11-03 **the coin
+decided**: the toss winner kept it, its holder might declare, and
+declaring handed it to the other coach, who flipped it. **Since
+2026-11-03 either coach may declare a gambit** at any challenged
+maneuver nobody has declared at (Law 19.3; the author, asked who
+declares once the coin settles ties instead: "Either coach"), and the
+coin is not touched -- it is the one coin, which settles ties alone
+(Law 6.11, maneuver-deck.md "The coin"). Being behind survives as the
+condition for **answering** a gambit.
 
-- **Four questions, all on the engine.** `coin_holder` (the match's
-  `coin_holder` once a declaration has moved it, the toss winner's side
-  before that, home for a game seated with no toss, `None` without the
-  gambits); `may_declare_gambit` (the holder, a challenged maneuver,
-  nobody declared yet); `behind` (the old gate's two readings, fewer
+- **Three questions, all on the engine.** `may_declare_gambit` (the
+  gambits played, a challenged maneuver, nobody declared yet -- asked
+  of either side alike); `behind` (the old gate's two readings, fewer
   goals or more Exhausted-or-Injured *on the field*, strictly more, so
   both teams can be behind at once); and `may_answer_gambit` (the other
   side declared, and this side is behind). `maneuver_tiers` reads them, with `gambit_answer_owed` (the other
@@ -131,13 +134,11 @@ behind survives as the condition for **answering** a gambit.
   that moves later in the same maneuver -- an own-goal roll -- would
   otherwise put the question up in the middle of the resolution, ahead
   of the effect's own prompts. The re-swept golden found exactly that.
-- **Five saved fields, one per thing that outlives a click**:
-  `coin_holder` on the match (None until it first moves -- that is also
-  the fallback for a save that predates it, so nothing migrates);
-  `coin_face`, the face the coin landed on when it last passed (below);
+- **Three saved fields, one per thing that outlives a click**:
   `gambit_declared_by`, `gambit_answer` and `pick_unconfirmed`, this
-  maneuver's, all cleared by `reset_maneuver`. The coin carries through halftime and
-  the shootout because nothing clears it.
+  maneuver's, all cleared by `reset_maneuver`. The gambit coin's two,
+  `coin_holder` and `coin_face`, are still in the table so a game saved
+  before 2026-11-03 reads and writes back unchanged; nothing reads them.
 - **A declaration withdraws the declarer's pick and puts the other's
   in question** (`MatchState.declare_gambit`). A pick in question is
   not in (`maneuver_selections_complete`); its coach confirms it (the
@@ -157,14 +158,14 @@ behind survives as the condition for **answering** a gambit.
   message, and the old one is deleted -- see
   [maneuver-prompt.md](maneuver-prompt.md).
 - **Everything a declaration or an answer does is said.** "X declares
-  a gambit and hands the coin to Y", "Y answers with a gambit of their
+  a gambit", "Y answers with a gambit of their
   own" or "Y plays their basic cards" (at the answer, before the cards),
   "Y has confirmed their maneuver" -- the advanced cards have their own
   back, so none of it is a secret. "Y may confirm their maneuver or
   change it" is said only to a person: the AI answers first.
 - **Nothing is persisted for being behind**, as before: it is read off
   the scoreboard and the field when the hand is drawn.
-- **What the coin holds back is asked too, not worked out.** The web
+- **What a hand holds back is asked too, not worked out.** The web
   page shows a side's gambits dimmed beside a hand that does not hold
   them, so which cards those are is `RulesEngine.withheld_gambits` --
   the complement of `maneuver_hand` within the side's cards, asked of
@@ -172,41 +173,31 @@ behind survives as the condition for **answering** a gambit.
   unchallenged maneuver and for a side that holds them. It rides on the
   prompt as `ManeuverHand.withheld` and is never an answer; the Discord
   hand image does not draw it.
-- **The coin is on the hand and nothing else.** Volatile still upgrades
-  a maneuver to its rank's gambit off an ignite whatever the coin says,
+- **Who may declare is about the hand and nothing else.** Volatile still
+  upgrades a maneuver to its rank's gambit off an ignite whoever declared,
   and Synapse's Overdrive and Dravox and Hexis likewise: those are about
   the dice. The reference hexagon is not gated either
   (`RulesEngine.maneuver_reference_tier`).
-- **Dinky declares on a coin flip.** Holding the coin with its hand not
+- **Dinky declares on a coin flip.** Free to declare with its hand not
   yet down, it declares half the time; after a declaration it rolls a
   rank and picks among the cards on it in the hand the prompt offers.
   Asked to answer a gambit while behind, it answers either way on a
-  coin flip. The
-  same indifference as the tier choice, below -- and the only way a solo
-  coach ever sees the coin cross.
+  coin flip. The same indifference as the tier choice, below. Since
+  2026-11-03 it may declare at every challenged maneuver rather than
+  only while holding the coin, so a solo game sees about twice the
+  gambits.
 - **The game's own coin.** Each game is played with one of the six
   Fortune and Doom coins (`GAME_COINS`), drawn from `engine.rng` when
   the game is created and kept for the game (the author, 2026-09-28):
   the toss is flipped with it, Discord shows its emoji, the web page
   its faces. `D12BallGame.game_coin` is the reading, the gold 3 for a
   game saved before.
-- **The coin is flipped each time it passes** (Law 19.3.3, the author,
-  2026-10-01, amending "never flipped again"): `declare_gambit_step`
-  draws the face with `engine.flip_coin` -- the toss's own draw, off
-  `engine.rng` -- and `MatchState.declare_gambit` writes it as
-  `coin_face`. **`RulesEngine.coin_face` is the one reading**: that
-  face once the coin has passed, the toss's until then (the same face
-  whoever flipped it, since a doom face hands the toss over), Fortune
-  for a game seated without a toss, and `None` wherever `coin_holder`
-  is. **The face decides nothing**; it is what the coin looks like, so
-  every frontend draws the same one: the declaration says it ("hands
-  the coin to Y, who flips it: [coin] Doom."), the holder's sentence
-  says it ("holds the coin, [coin] Doom up, and may declare a
-  gambit."), each through a `{coin:doom}` token, and the web page's
-  box coin and jumbotron draw it. A save from before the flip has no
-  `coin_face` and shows the toss. The draw moved every seeded game
-  after a declaration, so the advanced golden and the full-game driver
-  test were re-swept for their seeds.
+- **The coin was flipped each time it passed** (the author, 2026-10-01)
+  until 2026-11-03, when a gambit stopped touching it: `declare_gambit_step`
+  draws nothing now, and the declaration says only that it was made. The
+  one face is `MatchState.tie_coin`, which only a tie tosses. Dropping
+  the draw moves every seeded game after a declaration, so the advanced
+  golden and the full-game driver test are re-recorded for it.
 
 - **The outright rule is two questions about two cards**, not one
   about the matchup: `gambit_benefit_applies` (this card **won on

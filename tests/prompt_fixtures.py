@@ -346,7 +346,7 @@ def gambit_answer(ai: bool = False) -> PromptFixture:
     # gambit; the visitors are a goal down and answer before any card.
     match = build_match()
     challenge(match)
-    match.declare_gambit("offense", TeamSide.HOME)
+    match.declare_gambit("offense")
     match.scoreboard.home_score += 1
     game = build_game(
         mode=GameMode.ADVANCED, **({"player_2_id": None} if ai else {}),
@@ -813,8 +813,8 @@ def follow_ball() -> PromptFixture:
     from d12ball.formatting import space_label
     fixture.ask = (
         f"{label(fixture.match, defender)} may follow the ball to "
-        f"{space_label(zone, space_index, fixture.match.board)}, or stay "
-        "where they are:"
+        f"{space_label(zone, space_index, fixture.match.board)} for 1 "
+        "exhaustion, or stay where they are:"
     )
     fixture.params = {"player_id": defender}
     return fixture
@@ -836,8 +836,8 @@ def passer_advance() -> PromptFixture:
         "free": False,
     }
     fixture.ask = (
-        f"{label(fixture.match, passer)} may move a space forward, or "
-        "stay where they are:"
+        f"{label(fixture.match, passer)} may move a space forward for 1 "
+        "exhaustion, or stay where they are:"
     )
     fixture.params = {"player_id": passer}
     return fixture
