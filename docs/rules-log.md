@@ -181,12 +181,12 @@ of score attempts."* What 2.2's section 5 said is now the Charter's, so 1.0 and 
   test is free** -- both halves of 2.0's 5.4, the author choosing "both halves" when asked.
   Free stay the reset after a new play and every move a Coaching Choice makes; an ability that
   prices its own move keeps its price. Emberdash's Dribble is free, as their Burst is (21.3.4),
-  which is 2.0's 5.4b.
+  which is 2.0's 5.4b -- *"ok for emberdash"* (the author, PR #701, 2026-11-04).
 - **Double Team's partner pays the spaces they came, and a failed Double Team's two pay their
   space** (19.10.2, 19.10.6), where the Charter had both free. This is Claude's reading of
   "exhaustion costs of moves", following the author's 2.0 ruling on PR #665 for the partner;
-  it is the one place the Charter priced a move as free in its own words, so it is flagged for
-  review.
+  it is the one place the Charter priced a move as free in its own words, so it was put to the
+  author, who answered on PR #701, 2026-11-04: *"keep the Double Team costs"*.
 - **Every score attempt exhausts its shooter 1 after the roll**, ordinary or off a set-up --
   2.1's ruling of 2026-11-01, which then said *"Don't change 1.0 for now"*.
 - **Games in progress play the new rules from their next action.** A 1.0 game saved before
