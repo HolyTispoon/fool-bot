@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import Optional
 
 
-from d12ball import maneuver_deck, tokens, tutorial
+from d12ball import maneuver_deck, tutorial
 from d12ball.components import (
     DECISION_CARDS,
     DECISION_INJURY_FORFEIT,
@@ -49,7 +49,7 @@ from d12ball.formatting import (
     format_team_side_label,
     format_team_coach,
 )
-from d12ball.game import COIN_FACE_WORDS, CoinFace, D12BallGame
+from d12ball.game import CoinFace, D12BallGame
 from d12ball.special_abilities import GLOMPEX_JOIN_COST
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
@@ -793,17 +793,19 @@ def settle_tie_coin(
     match: MatchState,
 ) -> None:
     """
-    **D12 Ball 2.2's coin, set at the first turn** (rules-2.2 5.2; the
-    author, 2026-11-01): it starts on the face the setup toss landed on
+    **The coin, set at the first turn** (Law 6.11.3; the author,
+    2026-11-01 for 2.x and 2026-11-03 for 1.0, which took it then, so a
+    1.0 game saved before has none until its next turn sets it): it
+    starts on the face the setup toss landed on
     (`D12BallGame.coin_face`, Law 3.1.2), so it is not flipped again --
     a game seated without a toss, which has no face to take, flips it
     here. Before anybody is asked anything, so the face that settles
     the first tie is known before it. Says nothing: the turn message
     shows the face (`build_turn_prompt`), and saying it here too put it
     in the same message twice. After this it is tossed only after a tie
-    (`rolls.coin_settles_tie`); nothing in 1.0.
+    (`rolls.coin_settles_tie`) -- never by a gambit (Law 19.3.1).
     """
-    if not engine.tie_coin_applies(game) or match.tie_coin is not None:
+    if match.tie_coin is not None:
         return
     face = game.coin_face or engine.flip_coin()
     match.tie_coin = CoinFace(face).value
@@ -964,14 +966,12 @@ def gambit_declaration_refusal(
     Like `maneuver_pick_refusal`, everything except who is allowed to
     press: that is the frontend's, asked first.
     """
-    if not engine.coin_applies(game):
-        return "This game is not played with the coin and its gambits."
+    if not engine.gambits_apply(game):
+        return "This game is not played with the gambits."
     if match.maneuver_uncontested:
         return "A gambit can only be made against a challenge."
     if match.gambit_declared_by is not None:
         return "A gambit has already been declared this maneuver."
-    if not engine.may_declare_gambit(game, match, side):
-        return "Only the coach holding the coin may declare a gambit."
     return None
 
 
@@ -984,9 +984,9 @@ def declare_gambit_step(
 ) -> StepResult:
     """
     A gambit declared (Law 19.3.2-19.3.3): this side's own pick, if it
-    had made one, is withdrawn, the other side's waits to be confirmed,
-    and the coin crosses the table, where the coach it goes to flips it
-    (Law 19.3.3) -- a draw of the engine's, like the toss.
+    had made one, is withdrawn, and the other side's waits to be
+    confirmed. **The coin is not touched**: either coach may declare,
+    and the coin settles ties alone (the author, 2026-11-03).
 
     **Said out loud, because it is public**: the advanced cards have
     their own back. Who is now behind enough to answer is the prompt's
@@ -1005,9 +1005,7 @@ def declare_gambit_step(
     other = "defense" if side == "offense" else "offense"
     declarer_number = _maneuver_side_number(engine, game, match, side)
     other_number = _maneuver_side_number(engine, game, match, other)
-    # The coach the coin goes to flips it (Law 19.3.3).
-    face = engine.flip_coin()
-    match.declare_gambit(side, engine.maneuver_side_team(match, side), face)
+    match.declare_gambit(side)
     if not engine.may_answer_gambit(game, match, other):
         # Behind is read now, as the maneuvers are chosen (Law 19.3.8):
         # a side that is not behind keeps its basic cards, and the
@@ -1017,10 +1015,7 @@ def declare_gambit_step(
 
     declarer = format_player_with_team(game, declarer_number)
     receiver = format_player_with_team(game, other_number)
-    narration = [
-        f"{declarer} declares a gambit and hands the coin to {receiver}, "
-        f"who flips it: {tokens.coin(face)} {COIN_FACE_WORDS[face]}."
-    ]
+    narration = [f"{declarer} declares a gambit."]
     if (
         match.pick_unconfirmed == other
         and engine.gambit_answer_owed(game, match) is None

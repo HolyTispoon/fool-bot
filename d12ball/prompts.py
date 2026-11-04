@@ -1610,17 +1610,15 @@ def passer_advance_prompt(
     off `MatchState.pending_passer_advance`, which holds the question
     from the moment the ball goes until the coach answers. Shared by
     the live offer (`d12ball.flow.effects.offer_passer_advance`) and a
-    restart, so the two word it the same. In 2.0 the step costs a
-    token (rules-2.2 5.4), so the ask says so.
+    restart, so the two word it the same. The step costs a token (Law
+    6.5.3, 15.1), so the ask says so.
     """
     outstanding = match.pending_passer_advance
     if not outstanding:
         return None
     passer = engine.get_player_definition(outstanding["passer_id"])
-    cost = ""
-    if engine.moving_costs(game):
-        noun, _ = engine.token_word_and_mark(game, passer.player_id)
-        cost = f" for 1 {noun}"
+    noun, _ = engine.token_word_and_mark(game, passer.player_id)
+    cost = f" for 1 {noun}"
     return PendingPrompt(
         PromptKind.PASSER_ADVANCE,
         f"{engine.format_player_label(match, passer)} may move a space "
@@ -1647,7 +1645,7 @@ def follow_prompt(
     player = engine.get_player_definition(outstanding["player_id"])
     spaces = outstanding.get("spaces", 1)
     noun, _ = engine.token_word_and_mark(game, player.player_id)
-    cost = f" for {spaces} {noun}" if engine.moving_costs(game) and spaces else ""
+    cost = f" for {spaces} {noun}" if spaces else ""
     return PendingPrompt(
         PromptKind.FOLLOW_BALL,
         f"{engine.format_player_label(match, player)} may follow the ball "

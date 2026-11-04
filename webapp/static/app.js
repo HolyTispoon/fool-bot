@@ -581,20 +581,10 @@ function drawJumbotron(state) {
         coach ? [" · ", h("b", {}, coach.name)] : "",
       ),
       /* Drawn on both sides and hidden on the one without the ball, so
-         the two columns are one height and their rows line up. The
-         coin beside it, on the side whose coach holds it (Law 19.3):
-         the game's own coin on the face it last landed on, only in a game played
-         with the gambits. */
+         the two columns are one height and their rows line up. */
       h("div", { class: "jumbo-tokens" },
         h("div", { class: `jumbo-ball${team && team.possession ? "" : " idle"}` },
-          die(j ? String(j.speed) : "", { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL"),
-        j && j.coin
-          ? h("div", {
-              class: `jumbo-coin${team && team.coin ? "" : " idle"}`,
-              title: "Holds the coin: may declare a gambit",
-            },
-            h("img", { src: j.coin, alt: "", width: 18, height: 18 }), "COIN")
-          : null),
+          die(j ? String(j.speed) : "", { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL")),
     );
   };
 
@@ -607,7 +597,18 @@ function drawJumbotron(state) {
         "div",
         { class: "jumbo-score" },
         h("div", { class: "jumbo-goals" }, j ? `${j.score.home} : ${j.score.visiting}` : "- : -"),
-        h("div", { class: "jumbo-brand" }, "D12 BALL"),
+        /* The coin, under the score (Law 6.11.3): the game's own coin
+           on the face that settles the next tie, with what it means.
+           It is neither team's, so it sits between them; before the
+           first turn sets it, the brand stands in its place. */
+        j && j.coin
+          ? h("div", {
+              class: `jumbo-coin ${j.coin.face}`,
+              title: `The coin: ${j.coin.caption.toLowerCase()}`,
+            },
+            h("img", { src: j.coin.image, alt: "", width: 18, height: 18 }),
+            h("span", { class: "jumbo-coin-words" }, j.coin.caption))
+          : h("div", { class: "jumbo-brand" }, "D12 BALL"),
       ),
       side("visiting"),
     ),
@@ -2025,8 +2026,8 @@ function drawReference(prompt) {
 
 /* The objects the question box draws, rather than the board: the die
    to roll, the faces of a speed to choose, the whistle, the note, the
-   REMATCH mark, the hand's cards, the coin. */
-const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card", "formation", "coin"]);
+   REMATCH mark, the hand's cards, the formation tiles. */
+const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card", "formation"]);
 
 /* Whether a control is drawn in the question box: the neutral ones, the
    box's own objects, and a meeple lit that is not on the field to be
@@ -2285,7 +2286,6 @@ function drawControl(control) {
     });
   }
   if (at === "rematch") return rematchMark(control);
-  if (at === "coin") return coinLine(control);
   if (at === "note") {
     return h("span", { class: "note-chip" }, chip({ ...control, chip: "click the note to go on" }));
   }
@@ -2297,6 +2297,13 @@ function drawControl(control) {
     title: control.note || null,
   });
   if (control.player) hoverCard(button, cardUrl(control.player));
+  /* A neutral control that says what it does says it beside itself,
+     muted, in sight rather than in a tooltip: the gambit's declaration
+     (the author, 2026-11-04). */
+  if (control.said && !control.place && !control.disabled) {
+    return h("div", { class: "said-line" }, button,
+      h("span", { class: "note-line" }, control.said));
+  }
   return button;
 }
 
@@ -2362,24 +2369,6 @@ function face(control) {
     },
     die(String(control.place.value), { size: 52, fill: "#ffffff", ink: "#243347", font: 24 }),
   );
-}
-
-/* The coin, in the box of the coach holding it (Law 19.3): its line,
-   with what declaring does muted under it, and the game's own coin,
-   lit gold, to the right of the words (the author, 2026-10-01) --
-   clicking it declares a gambit. */
-function coinLine(control) {
-  return h("div", { class: "coin-line" },
-    h("div", { class: "coin-line-words" },
-      h("span", {}, control.said || control.label),
-      control.note ? h("span", { class: "note-line" }, control.note) : null),
-    h("button", {
-      type: "button",
-      class: "coin-button lit",
-      title: control.label,
-      "aria-label": control.label,
-      onclick: () => press(control),
-    }, h("img", { src: control.image, alt: "", class: "coin line" })));
 }
 
 /* The whistle: Done, Start the game, Pick it up. A pea-whistle, gold

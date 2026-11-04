@@ -162,7 +162,11 @@ class ServiceGoldenTests(unittest.TestCase):
         self.assertNotIn("<@", self.transcript)
         self.assertNotIn("<:", self.transcript)
         kinds = {kind for kind, _ in tokens.find(self.transcript)}
-        self.assertEqual(kinds, {"team", "role", "condition", "coach"})
+        # The coin's face, on every turn message since 1.0 took the coin
+        # (2026-11-03).
+        self.assertEqual(
+            kinds, {"team", "role", "condition", "coach", "coin"},
+        )
         self.assertIn("{coach:1}, it is your turn.", self.transcript)
 
     def test_two_runs_on_one_seed_agree(self) -> None:

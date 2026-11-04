@@ -74,8 +74,12 @@ from test_d12ball_driver_actions import LEGAL_ACTIONS, UNANSWERABLE
 #: gambits off the same stream, so every seed's game is a new one. And
 #: again when the coin came to be flipped as it passes (2026-10-01): a
 #: declaration draws the face, which moves every draw after it, and seed
-#: 0 stopped reaching the shootout. Seed 4 is the first of 0 on that does.
-SEED = 4
+#: 0 stopped reaching the shootout. Seed 4 was the first of 0 on that
+#: did. And again when 1.0 took the coin for ties, moving costs and
+#: every shot's token, and a gambit stopped touching the coin
+#: (2026-11-03): every game is a new one again, and seed 0 is the first
+#: that reaches the shootout.
+SEED = 0
 
 #: More actions than any game takes: thirty-odd minutes a half at one
 #: a turn, a handful of prompts a turn, both halves and a shootout.

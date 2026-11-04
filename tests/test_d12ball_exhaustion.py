@@ -117,9 +117,9 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
             cog.engine.get_player_definition(player_id)
         ).defense
 
-    async def test_the_entry_token_s_exhausted_flag_is_saved(self) -> None:
-        # One token below the threshold going in, so the token the
-        # skill test itself charges is what crosses it.
+    async def test_entering_a_skill_test_costs_nothing(self) -> None:
+        # At the threshold going in: since 2026-11-03 entering the test
+        # is free (Law 6.4.1), so nothing pushes them over it.
         cog = build_cog()
         match = self.build_match()
         game = build_game()
@@ -129,24 +129,22 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = offense_id
         match.challenger_id = match.visiting.field_players[0]
         match.offense_maneuver, match.defense_maneuver = tie_maneuvers(cog)
-        match.add_exhaustion(
-            offense_id, self.defense_skill(cog, offense_id),
-        )
-        self.assertNotIn(offense_id, match.exhausted)
+        skill = self.defense_skill(cog, offense_id)
+        match.add_exhaustion(offense_id, skill)
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
             await resolve_maneuver(cog, build_interaction(), game, match)
 
-        self.assertIn(offense_id, cog.engine.load_match_state(game).exhausted)
+        saved = cog.engine.load_match_state(game)
+        self.assertEqual(saved.exhaustion[offense_id], skill)
+        self.assertNotIn(offense_id, saved.exhausted)
 
-    async def test_a_tie_s_token_is_in_force_for_the_injury_check(
+    async def test_a_tie_costs_nothing_and_goes_to_the_coin(
         self,
     ) -> None:
-        # A tie sends the test back to be rolled again and charges both
-        # players another token. Whoever that pushes over their
-        # defensive skill has to be exhausted for the roll that finally
-        # resolves the test -- and therefore for its injury check.
+        # A tie is settled by the coin (Law 6.11): nothing is rolled
+        # again, so nobody pays a token for it.
         cog = build_cog()
         match = self.build_match()
         game = build_game()
@@ -157,17 +155,12 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = offense_id
         match.challenger_id = defense_id
         match.offense_maneuver, match.defense_maneuver = tie_maneuvers(cog)
-        # The entry token puts them level with the threshold; the tie's
-        # token is the one that crosses it.
-        match.add_exhaustion(
-            offense_id, self.defense_skill(cog, offense_id) - 1,
-        )
+        match.tie_coin = "fortune"
         game.match_state = match.to_dict()
 
         interaction = build_interaction()
         with suppressed_cog_saves():
             await resolve_maneuver(cog, interaction, game, match)
-        self.assertNotIn(offense_id, cog.engine.load_match_state(game).exhausted)
 
         # Rolls chosen so the two totals land level. Neither of these
         # two is a Midfielder and neither maneuver is Steal or Intercept,
@@ -185,14 +178,23 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         view = SkillTestView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
-            side_effect=[offense_roll, defense_roll],
+            side_effect=[offense_roll, defense_roll, 1, 1, 1, 1],
         ):
             await press_roll(view, interaction)
 
-        self.assertIn(offense_id, cog.engine.load_match_state(game).exhausted)
-        # A tie resolves nothing, so it owes no injury test: the
-        # queue is only ever built when the contest ends.
-        cog.begin_injury_tests.assert_not_awaited()
+        saved = cog.engine.load_match_state(game)
+        for player_id in (offense_id, defense_id):
+            self.assertEqual(saved.exhaustion.get(player_id, 0), 0)
+        [test] = [
+            event for event in saved.events if event.kind == "skill_test"
+        ]
+        self.assertTrue(test.details["tied"])
+        # Settled on the one roll: nothing asks for it to be rolled again.
+        from d12ball.prompts import PromptKind, pending_prompt
+        self.assertIsNot(
+            getattr(pending_prompt(cog.engine, game, saved), "kind", None),
+            PromptKind.SKILL_TEST,
+        )
 
     async def test_apply_exhaustion_charges_and_tests_together(self) -> None:
         cog = build_cog()

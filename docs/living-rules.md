@@ -184,7 +184,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **3.1.3** The winner chooses whether to be home or the visitors. Home kicks off the first half and the visitors kick off the second.
 
-**3.1.4** In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) the winner of the toss also **keeps the coin**, which is what lets a coach [make a gambit](#193-who-may-make-a-gambit) (19.3). It stays on the face it landed on until it passes, and is flipped each time it does.
+**3.1.4** **The coin stays on the table, on the face it landed on**, and settles the game's ties -- see [ties and the coin](#611-ties-and-the-coin) (6.11). Its face is public.
 
 ### 3.2 The standard deal
 
@@ -269,7 +269,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **5.2.2** The attack adds the shooter's offensive skill, the [ball speed modifier](#7-ball-speed) (7) from anywhere in range -- or, off a [High Ball that reached the goal zone](#75-a-high-ball-that-reaches-the-goal-zone) (7.5), the ball's whole speed against them -- and 3 more if a Striker is shooting off a [set-up](#8-scoring-opportunities) (8). The defense adds the skill of every defending player in the way, as [what the defense adds](#53-what-the-defense-adds) (5.3) says.
 
-**5.2.3** **The attack scores on a total equal to or higher than the defense's.** A tie is a goal.
+**5.2.3** **The attack scores on a higher total than the defense's.** A tie goes to [the coin](#611-ties-and-the-coin) (6.11): Fortune scores and Doom does not.
 
 ### 5.3 What the defense adds
 
@@ -283,7 +283,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 5.4 The cost of a shot
 
-**5.4.1** An ordinary shot costs its shooter nothing. A shooter taking a shot off a set-up exhausts 1 after the roll, whether it went in or not.
+**5.4.1** **Every score attempt exhausts its shooter 1 after the roll**, whether it went in or not, and whether it is an ordinary shot or one off a set-up. It owes no injury check, as no shot does.
 
 **5.4.2** A score attempt costs 1 time, charged as soon as the shot has resolved, goal or miss, and before play restarts. A set-up's shot costs that on top of the maneuver that created it, which was charged when that maneuver's winner was decided.
 
@@ -327,7 +327,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.4 The skill test
 
-**6.4.1** Both participants exhaust 1, and then each rolls a d12.
+**6.4.1** Each participant rolls a d12. Entering a skill test costs nothing.
 
 **6.4.2** The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. On top of that:
 
@@ -336,7 +336,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.4.3** The higher total wins and their maneuver is what resolves.
 
-**6.4.4** A tie is rolled again, and each participant exhausts 1 more for it.
+**6.4.4** A tie goes to [the coin](#611-ties-and-the-coin) (6.11), and nothing is rolled again.
 
 **6.4.5** When the test finally resolves, every participant who is Exhausted takes an [injury check](#153-the-injury-check) (15.3).
 
@@ -346,7 +346,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.5.2** The ball goes to a teammate, and there are at most two destinations to choose between: the nearest teammate up to 2 spaces ahead of the ball, and the nearest teammate up to 2 spaces behind it. **A teammate standing on the ball's own space counts as the nearest behind it**, so they block every teammate further back. A nearer teammate blocks a farther one in the same direction, so the choice is between directions rather than distances. Where several teammates are standing on the destination, the passer chooses which of them receives it.
 
-**6.5.3** A pass has to reach a different player -- the handler cannot pass to themselves. **Once the ball has gone, the passer may move 1 space forward**, if there is a space in front of them to move into; their coach chooses, and moving costs nothing.
+**6.5.3** A pass has to reach a different player -- the handler cannot pass to themselves. **Once the ball has gone, the passer may move 1 space forward**, if there is a space in front of them to move into; their coach chooses, and moving costs its space ([moving](#151-gaining-tokens) (15.1)).
 
 **6.5.4** Ball speed rises by 1, to a maximum of 12. The ball is left with the receiver.
 
@@ -360,7 +360,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.6.2** The handler and the ball move 1 space forward together. The handler then changes the ball's speed by up to their offensive skill, in either direction, within the range 1 to 12.
 
-**6.6.3** The ball is left with the handler.
+**6.6.3** The ball is left with the handler, who exhausts 1 for every space they moved ([moving](#151-gaining-tokens) (15.1)).
 
 **6.6.4** *Playmaker:* may advance 2 spaces instead of 1 -- an additional space.
 
@@ -404,17 +404,27 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.9.3** Once everyone has run back, the interceptor changes the ball's speed by up to their defensive skill, in either direction.
 
-**6.9.4** The ball is left with the interceptor, who therefore does not run back.
+**6.9.4** The ball is left with the interceptor, who therefore does not run back. The interceptor exhausts 1 for every space they carried it ([moving](#151-gaining-tokens) (15.1)).
 
 ### 6.10 Pressure
 
 **6.10.1** **Rank D3. Costs 1 time. Beats Dribble, loses to Pass.**
 
-**6.10.2** The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler.
+**6.10.2** The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler. The handler exhausts 1 for every space they were pushed, and the challenger 1 for every space they came ([moving](#151-gaining-tokens) (15.1)).
 
 **6.10.3** Where the handler is already standing on the last space before their own goal there is nowhere to push them: the ball reaches their own goal zone, and the pressure risks an [own goal](#11-own-goal) (11) instead.
 
 **6.10.4** *Defender:* a won Pressure also steals the ball -- unless the push reached their own goal zone and became an own-goal roll, which takes priority whichever way it goes.
+
+### 6.11 Ties and the coin
+
+**6.11.1** **The coin settles every tie on the dice**: a maneuver's [skill test](#64-the-skill-test) (6.4), a [contest for the ball](#102-the-contest) (10.2), a [High Ball contest](#104-the-high-ball-contest) (10.4) included, and a [score attempt](#5-score-attempt) (5). Nothing is rolled again, so nothing is paid for a tie.
+
+**6.11.2** **Fortune: the offense wins the tie. Doom: the defense does.** In a skill test the offense is the handler's side; in a contest for the ball it is the side that last had the ball, the side that adds its offensive skill; at a score attempt it is the attack, so Fortune scores and Doom does not.
+
+**6.11.3** **The coin starts on the face the toss landed on** ([winning the toss](#31-winning-the-toss) (3.1)) and is not flipped again before the first turn, so that face settles the first tie. **After every tie it settles, it is tossed again**, and its new face holds until the next tie. Nothing else turns it over -- not a gambit, not halftime, not the shootout. Its face is public, so both coaches always know how the next tie will go.
+
+**6.11.4** **Only an equal total on the dice goes to the coin.** A tie on the cards is still a skill test (6.3.1); a tie an [injured](#154-playing-injured) (15.4) player loses is still lost with nothing rolled; and a tied [shootout test](#174-each-test) (17.4) is no goal for either side, which the coin neither settles nor is tossed for.
 
 ## 7. Ball speed
 
@@ -529,7 +539,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.2.1** Both contestants roll a skill test: the side that last had the ball adds their player's offensive skill, the other side adds their player's defensive skill.
 
-**10.2.2** The higher total wins the ball and is left holding it. A tie is rolled again, and each exhausts 1.
+**10.2.2** The higher total wins the ball and is left holding it. A tie goes to [the coin](#611-ties-and-the-coin) (6.11), whose offense is the side that last had the ball.
 
 **10.2.3** Neither side adds anything for the [ball's speed](#7-ball-speed) (7) -- the ball is nobody's yet. A [High Ball contest](#104-the-high-ball-contest) (10.4) is the one exception.
 
@@ -768,18 +778,18 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | What costs tokens | How many |
 | --- | --- |
-| Entering a maneuver skill test, and every re-roll of it | 1 to each participant |
-| Being sent to the ball -- a challenge, a loose ball, a contest, a pickup | 1 per space traveled |
-| Running back | 1 per space traveled |
+| Moving on the board during play -- being sent to the ball, running back, and every move a maneuver makes | 1 per space traveled |
 | An own-goal roll | 1 to the player rolling |
-| Taking a scoring opportunity | 1 to the shooter, after the roll |
-| [Merging](#205-slimey-ooze) (20.5) into a roll, and every re-roll of it | 1 to each player who Merges |
+| A score attempt, ordinary or off a set-up | 1 to the shooter, after the roll |
+| [Merging](#205-slimey-ooze) (20.5) into a roll | 1 to each player who Merges |
 
-**15.1.2** Nothing else costs anything. An ordinary score attempt, a maneuver won outright, a reset, a Coaching Choice and a shootout test are all free.
+**15.1.2** **A move is any change of space a player makes during play**, whoever moved them and whatever made them move: the handler of a won Dribble, the passer stepping forward after a Pass, the handler a Pressure shoves back and the challenger who moves onto their space, the interceptor a Steal carries off with the ball, a player sent to the ball and a player running back after a steal. **Two kinds of move are free**: a [reset](#125-resetting-after-a-new-play) (12.5), and every move a [Coaching Choice](#14-coaching-choice) (14) makes. An ability or a maneuver that prices its own move keeps that price.
 
-**15.1.3** An injured player never exhausts.
+**15.1.3** Nothing else costs anything. Entering a skill test, a maneuver won outright, a reset, a Coaching Choice and a shootout test are all free.
 
-**15.1.4** **Exhaust** is the verb for gaining tokens: a player who **exhausts 2** adds 2 exhaustion tokens to their card. [Clearing](#155-recovery) (15.5) takes them off.
+**15.1.4** An injured player never exhausts.
+
+**15.1.5** **Exhaust** is the verb for gaining tokens: a player who **exhausts 2** adds 2 exhaustion tokens to their card. [Clearing](#155-recovery) (15.5) takes them off.
 
 ### 15.2 Becoming Exhausted
 
@@ -789,7 +799,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **15.3.1** When a skill test resolves -- a maneuver's, a contest for the ball, or a High Ball contest's -- every Exhausted participant -- the two who rolled, and anyone who [Merged](#205-slimey-ooze) (20.5) into it -- rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
 
-**15.3.2** Tokens added for that very test count, including the ones a re-roll charged.
+**15.3.2** Tokens added during that very test count -- a Merge into it, a move that led to it.
 
 **15.3.3** Only a skill test causes checks: a score attempt and an own-goal roll never do. A shootout test has a check of its own, rolled before it ([17.4](#174-each-test)).
 
@@ -896,7 +906,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **17.4.2** The two shooters roll one d12 each and add their **offensive** skill -- a shootout has no defender. An injured shooter adds nothing at all and rolls the bare d12.
 
-**17.4.3** The higher total scores a goal. A tie scores for neither side and is not rolled again.
+**17.4.3** The higher total scores a goal. A tie scores for neither side and is not rolled again; [the coin](#611-ties-and-the-coin) (6.11) neither settles it nor is tossed for it.
 
 **17.4.4** A shootout test costs no exhaustion, and owes no check but the one it starts with.
 
@@ -941,7 +951,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | A Midfielder adds 3 for their own Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Pinpoint or Intercept too ([Pinpoint](#195-pinpoint) (19.5), [Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
 | The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | After a won Double Team its partner Merges through the next maneuver ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
 | A contest for the ball is rolled ([Law 10](#102-the-contest) (10.2)) | After a failed Cross the side that beat it takes the ball without a roll ([Cross](#197-cross) (19.7)) | Advanced maneuvers |
-| A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | The coach holding the coin may swap them for their three advanced maneuvers against a challenge, and a coach who is behind may answer in kind ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
+| A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | Either coach may swap them for their three advanced maneuvers against a challenge, and the other, while behind, may answer in kind ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
 | A player's skills are their role's, 1 to 6 and totaling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Special |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#152-becoming-exhausted) (15.2)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | A player who fails an injury check is Injured ([Law 15](#153-the-injury-check) (15.3)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
@@ -975,24 +985,24 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.3 Who may make a gambit
 
-**19.3.1** **The coach holding the coin may make a gambit.** The winner of the toss holds it first ([winning the toss](#31-winning-the-toss) (3.1)).
+**19.3.1** **Either coach may make a gambit.** The coin has nothing to do with it: it only settles ties ([ties and the coin](#611-ties-and-the-coin) (6.11)).
 
-**19.3.2** At any challenged maneuver, until both maneuvers are revealed, the coach holding the coin may **declare a gambit**: they set their three basic cards aside and choose from their side's three advanced maneuvers instead. The advanced cards have their own back, so a gambit is public the moment it is made. A maneuver that coach had already chosen is withdrawn.
+**19.3.2** At any challenged maneuver, until both maneuvers are revealed, either coach may **declare a gambit**: they set their three basic cards aside and choose from their side's three advanced maneuvers instead. The advanced cards have their own back, so a gambit is public the moment it is made. A maneuver that coach had already chosen is withdrawn.
 
-**19.3.3** **Declaring a gambit hands the coin to the other coach, who flips it** and holds it from then on, and may declare a gambit of their own at a later maneuver. The coin passes only this way, and it carries through halftime and the shootout. The face it lands on decides nothing: it stays face up in front of the coach holding it until the coin passes again.
+**19.3.3** **One coach declares a gambit a maneuver.** Once one has, the other may not declare one of their own in that maneuver; they may only answer it, as below. Either may declare one again at any later maneuver.
 
 **19.3.4** **The other coach may answer the gambit with one of their own**, in the same maneuver, only while their team is **behind**, which is one of two things:
 
 - **a.** their team has **scored fewer goals** than the other team;
 - **b.** their team **fields more Exhausted-or-Injured players** than the other team. Only the six on the field count, and a Cyborg's [Drained](#203-lithium-powered-cyborg) (20.3) and [Damaged](#203-lithium-powered-cyborg) (20.3) are Exhausted and Injured under their own words.
 
-**19.3.5** **A coach who may answer does so before either coach chooses a card**: they answer with a gambit of their own, setting their three basic cards aside for their three advanced maneuvers, or they keep their basic cards. The answer is public, as the declaration is. Holding the coin they have just been handed does not by itself let them answer, and an answering gambit hands the coin to nobody: they keep it.
+**19.3.5** **A coach who may answer does so before either coach chooses a card**: they answer with a gambit of their own, setting their three basic cards aside for their three advanced maneuvers, or they keep their basic cards. The answer is public, as the declaration is.
 
 **19.3.6** **A coach facing a gambit chooses again, from three cards.** A basic card they had already chosen is set aside if they answer with a gambit, and otherwise stands only once they confirm it; they may change it for another of their three. **Each coach chooses from three cards, never six**: the declarer from their advanced maneuvers, the other coach from whichever three their answer kept.
 
 **19.3.7** Until both are down, the coach who declared may change which advanced maneuver they play, as either coach may change a maneuver while the other is still choosing.
 
-**19.3.8** Behind is read when the maneuvers are chosen, off the scoreboard and off the field, and the coin sits in front of the coach holding it, so **who may make a gambit is public knowledge**: neither coach learns anything from it the other cannot see for themselves.
+**19.3.8** Behind is read when the maneuvers are chosen, off the scoreboard and off the field, so **who may answer a gambit is public knowledge**: neither coach learns anything from it the other cannot see for themselves.
 
 ### 19.4 Successful and failed gambits
 
@@ -1096,7 +1106,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.10.1** **Rank D3. Costs 1 time. Beats Dribble and Burst, loses to Pass and Pinpoint.**
 
-**19.10.2** A Pressure, with help. The handler and the ball go **1 space back** and the challenger moves 1 space forward onto the handler's space, as for a [Pressure](#610-pressure) (6.10), and **the partner** joins them there -- free of exhaustion, however far they came.
+**19.10.2** A Pressure, with help. The handler and the ball go **1 space back** and the challenger moves 1 space forward onto the handler's space, as for a [Pressure](#610-pressure) (6.10), and **the partner** joins them there, exhausting 1 for every space they came, as every move does ([moving](#151-gaining-tokens) (15.1)).
 
 **19.10.3** **The partner is the defending player nearest the ball, on its space or behind it**, measured before anything moves -- behind meaning toward the defending side's own goal. Where several are equally near, the defending coach chooses which of them it is. With nobody else of theirs on the ball's space or behind it, nobody joins.
 
@@ -1104,7 +1114,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.10.5** **The partner may Merge through the defending side's next maneuver**, as an Ooze does ([Slimey](#205-slimey-ooze) (20.5)) and at an Ooze's price: standing on the ball's space and not one of the two rolling, they may exhaust 1 on each roll of that maneuver's skill test, and of any contest for the ball it leads to, to add their defensive skill to it. It ends with that maneuver, before the offense chooses its next action, and sooner at a [new play](#125-resetting-after-a-new-play) (12.5) or when the partner's side takes the ball. A partner who is an Ooze Merges once, not twice, and pays once, and an [injured](#154-playing-injured) (15.4) partner cannot Merge.
 
-**19.10.6** *Failed gambit:* the challenger and the partner -- found as above, before the ball moves -- each move 1 space forward, away from their own goal. Neither exhausts for it.
+**19.10.6** *Failed gambit:* the challenger and the partner -- found as above, before the ball moves -- each move 1 space forward, away from their own goal, and each exhausts 1 for it.
 
 ## 20. Species abilities
 
@@ -1149,7 +1159,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.3.5** **Overdrive.** **Once per roll**, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#64-the-skill-test) (6.4), a [score attempt](#5-score-attempt) (5), an [own-goal roll](#11-own-goal) (11), a [contest](#101-where-the-ball-comes-to-rest) (10.1) or a [shootout test](#17-extreme-shootout) (17), where it is declared before the test's injury check, so the drain counts toward it. **It never reaches an [injury check](#153-the-injury-check) (15.3)**: a damage test is rolled bare.
 
-**20.3.6** A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. A [Damaged](#154-playing-injured) (15.4) Cyborg may not: Overdrive drains, and a Damaged Cyborg drains no more.
+**20.3.6** A tie is never rolled again ([ties and the coin](#611-ties-and-the-coin) (6.11)), so an Overdrive is declared once a roll. A Drained Cyborg may still Overdrive -- the drain stacks. A [Damaged](#154-playing-injured) (15.4) Cyborg may not: Overdrive drains, and a Damaged Cyborg drains no more.
 
 **20.3.7** **Charge-up.** Whenever players [run back](#124-running-back-after-a-steal) (12.4), a Cyborg who **does not move** clears **1 drain**. Once per run back, never below zero.
 
@@ -1197,7 +1207,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.5.1** **Merge.** In a [maneuver skill test](#64-the-skill-test) (6.4), a [contest for the ball](#101-where-the-ball-comes-to-rest) (10.1) or a [High Ball contest](#104-the-high-ball-contest) (10.4) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling may **exhaust 1** to add to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Each such Ooze is its coach's own choice, and each that Merges pays -- two of them add twice and exhaust 1 each. An [injured](#154-playing-injured) (15.4) Ooze cannot Merge.
 
-**20.5.2** **Merge is declared before the die is thrown**, as [Overdrive](#203-lithium-powered-cyborg) (20.3) is: blind, once per roll, the attacking coach first and then the defending one, each declaring or passing, and the die waits until both have. A tie that is rolled again is a fresh roll, on which each Ooze may Merge again for another token. **An Ooze who Merges owes the [injury check](#153-the-injury-check) (15.3) as the two rolling do**: when the skill test or contest resolves, an Exhausted Ooze who Merged into any roll of it rolls one, its tokens counted as theirs are. A score attempt still causes no checks, Merged into or not.
+**20.5.2** **Merge is declared before the die is thrown**, as [Overdrive](#203-lithium-powered-cyborg) (20.3) is: blind, once per roll, the attacking coach first and then the defending one, each declaring or passing, and the die waits until both have. **An Ooze who Merges owes the [injury check](#153-the-injury-check) (15.3) as the two rolling do**: when the skill test or contest resolves, an Exhausted Ooze who Merged into any roll of it rolls one, its tokens counted as theirs are. A score attempt still causes no checks, Merged into or not.
 
 **20.5.3** **Merge in a [score attempt](#5-score-attempt) (5) is the attack alone.** An Ooze standing on the ball while a teammate shoots may exhaust 1 to add their **offensive** skill to the attack. The defense gains nothing from it: defending players on and beyond the ball are already counted by [what the defense adds](#53-what-the-defense-adds) (5.3), and an Ooze among them is not counted twice.
 
@@ -1235,7 +1245,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.3.3** **Brightburn's burn upgrades nothing.** A burn that loses a maneuver skill test does not resolve the opponent's maneuver as its advanced version. Every burn, in any roll, clears 1 token from Brightburn.
 
-**21.3.4** **Emberdash runs further.** Emberdash's [Dribble](#66-dribble) (6.6) may go up to 3 spaces, and their [Burst](#196-burst) (19.6) costs no exhaustion.
+**21.3.4** **Emberdash runs further.** Emberdash's [Dribble](#66-dribble) (6.6) may go up to 3 spaces, and neither it nor their [Burst](#196-burst) (19.6) costs any exhaustion.
 
 **21.3.5** **Flickerwing shoots past the wall.** In every [score attempt](#5-score-attempt) (5) Flickerwing makes -- off a [set-up](#8-scoring-opportunities) (8) or not -- only the defending players standing on the ball's space add their skill to the defense; a defending player between the ball and the goal adds nothing, unless they count as on the ball -- as [Goopkeeper](#216-oozes) (21.6) does, who adds their full skill.
 
@@ -1243,7 +1253,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.3.7** **Kindlefinger's injury check can ignite.** Kindlefinger's die in an [injury check](#153-the-injury-check) (15.3) ignites on a natural 6 or 7 exactly as a [Volatile](#202-volatile-fire-demon) (20.2) roll does, and the blaze or burn is added to or subtracted from the check. A blaze also clears 1 token from Kindlefinger and on a burn they exhaust 1, **before** the check is compared with their tokens -- so the token can decide it, as the tokens a skill test charges count toward the check that follows it.
 
-**21.3.8** **Scorchit may force the test.** When Scorchit's maneuver loses on the cards, their coach may send it to a [skill test](#64-the-skill-test) (6.4) anyway, once the cards are revealed and before anything resolves. Entering it, Scorchit exhausts 2 and their opponent nothing; a tie is rolled again and each exhausts 1, as always. The higher total wins and their maneuver resolves. Whether a gambit succeeded or failed still follows the cards, as it does after a test an [injury](#154-playing-injured) (15.4) forced: if the card that won on the cards also wins the test, its successful outcome and the outcome of Scorchit's failed gambit both land; if Scorchit wins the test, neither fires and Scorchit's card resolves as the basic maneuver on its rank. Where the winner on the cards is injured, the test is the one their injury already forces, and costs its usual token each.
+**21.3.8** **Scorchit may force the test.** When Scorchit's maneuver loses on the cards, their coach may send it to a [skill test](#64-the-skill-test) (6.4) anyway, once the cards are revealed and before anything resolves. Entering it, Scorchit exhausts 2, the price of the ability, and their opponent nothing; a tie goes to [the coin](#611-ties-and-the-coin) (6.11), as always. The higher total wins and their maneuver resolves. Whether a gambit succeeded or failed still follows the cards, as it does after a test an [injury](#154-playing-injured) (15.4) forced: if the card that won on the cards also wins the test, its successful outcome and the outcome of Scorchit's failed gambit both land; if Scorchit wins the test, neither fires and Scorchit's card resolves as the basic maneuver on its rank. Where the winner on the cards is injured, the test is the one their injury already forces, and costs nothing, as any test does.
 
 ### 21.4 Cyborgs
 
@@ -1251,7 +1261,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.4.2** **Voltus Overdrives for 2.** Voltus's [Overdrive](#203-lithium-powered-cyborg) (20.3) drains 2 rather than 3, for the same +5.
 
-**21.4.3** **Gearclaw may Boost.** **Once per roll**, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive. **Boost and Overdrive are each once per roll, and neither excludes the other**: on one roll Gearclaw's coach may Boost, Overdrive, do both -- draining 4 for +8 -- or do neither. A tie that is rolled again is a fresh roll, on which each may be declared once more.
+**21.4.3** **Gearclaw may Boost.** **Once per roll**, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive. **Boost and Overdrive are each once per roll, and neither excludes the other**: on one roll Gearclaw's coach may Boost, Overdrive, do both -- draining 4 for +8 -- or do neither.
 
 **21.4.4** **Strider runs on less.** When Strider [charges up](#203-lithium-powered-cyborg) (20.3), they clear 2 drain rather than 1. A [run back](#124-running-back-after-a-steal) (12.4) drains Strider 1 at most, however far they run.
 
@@ -1299,8 +1309,8 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Roll | Dice | How it reads |
 | --- | --- | --- |
-| Score attempt | 1d12 each | Attack adds offense and the speed modifier, half the speed rounded down; defense adds full skill on the ball and half beyond it. A tie scores. |
-| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
+| Score attempt | 1d12 each | Attack adds offense and the speed modifier, half the speed rounded down; defense adds full skill on the ball and half beyond it. A tie goes to the coin. The shooter exhausts 1. |
+| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie goes to the coin, which is tossed again. Free to enter. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |
 | Shootout test | 1d12 each | An injury check each first. Both add offensive skill. Higher scores; a tie stands. |
@@ -1332,7 +1342,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Card, meeple | [Definitions](#28-definitions) (2.8) |
 | Carrier | [Definitions](#28-definitions) (2.8); [choosing the handler](#42-choosing-the-handler) (4.2) |
 | Challenger | [Determining the two players](#61-determining-the-two-players) (6.1) |
-| Coin | [Winning the toss](#31-winning-the-toss) (3.1); holding it and handing it over in [who may make a gambit](#193-who-may-make-a-gambit) (19.3) |
+| Coin | [Winning the toss](#31-winning-the-toss) (3.1); [ties and the coin](#611-ties-and-the-coin) (6.11) |
 | Contest | [The contest](#102-the-contest) (10.2) |
 | Coverage | [Occupancy](#25-occupancy) (2.5) |
 | Damaged, damage test, drain (verb), Drained | [Lithium Powered (Cyborg)](#203-lithium-powered-cyborg) (20.3) |

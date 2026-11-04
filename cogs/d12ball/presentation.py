@@ -698,10 +698,11 @@ class PresentationMixin:
     def tie_coin_brief(
         self, game: D12BallGame, match: MatchState,
     ) -> Optional[tuple[str, str]]:
-        """2.0's coin for the board's jumbotron -- the game's own coin
-        showing the face the engine reads, and its caption -- or None
-        in 1.0 and before the first flip."""
-        face = self.engine.tie_coin_face(game, match)
+        """The coin for the board's jumbotron (Law 6.11.3) -- the game's
+        own coin showing the face the engine reads, and its caption --
+        in every edition since 2026-11-03, or None before the first
+        turn sets it."""
+        face = self.engine.tie_coin_face(match)
         if face is None:
             return None
         return (

@@ -52,7 +52,6 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball import tokens
 from d12ball.flow.arrivals import finish_maneuver_resolution
 from d12ball.flow.effects import (
     offer_setup_pass_distance as flow_offer_setup_pass_distance,
@@ -195,16 +194,15 @@ def open_gambits(match: MatchState) -> None:
     """
     Put **both** hands in the harness on their gambits (Law 19.3).
 
-    Since 2026-09-28 nobody holds a gambit until the coach holding the
-    coin declares one, and the other coach, where behind, answers first
-    with a gambit of their own or their basic cards. So: the visitors
-    (the defense here) hold the coin and declare, and home (the offense,
-    a goal down) answers with a gambit -- both hands the three advanced
-    maneuvers. Every test about *what a hand looks like* would otherwise
+    Since 2026-09-28 nobody holds a gambit until a coach declares one
+    -- either coach, since 2026-11-03 -- and the other coach, where
+    behind, answers first with a gambit of their own or their basic
+    cards. So: the visitors (the defense here) declare, and home (the
+    offense, a goal down) answers with a gambit -- both hands the three
+    advanced maneuvers. Every test about *what a hand looks like* would otherwise
     be drawing three basic cards and asserting nothing.
     """
-    match.coin_holder = TeamSide.VISITING
-    match.declare_gambit("defense", TeamSide.VISITING)
+    match.declare_gambit("defense")
     match.scoreboard.visiting_score += 1
     match.answer_gambit("offense", True)
 
@@ -460,12 +458,12 @@ class ManeuverHandTests(GambitHarness, unittest.TestCase):
 
 class CoinTests(GambitHarness, unittest.TestCase):
     """
-    **The coin decides who may make a gambit** (Law 19.3, the author,
-    2026-09-28): the toss winner keeps it, its holder may declare a
-    gambit at a challenged maneuver -- setting their three basic cards
-    aside for their three advanced maneuvers -- and declaring hands it to
-    the other coach. That coach may answer with a gambit of their own
-    only while behind.
+    **Either coach may make a gambit** (Law 19.3, the author, 2026-09-28
+    and 2026-11-03): at a challenged maneuver, until one is declared,
+    either may set their three basic cards aside for their three
+    advanced maneuvers, and the coin is not touched -- it settles ties
+    alone. The other coach may answer with a gambit of their own only
+    while behind.
 
     Asserted through `maneuver_hand` as well as the predicates, because
     the hand is what a coach actually gets.
@@ -483,24 +481,9 @@ class CoinTests(GambitHarness, unittest.TestCase):
         match.defense_maneuver = None
         return cog, game, match
 
-    def test_the_toss_winner_holds_the_coin(self) -> None:
-        cog, game, match = self.build("low_pass", "pressure")
-        game.coin_winner_player_number = 2   # the visitors' coach
-        self.assertEqual(
-            cog.engine.coin_holder(game, match), TeamSide.VISITING,
-        )
-        game.coin_winner_player_number = 1
-        self.assertEqual(cog.engine.coin_holder(game, match), TeamSide.HOME)
-
-    def test_a_game_seated_without_a_toss_starts_it_with_home(self) -> None:
-        cog, game, match = self.build("low_pass", "pressure")
-        self.assertIsNone(game.coin_winner_player_number)
-        self.assertEqual(cog.engine.coin_holder(game, match), TeamSide.HOME)
-
-    def test_a_standard_game_has_no_coin_to_hold(self) -> None:
+    def test_a_standard_game_has_no_gambits_to_declare(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
         game.mode = GameMode.STANDARD
-        self.assertIsNone(cog.engine.coin_holder(game, match))
         for side in ("offense", "defense"):
             self.assertFalse(cog.engine.may_declare_gambit(game, match, side))
 
@@ -515,19 +498,23 @@ class CoinTests(GambitHarness, unittest.TestCase):
             "offense": 3, "defense": 3,
         })
 
-    def test_only_the_coin_holder_may_declare(self) -> None:
+    def test_either_coach_may_declare(self) -> None:
         cog, game, match = self.unpicked()
-        # Home has the ball in this harness, and holds the coin.
-        self.assertTrue(cog.engine.may_declare_gambit(game, match, "offense"))
-        self.assertFalse(
-            cog.engine.may_declare_gambit(game, match, "defense")
-        )
+        # Whoever won the toss (the author, 2026-11-03).
+        for winner in (1, 2):
+            game.coin_winner_player_number = winner
+            for side in ("offense", "defense"):
+                self.assertTrue(
+                    cog.engine.may_declare_gambit(game, match, side)
+                )
 
-    def test_declaring_swaps_the_hand_and_hands_over_the_coin(self) -> None:
+    def test_declaring_swaps_the_hand_and_leaves_the_coin(self) -> None:
         cog, game, match = self.unpicked()
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.tie_coin = CoinFace.DOOM.value
+        match.declare_gambit("offense")
 
-        self.assertEqual(match.coin_holder, TeamSide.VISITING)
+        self.assertEqual(match.tie_coin, "doom")
+        self.assertIsNone(match.coin_holder)
         self.assertEqual(
             [m.key for m in cog.engine.maneuver_hand(game, match, "offense")],
             ["skilled_pass", "dribble_burst", "setup_pass"],
@@ -536,24 +523,22 @@ class CoinTests(GambitHarness, unittest.TestCase):
         self.assertEqual(
             len(cog.engine.maneuver_hand(game, match, "defense")), 3,
         )
-        # Nobody declares twice in one maneuver, the new holder included.
+        # Nobody declares twice in one maneuver.
         for side in ("offense", "defense"):
             self.assertFalse(
                 cog.engine.may_declare_gambit(game, match, side)
             )
 
-    def test_the_coin_is_the_new_holders_at_the_next_maneuver(self) -> None:
+    def test_either_may_declare_again_at_the_next_maneuver(self) -> None:
         cog, game, match = self.unpicked()
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
         match.reset_maneuver()
 
-        self.assertEqual(
-            cog.engine.coin_holder(game, match), TeamSide.VISITING,
-        )
         self.assertIsNone(match.gambit_declared_by)
-        self.assertFalse(
-            cog.engine.may_declare_gambit(game, match, "offense")
-        )
+        for side in ("offense", "defense"):
+            self.assertTrue(
+                cog.engine.may_declare_gambit(game, match, side)
+            )
 
     def test_declaring_withdraws_a_pick_and_puts_the_others_in_question(
         self,
@@ -562,7 +547,7 @@ class CoinTests(GambitHarness, unittest.TestCase):
         match.choose_offense_maneuver("low_pass")
         match.choose_defense_maneuver("steal")
 
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
 
         self.assertIsNone(match.offense_maneuver)
         self.assertEqual(match.defense_maneuver, "steal")
@@ -580,7 +565,7 @@ class CoinTests(GambitHarness, unittest.TestCase):
     def test_a_pick_in_question_may_be_changed(self) -> None:
         cog, game, match = self.unpicked()
         match.defense_maneuver = "steal"
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
         match.offense_maneuver = "setup_pass"
 
         match.change_maneuver("defense", "deflect")
@@ -593,16 +578,16 @@ class CoinTests(GambitHarness, unittest.TestCase):
         from d12ball.components import RuleRefusal
 
         cog, game, match = self.unpicked()
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
         with self.assertRaises(RuleRefusal):
-            match.declare_gambit("defense", TeamSide.VISITING)
+            match.declare_gambit("defense")
 
     def test_trailing_lets_the_other_coach_answer_before_the_cards(
         self,
     ) -> None:
         cog, game, match = self.unpicked()
         match.scoreboard.home_score += 1          # the visitors trail
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
 
         self.assertTrue(cog.engine.may_answer_gambit(game, match, "defense"))
         self.assertEqual(cog.engine.gambit_answer_owed(game, match), "defense")
@@ -619,7 +604,7 @@ class CoinTests(GambitHarness, unittest.TestCase):
         cog, game, match = self.unpicked()
         match.scoreboard.home_score += 1
         match.choose_defense_maneuver("steal")
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
 
         match.answer_gambit("defense", False)
 
@@ -634,7 +619,7 @@ class CoinTests(GambitHarness, unittest.TestCase):
         cog, game, match = self.unpicked()
         match.scoreboard.home_score += 1
         match.choose_defense_maneuver("steal")
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
 
         match.answer_gambit("defense", True)
 
@@ -643,17 +628,18 @@ class CoinTests(GambitHarness, unittest.TestCase):
 
     def test_answering_leaves_the_coin_where_it_is(self) -> None:
         cog, game, match = self.unpicked()
+        match.tie_coin = CoinFace.FORTUNE.value
         match.scoreboard.home_score += 1
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
         match.answer_gambit("defense", True)
         match.choose_defense_maneuver("intercept")
 
-        self.assertEqual(match.coin_holder, TeamSide.VISITING)
+        self.assertEqual(match.tie_coin, "fortune")
 
     def test_the_declarer_being_behind_gives_the_other_nothing(self) -> None:
         cog, game, match = self.unpicked()
         match.scoreboard.visiting_score += 1      # home trails
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
 
         self.assertFalse(
             cog.engine.may_answer_gambit(game, match, "defense")
@@ -720,31 +706,31 @@ class CoinTests(GambitHarness, unittest.TestCase):
 
     def test_a_gambit_already_played_keeps_its_effect(self) -> None:
         """
-        The coin is on the hand and nothing else: a gambit legally
-        played keeps its benefit whoever holds the coin afterwards,
-        because both outcomes are read off the two stored keys.
+        A gambit legally played keeps its benefit whatever happens to
+        the coin afterwards, because both outcomes are read off the two
+        stored keys.
         """
         cog, game, match = self.build("skilled_pass", "pressure")
         self.assertTrue(
             cog.engine.gambit_benefit_applies(match, "skilled_pass")
         )
-        match.coin_holder = TeamSide.VISITING
+        match.tie_coin = CoinFace.DOOM.value
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "skilled_pass"),
             "skilled_pass",
         )
 
-    def test_the_prompt_says_who_holds_the_coin_and_who_may_answer(
+    def test_the_prompt_says_either_may_declare_and_who_may_answer(
         self,
     ) -> None:
         cog, game, match = self.unpicked()
 
-        before = cog.engine.describe_gambit_access(game, match)
-        self.assertIn("holds the coin", before)
-        self.assertIn(game.player_1_name, before)
-        self.assertNotIn(game.player_2_name, before)
+        self.assertEqual(
+            cog.engine.describe_gambit_access(game, match),
+            "Either coach may declare a gambit.",
+        )
 
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
         after = cog.engine.describe_gambit_access(game, match)
         self.assertIn("has declared a gambit", after)
         self.assertNotIn("may answer", after)
@@ -767,94 +753,50 @@ class CoinTests(GambitHarness, unittest.TestCase):
             cog.engine.may_declare_gambit(game, match, "offense")
         )
 
-    def test_the_coin_survives_a_save(self) -> None:
+    def test_the_declaration_survives_a_save(self) -> None:
         cog, game, match = self.unpicked()
         match.defense_maneuver = "steal"
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
 
         reloaded = MatchState.from_dict(
             match.to_dict(), cog.engine.basic_ruleset,
         )
 
-        self.assertEqual(reloaded.coin_holder, TeamSide.VISITING)
         self.assertEqual(reloaded.gambit_declared_by, "offense")
         self.assertEqual(reloaded.pick_unconfirmed, "defense")
 
-    def test_the_coin_shows_the_toss_until_it_passes(self) -> None:
-        """Law 3.1.4: the winner keeps the coin on the face it landed on,
-        whoever flipped it; a game seated without a toss shows Fortune."""
+    def test_a_declaration_never_flips_the_coin(self) -> None:
+        """Law 19.3.1 (the author, 2026-11-03): the coin is only tossed
+        when it settles a tie, so a declaration draws nothing and says
+        nothing of it."""
         cog, game, match = self.unpicked()
-        self.assertEqual(cog.engine.coin_face(game, match), CoinFace.FORTUNE)
-        game.coin_face = CoinFace.DOOM
-        self.assertEqual(cog.engine.coin_face(game, match), CoinFace.DOOM)
-        game.mode = GameMode.STANDARD
-        self.assertIsNone(cog.engine.coin_face(game, match))
-
-    def test_the_coach_it_goes_to_flips_it(self) -> None:
-        """Law 19.3.3: a declaration hands the coin over and it is
-        flipped, the engine's draw, said in the narration with the
-        coin's own mark -- and the face it landed on is the one shown."""
-        cog, game, match = self.unpicked()
-        game.coin_face = CoinFace.FORTUNE
-        with mock.patch.object(
-            cog.engine, "flip_coin", return_value=CoinFace.DOOM,
-        ) as flip:
+        match.tie_coin = CoinFace.FORTUNE.value
+        with mock.patch.object(cog.engine, "flip_coin") as flip:
             result = declare_gambit_step(cog.engine, game, match, side="offense")
 
-        flip.assert_called_once_with()
-        self.assertEqual(match.coin_face, CoinFace.DOOM)
-        self.assertEqual(cog.engine.coin_face(game, match), CoinFace.DOOM)
+        flip.assert_not_called()
+        self.assertEqual(match.tie_coin, "fortune")
         said = " ".join(result.narration)
-        self.assertIn(
-            f"who flips it: {tokens.coin(CoinFace.DOOM)} Doom.", said,
-        )
+        self.assertIn("declares a gambit.", said)
+        self.assertNotIn("{coin:", said)
 
-    def test_the_holder_is_said_with_the_face_up(self) -> None:
+    def test_a_save_holding_the_old_gambit_coin_reads_back(self) -> None:
+        """A game saved before 2026-11-03 carries the gambit coin's
+        holder and face; they read and write back unchanged, and decide
+        nothing -- either coach may still declare."""
         cog, game, match = self.unpicked()
-        game.coin_face = CoinFace.DOOM
-        said = cog.engine.describe_gambit_access(game, match)
-        self.assertIn(
-            f"holds the coin, {tokens.coin(CoinFace.DOOM)} Doom up, and may "
-            "declare a gambit.",
-            said,
-        )
-
-    def test_the_face_survives_a_save(self) -> None:
-        cog, game, match = self.unpicked()
-        match.declare_gambit("offense", TeamSide.HOME, CoinFace.DOOM)
-
-        reloaded = MatchState.from_dict(
-            match.to_dict(), cog.engine.basic_ruleset,
-        )
-
-        self.assertEqual(reloaded.coin_face, CoinFace.DOOM)
-        self.assertEqual(cog.engine.coin_face(game, reloaded), CoinFace.DOOM)
-
-    def test_a_save_from_before_the_flip_shows_the_toss(self) -> None:
-        cog, game, match = self.unpicked()
-        match.declare_gambit("offense", TeamSide.HOME)
         data = match.to_dict()
-        data.pop("coin_face")
-        game.coin_face = CoinFace.DOOM
+        data["coin_holder"] = "visiting"
+        data["coin_face"] = "doom"
 
         reloaded = MatchState.from_dict(data, cog.engine.basic_ruleset)
 
-        self.assertIsNone(reloaded.coin_face)
-        self.assertEqual(cog.engine.coin_face(game, reloaded), CoinFace.DOOM)
-
-    def test_a_save_from_before_the_coin_reads_the_toss(self) -> None:
-        cog, game, match = self.unpicked()
-        data = match.to_dict()
-        for key in ("coin_holder", "gambit_declared_by", "pick_unconfirmed"):
-            data.pop(key)
-        game.coin_winner_player_number = 2
-
-        reloaded = MatchState.from_dict(data, cog.engine.basic_ruleset)
-
-        self.assertIsNone(reloaded.coin_holder)
-        self.assertEqual(
-            cog.engine.coin_holder(game, reloaded), TeamSide.VISITING,
-        )
+        self.assertEqual(reloaded.to_dict()["coin_holder"], "visiting")
+        self.assertEqual(reloaded.to_dict()["coin_face"], "doom")
+        for side in ("offense", "defense"):
+            self.assertTrue(
+                cog.engine.may_declare_gambit(game, reloaded, side)
+            )
 
 
 class CoinThroughTheDriverTests(GambitHarness, unittest.TestCase):
@@ -885,20 +827,21 @@ class CoinThroughTheDriverTests(GambitHarness, unittest.TestCase):
         self.assertIs(prompt.kind, PromptKind.MANEUVER_ACTION)
         return next(h for h in prompt.options.hands if h.side == side)
 
-    def test_the_prompt_offers_the_declaration_to_the_holder_alone(
+    def test_the_prompt_offers_the_declaration_to_both_hands(
         self,
     ) -> None:
         self.assertTrue(self.hand("offense").may_declare)
-        self.assertFalse(self.hand("defense").may_declare)
+        self.assertTrue(self.hand("defense").may_declare)
 
-    def test_a_declaration_without_the_coin_is_refused(self) -> None:
+    def test_a_second_declaration_through_the_driver_is_refused(self) -> None:
         from d12ball.flow.driver import Refusal
 
-        run = self.apply("gambit", side="defense")
+        self.apply("gambit", side="defense")
+        run = self.apply("gambit", side="offense")
 
         self.assertIsInstance(run, Refusal)
         self.assertEqual(run.law, "who-may-make-a-gambit")
-        self.assertIsNone(self.match.gambit_declared_by)
+        self.assertEqual(self.match.gambit_declared_by, "defense")
 
     def test_declare_then_confirm_resolves_the_maneuver(self) -> None:
         from d12ball.flow.driver import Refusal
@@ -996,12 +939,12 @@ class CoinThroughTheDriverTests(GambitHarness, unittest.TestCase):
             self.hand("offense").maneuver_keys,
             ("skilled_pass", "dribble_burst", "setup_pass"),
         )
-        self.assertEqual(self.match.coin_holder, TeamSide.VISITING)
+        self.assertIsNone(self.match.coin_holder)
 
 
 class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
     """
-    Dinky's gambits. Holding the coin, it declares on a coin flip; once
+    Dinky's gambits. Free to declare, it declares on a coin flip; once
     a gambit is on the table it rolls a rank on the d6 and coin-flips
     the tier where its hand holds both -- which is only when it is
     answering while behind. See "Dinky rolls its rank as it always has
@@ -1034,7 +977,7 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
     def test_dinky_behind_answers_both_ways(self) -> None:
         cog, game, match = self.unpicked("defense")
         match.scoreboard.home_score += 1                 # Dinky trails
-        match.declare_gambit("offense", TeamSide.HOME)
+        match.declare_gambit("offense")
 
         answers = set()
         for _ in range(60):
@@ -1049,8 +992,7 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
 
     def test_dinky_having_declared_plays_an_advanced_maneuver(self) -> None:
         cog, game, match = self.unpicked("defense")
-        match.coin_holder = TeamSide.VISITING
-        match.declare_gambit("defense", TeamSide.VISITING)
+        match.declare_gambit("defense")
 
         picked = self.picks(cog, game, match, "defense", 200)
 
@@ -1064,9 +1006,8 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
             },
         )
 
-    def test_dinky_holding_the_coin_sometimes_declares(self) -> None:
+    def test_dinky_sometimes_declares(self) -> None:
         cog, game, match = self.unpicked("defense")
-        match.coin_holder = TeamSide.VISITING
         choices = {
             ai_answers(cog.engine, game, match).choice for _ in range(100)
         }
@@ -1074,10 +1015,13 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
 
     def test_a_closed_hand_leaves_dinky_the_basic_three(self) -> None:
         """
-        Without the coin and with nothing to answer, Dinky plays the
-        basic three without knowing why.
+        With the other coach's gambit declared and nothing to answer it
+        with -- not behind -- Dinky plays the basic three without
+        knowing why.
         """
         cog, game, match = self.unpicked("defense")
+        match.declare_gambit("offense")
+        match.gambit_answer = "basic"
 
         picked = self.picks(cog, game, match, "defense", 300)
 
@@ -1093,7 +1037,8 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
 
     def test_a_basic_hand_never_reaches_a_gambit(self) -> None:
         cog, game, match = self.unpicked("offense")
-        match.coin_holder = TeamSide.VISITING   # the human's coin
+        match.declare_gambit("defense")          # the human's gambit
+        match.gambit_answer = "basic"
         basic_hand = cog.maneuver_catalog.for_tier(
             "offense", MANEUVER_TIER_BASIC,
         )
@@ -1399,9 +1344,9 @@ class SkilledPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        Double Team's cost, paid inside the pass that beat it. No
-        exhaustion: nobody chose to go, and every per-space charge in
-        the game is for a move somebody was sent on.
+        Double Team's cost, paid inside the pass that beat it: each
+        defender exhausts 1 for the space, as every move does (Law
+        19.10.6, 15.1; the author, 2026-11-03).
         """
         cog, game, match = self.build("skilled_pass", "double_team")
         defense_side = match.defending_side()
@@ -1428,7 +1373,7 @@ class SkilledPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
                     self.flat_of(match, player_id),
                     match.relative_flat_index(was, defense_side, 1),
                 )
-                self.assertEqual(match.exhaustion.get(player_id, 0), 0)
+                self.assertEqual(match.exhaustion.get(player_id, 0), 1)
 
 
 class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
@@ -2160,6 +2105,7 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         challenger = match.challenger_id
         partner = self.partner_of(cog, match)
         start = self.flat_of(match, handler)
+        partner_start = self.flat_of(match, partner)
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
@@ -2170,11 +2116,14 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             end, match.relative_flat_index(start, match.ball.possession, -1),
         )
         self.assertEqual(self.flat(match), end)
-        # Both defenders end on the handler's space, and neither pays a
-        # token for it -- "no exhaustion cost" is the card's own words.
+        # Both defenders end on the handler's space, and the partner
+        # pays a token a space for it, as every move does (Law 19.10.2,
+        # 15.1; the author, 2026-11-03, following PR #665's 2.0 ruling).
         self.assertEqual(self.flat_of(match, challenger), end)
         self.assertEqual(self.flat_of(match, partner), end)
-        self.assertEqual(match.exhaustion.get(partner, 0), 0)
+        self.assertEqual(
+            match.exhaustion.get(partner, 0), abs(end - partner_start),
+        )
         # The partner, and only the partner, Merges next (Law 19.10.5).
         self.assertEqual(match.pending_double_team, [partner])
 

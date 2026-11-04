@@ -31,12 +31,11 @@ is a rule rather than an accident:
 - **Injury withholds a contestant's own skill in the loose ball and
   the shootout, and not in the skill test or the score attempt.** See
   "Injured players" in docs/living-rules.md.
-- **A tie is re-rolled in the skill test and the loose ball**, at a
-  token each -- in 1.0; in 2.2 the coin's face settles it, unrolled and
-  free, and the coin is tossed again after it (`coin_settles_tie`,
-  rules-2.2 section 5). A score attempt scores on level totals in 1.0
-  (Law 5.2.3, the author 2026-10-18) and goes to the coin in 2.2, and a
-  shootout tie simply scores for nobody.
+- **A tie in the skill test, the loose ball and the score attempt goes
+  to the coin**, whose face settles it, unrolled and free, and the coin
+  is tossed again after it (`coin_settles_tie`, Law 6.11; the author,
+  2026-11-03, for 1.0 as 2.x had it). A shootout tie simply scores for
+  nobody, and the coin is not tossed for it.
 - **The tutorial scripts the skill test's dice and the loose ball's**,
   and deliberately scripts neither of the other two -- a beat only
   fixes a roll the next beat depends on. See
@@ -264,15 +263,15 @@ def coin_settles_tie(
     defense_word: str = "defense",
 ) -> tuple[str, str]:
     """
-    **D12 Ball 2.2: a tie goes to the side the coin shows** (rules-2.2
-    5.1; the author, 2026-10-20 and 2026-10-31) -- the offense on
+    **A tie goes to the side the coin shows** (Law 6.11; the author,
+    2026-10-20 for 2.x and 2026-11-03 for 1.0) -- the offense on
     Fortune, the defense on Doom -- **and the coin is tossed again after
     the tie**, so both coaches always know how the next one goes: the
     face is on every turn message and the board. Settles a skill
     test's, a contest for the ball's and a shot's tie; nothing is rolled
     again, so nobody pays for it. Returns the winning side ("offense" or
-    "defense") and the tie's lines, headed like `pay_contest_tie`'s;
-    `offense_word` and `defense_word` are what the lines call the two (a
+    "defense") and the tie's lines, headed at `##` like every other way
+    a roll lands; `offense_word` and `defense_word` are what the lines call the two (a
     shot's "attack").
 
     A coin never flipped -- a tie before the first turn's flip
@@ -293,52 +292,6 @@ def coin_settles_tie(
         f"**{COIN_FACE_WORDS[face]}**, so the {side} wins it. It is tossed "
         f"again: {tokens.coin(after)} **{COIN_FACE_WORDS[after]}** -- "
         f"{engine.tie_coin_caption(match).lower()} from now."
-    )
-
-
-def pay_contest_tie(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    first_player_id: str,
-    second_player_id: str,
-    offense_total: int,
-    defense_total: int,
-) -> str:
-    """
-    Charge both contestants the re-roll's exhaustion token and word the
-    tie -- shared by the maneuver skill test and the loose ball (which
-    the long High Ball also comes through).
-
-    The token counts towards Exhausted straight away, so whoever it
-    pushes over is already flagged when the test finally resolves and
-    hands out its injury checks.
-
-    **It no longer saves.** `SafeView.pay_skill_test_tie` did, and a
-    step does not (principle 9): the two callers here are steps
-    themselves, and their frontend writes the match once after them.
-    """
-    # Filtered: Zorch's re-roll is free and says nothing (Law 21).
-    exhaustion_text = "\n".join(
-        filter(None, [
-            engine.apply_exhaustion(
-                game, match, first_player_id,
-                engine.re_roll_tokens(game, first_player_id),
-            ),
-            engine.apply_exhaustion(
-                game, match, second_player_id,
-                engine.re_roll_tokens(game, second_player_id),
-            ),
-        ])
-    )
-    # Headed like the outcome it is: a tie is one of the four ways a
-    # skill test lands, and every other one is announced at `##`. Left
-    # as bold body text it read as a footnote to the dice rather than
-    # the result of them.
-    return (
-        f"## **It's a tie ({offense_total}-{defense_total})!**\n"
-        f"The skill test must be rolled again.\n"
-        f"{exhaustion_text}\n\nRoll again:"
     )
 
 
@@ -637,15 +590,13 @@ def skill_test_step(
         engine, game, match,
         (offense_player.player_id, defense_player.player_id),
     )
-    # Spent, win, lose or tie: a tie that is re-rolled is a fresh roll
-    # and has to be Overdriven again.
+    # Spent, win, lose or tie: nothing is rolled again (Law 6.11).
     match.consume_overdrive()
-    # Logged before either branch, so a tie that re-rolls is in the
-    # record as well as the roll that settles it -- a maneuver decided
-    # on the third attempt cost three rolls and six exhaustion tokens,
-    # and only the log says so. It is also what `record_maneuver` reads
-    # to tell a win on the dice from a win on the cards, so it has to
-    # be written before the effect is dispatched.
+    # Logged before the effect, with whether it tied: it is what
+    # `record_maneuver` reads to tell a win on the dice from a win on
+    # the cards, so it has to be written before the effect is
+    # dispatched. Games saved before 2026-11-03 may hold a tie that was
+    # re-rolled, logged once a roll.
     match.record_event(
         EVENT_SKILL_TEST,
         side=match.ball.possession,
@@ -660,25 +611,9 @@ def skill_test_step(
     tie_text = ""
     if offense_total != defense_total:
         outcome = "offense" if offense_total > defense_total else "defense"
-    elif engine.tie_coin_applies(game):
+    else:
         outcome, tie_text = coin_settles_tie(
             engine, match, offense_total, defense_total,
-        )
-    else:
-        return dice, StepResult(
-            board_changed=True,
-            next=PendingPrompt(
-                PromptKind.SKILL_TEST,
-                pay_contest_tie(
-                    engine,
-                    game,
-                    match,
-                    match.active_player_id,
-                    match.challenger_id,
-                    offense_total,
-                    defense_total,
-                ),
-            ),
         )
 
     winner_key = (
@@ -993,8 +928,8 @@ def settle_loose_ball_winner(
     them -- and the announcement's `Headline`s: the turnover where
     there was one, and who won, each worded once for both.
 
-    `tie_winner` is the side 2.0's coin gave level totals
-    (`coin_settles_tie`); a 1.0 tie never reaches here.
+    `tie_winner` is the side the coin gave level totals
+    (`coin_settles_tie`, Law 6.11).
     """
     outcome = tie_winner or (
         "offense" if offense_total > defense_total else "defense"
@@ -1176,25 +1111,9 @@ def loose_ball_test_step(
 
     tie_text = ""
     tie_winner = None
-    if offense_total == defense_total and engine.tie_coin_applies(game):
+    if offense_total == defense_total:
         tie_winner, tie_text = coin_settles_tie(
             engine, match, offense_total, defense_total,
-        )
-    elif offense_total == defense_total:
-        return dice, StepResult(
-            board_changed=True,
-            next=PendingPrompt(
-                PromptKind.LOOSE_BALL_SKILL_TEST,
-                pay_contest_tie(
-                    engine,
-                    game,
-                    match,
-                    match.loose_ball_offense_player,
-                    match.loose_ball_defense_player,
-                    offense_total,
-                    defense_total,
-                ),
-            ),
         )
 
     was_high_pass = match.pending_loose_ball_is_high_pass
@@ -1465,15 +1384,13 @@ def settle_score_attempt(
         headline = Headline("Missed attempt!", defending_setup.side, under)
         verdict = f"# {headline.text}\n{under}"
 
-    # In 1.0 a plain score attempt costs no exhaustion -- only a shot
-    # taken off a set-up gains a token -- and in 2.2 every one does
-    # (`RulesEngine.shot_exhausts`); either way it is taken after the
-    # roll regardless of outcome, and no score attempt owes an injury
-    # check, which stays exclusive to skill tests.
-    if engine.shot_exhausts(match):
-        verdict += "\n\n" + engine.apply_exhaustion(
-            game, match, shooter.player_id, 1,
-        )
+    # **Every score attempt exhausts its shooter 1**, ordinary or off a
+    # set-up (Law 5.4.1; the author, 2026-11-01 for 2.x and 2026-11-03
+    # for 1.0), after the roll regardless of outcome. No score attempt
+    # owes an injury check, which stays exclusive to skill tests.
+    verdict += "\n\n" + engine.apply_exhaustion(
+        game, match, shooter.player_id, 1,
+    )
 
     # **The shot has resolved, so the clock is charged now** (Law 5.4.2,
     # 16.2.4): a flat 1 time (2026-08-16), after the goal is
@@ -1559,18 +1476,17 @@ def score_attempt_step(
     )
     match.consume_overdrive()
 
-    # A tie scores (Law 5.2.3, the author 2026-10-18): the attack has to
-    # equal or beat the defense's total -- in 1.0. **In 2.2 the coin is
-    # tossed for it** (rules-2.2 5.1, the author, 2026-10-31): Fortune
-    # scores, Doom does not.
+    # **A tied shot goes to the coin** (Law 5.2.3, 6.11; the author,
+    # 2026-10-31 for 2.x and 2026-11-03 for 1.0): Fortune scores, Doom
+    # does not.
     tie_text = ""
-    if attack_total == defense_total and engine.tie_coin_applies(game):
+    if attack_total == defense_total:
         outcome, tie_text = coin_settles_tie(
             engine, match, attack_total, defense_total, "attack", "defense",
         )
         scored = outcome == "offense"
     else:
-        scored = attack_total >= defense_total
+        scored = attack_total > defense_total
     dice = ShotDice(
         contestants,
         ((shooter.player_id, attack_ignite),),

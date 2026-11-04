@@ -251,10 +251,10 @@ their own (below).
     always did.
     The shooter is `active_player_id`, so the picture drawn before the
     shot and the roll read the same wall.
-  - *What a test costs* -- `skill_test_tokens` and `re_roll_tokens`:
-    a test Scorchit forced is 2 to Scorchit and 0 to their opponent.
-    (Zorch's free tests went on 2026-09-27; `re_roll_tokens` is kept as
-    the one question a re-roll's price is read from.)
+  - *What a test costs* -- `skill_test_tokens`: nothing (Law 6.4.1,
+    since 2026-11-03), but a test Scorchit forced is 2 to Scorchit and 0
+    to their opponent. (Zorch's free tests went on 2026-09-27, and
+    `re_roll_tokens` with the re-roll on 2026-11-03.)
   - *Zorch's speed* -- `speed_roll_bonus` is the ball speed modifier
     Zorch adds to every roll they make, asked at the skill test, the
     contest and the own-goal roll -- not the injury check, which nothing
@@ -788,18 +788,15 @@ seventh gets it in one line.
 - **It is persisted**, since declaring and rolling are two clicks with a save
   between them. That *is* declaring blind: a coach commits, and only then does
   somebody press Roll.
-- **Every roll site clears it**, win, lose or tie. A tie that is re-rolled is a
-  fresh roll and has to be Overdriven again, which the rules say outright and
-  which falls out of consuming rather than being special-cased.
-- **On Discord a tie's re-roll is a new message, below the declaration.** The
-  declaration's answer is a reply under the prompt it was pressed on, and the
-  Roll turns that prompt into the dice. The tie and its roll-again buttons used
-  to be written into the same message, which left the reply sitting under the
-  re-roll's buttons -- read as an Overdrive declared for the re-roll, when it
-  was spent on the roll that tied (the author, 2026-10-05). So the tie is
-  posted after the dice like every other verdict (`SkillTestView.roll`,
-  `LooseBallSkillTestView.roll`): the dice, then the declaration, then the
-  re-roll. One request more per tie, which is rare.
+- **Every roll site clears it**, win, lose or tie. Since 2026-11-03 nothing is
+  rolled again for a tie -- the coin settles it (Law 6.11) -- so a declaration
+  is spent on the one roll it was made for.
+- **The tie is posted after the dice like every other verdict**
+  (`SkillTestView.roll`, `LooseBallSkillTestView.roll`): the dice, then the
+  declaration, then the coin's line. It was written that way while a tie still
+  put up roll-again buttons, which had left the declaration's reply sitting
+  under them -- read as an Overdrive declared for the re-roll, when it was spent
+  on the roll that tied (the author, 2026-10-05).
 - **The declaration is the Cyborg's own coach's, unlike the roll.** Either
   coach may throw a die (see "Every roll is a coach's" in [maneuvers.md](maneuvers.md)); nobody else may spend
   another coach's tokens. The button carries the player in its custom_id for
@@ -926,8 +923,7 @@ for every ooze"*). It is Overdrive's declaration with a different price and a
 different player, so it is built on Overdrive's pieces rather than beside them:
 
 - **`MatchState.pending_merge`** is who paid, persisted for the reason
-  `pending_overdrive` is, and spent with it by `consume_overdrive` -- so a
-  tie's re-roll is Merged afresh, for another token.
+  `pending_overdrive` is, and spent with it by `consume_overdrive`.
 - **`RulesEngine._merge_values` is the one reading of who *may* Merge**,
   and both halves narrow it: `merge_candidates` (not yet paid, not a passed
   side) is the offer, `merge_contributions` (paid, or a Glompex who joined)
@@ -947,12 +943,12 @@ different player, so it is built on Overdrive's pieces rather than beside them:
 - **A Merging Ooze owes the injury check as the two rolling do** (Law
   15.3.1, the author, 2026-10-07). `rolls._note_mergers` writes who
   Merged into each roll -- `merge_contributions`, read before the roll
-  spends the declarations -- onto `MatchState.merged_this_test`, which
-  runs across a tie's re-rolls because a Merge into the roll that tied
-  paid its token into the same test; `_owing_checks` adds the Exhausted
-  among them behind the two rollers when the test or contest resolves,
-  and spends the list. A score attempt owes no check, so it notes
-  nobody. Saved, since a tie's re-roll is a click away.
+  spends the declarations -- onto `MatchState.merged_this_test`, a list
+  because it once ran across a tie's re-rolls (none since 2026-11-03,
+  when the coin took ties); `_owing_checks` adds the Exhausted among
+  them behind the two rollers when the test or contest resolves, and
+  spends the list. A score attempt owes no check, so it notes nobody.
+  Saved, since the injury checks are a click away.
 - **Dinky declares before the die** (the author, 2026-10-07: *"dinky should
   always merge unless injured"*, and *"also overdrive/boost unless it gives
   the cyborg enough drain to become drained"*). An AI side is in

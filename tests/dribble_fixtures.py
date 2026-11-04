@@ -170,6 +170,19 @@ def label(match: MatchState, player_id: str) -> str:
         match, ENGINE.get_player_definition(player_id),
     )
 
+def paid(match: MatchState, player_id: str, tokens_paid: int, total: Optional[int] = None) -> str:
+    """The line a move's charge adds, on a line of its own: every move
+    on the board costs a token a space (Law 15.1, 2026-11-03)."""
+    if tokens_paid <= 0:
+        return ""
+    total = tokens_paid if total is None else total
+    return (
+        f"\n{label(match, player_id)} exhausts {tokens_paid} "
+        f"{tokens.condition(tokens.CONDITION_EXHAUST) * tokens_paid} "
+        f"(now {total} total)."
+    )
+
+
 
 def put_on_the_ball(
     match: MatchState,
@@ -249,6 +262,7 @@ def advance_plain() -> DribbleFixture:
         narration=(
             f"**Dribble:** {label(match, handler)} and the "
             "ball move forward 1 space."
+            + paid(match, handler, 1)
         ),
         follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,
@@ -276,6 +290,7 @@ def advance_playmaker_two() -> DribbleFixture:
         narration=(
             f"**Dribble:** {label(match, handler)} and the "
             "ball move forward 2 spaces (Playmaker ability)."
+            + paid(match, handler, 2)
         ),
         follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,
@@ -304,6 +319,7 @@ def advance_playmaker_one() -> DribbleFixture:
         narration=(
             f"**Dribble:** {label(match, handler)} and the "
             "ball move forward 1 space."
+            + paid(match, handler, 1)
         ),
         follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,
@@ -376,6 +392,7 @@ def advance_beats_a_clear() -> DribbleFixture:
             f"{label(match, defender)} exhausts 2 "
             f"{EXHAUST * 2} (now 3 total)."
             f"\n{label(match, defender)} is now *exhausted* {EXHAUSTED}"
+            + paid(match, handler, 1)
         ),
         follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,

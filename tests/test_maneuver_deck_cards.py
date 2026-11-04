@@ -387,11 +387,12 @@ class HighBallTests(unittest.TestCase):
 
 class ScoreAttemptTests(unittest.TestCase):
 
-    def test_every_score_attempt_exhausts_one_in_two_point_one(self) -> None:
+    def test_every_score_attempt_exhausts_one_in_both_editions(self) -> None:
         # "Attempting a score -- whether off set up or not -- always
-        # exhausts 1" (the author, 2026-11-01); 1.0's plain shot is free.
+        # exhausts 1" (the author, 2026-11-01), and 1.0 too since
+        # 2026-11-03 (Law 5.4.1).
         from d12ball.flow import rolls
-        for edition, cost in ((Edition.TWO, 1), (Edition.ONE, 0)):
+        for edition, cost in ((Edition.TWO, 1), (Edition.ONE, 1)):
             with self.subTest(edition=edition):
                 game = build_game(edition=edition, mode=GameMode.TRAINING)
                 match = build_match(9)

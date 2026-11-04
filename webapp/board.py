@@ -190,17 +190,15 @@ def jumbotron(
     here: that is the turn prompt's to say (`webapp/present.py`), and
     only to the coach it is put to.
 
-    **The coin sits beside the team holding it** (Law 19.3) --
-    `RulesEngine.coin_holder`, asked rather than worked out, and `None`
-    in a game with no gambits -- drawn as the game's own coin
-    (`D12BallGame.game_coin`) on the face it landed on when it last
-    passed, or the toss's until it has (`RulesEngine.coin_face`, Law
-    19.3.3).
+    **The coin sits under the score** (Law 6.11.3): the game's own coin
+    (`D12BallGame.game_coin`) on the face that settles the next tie
+    (`RulesEngine.tie_coin_face`, asked rather than read off the match),
+    with what that face means (`tie_coin_caption`) -- `None` before the
+    first turn sets it. It belongs to neither team, so it is drawn
+    between them, as the board's PNG draws it.
     """
     board = match.scoreboard
-    holder = (
-        engine.coin_holder(game, match) if engine is not None else None
-    )
+    face = engine.tie_coin_face(match) if engine is not None else None
     possession = match.ball.possession
 
     def side(setup) -> dict:
@@ -209,7 +207,6 @@ def jumbotron(
             "possession": possession is not None
             and TeamSide(possession) == setup.side,
             "time_out": "held" if match.may_take_time_out(setup.side) else "spent",
-            "coin": holder is not None and TeamSide(holder) == setup.side,
         }
 
     return {
@@ -231,9 +228,12 @@ def jumbotron(
         "speed": match.ball.speed,
         "note": clock_note(game, match),
         "coin": (
-            None if holder is None
-            else "/emoji/"
-            f"{coin_face_name(game.game_coin, engine.coin_face(game, match))}.png"
+            None if face is None
+            else {
+                "image": f"/emoji/{coin_face_name(game.game_coin, face)}.png",
+                "face": face.value,
+                "caption": engine.tie_coin_caption(match),
+            }
         ),
     }
 

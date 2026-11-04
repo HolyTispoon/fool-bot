@@ -250,11 +250,12 @@ class DinkyAI(AIStrategy):
             hand for hand in options.hands if hand.side == pick_side
         )
         if hand.may_declare and not hand.picked and self.rng.randint(1, 2) == 1:
-            # Holding the coin, Dinky declares a gambit on a coin flip
-            # (Law 19.3) -- the same indifference as the tier below,
-            # and the only way a solo coach ever sees the coin cross.
-            # The prompt asks again, and the die picks from the three
-            # advanced maneuvers the declaration leaves it.
+            # Free to declare -- either coach may, at any challenged
+            # maneuver nobody has declared at (Law 19.3, the author,
+            # 2026-11-03) -- Dinky declares a gambit on a coin flip, the
+            # same indifference as the tier below. The prompt asks
+            # again, and the die picks from the three advanced
+            # maneuvers the declaration leaves it.
             return Action(prompt.kind, "gambit", {"side": pick_side})
         if hand.railed is not None:
             key = hand.railed

@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-11-01.
+**As of:** 2026-11-03.
 
 ## Where the rules come from
 
@@ -156,7 +156,44 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-11-01 (latest) -- author, 2.2 replaces 2.1: twelve split cards and a hand of three
+### 2026-11-03 (latest) -- author, 1.0 takes 2.x's coin, moving costs and shot cost
+
+**A rule changed, in every edition** ([living-rules.md](living-rules.md) 3.1.4, 5.2.3, 5.4.1,
+6.4.1, 6.4.4, 6.5.3, 6.6.3, 6.9.4, 6.10.2, the new 6.11, 10.2.2, 15.1, 15.3.2, 17.4.3, 18.3.1,
+19.3, 19.10.2, 19.10.6, 20.3.6, 20.5.2, 21.3.4, 21.3.8, 21.4.3 and Appendix A; [rules-2.2.md](rules-2.2.md)
+section 5 now points at them). The author, on 2026-11-03: *"some revisions to d12ball 1.0 to
+match the rules from 2.0: the coin and tie breaking, Exhaustion costs of moves, exhaustion costs
+of score attempts."* What 2.2's section 5 said is now the Charter's, so 1.0 and 2.2 play it alike.
+
+- **The coin settles every tie on the dice** -- a skill test, a contest for the ball, a High
+  Ball contest and a score attempt -- Fortune for the offense, Doom for the defense, and is
+  tossed again after every tie it settles. It starts on the toss's face. A tied shot is no
+  longer a goal by itself, and nothing is rolled again, so nothing is paid for a tie; Overdrive,
+  Merge and Boost lose their "a tie rolled again is a fresh roll". A tied shootout test is still
+  no goal, and the coin is not tossed for it.
+- **One coin, which a gambit never touches.** Asked how 2.x's coin fits beside 1.0's gambit
+  coin (Law 19.3), the author: *"one coin. gambit doesn't hand it over or toss it, it is only
+  tossed when it breaks a tie."* Asked who may then declare a gambit, the author chose
+  **either coach**, at any challenged maneuver; the other coach still answers only while
+  behind (19.3.4), and one coach declares a gambit a maneuver (19.3.3, which follows from the
+  answer being the only way the second coach plays one).
+- **Moving costs a token a space** wherever a player moves during play, and **entering a skill
+  test is free** -- both halves of 2.0's 5.4, the author choosing "both halves" when asked.
+  Free stay the reset after a new play and every move a Coaching Choice makes; an ability that
+  prices its own move keeps its price. Emberdash's Dribble is free, as their Burst is (21.3.4),
+  which is 2.0's 5.4b -- *"ok for emberdash"* (the author, PR #701, 2026-11-04).
+- **Double Team's partner pays the spaces they came, and a failed Double Team's two pay their
+  space** (19.10.2, 19.10.6), where the Charter had both free. This is Claude's reading of
+  "exhaustion costs of moves", following the author's 2.0 ruling on PR #665 for the partner;
+  it is the one place the Charter priced a move as free in its own words, so it was put to the
+  author, who answered on PR #701, 2026-11-04: *"keep the Double Team costs"*.
+- **Every score attempt exhausts its shooter 1 after the roll**, ordinary or off a set-up --
+  2.1's ruling of 2026-11-01, which then said *"Don't change 1.0 for now"*.
+- **Games in progress play the new rules from their next action.** A 1.0 game saved before
+  this has no coin face on the match; it takes the toss's at its next turn, as a 2.2 game does.
+  The gambit coin's holder and face, saved on the match, are no longer read.
+
+### 2026-11-01 -- author, 2.2 replaces 2.1: twelve split cards and a hand of three
 
 **A rule changed, in 2.x alone** ([rules-2.2.md](rules-2.2.md) 1.1, 1.2, 2.1, 2.3, 2.5, 3.1,
 3.3 and 7.1; the file was `rules-2.1.md`). The author, on 2026-11-01, drafted the 2.1 cards as

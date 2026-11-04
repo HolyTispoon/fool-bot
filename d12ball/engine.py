@@ -617,25 +617,6 @@ class RulesEngine:
             and not game.tutorial
         )
 
-    def coin_applies(self, game: D12BallGame) -> bool:
-        """
-        Whether **the coin** decides who may make a gambit (Law 19.3):
-        a game playing the gambits, which is 1.0's advanced mode alone,
-        since 2.2 has no advanced maneuvers.
-        """
-        return self.gambits_apply(game)
-
-    def tie_coin_applies(self, game: Optional[D12BallGame]) -> bool:
-        """
-        Whether **the coin settles a tied roll** rather than its being
-        rolled again, or a tied shot rather than its scoring
-        (docs/rules-2.2.md, section 5; the author, 2026-10-20 and
-        2026-10-31). It is 2.x's, so this is the deck's own answer --
-        asked under its own name so a reader of a tie sees which rule
-        it is.
-        """
-        return self.maneuver_deck_applies(game)
-
     @staticmethod
     def tie_coin_winner(match: MatchState) -> str:
         """
@@ -650,16 +631,14 @@ class RulesEngine:
             else "defense"
         )
 
-    def tie_coin_face(
-        self, game: Optional[D12BallGame], match: MatchState,
-    ) -> Optional[CoinFace]:
+    def tie_coin_face(self, match: MatchState) -> Optional[CoinFace]:
         """
-        The face 2.2's coin shows, which settles the next tie, for a
-        frontend to draw on the turn message and the board (the author,
-        2026-10-20 and 2026-10-31) -- None in 1.0 and before the first
-        flip.
+        The face the coin shows, which settles the next tie (Law 6.11),
+        for a frontend to draw on the turn message and the board -- in
+        every game since 2026-11-03, when 1.0 took 2.x's coin; None
+        before the first turn sets it (`turn.settle_tie_coin`).
         """
-        if not self.tie_coin_applies(game) or match.tie_coin is None:
+        if match.tie_coin is None:
             return None
         return CoinFace(match.tie_coin)
 
@@ -672,16 +651,6 @@ class RulesEngine:
             if self.tie_coin_winner(match) == "offense"
             else "Defense wins ties"
         )
-
-    def moving_costs(self, game: Optional[D12BallGame]) -> bool:
-        """
-        Whether **a move on the board costs a token a space** wherever
-        it happens during play, rather than only where the Charter
-        charges one -- a send and a run back (rules-2.2 5.4; the
-        author, 2026-10-21) -- and so whether entering a skill test is
-        free. 2.0's, so the deck's own answer under its own name.
-        """
-        return self.maneuver_deck_applies(game)
 
     def shooting_range_applies(self, game: Optional[D12BallGame]) -> bool:
         """
@@ -723,19 +692,19 @@ class RulesEngine:
         tokens: int,
     ) -> str:
         """
-        **D12 Ball 2.0: a move the Charter makes free costs its
-        spaces** (rules-2.2 5.4) -- a won Dribble's handler, the
-        passer's step, Pressure's shove and the challenger who follows
-        it, a Steal's or an Intercept's thief, a beaten Double Team's
-        two. `tokens` is the spaces the move actually came to, or what
-        an ability prices it at (`dribble_burst_cost`, 5.4b). Nothing
-        in 1.0, where these moves are free; returns the exhaustion's
-        description, "" where nothing was charged.
+        **A move on the board during play costs a token a space** (Law
+        15.1.1-15.1.2, in every edition since 2026-11-03) -- a won
+        Dribble's handler, the passer's step, Pressure's shove and the
+        challenger who follows it, a Steal's or an Intercept's thief, a
+        beaten Double Team's two. `tokens` is the spaces the move
+        actually came to, or what an ability prices it at
+        (`dribble_burst_cost`). Returns the exhaustion's description, ""
+        where nothing was charged.
 
-        The sends and the run backs charge their spaces in both
-        editions already, so they never come here.
+        The sends and the run backs charge their spaces on their own
+        paths, so they never come here.
         """
-        if player_id is None or tokens <= 0 or not self.moving_costs(game):
+        if player_id is None or tokens <= 0:
             return ""
         return self.apply_exhaustion(game, match, player_id, tokens)
 
@@ -754,7 +723,7 @@ class RulesEngine:
         A coach the 2026-09-20 gate has closed this turn still needs to
         read what the *other* side may be about to play, and the
         hexagon is the twelve relations rather than a hand -- so it
-        asks the module and not `coin_holder`.
+        asks the module and not `maneuver_tiers`.
 
         It was the cog's `reference_tier` until the web app needed the
         same answer (step 11 of docs/web-app-next.md); a choice two
@@ -764,12 +733,14 @@ class RulesEngine:
             return MANEUVER_TIER_GAMBIT
         return MANEUVER_TIER_BASIC
 
-    def species_abilities_apply(self, game: D12BallGame) -> bool:
+    def species_abilities_apply(self, game: Optional[D12BallGame]) -> bool:
         """
         Whether this game is playing the **species abilities**: standard
         and advanced mode do, training mode does not (2026-09-25; see
         "Species abilities" in docs/living-rules.md). In training mode
-        species is only a name on the card.
+        species is only a name on the card. With no record to ask -- a
+        step a test calls bare, now that its move is charged in every
+        edition -- nothing applies, as `maneuver_deck_applies` reads it.
 
         **A tutorial never does**, whatever its mode says. The tutorial
         is a training game, and one saved before training mode existed
@@ -779,7 +750,8 @@ class RulesEngine:
         reads its twin.
         """
         return (
-            game.mode in (GameMode.STANDARD, GameMode.ADVANCED)
+            game is not None
+            and game.mode in (GameMode.STANDARD, GameMode.ADVANCED)
             and game.species_abilities
             and not game.tutorial
         )
@@ -1941,65 +1913,21 @@ class RulesEngine:
             match, side,
         )
 
-    def coin_holder(
-        self, game: D12BallGame, match: MatchState,
-    ) -> Optional[TeamSide]:
-        """
-        Which team's coach holds **the coin** (Law 19.3) -- `None` in a
-        game not playing the gambits, where there is nothing to hold it
-        for.
-
-        The toss winner keeps it (Law 3.1.4) and a declaration hands it
-        over (`MatchState.declare_gambit`), so the match records it only
-        once it has moved; until then it is read off the game record.
-        That is also the whole of the fallback for a game saved before
-        the coin existed. A game seated without a toss -- a test game --
-        has no winner to read, and the coin starts with the home team.
-        """
-        if not self.coin_applies(game):
-            return None
-        if match.coin_holder is not None:
-            return TeamSide(match.coin_holder)
-        winner = game.coin_winner_player_number
-        if winner is not None and winner == game.visiting_player_number:
-            return TeamSide.VISITING
-        return TeamSide.HOME
-
-    def coin_face(
-        self, game: D12BallGame, match: MatchState,
-    ) -> Optional[CoinFace]:
-        """
-        The face the coin shows in front of the coach holding it (Law
-        19.3.3) -- `None` wherever `coin_holder` is, in a game with no
-        coin to hold. The face it landed on when a declaration last
-        handed it over; until then the toss's (Law 3.1.4), which is the
-        same face whoever flipped it, since a doom face hands the toss
-        to the other coach. A game seated without a toss shows Fortune.
-        It decides nothing: it is what the coin looks like.
-        """
-        if self.coin_holder(game, match) is None:
-            return None
-        if match.coin_face is not None:
-            return CoinFace(match.coin_face)
-        return game.coin_face or CoinFace.FORTUNE
-
     def may_declare_gambit(
         self, game: D12BallGame, match: MatchState, side: str,
     ) -> bool:
         """
         Whether this maneuver side's coach may declare a gambit right
-        now (Law 19.3.2): the game plays the gambits, the maneuver is
-        challenged, nobody has declared one this maneuver, and their
-        team holds the coin. Whether the maneuver has already resolved
-        is the prompt's question -- this is only asked while it is up.
+        now (Law 19.3.1-19.3.3): the game plays the gambits, the
+        maneuver is challenged, and nobody has declared one this
+        maneuver. **Either coach may** -- the coin settles ties and
+        nothing else (the author, 2026-11-03). Whether the maneuver has
+        already resolved is the prompt's question -- this is only asked
+        while it is up.
         """
-        if not self.coin_applies(game) or match.maneuver_uncontested:
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
             return False
-        if match.gambit_declared_by is not None:
-            return False
-        return self.coin_holder(game, match) == self.maneuver_side_team(
-            match, side,
-        )
+        return match.gambit_declared_by is None
 
     def may_answer_gambit(
         self, game: D12BallGame, match: MatchState, side: str,
@@ -2007,13 +1935,12 @@ class RulesEngine:
         """
         Whether this maneuver side's coach may answer this maneuver's
         gambit with one of their own (Law 19.3.4): the other side
-        declared one, and their team is `behind`. Holding the coin they
-        have just been handed does not come into it.
+        declared one, and their team is `behind`.
         """
         declared = match.gambit_declared_by
         if declared is None or declared == side:
             return False
-        if not self.coin_applies(game) or match.maneuver_uncontested:
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
             return False
         return self.behind(match, self.maneuver_side_team(match, side))
 
@@ -2099,28 +2026,18 @@ class RulesEngine:
         Who may make a gambit this maneuver, for the public prompt --
         `""` where the question does not arise.
 
-        Before a declaration it names the coach holding the coin; after
-        one, the coach who declared it and whether the other may answer.
-        **Said out loud even though it is public knowledge** -- the coin
-        is on the table and the card backs show a gambit -- because the
-        prompt only draws a hand for a side a *person* still picks for,
-        so in a solo game Dinky's cards are never on the message.
+        Before a declaration it says that either coach may make one;
+        after one, the coach who declared it and whether the other may
+        answer. **Said out loud even though it is public knowledge** --
+        the card backs show a gambit -- because the prompt only draws a
+        hand for a side a *person* still picks for, so in a solo game
+        Dinky's cards are never on the message.
         """
-        if not self.coin_applies(game) or match.maneuver_uncontested:
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
             return ""
         declared = match.gambit_declared_by
         if declared is None:
-            holder = self.coin_holder(game, match)
-            if holder is None:
-                return ""
-            coach = format_player_with_team(
-                game, self.side_player_number(game, holder),
-            )
-            face = self.coin_face(game, match)
-            return (
-                f"{coach} holds the coin, {tokens.coin(face)} "
-                f"{COIN_FACE_WORDS[face]} up, and may declare a gambit."
-            )
+            return "Either coach may declare a gambit."
 
         other = "defense" if declared == "offense" else "offense"
         declarer = format_player_with_team(
@@ -2452,7 +2369,7 @@ class RulesEngine:
         within the side's cards, asked of `maneuver_tiers` so the two
         cannot disagree.
         """
-        if not self.coin_applies(game) or match.maneuver_uncontested:
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
             return ()
         # Once a gambit is declared each hand is its three cards and
         # nothing dimmed beside them (the author, 2026-09-28).
@@ -3045,17 +2962,15 @@ class RulesEngine:
         forced_by: Optional[str] = None,
     ) -> int:
         """
-        What entering a maneuver skill test costs `player_id`: 1, or
-        under a test Scorchit forced (`forced_by`) 2 to Scorchit and
-        nothing to their opponent. In 2.0 moving costs instead and the
-        test is free, but for Scorchit's 2, which is the ability's
-        price (rules-2.2 5.4c).
+        What entering a maneuver skill test costs `player_id`: nothing
+        (Law 6.4.1, since 2026-11-03 in every edition, moving costing
+        instead), but under a test Scorchit forced (`forced_by`) 2 to
+        Scorchit, the ability's price, and nothing to their opponent
+        (Law 21.3.8).
         """
-        if forced_by is not None:
-            return (
-                SCORCHIT_FORCED_TEST_TOKENS if player_id == forced_by else 0
-            )
-        return 0 if self.moving_costs(game) else 1
+        if forced_by is not None and player_id == forced_by:
+            return SCORCHIT_FORCED_TEST_TOKENS
+        return 0
 
     def contest_auto_winner(
         self,
@@ -3313,18 +3228,6 @@ class RulesEngine:
         return roll == "own_goal" or (
             roll == "skill_test" and match.offense_maneuver == "high_pass"
         )
-
-    def re_roll_tokens(
-        self, game: D12BallGame, player_id: Optional[str],
-    ) -> int:
-        """
-        The token a tie's re-roll costs `player_id`, in a maneuver
-        skill test or a contest for the ball: 1 for everybody. It stays
-        a question, asked of the player, because the answer used to
-        depend on who was asked (Zorch's free tests, until 2026-09-27)
-        and a special ability is the kind of thing that changes it.
-        """
-        return 1
 
     def speed_roll_bonus(
         self,
@@ -3914,16 +3817,6 @@ class RulesEngine:
         """**H2 Long shot**: whether this High Ball may go to the
         passing side's Striker instead (rules-2.2 7.3)."""
         return self.card_special(match, "offense") == maneuver_deck.LONG_SHOT
-
-    def shot_exhausts(self, match: MatchState) -> bool:
-        """
-        Whether the waiting shot exhausts its shooter 1 after the roll:
-        **in 2.2 every score attempt does**, off a set-up or not (the
-        author, 2026-11-01: "Attempting a score -- whether off set up
-        or not -- always exhausts 1"); in 1.0 only one off a set-up
-        (Law 8.3.1, `MatchState.shot_is_set_up`).
-        """
-        return self.match_plays_deck(match) or match.shot_is_set_up
 
     def uncontested_throws(self, match: MatchState) -> tuple[int, ...]:
         """The 2.2 High Ball distances a teammate receives without a
@@ -5783,10 +5676,10 @@ class RulesEngine:
             mention=player_number is not None,
         )
 
-        # 2.2's coin, on every turn message (the author, 2026-10-20 and
-        # 2026-10-31): the face settles the next tie, so a coach always
-        # knows how one will go.
-        face = self.tie_coin_face(game, match)
+        # The coin, on every turn message (Law 6.11.3; the author,
+        # 2026-10-20 for 2.x and 2026-11-03 for 1.0): the face settles
+        # the next tie, so a coach always knows how one will go.
+        face = self.tie_coin_face(match)
         coin_line = (
             f"\n\n{tokens.coin(face)} **{COIN_FACE_WORDS[face]}**: "
             f"{self.tie_coin_caption(match).lower()}."

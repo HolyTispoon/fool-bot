@@ -52,6 +52,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball import tokens
 from d12ball.engine import RulesEngine
 from d12ball.game import (
     D12BallGame,
@@ -155,6 +156,19 @@ def label(match: MatchState, player_id: str) -> str:
     return ENGINE.format_player_label(
         match, ENGINE.get_player_definition(player_id),
     )
+
+def paid(match: MatchState, player_id: str, tokens_paid: int, total: Optional[int] = None) -> str:
+    """The line a move's charge adds, on a line of its own: every move
+    on the board costs a token a space (Law 15.1, 2026-11-03)."""
+    if tokens_paid <= 0:
+        return ""
+    total = tokens_paid if total is None else total
+    return (
+        f"\n{label(match, player_id)} exhausts {tokens_paid} "
+        f"{tokens.condition(tokens.CONDITION_EXHAUST) * tokens_paid} "
+        f"(now {total} total)."
+    )
+
 
 
 def take_the_ball(match: MatchState) -> str:
@@ -262,6 +276,7 @@ def shared_space() -> LowPassFixture:
             "**Pass:** the ball goes to a teammate in the same "
             "space. Ball speed is now 2. "
             f"{label(match, handler)} moves a space forward."
+            + paid(match, handler, 1)
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
@@ -442,6 +457,8 @@ def double_team_cost() -> LowPassFixture:
             "\n\n**Double Team** was beaten -- "
             f"{label(match, challenger)} and {label(match, partner)} "
             "are each shoved a space forward, away from their own goal."
+            + paid(match, challenger, 1)
+            + paid(match, partner, 1)
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
@@ -671,6 +688,8 @@ def skilled_pass_double_team_cost() -> LowPassFixture:
             "\n\n**Double Team** was beaten -- "
             f"{label(match, challenger)} and {label(match, partner)} "
             "are each shoved a space forward, away from their own goal."
+            + paid(match, challenger, 1)
+            + paid(match, partner, 1)
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
@@ -772,6 +791,7 @@ def free_pass_across_a_shared_space() -> LowPassFixture:
             "**Pass:** the ball goes to a teammate in the same "
             "space. Ball speed is now 5. "
             f"{label(match, passer)} moves a space forward."
+            + paid(match, passer, 1)
         ),
         follow_on_kwargs={"distance_moved": 0},
         carrier_id=receiver,

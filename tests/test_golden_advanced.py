@@ -171,7 +171,14 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: the engine's own `rng`, where every draw the game makes comes from
 #: (the dice, the shuffle, the AI's picks), rather than the module
 #: `random`, which nothing in the model reads.
-ADVANCED_SEED = 276
+#:
+#: **It was 276 until 1.0 took 2.x's coin for ties, moving costs and
+#: every shot's token, and a gambit stopped touching the coin**
+#: (docs/rules-log.md, 2026-11-03): 276's game stopped reaching the
+#: own-goal roll, the run back's two questions, the set-up and a Cross.
+#: A sweep from 0, checking every view, card and gambit line the tests
+#: here assert, found 844 first.
+ADVANCED_SEED = 844
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and
@@ -419,14 +426,16 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
                 "a seed that reaches it and regenerate.",
             )
 
-    async def test_the_coin_crosses(self) -> None:
+    async def test_a_gambit_is_declared_and_answered(self) -> None:
         """
         A gambit declared, one answered and a pick a gambit put in
-        question confirmed (Law 19.3) -- the three things the coin adds
-        to a maneuver, each said in the channel.
+        question confirmed (Law 19.3) -- the three things a gambit adds
+        to a maneuver, each said in the channel. Since 2026-11-03 the
+        declaration touches no coin, and says so by saying nothing of it.
         """
+        self.assertNotIn("hands the coin", self.transcript)
         for said in (
-            "declares a gambit and hands the coin to",
+            "declares a gambit.",
             "answers with a gambit of their own.",
             "has confirmed their maneuver.",
         ):

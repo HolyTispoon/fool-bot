@@ -1,9 +1,10 @@
 """
-The coin on the Discord maneuver prompt (Law 19.3).
+The gambit on the Discord maneuver prompt (Law 19.3).
 
-- **"Gambit" is on the prompt for the hand whose coach holds the coin**,
-  while nobody has declared one -- pressed by anybody else it answers
-  with a refusal and changes nothing.
+- **"Gambit" is on the prompt for both hands**, since either coach may
+  declare one (the author, 2026-11-03), while nobody has declared one --
+  pressed by anybody but that hand's coach it answers with a refusal and
+  changes nothing.
 - **Declaring puts the pick up again**: the prompt that was answered is
   deleted and a new one posted, since both hands have changed.
 - **"Confirm maneuver" is on the hand whose pick a gambit put back in
@@ -60,12 +61,15 @@ class CoinButtonTests(unittest.IsolatedAsyncioTestCase):
             )
         return interaction
 
-    def test_the_holder_s_hand_carries_the_gambit_button(self) -> None:
+    def test_both_hands_carry_the_gambit_button(self) -> None:
         cog, game = self.build()
 
         self.assertEqual(
             self.labels(cog, game),
-            [(GAMBIT_BUTTON_LABEL, "d12ball:maneuver_gambit:g1:offense")],
+            [
+                (GAMBIT_BUTTON_LABEL, "d12ball:maneuver_gambit:g1:offense"),
+                (GAMBIT_BUTTON_LABEL, "d12ball:maneuver_gambit:g1:defense"),
+            ],
         )
 
     def test_a_standard_game_has_no_coin_buttons(self) -> None:
@@ -83,12 +87,12 @@ class CoinButtonTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.press_gambit(cog, game, VISITING_COACH)
 
         reply = interaction.response.send_message.await_args
-        self.assertIn("holding the coin", reply.args[0])
+        self.assertIn("Only that hand's coach", reply.args[0])
         self.assertTrue(reply.kwargs["ephemeral"])
         self.assertEqual(game.match_state, before)
         cog.present.assert_not_awaited()
 
-    async def test_the_holder_declares_and_the_prompt_is_put_up_again(
+    async def test_a_coach_declares_and_the_prompt_is_put_up_again(
         self,
     ) -> None:
         cog, game = self.build()
@@ -97,14 +101,14 @@ class CoinButtonTests(unittest.IsolatedAsyncioTestCase):
 
         match = cog.engine.load_match_state(game)
         self.assertEqual(match.gambit_declared_by, "offense")
-        self.assertEqual(match.coin_holder, TeamSide.VISITING)
+        self.assertIsNone(match.coin_holder)
         self.assertTrue(
             interaction.response.send_message.await_args.kwargs["ephemeral"]
         )
         cog.close_turn_prompt.assert_awaited_once()
         result = cog.present.await_args.args[2]
         self.assertEqual(result.prompt.kind.name, "MANEUVER_ACTION")
-        # The coin has crossed, so the new prompt has no Gambit button.
+        # A gambit is declared, so the new prompt has no Gambit button.
         self.assertEqual(self.labels(cog, game), [])
 
     async def test_a_pick_put_in_question_gets_a_confirm_button(self) -> None:

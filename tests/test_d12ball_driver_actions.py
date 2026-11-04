@@ -2052,9 +2052,12 @@ class MergeDeclarationTests(ApplyFixture):
         self.assertNotIn(self.home_ooze, match.pending_injury_tests)
         self.assertEqual(match.merged_this_test, [])
 
-    def test_a_merge_on_a_tied_roll_is_still_owed_at_the_end(self) -> None:
-        """Tokens a re-roll charged count (Law 15.3.2), and so does a
-        Merge into the roll that tied."""
+    def test_a_merge_on_a_tied_roll_is_owed_when_the_coin_settles_it(
+        self,
+    ) -> None:
+        """A tie goes to the coin and resolves on that roll (Law 6.11),
+        so an Ooze who Merged into it, Exhausted by the Merge, owes the
+        injury check then (Law 15.3.1-15.3.2)."""
         fixture = self.ooze_skill_test()
         match = fixture.match
         match.exhaustion[self.home_ooze] = ENGINE.exhaustion_threshold(
@@ -2070,13 +2073,6 @@ class MergeDeclarationTests(ApplyFixture):
         self.roll_with_the_home_ooze_merged(
             fixture, [tie_offense, tie_defense],
         )
-        self.assertEqual(match.merged_this_test, [self.home_ooze])
-        self.assertEqual(match.pending_injury_tests, [])
-        # The re-roll: both coaches pass, and it resolves.
-        self.act(fixture, "pass", side=TeamSide.HOME.value)
-        self.act(fixture, "pass", side=TeamSide.VISITING.value)
-        with mock.patch("random.Random.randint", side_effect=[12, 1]):
-            self.act(fixture, "roll")
         self.assertIn(self.home_ooze, match.pending_injury_tests)
 
     def test_a_glompex_who_joined_merges_free_and_unasked(self) -> None:

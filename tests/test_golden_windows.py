@@ -175,7 +175,15 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "windows_final_match.json"
 #: level. The sweep over 0-2999, checking all four, found more than
 #: thirty seeds; 39 is again the shortest, at 98 presses: 1-1 at full time and 3-2 to the
 #: visitors in sudden death.
-WINDOWS_SEED = 39
+#:
+#: **It was 39 until 1.0 took 2.x's coin for ties, moving costs and
+#: every shot's token, and a gambit stopped touching the coin**
+#: (docs/rules-log.md, 2026-11-03): every tie, move and shot changed,
+#: and 39's game stopped reaching sudden death. A sweep over 0-3999 in
+#: four parallel runs, checking everything the tests here assert, found
+#: 2104 (109 presses) and 3056 (103) in the first ~120 of each thousand
+#: before it was stopped; 3056 is the shorter.
+WINDOWS_SEED = 3056
 
 #: A whole game, both halves, and a shootout -- so the budget is an
 #: order of magnitude past the advanced golden's. It is a backstop
