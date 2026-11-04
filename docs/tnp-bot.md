@@ -125,15 +125,27 @@ author has not yet seen are repeated as questions below.
    faction is still a field on the seat from the first commit, so XzzzX
    and Space Dragons come in later as data plus their own rules, without
    a migration.
-2. **Its own process and token, like Codex** (recommended): a
-   `tnpbot.py` beside `foolbot.py` and `codexbot.py`, with
-   `TNP_DISCORD_TOKEN`, its own state file, its own games file, and the
-   `/tnp` command group. The author chose this for Codex on 2026-10-07 so
-   that one game's rate-limit buckets and crashes do not land on the
-   other's ([codex.md](design/codex.md), "Its own process, its own
-   token"), and a game with six-round battles is the most expensive of
-   the three on requests. The alternative is a cog in fool-bot (cheaper
-   to stand up, but it shares fool-bot's buckets). This is question 1.
+2. **A cog in fool-bot, not a bot of its own** (the author,
+   2026-11-04). `cogs/tnp/` is loaded by `foolbot.py` beside
+   `cogs.d12ball`, under fool-bot's token, as the `/tnp` command group,
+   with its own games file (`data/tnp_games.json`) through
+   `gamekit.storage`. There is no new process, token, deploy script or
+   `.env` variable. This differs from Codex, which the author put in its
+   own process on 2026-10-07 so that one game's rate-limit buckets and
+   crashes would not land on the other's ([codex.md](design/codex.md),
+   "Its own process, its own token"), so two things follow:
+   - **Requests.** Discord's limits are per channel and per
+     interaction, and each TNP game gets its own channel, so a TNP
+     battle does not slow down a D12 Ball game's channel. What the two
+     games share is the application's global limit and the bot's
+     gateway connection. Step 7 measures the requests per battle round
+     against the five-in-five channel bucket, as D12 Ball's gate does.
+   - **Crashes.** An exception in the TNP cog has to stay in the TNP
+     cog. A view's errors go through its `SafeView`, and the cog's
+     startup sweep catches and logs a bad saved game rather than raising
+     out of `cog_load`, so a broken TNP save cannot stop fool-bot from
+     loading D12 Ball. Step 5 tests the second point: a corrupt
+     `data/tnp_games.json` leaves D12 Ball's cog loaded.
 3. **The split from the first commit.** A `tnp/` package holds the
    model, held to the model's rules (no `discord`, no `async def`, no
    Pillow outside `tnp/render.py`) by a purity test. A
@@ -200,8 +212,8 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 
 **Rules the files disagree on**
 
-1. **One bot or two?** Should TNP be its own process with its own token
-   (recommended, as Codex was), or a cog in fool-bot?
+1. ~~**One bot or two?**~~ Answered (the author, 2026-11-04): a cog in
+   fool-bot. See decision 2.
 2. **How hit values work.** The keyword table says Weak hits only on a 6,
    Fair on 4 to 6, and Strong misses only on a 1. The battle text says
    "an attack value of 3 hits on 3 or less, sixes always miss, a value
@@ -288,11 +300,12 @@ in, and start `docs/design/tnp.md`. Write `scripts/import_tnp_data.py`
 (the Humans and Technology tabs into `tnp/data/`), plus the hand-kept
 `human_board.json` and `map.json`, each checked by a test against the
 other (every unit a facility builds exists, every adjacency goes both
-ways, every resource is on a territory). Stand up `tnpbot.py` (or the
-cog, if question 1 goes that way) through `gamebot.GameBot` with
-`/tnp unit` and `/tnp rules`. Add the `tnp` series to
-`scripts/claim_web_step.py`, a row to the map in `CLAUDE.md`, and the
-deploy script beside `run_codex_bot.ps1`.
+ways, every resource is on a territory). Add the `cogs/tnp/` cog to
+fool-bot's extensions in `foolbot.py` with `/tnp unit` and `/tnp rules`.
+That changes fool-bot's command tree, so the PR says the live host
+needs a command sync. Add the `tnp` series to
+`scripts/claim_web_step.py` and rows for the new packages to the map in
+`CLAUDE.md`.
 
 ### 2. The battle, with no frontend
 
@@ -329,8 +342,11 @@ the purity ratchet.
 ### 5. The lobby, the channel and the opening position
 
 `/tnp create_game`, two seats taken by people, the channel opened the
-way Codex opens its own, the setup, and the opening position: the public
-map message, and each seat's player board in its own panel.
+way Codex opens its own (in a **TNP Games** category, apart from D12
+Ball's), the setup, and the opening position: the public map message,
+and each seat's player board in its own panel. The persistent views are
+re-armed at startup, and a test shows that a corrupt TNP games file
+leaves D12 Ball's cog loaded (decision 2).
 
 ### 6. The simultaneous turn on Discord
 
