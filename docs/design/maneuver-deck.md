@@ -384,8 +384,8 @@ the author chose "both halves" when asked whether 1.0 took the free test with th
   Double Team's two (`pay_double_team_cost`, Law 19.10.6). Each reads the distance
   `move_player_relative` hands back, never the one asked for, because a clamped move pays for
   where it got to. The two Double Team prices are Claude's reading of "exhaustion costs of moves"
-  for the one place the Charter had called a move free in its own words, and the rules log flags
-  them for review.
+  for the one place the Charter had called a move free in its own words, which the author
+  kept on PR #701 (2026-11-04: "keep the Double Team costs").
 - **A step a test calls with no record still charges**: with no game, `species_abilities_apply`
   answers no, as `maneuver_deck_applies` does, so the token is the plain one.
 - **What stays free** (Law 15.1.2): the reset after a new play -- in 2.2 the run back that takes

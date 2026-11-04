@@ -651,6 +651,9 @@ img { display: block; }
   margin: 4px 0 0;
 }
 .note-line { font-size: 13px; color: var(--muted); margin: 0; }
+/* A neutral control with what it does beside it (the gambit's
+   declaration). The words wrap under the button on a narrow box. */
+.said-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
 /* The maneuver pick's rank reference: words that show the cards' back. */
 .rank-reference {
   cursor: help;

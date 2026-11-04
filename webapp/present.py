@@ -341,7 +341,9 @@ def button(
     sends it; `chip` is what clicking the lit object means, `said` the
     same said at more length beside the object's picture in the question
     box, where the field's chip is cut short (the shot's "score!" is
-    "shoot to score" there), and `cost`
+    "shoot to score" there) -- and on a neutral control, what pressing
+    it does, said beside the button (the gambit's declaration) -- and
+    `cost`
     what it charges, drawn as the token image and a count
     (`{"emoji", "count"}`), never the word "token". `label` is the
     control said in full, for the keyboard list and anywhere the
@@ -372,7 +374,7 @@ def button(
         "place": place,
         "also": list(also) if place else [],
         "chip": chip or None,
-        "said": (said or None) if place else None,
+        "said": said or None,
         "cost": cost,
         "style": None if place else NEUTRAL,
         "player": player,
@@ -1649,7 +1651,8 @@ def _maneuver(asked: Asked) -> list:
     **The declaration is its own section, above the hand** (Law 19.3):
     a neutral control, since a gambit is not the coin's any more (the
     author, 2026-11-03) -- the prompt's `may_declare`, answered with the
-    choice `"gambit"`, with what declaring does as its note. A coach
+    choice `"gambit"`, with what declaring does said beside it, in sight
+    rather than in a tooltip (the author, 2026-11-04). A coach
     whose card a gambit has put back in question has it ringed and
     live, pressed to confirm it (`unconfirmed`, the choice
     `"confirm"`), with the rest of the hand to change it for.
@@ -1715,7 +1718,7 @@ def _maneuver(asked: Asked) -> list:
                 asked.kind,
                 "gambit",
                 chip=DECLARE_CHIP,
-                note=DECLARE_NOTE,
+                said=DECLARE_NOTE,
                 side=hand["side"],
             )]))
         sections.append(section(
@@ -1808,7 +1811,7 @@ WITHHELD_TO_DECLARE_NOTE = "Declare a gambit to play these."
 WITHHELD_UNANSWERED_NOTE = "Only a side that is behind may answer a gambit."
 
 #: The declaration's control (Law 19.3.2): a neutral button above the
-#: hand, what declaring does as its note.
+#: hand, what declaring does said beside it.
 DECLARE_LABEL = "Declare a gambit"
 DECLARE_CHIP = "declare a gambit"
 DECLARE_NOTE = (

@@ -1387,10 +1387,12 @@ chooser, or puts a refusal away.
   gambit" to one facing a gambit it may not answer), as a dead control
   the page cannot send (and the offer check refuses if it is sent
   anyway). **The declaration is a section of its own, above the hand**:
-  a neutral "Declare a gambit" control, the line saying what declaring
-  does as its note (`DECLARE_NOTE`, the author's words of 2026-10-01,
-  less the coin) -- the prompt's `may_declare`, answered with the choice
-  `"gambit"`. From 2026-09-30 to 2026-11-03 it was the game's own coin,
+  a neutral "Declare a gambit" control with what declaring does said
+  beside it, muted, in sight (`DECLARE_NOTE`, the author's words of
+  2026-10-01, less the coin, carried as the control's `said`; a neutral
+  control with a `said` is drawn as that line -- the author, 2026-11-04,
+  when a tooltip alone hid it) -- the prompt's `may_declare`, answered
+  with the choice `"gambit"`. From 2026-09-30 to 2026-11-03 it was the game's own coin,
   lit gold in the box (`ON_COIN`), because the coin decided who might
   declare; once a gambit stopped touching the coin (the author,
   2026-11-03) the coin was the wrong thing to light, and no other board

@@ -4081,6 +4081,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         2026-11-03), so each is offered it, as a neutral control."""
         from webapp.present import (
             DECLARE_LABEL,
+            DECLARE_NOTE,
             WITHHELD_TO_DECLARE_NOTE,
         )
 
@@ -4106,6 +4107,9 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(declarations(away)), 1)
         self.assertIsNone(declarations(home)[0]["place"])
         self.assertEqual(declarations(home)[0]["style"], "neutral")
+        # What declaring does is said beside it, in sight (the author,
+        # 2026-11-04).
+        self.assertEqual(declarations(home)[0]["said"], DECLARE_NOTE)
         for state, note in (
             (home, WITHHELD_TO_DECLARE_NOTE), (away, WITHHELD_TO_DECLARE_NOTE),
         ):

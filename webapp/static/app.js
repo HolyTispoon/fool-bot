@@ -2297,6 +2297,13 @@ function drawControl(control) {
     title: control.note || null,
   });
   if (control.player) hoverCard(button, cardUrl(control.player));
+  /* A neutral control that says what it does says it beside itself,
+     muted, in sight rather than in a tooltip: the gambit's declaration
+     (the author, 2026-11-04). */
+  if (control.said && !control.place && !control.disabled) {
+    return h("div", { class: "said-line" }, button,
+      h("span", { class: "note-line" }, control.said));
+  }
   return button;
 }
 
