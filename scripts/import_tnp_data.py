@@ -5,7 +5,7 @@ Import The New Project's unit sheet into `tnp/data/humans.json` and
     python3 scripts/import_tnp_data.py <workbook> [--data-version 2]
 
 The workbook is `The New Project unit sheet v3.xlsx` in the Drive folder
-**The New Project** (`Units/`, Drive id 1Rl_KIuiMBzHRgziQBQkegX7De_3tpf_X):
+**The New Project** (`Units/`, Drive id 1NhVe5RxaHVzrfSv6GXtKk8wS1eS14JqG):
 the `.xlsx` itself, or the JSON the Google Drive connector's
 `download_file_content` saves (`{"content": <base64>, ...}`), as
 `scripts/import_from_workbook.py` reads one. Two of its tabs are read,
@@ -59,7 +59,7 @@ TECHNOLOGY_JSON = DATA / "technology.json"
 
 SOURCE = {
     "file": "The New Project unit sheet v3.xlsx",
-    "drive_id": "1Rl_KIuiMBzHRgziQBQkegX7De_3tpf_X",
+    "drive_id": "1NhVe5RxaHVzrfSv6GXtKk8wS1eS14JqG",
 }
 
 HEADER_NOTE = (

@@ -143,8 +143,12 @@ It was corrected in the sheet, not in code: at the author's word
 (2026-11-05) the one cell, and the three names above, were changed in
 the `.xlsx` itself -- its XML edited in place, so nothing else in the
 workbook moved -- and the import run again. The connector cannot
-replace a Drive file's content, so the corrected workbook goes up as a
-new version of the same file, keeping its Drive id, by hand.
+replace a Drive file's content, so the author uploaded the corrected
+workbook by hand, as a new file beside the old one; the old one went to
+the trash, and the importer's `SOURCE` and the data's `source` name the
+new file's Drive id, 1NhVe5RxaHVzrfSv6GXtKk8wS1eS14JqG. Its contents are
+the corrected workbook's member for member, and importing it changes no
+unit or card.
 `tests/test_tnp_data.py` now holds Weak (TNP 2.3).
 
 **The player board** (`human_board.json`) holds what exists nowhere in
