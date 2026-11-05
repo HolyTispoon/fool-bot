@@ -78,7 +78,9 @@ A seat wins in either of two ways (the author, 2026-11-05):
   resource tokens (2.1), so a seat that has taken 49 tokens off the map
   by harvesting (5.8) wins. Every token counts the same, a blue
   mineral, an orange mineral or a gem, and a token counts once it is
-  taken off the map, whatever the seat does with it afterwards.
+  taken off the map, whatever the seat does with it afterwards. **The
+  count is checked at Cleanup** (5.10), not as the token is harvested
+  (the author, 2026-11-05). Two seats cannot both have 49 of 96.
 
 ## 2. The components
 
@@ -182,6 +184,9 @@ Vassal module give them; `tnp/data/human_board.json` keeps them.
 | Base Defenses | built | -- | 4 | cap 8 | Laser Cannon |
 
 - **An infrastructure upgrade** costs 1 material (the unit sheet).
+- **The Airport needs a Factory already built**: one finished in an
+  earlier turn's Production and Trade. A seat cannot place both in the
+  same Infrastructure (the author, 2026-11-05).
 - **A unit upgrade** costs 1 material (the author, 2026-11-05) and lets
   the facility build its upgraded unit.
 - **The Barracks** builds one of its two upgraded units, Stealth or
@@ -399,6 +404,9 @@ every unit in one goes back to its seat's available units, and each
 seat deploys its defenders again every turn. Only **stranded** units
 stay where they are.
 
+Then each seat's harvested tokens are counted: a seat that has taken 49
+or more off the map wins (1.3).
+
 ## 6. Battle
 
 A battle is fought between the **attacker** and the **defender** over
@@ -528,7 +536,8 @@ Each hit removes one unit from the force attacked, except:
 
 - **Tough** (7): a Tough unit hit is damaged -- a damage token covers
   its icon -- and a damaged Tough unit hit is removed. It takes two
-  hits.
+  hits. **A damaged Tough unit always takes a hit before an undamaged
+  one** in its force (the author, 2026-11-05).
 - **Repair** (7): when a Mechanical unit is hit, its seat may remove a
   Worker from a force adjacent to the hit unit's force to ignore the
   hit (the author, 2026-11-05).
@@ -765,4 +774,10 @@ One line per change, dated, with where it came from.
   force in the line must engage one -- 6.5. (The author, answering PR #704.)
 - 2026-11-05: The position modifier is an engaged force's alone; an
   unengaged force, usually a flanking one, takes none -- 6.7. (The
+  author, answering PR #704.)
+- 2026-11-05: A damaged Tough unit always takes a hit before an
+  undamaged one -- 6.8. (The author, answering PR #704.)
+- 2026-11-05: The Airport needs a Factory already built, finished in an
+  earlier turn -- 2.4. (The author, answering PR #704.)
+- 2026-11-05: The 51% win is checked at Cleanup -- 1.3, 5.10. (The
   author, answering PR #704.)
