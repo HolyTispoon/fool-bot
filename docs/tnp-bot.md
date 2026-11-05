@@ -71,9 +71,10 @@ The map has to be drawn again by code (the author, 2026-11-04), so
 the adjacency becomes data. **This table is measured, not read by
 eye**: each territory of map 3.3 was flood-filled and traced, and two
 areas are adjacent where their outlines meet. Two pairs meet at a single
-point and are marked "?": 8 with 10, and 9 with 11, which mirror each
-other. 3 and 12 do not touch. The traced outlines are what the canvas
-drawing of the map uses, and will be `map.json`'s.
+point, 8 with 10 and 9 with 11, mirroring each other, and **both are
+adjacent** (the author, 2026-11-05). 3 and 12 do not touch. The traced
+outlines are what the canvas drawing of the map uses, and will be
+`map.json`'s.
 
 | Area | Adjacent to | Resources |
 | --- | --- | --- |
@@ -86,10 +87,10 @@ drawing of the map uses, and will be `map.json`'s.
 | 5 | 1, 2, 6, 8 | 10 orange, 10 blue |
 | 6 | 1, 3, 5 | 8 gems |
 | 7 | 1, 2, 4 | 8 gems |
-| 8 | 2, 5, 13, 14, 10? | -- |
-| 9 | 3, 4, 12, 15, 11? | -- |
-| 10 | Blue base, 2, 14, 8? | -- |
-| 11 | Green base, 3, 12, 9? | -- |
+| 8 | 2, 5, 10, 13, 14 | -- |
+| 9 | 3, 4, 11, 12, 15 | -- |
+| 10 | Blue base, 2, 8, 14 | -- |
+| 11 | Green base, 3, 9, 12 | -- |
 | 12 | Green base, 9, 11, 15 | 10 orange |
 | 13 | Blue base, 8, 14 | 10 orange |
 | 14 | Blue base, 8, 10, 13 | 10 blue |
@@ -274,11 +275,12 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 13. **The battle line.** Is it formed again every round, as the rulebook
     lists, or once and then only changed when a force dies? On Discord,
     re-forming every round is the biggest single cost in clicks.
-14. **The map.** Are the two corner contacts (8 with 10, 9 with 11)
-    adjacent? Is the asymmetry between 12 and 13 deliberate? And is map
-    3.3 the map? These are notes Q1 to Q3 on the canvas drawing of the
-    map and the board, where each open question is pinned beside what
-    it is about.
+14. **The map.** ~~Are the two corner contacts adjacent?~~ Answered
+    (the author, 2026-11-05): 8 with 10 and 9 with 11 are adjacent. Still
+    open: is the asymmetry between 12 and 13 deliberate, and is map 3.3
+    the map? These are notes Q2 and Q3 on the canvas drawing of the map
+    and the board, where each open question is pinned beside what it is
+    about.
 15. **The dice.** Is it all right for the target choice to roll the dice
     (decision 8), rather than a separate Roll button?
 16. **Undo.** Is changing your plan before you lock in enough to start
