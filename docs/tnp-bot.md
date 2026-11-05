@@ -269,12 +269,12 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 8. **Gold.** The sheet's column is "Gems" and the board shows a coin.
    Is gold the resource, and does it only come from trading minerals and
    gems? Is the starting pool 5 materials and 0 gold?
-9. **What building costs.** Partly answered from the Vassal module: the
-   Factory costs 2 materials, and the Airport 3 and needs a Factory. Each
-   unit upgrade box (Stealth, Cyborg, Robotic facility, Fighter Bomber,
-   Laser Cannon) shows one material icon, as the infrastructure upgrades
-   do for their 1 material, so the reading is 1 material each. Is it?
-   Answered for the Barracks (the author, 2026-11-05): its upgrade
+9. ~~**What building costs.**~~ Answered: the Factory costs 2
+   materials, and the Airport 3 and needs a Factory (the Vassal module);
+   each unit upgrade -- Stealth, Cyborg, Robotic facility, Fighter
+   Bomber, Laser Cannon -- costs 1 material (the author, 2026-11-05,
+   confirming the one material icon on each Vassal upgrade box). The
+   Barracks (the author, 2026-11-05): its upgrade
    "enables a second upgrade", so a Barracks without it builds Stealth
    or Cyborg, not both.
 10. ~~**Movement.**~~ Answered (the author, 2026-11-05): air units
