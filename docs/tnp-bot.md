@@ -603,7 +603,7 @@ Five commits, in this order.
    is listed in the PR, not chosen.
 
 3. The data. scripts/import_tnp_data.py <file>: the unit sheet "The New
-   Project unit sheet v3.xlsx" (Drive id 1Rl_KIuiMBzHRgziQBQkegX7De_3tpf_X;
+   Project unit sheet v3.xlsx" (Drive id 1NhVe5RxaHVzrfSv6GXtKk8wS1eS14JqG;
    the .xlsx exported through the Google Drive connector, or the JSON
    the connector saves, as scripts/import_from_workbook.py reads one).
    Its Humans tab (Building, Type, Name, Materials, Gems -- which is
