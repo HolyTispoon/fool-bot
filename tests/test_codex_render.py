@@ -468,6 +468,20 @@ class DeckLayoutTests(unittest.TestCase):
                              + 3 * (2 * render.DECK_BOX_PAD + 14) + 14)
 
 
+    def test_every_copy_is_a_card_of_its_own(self) -> None:
+        # Two copies in the hand are two cards there, as wide as a hand
+        # of two different cards -- never one card with a badge.
+        cards = RulesEngine().catalog
+        twice = Image.open(io.BytesIO(render.render_deck(
+            (("older_brother", 2),), (), (), (), cards)))
+        two = Image.open(io.BytesIO(render.render_deck(
+            (("older_brother", 1), ("tiger_cub", 1)), (), (), (), cards)))
+        once = Image.open(io.BytesIO(render.render_deck(
+            (("older_brother", 1),), (), (), (), cards)))
+        self.assertEqual(twice.size, two.size)
+        self.assertGreater(twice.width, once.width)
+
+
 class EffectTagTests(unittest.TestCase):
     """The lasting effects a unit or a hero carries, as tags: the
     effect's name alone, in the colour of the card it came from."""
