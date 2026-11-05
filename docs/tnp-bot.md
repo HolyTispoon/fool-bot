@@ -719,8 +719,11 @@ What it covers, each with a test citing its section:
 - A base under attack: the emergency base defense, before Tactical
   Command; one base card at each end of the line (the author,
   2026-11-05), attacked with the armoured rating, since a building is
-  armoured (the author, 2026-11-05), two hits on one destroying a
-  facility; an attack on an undefended base wins at once;
+  armoured (the author, 2026-11-05); a force with 2 or more hits on
+  the base destroys one thing, the attacker's choice: one upgrade of a
+  facility, or, once a facility has no upgrades left, the Factory or
+  the Airport itself -- the Barracks and Base Defenses cannot be
+  destroyed (the author, 2026-11-05) -- and one thing an attack; an attack on an undefended base wins at once;
   a defender who survives six rounds holds, whatever the base cards
   took. Base Defense units (Smart Mines, Rocket Launchers, the Laser
   Cannon) never go into an attack spot, but roll like any other unit
