@@ -689,8 +689,12 @@ battle survives a restart mid-round.
 
 What it covers, each with a test citing its section:
 - Forces formed from the revealed units, one unit type a force.
-- The scouting advantage, and the forced placements it gives.
-- The battle line: alternate placement, a force engaging one column,
+- The scouting advantage, and the order of placement it decides (the
+  author, 2026-11-05): with an advantage of N, the side without it
+  places N forces before the advantaged side places one, and the sides
+  then alternate one at a time; with no advantage, the defender places
+  first.
+- The battle line: a force engaging one column,
   flanking beside or behind the line at +1. Each round only unengaged
   forces are placed -- in round 1 every force, later only those whose
   opponent was destroyed or retreated (the author, 2026-11-05); a round
