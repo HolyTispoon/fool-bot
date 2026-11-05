@@ -9,13 +9,13 @@ rulebook, the glossary, the player aide, the unit sheet, map 3.3 and the
 Human base board) and against what the repository already has: the
 model/Discord split, `GameService`, the driver, `gamekit/`, `botkit/`,
 the board gate, and the Codex bot as the nearest precedent. **Nothing in
-it is a rule.** The questions under "Questions for the author" have to be
-answered before the steps get their prompts, because several of them
-decide what the model holds. The author answers them in the doc **TNP
+it is a rule.** The questions under "Questions for the author" were
+answered by 2026-11-05, and the steps' prompts were written from the
+answers. The author answered them in the doc **TNP
 Open Questions and Dice** (https://claude.ai/artifact/CwXvSPjLSaNaYyVtDkx1TY),
 which also holds the dice modifiers' d12 values, and on the canvas
 drawing of the map and the board
-(https://claude.ai/artifact/4hRVXBPhYeKDHyoUSwnank); each answer is
+(https://claude.ai/artifact/4hRVXBPhYeKDHyoUSwnank); each answer was
 recorded here as it comes.
 
 ## What was found
@@ -157,13 +157,13 @@ author has not yet seen are repeated as questions below.
      interaction, and each TNP game gets its own channel, so a TNP
      battle does not slow down a D12 Ball game's channel. What the two
      games share is the application's global limit and the bot's
-     gateway connection. Step 8 measures the requests per battle round
+     gateway connection. Step 7 measures the requests per battle round
      against the five-in-five channel bucket, as D12 Ball's gate does.
    - **Crashes.** An exception in the TNP cog has to stay in the TNP
      cog. A view's errors go through its `SafeView`, and the cog's
      startup sweep catches and logs a bad saved game rather than raising
      out of `cog_load`, so a broken TNP save cannot stop fool-bot from
-     loading D12 Ball. Step 6 tests the second point: a corrupt
+     loading D12 Ball. Step 5 tests the second point: a corrupt
      `data/tnp_games.json` leaves D12 Ball's cog loaded.
 3. **The split from the first commit.** A `tnp/` package holds the
    model, held to the model's rules (no `discord`, no `async def`, no
@@ -314,9 +314,8 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
     rulebook says more than that a neutral territory is taken by
     revealing a ground unit, that a chopper's stack "moves like air
     units", and that a carried unit "cannot retreat via an air route".
-11. **Spots.** The author found the question unclear (2026-11-05); it
-    is asked again as three, each with the reading built on if the
-    author agrees:
+11. ~~**Spots.**~~ Answered (the author, 2026-11-05, "correct", after
+    the question was asked again as three):
     - *How many attacks a turn?* Two, one from attack spot A and one
       from B; a third, C, only with *Command and Control CPU* (the
       advanced game).
@@ -430,8 +429,8 @@ until the sheet gives one.
 In the order they pay off. Each step is one branch off an up-to-date
 `main` and one PR, with the suite green and no file under `d12ball/` or
 `codex/` changed unless the step says so. Each ends on a **stop**: the
-thing the author looks at before the next step is worth starting. The
-prompts are written once the questions are answered.
+thing the author looks at before the next step is worth starting. Each
+step's prompt is below, after the preamble every prompt begins with.
 
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
@@ -446,98 +445,493 @@ prompts are written once the questions are answered.
 | 9 | The advanced game: the technology cards | large | the advanced game chosen in the lobby; harvests draw from the three decks, and tactic cards, building techs and tech facilities all play on Discord; every Human tech row does what it says, with the author's d12 values; `/tnp card grenades` answers |
 | -- | Later, and not now | -- | XzzzX and Space Dragons; an AI; undo; a web page like the Codex site |
 
+### Claiming a step
+
+The series does not exist yet: **step 1's prompt adds it** -- one entry
+in `SERIES` in `scripts/claim_web_step.py`
+(`"tnp": ("docs/tnp-bot.md", "tnp-step", "TNP step")`), plus the
+`--series` help string and the module docstring, which list the series
+by hand. From then on `python3 scripts/claim_web_step.py --series tnp
+<n>` claims a step as the other series are claimed. A step lands by
+striking its row above (`| ~~n~~ | ~~title~~ -- landed; what it settled
+is in docs/design/tnp.md | ... |`). No cloud routine runs this series;
+a person starts each step.
+
+## Preamble
+
+Every step's prompt begins with this block. A session given a step reads
+it first, then the step's own prompt below.
+
+```text
+You are working in the fool-bot repository on The New Project (TNP),
+planned in docs/tnp-bot.md: the author's simultaneous-turn strategy
+game, built as a cog in fool-bot -- the /tnp group, under fool-bot's
+token, with no process, token or deploy script of its own -- Humans
+against Humans, both seats people, no AI, the basic game first and the
+technology cards last. Read that worksheet first: "The game, in the
+terms the code will use", the map table, the ten decisions and every
+answered question are the scope. Then docs/tnp-rules.md and
+docs/design/tnp.md once step 1 has written them, then
+docs/design/model-discord-split.md, docs/design/game-service.md and
+docs/design/codex.md, the nearest precedent (a model package of its
+own, its service, its views, its hidden information). Read the rest of
+docs/design/ only where a step names a file.
+
+Start on the branch the claim script made (git fetch && git checkout
+tnp-step-<n>), in a worktree of your own if another session may be
+using the checkout. Never work on main.
+
+Hard rules for every step:
+- tnp/ and gamesaves/tnp/ import no discord, define no async def, and
+  import Pillow only in tnp/render.py. The purity ratchet enforces it
+  from step 2; do not loosen it.
+- docs/tnp-rules.md is the rules. A mechanic is checked against it and
+  its test cites the section. A question it does not answer goes to the
+  author in the PR's "## Questions to the author", never into the code
+  as a guess. A rules change is the rules doc plus a dated line in its
+  change log, in its own commit.
+- Where the sources disagree, the more recent design wins (the author,
+  2026-11-05), and docs/tnp-bot.md records every disagreement already
+  settled. Do not reopen one.
+- A rule is a question the model answers and the cog asks. Nothing in
+  cogs/tnp* decides a rule or computes a candidate list, a cost, a
+  legal target or a hit number; a view builds its controls from
+  PendingPrompt.options and nothing else, and the driver refuses what
+  the options do not offer with RuleRefusal, never a bare ValueError.
+- Units, facilities, upgrades and techs are keyed by slug, never by
+  name. tnp/data/humans.json and tnp/data/technology.json come from
+  scripts/import_tnp_data.py and are never edited by hand: a wrong value
+  is corrected in the sheet and imported again. tnp/data/human_board.json
+  and tnp/data/map.json are the hand-kept exceptions, each checked by a
+  test against the imported data.
+- The dice: a d12 a unit. Weak hits on 12, Fair on 6+, Strong on 3+;
+  Can't, the old attack rate 0, rolls one die for every two units and
+  needs a 12. A modifier adds to the number rolled, with no cap; a
+  rolled 12 always hits and a rolled 1 always misses. A modifier's d12
+  value is the author's column of "The dice modifiers, for the d12".
+  Every draw is engine.rng; a test seeds it.
+- Hidden information: a seat's queue, deployment, hand and plan are
+  that seat's alone until the phase reveals them. Nothing hidden goes
+  into a public message, a log line or the #logs mirror; say in the PR
+  where you checked.
+- The save format is the contract from the first commit: every
+  MatchState field is in its SavedField table, and a saved key is never
+  renamed.
+- The cog lives inside fool-bot (decision 2), so an exception in it
+  stays in it: its startup sweep logs a game it cannot load and goes on,
+  and nothing in cogs/tnp* may stop cogs.d12ball from loading.
+- Rate limits: the fix is always fewer requests, never slower ones.
+  Read docs/design/rate-limits.md before adding any send, edit or pin;
+  a game's public messages are edited through BoardRefresher's gate,
+  and a cascade of the bot's own steps is one edit.
+- Nothing under d12ball/, gamesaves/d12ball/, cogs/d12ball*, codex/,
+  gamesaves/codex/ or cogs/codex* changes unless the step names the
+  file and says why. A leaf both games need is moved into gamekit/ or
+  botkit/, not copied, and the old module keeps re-exporting its name.
+- Nothing rendered is tested for how it looks: render it
+  (scripts/render_tnp_sample.py once step 3 adds it), look, and put the
+  picture in the PR.
+- tests/ is flat: every TNP test helper is named tnp_<thing>.py, and
+  every TNP module that binds save_games is listed in
+  tests/save_patches.py's tables.
+- Run python3 -m unittest discover -s tests before the PR; a full run
+  must not create data/. The PR is against the template and carries a
+  "## Questions to the author" section ("None." when empty) and a
+  "## For the author" section in two parts: what to do on the live host
+  after merging (a deploy, a command sync, any Discord-side setup, or
+  "Nothing to do on the live host"), and what can be tried in the test
+  server now, command by command, with what should happen. It strikes
+  this step's row in docs/tnp-bot.md. When the step settles something
+  the worksheet only proposed, write it into docs/design/tnp.md with the
+  reasoning, and add a row to CLAUDE.md's tables only for a new module
+  or a new hard rule.
+```
+
 ### 1. The rules, the data and the bot standing up
 
-Transcribe the rulebook into `docs/tnp-rules.md` with the answers folded
-in, and start `docs/design/tnp.md`. Write `scripts/import_tnp_data.py`
-(the Humans and Technology tabs into `tnp/data/`), plus the hand-kept
-`human_board.json` and `map.json`, each checked by a test against the
-other (every unit a facility builds exists, every adjacency goes both
-ways, every resource is on a territory). Add the `cogs/tnp/` cog to
-fool-bot's extensions in `foolbot.py` with `/tnp unit` and
-`/tnp rules`.
-That changes fool-bot's command tree, so the PR says the live host
-needs a command sync. Add the `tnp` series to
-`scripts/claim_web_step.py` and rows for the new packages to the map in
-`CLAUDE.md`.
+Everything the later steps stand on that is not the game: the rules as
+one document, the data, the cog in fool-bot and the design note.
+
+```text
+Step 1 of docs/tnp-bot.md. Nothing has landed before it. Also read
+docs/design/rules-and-data.md (the import-script rule TNP's data
+inherits), docs/design/cog-structure.md and docs/design/rate-limits.md
+("setup_hook's sync").
+
+Five commits, in this order.
+
+1. The claim series. scripts/claim_web_step.py gains
+   "tnp": ("docs/tnp-bot.md", "tnp-step", "TNP step") in SERIES, and
+   the --series help string and the module docstring list it. Claim
+   this step with it (python3 scripts/claim_web_step.py --series tnp 1)
+   and continue on tnp-step-1.
+
+2. The rules. docs/tnp-rules.md: the newest rulebook, the Google Doc
+   "Rulebook - The New Project 3" (Drive id
+   1AyI95xh3zGv1luNFApS1w4hiQVhR4C_U2aYWNNCvL3k, read through the Google
+   Drive connector), transcribed, with the glossary (Rules/Glossary.docx)
+   and the player aide's turn order folded in, and every answer under
+   docs/tnp-bot.md's "Questions for the author" written into the section
+   it changes: the d12, its ratings and the author's modifier values,
+   no cap, Can't as the old attack rate 0; Production and Trade one
+   phase; deployment hidden until March; only unengaged forces placed
+   in a later round's battle line; air units leaving a territory
+   neutral; the spots; two tech facilities; the conversion rates; gold
+   and the starting pool; the build and upgrade costs; the Barracks
+   upgrade; the two ways to win. Number the sections so code and tests
+   can cite them ("TNP 5.3"). A change log at its foot: one dated line
+   per answer, with where it came from. Leave the XzzzX and Space
+   Dragons rules out, and mark the advanced game's sections as step 9's.
+   A question the transcription turns up that the answers do not settle
+   is listed in the PR, not chosen.
+
+3. The data. scripts/import_tnp_data.py <file>: the unit sheet "The New
+   Project unit sheet v3.xlsx" (Drive id 1Rl_KIuiMBzHRgziQBQkegX7De_3tpf_X;
+   the .xlsx exported through the Google Drive connector, or the JSON
+   the connector saves, as scripts/import_from_workbook.py reads one).
+   Its Humans tab (Building, Type, Name, Materials, Gems -- which is
+   gold -- inf, arm, air, Initiative, Ability, picture, Count, trait1,
+   trait2, scouting, trait3) goes into tnp/data/humans.json, and its
+   Technology tab (Count, Title, Type, Materials, ability, iconn,
+   colorr, Short Ability) into tnp/data/technology.json, each whole,
+   keyed by slug, with a header saying it is regenerated and never
+   edited by hand. A rating other than Strong, Fair, Weak or Can't is
+   refused; a tech row with no Count (Positioning, Air Cover and
+   Shields today) is reported and left out. Before running it, look at
+   the sheet's Cyborg Soldier vs air cell: the author chose Weak
+   (question 18). If it still says Fair, say so in the PR and ask the
+   author to correct the sheet; do not patch the value.
+   tnp/data/human_board.json, kept by hand from board v4 and the Vassal
+   module as docs/tnp-bot.md records them: the four facilities and
+   which start built, their production caps before and after the
+   infrastructure upgrade, the build costs (Factory 2 materials; Airport
+   3 and needs a Factory), each unit upgrade's 1 material, the Barracks
+   upgrade enabling a second unit upgrade, max supply, the conversion
+   rates (a mineral 2 materials or 1 gold, a gem 3 materials or 2 gold;
+   in emergency production a mineral 1 material and a gem 1 material
+   or 1 gold), the starting pool (5 materials, 0 gold) and the limits
+   (two tech facilities; 8 Smart Mines and Rocket Launchers deployed
+   together).
+   tnp/data/map.json: the seventeen areas with docs/tnp-bot.md's
+   adjacency and resources, and each area's outline as a polygon. The
+   outlines are traced from map3.3-1.png (Drive id
+   1gbEjaRHk7H5VRVW2ME6P5EqfmQTMuWio) by a script under scripts/ that
+   flood-fills each area and traces it, as the worksheet's table was
+   measured; check its adjacency against the table.
+   tnp/catalog.py reads all four: Unit, Facility, Upgrade and Tech
+   dataclasses, a catalog by slug with name(slug) the one way back to a
+   name, and the map's areas and adjacency.
+   tests/test_tnp_data.py: every unit a facility builds is in
+   humans.json and every Human unit has a facility; the adjacency is
+   symmetric and maps onto itself under the half turn the worksheet
+   gives (10 with 11, 14 with 12, 13 with 15, 8 with 9, 2 with 3, 5 with
+   4, 7 with 6); the resources total 96 tokens (40 blue minerals, 40
+   orange, 16 gems); each base touches one blue and one orange
+   territory; every rating is one of the four.
+
+4. The cog. cogs/tnp/ assembles Tnp(commands.GroupCog,
+   group_name="tnp", group_description=...) -- the description passed
+   explicitly and under 100 characters, or the sync fails inside
+   setup_hook -- from one mixin, reference.py: /tnp unit <name>, with
+   autocomplete over the catalog, answering with the unit's cost, its
+   three ratings with their d12 numbers, initiative, traits, supply and
+   the facility and upgrade that build it; and /tnp rules <section>
+   over docs/tnp-rules.md. Plain text, no embed. foolbot.py loads
+   cogs.tnp beside the others, and cog_load logs, never raises, when
+   the data is missing. This changes fool-bot's command tree: the PR
+   says the live host needs a command sync.
+
+5. The design note and the map. docs/design/tnp.md, started: what TNP
+   is; why a cog and not a bot (decision 2, with the requests and the
+   crashes); the data, where each file comes from and which are kept by
+   hand; and the sources and which wins. CLAUDE.md gains rows for
+   tnp/, cogs/tnp/, scripts/import_tnp_data.py and the outline tracer,
+   and a "Read this before touching" row for docs/design/tnp.md.
+
+The stop: the author reads docs/tnp-rules.md and approves it, and
+/tnp unit tank answers in the test server.
+```
 
 ### 2. The battle, with no frontend
 
-`tnp/battle.py`: forces formed from revealed units, scouting advantage
-and its count of forced placements, the battle line (engaged columns and
-flanking), retreat, damage by initiative group with the attacker first,
-the d12 hit values and modifiers (question 2), taking a modifier from a
-card as an input so step 5 only supplies them, the position modifier,
-tough, repair, splash, the base cards and the facility they destroy,
-and victory after six rounds. Each choice inside a battle is a prompt kind (place a force,
-declare a retreat, pick a target), so the battle runs through the same
-driver as the rest of the game. This comes before the turn because it
-holds the riskiest rules and is self-contained.
+The riskiest rules in the game, and self-contained, so they come before
+the turn. Each choice inside a battle is a prompt kind, so the battle
+runs through the same driver as the rest of the game.
+
+```text
+Step 2 of docs/tnp-bot.md. Step 1 has landed: docs/tnp-rules.md, the
+data, the catalog and the cog. Read the rules' battle sections closely;
+every rule this step builds cites its section.
+
+The model's shape begins here, copied from Codex's: tnp/prompts.py
+(PromptKind, PendingPrompt with its options, Action, pending),
+tnp/flow/result.py and tnp/flow/driver.py (apply, the one door), over
+gamekit's SavedField, jsonable, MOVED_ON, STEP_OWED and Resolver as
+they are. tnp/engine.py holds rng. tnp/battle.py holds the battle as a
+saved state of its own (BattleState, with its SavedField table), so a
+battle survives a restart mid-round.
+
+What it covers, each with a test citing its section:
+- Forces formed from the revealed units, one unit type a force.
+- The scouting advantage, and the forced placements it gives.
+- The battle line: alternate placement, a force engaging one column,
+  flanking beside or behind the line at +1. Each round only unengaged
+  forces are placed -- in round 1 every force, later only those whose
+  opponent was destroyed or retreated (the author, 2026-11-05); a round
+  with nothing to place asks nothing.
+- The retreat declaration, both seats at once. A base's defender
+  cannot retreat, would-be stranded units cannot retreat, a retreat is
+  a defeat, and the retreating seat does not attack that round.
+- Damage by initiative group, lowest first; within a group the attacker
+  rolls first, then the defender. A force's target is its controller's
+  choice, and choosing it rolls that force's dice in the same action
+  (decision 8). The number rolled is the die plus every modifier --
+  flanking +1, the position modifier −1 a column skipped, the base
+  cards' −1 at least, and modifiers handed in from outside, which step 9
+  supplies from the cards -- against the rating's number for the
+  target's type: Strong 3, Fair 6, Weak 12, Can't 12 with one die for
+  every two units. No cap; a rolled 12 hits and a rolled 1 misses.
+- Hits remove units; Tough takes two; Repair, Splash and every other
+  trait the glossary gives a battle.
+- A base under attack: the emergency base defense, before Tactical
+  Command; the two base cards at the ends of the line, two hits on one
+  destroying a facility; an attack on an undefended base wins at once;
+  a defender who survives six rounds holds, whatever the base cards
+  took.
+- Air units fight in a defence; a territory won by air units alone, or
+  left held only by air units, is neutral.
+- The end: six rounds, a retreat, or one side with no force left.
+
+Each choice is a prompt kind -- PLACE_FORCE, DECLARE_RETREAT,
+CHOOSE_TARGET -- whose options carry every legal choice, and the driver
+refuses anything else. tests/tnp_battles.py stages a battle by unit
+slug and count; tests/test_tnp_battle.py fights any two Human forces to
+a result through driver.apply with engine.rng seeded;
+tests/test_tnp_purity.py starts the ratchet over tnp/.
+
+One reading here is the worksheet's, not yet the author's: Can't's dice
+are rounded down, so a lone unit rated Can't rolls none. Build it so,
+and ask it in the PR's questions.
+
+The stop: the test fights any two Human forces to a result with the
+seeded engine.rng and a d12, covering scouting, flanking, the position
+modifiers, tough, repair, splash, retreat and the base cards.
+```
 
 ### 3. The map and the player board, drawn by code
 
-`tnp/render.py` and `scripts/render_tnp_sample.py`: the map from
-`map.json`'s outlines, the player board from `human_board.json`, and the
-battle line. Fonts bundled and loaded by absolute path, every render
-off the event loop, and the pictures put in front of the author. Nothing
-here is tested beyond size, as with every other picture
-([board-image.md](design/board-image.md), "Look at the image").
+```text
+Step 3 of docs/tnp-bot.md. Steps 1 and 2 have landed. Read
+docs/design/board-image.md first: "Look at the image", and the fonts.
+
+tnp/render.py, the one TNP module that imports Pillow, and
+scripts/render_tnp_sample.py:
+- The map, from map.json's outlines: each area tinted by its
+  controller, its number, the resource tokens left on it, the stranded
+  markers, the two bases in their seats' colours, and, during March,
+  each pile as it is revealed. Nothing of a seat's deployment is drawn
+  before March reveals it (question 12).
+- A seat's player board, from human_board.json and humans.json: the
+  four facilities, their caps, what is built and what is queued, the
+  upgrades, each unit's cost, its ratings as d12 numbers (Strong 3+,
+  Fair 6+, Weak 12, Can't 12 at one die per two units), initiative,
+  traits and supply left, the limits and the conversion rates. The
+  layout the author has seen is the canvas's Human base board
+  (https://claude.ai/artifact/4hRVXBPhYeKDHyoUSwnank).
+- The battle: the line as columns, each force's unit, count and damage,
+  the flanking forces beside it, the round track and the base cards.
+Fonts are bundled and loaded by absolute path (d12ball/fonts/ may be
+read by absolute path, never copied). Every render goes through
+asyncio.to_thread in the cog. The sample script renders the opening
+position, a mid-game map, both seats' boards and a battle in round 3
+into a folder you name. The tests check only each PNG's size.
+
+The stop: the author compares the drawn map and boards to map 3.3 and
+board v4, with the d12 hit values, and approves them. Put every picture
+in the PR.
+```
 
 ### 4. A whole basic game through the driver
 
-`tnp/components.py` (`MatchState`, the seats, the map's state, each
-seat's pool of materials, gold, minerals and gems, the saved-field table
-from the first commit), `tnp/game.py` (the record and the lobby's rules,
-with the advanced game a setting from the start though only the basic
-one plays until step 9), `tnp/engine.py`, `tnp/prompts.py` (both seats
-asked at once), `tnp/flow/` (infrastructure, deployment, march,
-conquest, control and stranded, harvest -- tokens off the map into the
-pool -- production, trade at the conversion rates, cleanup, and the two
-ways to win) and the driver, with `GameService` in `gamesaves/tnp/`. The
-deliverable is the test that plays a game to a win with no frontend
-imported, plus the purity ratchet.
+```text
+Step 4 of docs/tnp-bot.md. Steps 1 to 3 have landed. Also read
+docs/design/codex.md's "Multiplayer" (pending_all and SeveralAsked, two
+prompts open at once) and its standing tech choice (standing_prompts,
+an answer held secret until a reveal): the two precedents for a
+simultaneous phase.
+
+The model of the whole basic game:
+- tnp/components.py: MatchState -- the turn and the phase; the map's
+  state (each area's controller or none, resources left, defenders,
+  the stranded flags); each seat's faction (humans alone for now, a
+  field from the first commit), facilities built and upgraded, pool of
+  materials, gold, minerals and gems, units by state (available,
+  queued, deployed, defending, stranded), its plan for the phase and
+  whether it is locked in; the battle in progress -- every class with a
+  SavedField table.
+- tnp/game.py: TnpGame, the record: two seats, Blue and Green, taken by
+  people; the lobby's rules as methods refusing with RuleRefusal; the
+  advanced game a setting from the start, though only the basic game
+  plays until step 9.
+- tnp/prompts.py: pending returns the prompts open now -- both seats'
+  in a simultaneous phase, one seat's in a battle line -- or the step
+  the bot owes. A seat may change its plan until it locks in; the phase
+  resolves once both have. The plan is held on the match, so a restart
+  keeps it.
+- tnp/flow/: Infrastructure (spend the pool on units, facilities and
+  upgrades, all finished at Production and Trade); Deployment (units
+  face down into attack spots A and B, each with a target territory --
+  C only with Command and Control CPU, in the advanced game -- and into
+  the defense of any territory the seat holds and of its base); March
+  (A for both seats, then B, then C; within a slot in ascending
+  territory number: neutral conquest by revealing a ground unit,
+  battle through step 2's battle, control and stranded, harvest by
+  Workers -- tokens off the map into the pool); Production and Trade,
+  one phase (the queue built and deployable next turn; minerals and
+  gems traded at the conversion rates, each for materials or for gold
+  and never both, blue and orange alike; emergency production);
+  Cleanup. Air units attack any territory with no path of held
+  territories, and hold none. A territory held with nobody left in it
+  stays held until an enemy takes it.
+- The two ways to win: a successful attack on a base, or 49 of the
+  map's 96 tokens harvested by one seat.
+- gamesaves/tnp/service.py (GameService: apply_action through
+  driver.apply, run, resume, GameResult) and gamesaves/tnp/storage.py
+  (data/tnp_games.json through gamekit.storage, with its own two
+  failure flags).
+
+tests/test_tnp_driver_full_game.py plays Blue against Green from setup
+to a win through driver.apply with nothing from cogs/ or discord
+imported, harvesting tokens and trading them: once to a fallen base,
+once to 51%. The purity ratchet extends to gamesaves/tnp/, and every
+MatchState field is checked against its table as Codex's are.
+
+The stop: that test passes, and docs/design/tnp.md says what a
+simultaneous phase is and where a locked plan is kept.
+```
 
 ### 5. The lobby, the channel and the opening position
 
-`/tnp create_game`, two seats taken by people, the channel opened the
-way Codex opens its own (in a **TNP Games** category, apart from D12
-Ball's), the setup, and the opening position: the public map message,
-and each seat's player board in its own panel. The persistent views are
-re-armed at startup, and a test shows that a corrupt TNP games file
-leaves D12 Ball's cog loaded (decision 2).
+```text
+Step 5 of docs/tnp-bot.md. Steps 1 to 4 have landed. Also read
+docs/design/permissions.md, docs/design/channels-and-archive.md and
+docs/design/codex.md's "The lobby and the channel" and "Hidden
+information on Discord".
+
+/tnp create_game posts a lobby with two seats, Blue and Green, each
+taken by a person -- there is no AI -- and Start once both are filled.
+Start opens the game's channel the way the Codex cog opens its own, in a
+TNP Games category apart from D12 Ball's and Codex's, named
+tnp-<n>-<blue>-vs-<green>, and posts the public message: the map, the
+turn and the phase, who has locked in, and a button that opens the
+clicker's own panel, ephemeral, with their player board, their pool and
+what they may do. cogs/tnp_views/ holds the views: a SafeView over
+botkit's GameLockedView and cogs/game_auth.py's gates; no view saves.
+The persistent views are re-armed at startup, and the startup sweep
+logs and skips a game it cannot load.
+tests/test_tnp_isolation.py: a corrupt data/tnp_games.json leaves
+cogs.d12ball loaded and its commands answering (decision 2).
+
+The stop: two people reach turn 1 on Discord, each with a player board
+the other cannot see.
+```
 
 ### 6. The simultaneous turn on Discord
 
-Each phase's panel per seat: the queue in Infrastructure, the stacks and
-territory cards in Deployment, the trade, and **Lock in**. Then the
-reveal, the march's narration as one message per slot, and the map
-redrawn once per slot through the gate. Resuming after a restart reads
-the plans saved on the match.
+```text
+Step 6 of docs/tnp-bot.md. Steps 1 to 5 have landed. Read
+docs/design/rate-limits.md whole before adding a send or an edit.
+
+Each phase's panel per seat, built from PendingPrompt.options:
+Infrastructure's queue (what to build, its cost against the pool, the
+facility caps), Deployment's stacks (units into attack spots A and B,
+a target territory each, and into the defenses), Production and
+Trade's trades, and Lock in, the plan editable until then. The public
+message shows who has locked in and nothing of either plan. When both
+have locked in, March reveals: one message per slot, A then B, each
+pile's resolution as its lines, the map redrawn once per slot through
+the gate, every conquest and harvest named. A battle met in March stops
+the march with a line saying battles arrive in step 7; the test game
+avoids one. A restart mid-phase reads the plans saved on the match and
+puts both panels back. Count the requests a whole turn makes with a
+fake like tests/codex_cog_fakes.py, and give the number in the PR.
+
+The stop: two people play Infrastructure to Cleanup, with neutral
+conquests, a harvest and a trade; a restart mid-phase keeps both plans.
+```
 
 ### 7. Battles on Discord
 
-A battle's own message and picture. Placement in the battle line, the
-retreat declaration and the target choices go to whichever seat is
-asked, each click edits the battle message, and the dice are shown. The
-requests per round are counted with a fake like `tests/codex_cog_fakes.py`
-and kept within the five-in-five bucket.
+```text
+Step 7 of docs/tnp-bot.md. Steps 1 to 6 have landed. Read
+docs/design/rate-limits.md again: a battle is the longest run of clicks
+in the game.
+
+A battle gets its own message, with step 3's battle picture, edited in
+place round by round through the gate. Placement in the battle line,
+the retreat declaration and the target choices go to whichever seat is
+asked, from the prompt's options; the retreat declaration asks both
+seats at once and reveals together. Choosing a target rolls that
+force's dice in the same click, and every roll is shown: the dice, the
+number each needed and why (the rating and each modifier). A round with
+nothing to place asks nothing. When the battle ends, March goes on from
+where it stopped. The requests per round are counted with a fake like
+tests/codex_cog_fakes.py and kept within the five-in-five channel
+bucket; give the numbers in the PR.
+
+The stop: two people fight a battle on Discord round by round, and the
+request count per round is measured and within the gate.
+```
 
 ### 8. Finishing a game
 
-A win -- a fallen base or 51% harvested -- concede, abandon, rematch,
-the channel archived, and the golden: a seeded whole basic game through
-`GameService` recorded byte for byte.
+```text
+Step 8 of docs/tnp-bot.md. Steps 1 to 7 have landed. Also read
+docs/design/codex.md's "The end of a game" and "The golden".
+
+A win -- a fallen base or 49 tokens harvested -- announced once, the
+public message showing the final map; /tnp concede, behind a second
+click; /tnp abandon, a player's own game or any for a helper; Rematch;
+and the channel moved to a TNP Archive category. The golden:
+tests/test_tnp_golden.py plays a seeded whole basic game through
+GameService and pins what the model says byte for byte under
+tests/golden/tnp_service_*, re-recorded with FOOLBOT_UPDATE_GOLDEN=1
+only for a change to the model's wording or the game, which the PR
+says.
+
+The stop: a game is won, ends, offers a rematch and is archived; a
+seeded whole basic game is pinned byte for byte as the golden.
+```
 
 ### 9. The advanced game: the technology cards
 
-The advanced game as a lobby setting: the three decks shuffled at
-setup, and a harvest drawing a card from the matching deck rather than
-taking the token: the card is the mineral, traded at the conversion
-rates or played for its ability (question 6). Then the cards' effects: Tactical Command
-(face down, both at once, revealed together), building techs and their
-slots, tech facilities and their cap (question 5), and every Human tech
-row's effect as data in the way `codex/effects.py` holds Codex's, with
-the d12 values the author sets from "The dice modifiers, for the d12".
-The panels of steps 6 and 7 grow a hand, the building techs, the tech
-facilities and the tactic card; `/tnp card` joins the reference
-commands.
+```text
+Step 9 of docs/tnp-bot.md. Steps 1 to 8 have landed. Read the rules'
+advanced sections, every Technology row in tnp/data/technology.json,
+and "The dice modifiers, for the d12" in docs/tnp-bot.md, whose last
+column is the author's value for each card.
+
+The advanced game as a lobby setting. The three decks (blue minerals,
+orange minerals, gems; the Technology tab's colorr column) are shuffled
+at setup from engine.rng, and a harvest draws a card from the matching
+deck instead of taking the token. The card is the mineral: it trades at
+the conversion rates or is played for its ability (question 6), and the
+51% count is still tokens taken off the map. Then the cards' effects:
+Tactical Command (tactic cards face down, both seats at once, revealed
+together, after the emergency base defense); building techs and their
+slot, one per production facility; tech facilities and their cap of
+two; Command and Control CPU's attack spot C; and every Human tech
+row's effect as data, the way codex/effects.py holds Codex's, each
+modifier at the author's d12 value and handed into step 2's battle as
+the outside modifier it was built to take. A row whose Count the sheet
+leaves blank (Positioning, Air Cover, Shields) is asked about in the
+PR, never given a count here. The panels of steps 6 and 7 grow a hand,
+the building techs, the tech facilities and the tactic card, all
+private until revealed; /tnp card <name> joins the reference commands.
+A test per card pins what it does.
+
+The stop: the advanced game is chosen in the lobby; harvests draw from
+the three decks, and tactic cards, building techs and tech facilities
+all play on Discord; every Human tech row does what it says, with the
+author's d12 values; /tnp card grenades answers.
+```
