@@ -243,27 +243,26 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    number rolled (the author, 2026-11-05): a Fair unit at +2 that rolls
    a 4 has a 6, and hits. The 12 and the 1 are the die's face, so a
    rolled 12 hits and a rolled 1 misses whatever the modifiers. The
-   d12 value of each modifier is the author's (the table below). **Still
-   open**, asked again with an explanation (the author asked for one,
-   2026-11-05): two rules of rulebook v3's d6 text. On the d6 a unit
-   hits on its attack value or less, and a 6 always misses.
-   - *The cap*: "if your attack value is higher than 5 (through
-     technological modifiers), your value is still 5 before position
-     modifiers". Tech cards can lift a value no higher than 5, and the
-     column penalty is taken off after: a unit whose bonuses would make
-     its value 7, shooting two columns over, hits on 3 or less. On the d12,
-     where modifiers add to the roll, the same rule would read: **the
-     tech cards' bonuses can bring the number needed down to 2 at best,
-     and the column penalty is applied after that.** Without it, a big
-     bonus swallows the penalty: a Strong unit (3+) with Explosives (+6
-     vs base) attacking the base at −1 hits on anything but a 1; with
-     it, the +6 brings the 3+ to 2+, the −1 makes it 3+, and it hits on
-     10 in 12.
-   - *Attack rate 0*: "a Force with an attack rate of 0 may roll 1 die
-     for each two units and score a hit on 1s" -- a rating below Weak.
-     No Human unit has a 0 (each rating is Strong, Fair, Weak or X,
-     can't), so in Humans against Humans the rule never applies. The
-     reading: leave it out until a faction with a 0 is built.
+   d12 value of each modifier is the author's (the table below). Two
+   rules of rulebook v3's d6 text, where a unit hits on its attack value
+   or less and a 6 always misses, were settled after an explanation (the
+   author, 2026-11-05):
+   - **The cap goes.** The d6 text held a value lifted by tech cards at
+     5 and took the column penalty off after. On the d12 every modifier
+     simply adds to the roll, and only the rolled 1 limits it: a Strong
+     unit (3+) with Explosives (+6 vs base) attacking the base at −1
+     hits on anything but a 1.
+   - **Attack rate 0 stays: it is the older name of "Can't"** (the
+     author). A force rated Can't against a type still attacks it,
+     rolling **one die for each two units** and needing a 12, as Weak
+     does -- the d12's counterpart of the d6's 1s -- so a modifier adds
+     to its roll like any other. Many Human units have a Can't (the
+     Jeep, the Tank and Smart Mines against air, the Rocket Launcher against infantry, the Chopper
+     Carrier against infantry and armour), so
+     the rule is in the basic game. The d6 text's "attack rate of X
+     can never attack that type" has no unit left on the sheet, and is
+     not built. The reading built on, to be confirmed: the dice are
+     rounded down, so a lone unit rated Can't rolls none.
 3. ~~**Production.**~~ Answered (the author, 2026-11-05):
    **Production and Trade are one phase**, after March and before
    Cleanup. The turn is Infrastructure, Deployment, March, Production
@@ -375,6 +374,7 @@ The three ratings have moved too:
 
 | Rating | d6 (keyword table) | d12 (the author) |
 | --- | --- | --- |
+| Can't | 1 only, one die per two units | 12 only, one die per two units |
 | Weak | 6 only: 1 in 6, 17% | 12 only: 1 in 12, 8% |
 | Fair | 4 to 6: 3 in 6, 50% | 6 to 12: 7 in 12, 58% |
 | Strong | 2 to 6: 5 in 6, 83% | 3 to 12: 10 in 12, 83% |
@@ -414,8 +414,8 @@ worth more on a d12, where a miss is more often a near miss):
 | Flanking | "placing their Forces ... behind existing forces as flanking (gain +1 bonus)" | +1 | +2 | **+1** |
 | Position | "minus one per column you are skipping" | −1 a column | −2 a column | **−1 a column** |
 | The base cards | "always with at least −1 position modifier" | −1 at least | −2 at least | **−1 at least** |
-| The cap | "if your attack value is higher than 5 ... your value is still 5 before position modifiers" | 5 | goes, if the 12 and the 1 bound the roll (question 2) | open (question 2) |
-| Attack rate 0 | "may roll 1 die for each two units and score a hit on 1s" | -- | goes (question 2) | open (question 2) |
+| The cap | "if your attack value is higher than 5 ... your value is still 5 before position modifiers" | 5 | goes, if the 12 and the 1 bound the roll (question 2) | **goes** |
+| Attack rate 0 (Can't) | "may roll 1 die for each two units and score a hit on 1s" | 1s, half the dice | -- | **12 only, half the dice** (question 2) |
 
 Not listed, because they change no roll: the cards that remove units or
 hits rather than modify dice (Snipe, Super Cannon, Exploding Smoke
