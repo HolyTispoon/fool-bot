@@ -412,7 +412,10 @@ First, which seat is the attacker:
 - If both seats attack a neutral territory, the seat with the scouting
   advantage (6.4) chooses whether to be the attacker or the defender.
   With no advantage, the seat with the lower total of initiative
-  values over all its units there is the defender.
+  values over all its units there is the defender. If the totals are
+  equal, each seat rolls a die and the higher roll counts as the higher
+  initiative (the author, 2026-11-05): the seat that rolls lower is the
+  defender. Equal rolls are rolled again.
 
 The attacker reveals every unit in its attacking pile, Workers
 included, and forms them into **forces**: all its units of one kind are
@@ -472,6 +475,9 @@ are **engaged**.
   and the attacker must engage it, by placing a force of its own in
   front of it. Then the attacker must place another force next to an
   existing force.
+- **An unengaged force must be engaged.** While the other seat has an
+  unengaged force in the line, the force a seat places must engage one
+  of them, in front of it (the author, 2026-11-05).
 - **When one seat has no forces left to place**, the other places its
   forces at either end of the line, between any two columns, or
   **behind** a force of its own already in the line, as **flanking**:
@@ -508,9 +514,13 @@ rolls the dice at once (the author, 2026-11-05). Each die is the
 number rolled plus every modifier (4.2), against the rating's number
 for the target's type (4.1).
 
-**The position modifier**: an engaged force attacking a force in
-another column takes **−1 for each column** between them. A force
-attacking within its own column takes none.
+**The position modifier** is an engaged force's alone: attacking a
+force in another column, it takes **−1 for each column** it reaches
+across -- −1 for the next column, −2 for the one after -- and attacking
+within its own column, none. **An unengaged force takes no position
+modifier** -- an unengaged force is usually a flanking one (the author,
+2026-11-05). The base cards are the exception: every force attacking
+one takes at least −1 (6.9).
 
 ### 6.8 Hits
 
@@ -748,3 +758,11 @@ One line per change, dated, with where it came from.
   upgrade before its facility, never the Barracks or Base Defenses, one
   thing an attack; Base Defense units roll when their base is attacked
   -- 6.9, 7. (The author, docs/tnp-bot.md step 2.)
+- 2026-11-05: Equal initiative totals over a neutral territory: each
+  seat rolls a die, and the higher roll counts as the higher initiative
+  -- 6.1. (The author, answering PR #704.)
+- 2026-11-05: A force placed while the other seat has an unengaged
+  force in the line must engage one -- 6.5. (The author, answering PR #704.)
+- 2026-11-05: The position modifier is an engaged force's alone; an
+  unengaged force, usually a flanking one, takes none -- 6.7. (The
+  author, answering PR #704.)
