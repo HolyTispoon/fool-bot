@@ -233,9 +233,11 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    and above; a 12 always hits and a 1 always misses. The hit values are
    on the player board, which is being redrawn, so the new numbers go on
    it. Every dice modifier is being adjusted for the d12: the list is in
-   "The dice modifiers, for the d12" below. Still to confirm: that +N
-   means "hits on N lower" (Fair +2 hits on 4 and above), so a 12 still
-   hits and a 1 still misses whatever the modifiers. And that the d6
+   "The dice modifiers, for the d12" below. A modifier adds to the
+   number rolled (the author, 2026-11-05): a Fair unit at +2 that rolls
+   a 4 has a 6, and hits. The 12 and the 1 are the die's face, so a
+   rolled 12 hits and a rolled 1 misses whatever the modifiers. Still to
+   confirm: that the d6
    battle text's "a value above 5 is still 5" and "an attack rate of 0
    rolls one die per two units" go, since the 12 and the 1 bound the
    roll and no Human unit has a 0.
