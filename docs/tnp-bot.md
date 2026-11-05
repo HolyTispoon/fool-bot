@@ -11,7 +11,12 @@ model/Discord split, `GameService`, the driver, `gamekit/`, `botkit/`,
 the board gate, and the Codex bot as the nearest precedent. **Nothing in
 it is a rule.** The questions under "Questions for the author" have to be
 answered before the steps get their prompts, because several of them
-decide what the model holds.
+decide what the model holds. The author answers them in the doc **TNP
+Open Questions and Dice** (https://claude.ai/artifact/CwXvSPjLSaNaYyVtDkx1TY),
+which also holds the dice modifiers' d12 values, and on the canvas
+drawing of the map and the board
+(https://claude.ai/artifact/4hRVXBPhYeKDHyoUSwnank); each answer is
+recorded here as it comes.
 
 ## What was found
 
@@ -249,7 +254,9 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    harvest takes the mineral and gem tokens themselves into the seat's
    pool, and they trade for materials or gold at the conversion rates.
    The advanced game is the one with the three tech decks, where a
-   harvest draws a card instead. Humans against Humans is built as the
+   harvest draws a card instead, and **the card is the mineral**: it
+   trades at the same conversion rates or is used for its ability (the
+   author, 2026-11-05). Humans against Humans is built as the
    basic game first, and the tech cards are the last step.
 7. ~~**Trade rates.**~~ Answered from the Vassal module (the author,
    2026-11-05, pointing there): a mineral trades for 2 materials or 1
@@ -474,7 +481,8 @@ the channel archived, and the golden: a seeded whole basic game through
 
 The advanced game as a lobby setting: the three decks shuffled at
 setup, and a harvest drawing a card from the matching deck rather than
-taking the token (question 6). Then the cards' effects: Tactical Command
+taking the token: the card is the mineral, traded at the conversion
+rates or played for its ability (question 6). Then the cards' effects: Tactical Command
 (face down, both at once, revealed together), building techs and their
 slots, tech facilities and their cap (question 5), and every Human tech
 row's effect as data in the way `codex/effects.py` holds Codex's, with
