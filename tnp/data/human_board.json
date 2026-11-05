@@ -1,0 +1,225 @@
+{
+  "_comment": [
+    "The Human player board, KEPT BY HAND from board v4 ('green human base board v4 constructed.png') and the Vassal module ('vassal module.png'), as docs/tnp-bot.md records them, with the author's answers of 2026-11-05.",
+    "The numbers here exist nowhere in the unit sheet. Where the sheet carries one too (a unit's facility, its supply, an infrastructure upgrade's cost and cap), tests/test_tnp_data.py checks the two agree."
+  ],
+  "data_version": 1,
+  "faction": "humans",
+  "sources": [
+    {
+      "file": "green human base board v4 constructed.png",
+      "drive_id": "1AOtsUAM4D6-vVOC3XAD-ota5K_71_Zqj"
+    },
+    {
+      "file": "vassal module.png",
+      "drive_id": "1xmMkDh6wBTTDB1Yr1Mz9XCoS5I6nexLZ"
+    }
+  ],
+  "facilities": {
+    "barracks": {
+      "name": "Barracks",
+      "built_at_start": true,
+      "build_cost": null,
+      "requires": null,
+      "production_cap": 4,
+      "infrastructure_upgrade": "barracks_upgrade",
+      "upgraded_production_cap": 8,
+      "units": [
+        "worker",
+        "mercenary",
+        "stealth_sniper",
+        "cyborg_soldier"
+      ],
+      "unit_upgrades": [
+        "stealth_upgrade",
+        "cyborg_upgrade"
+      ],
+      "unit_upgrades_allowed": 1,
+      "unit_upgrades_allowed_upgraded": 2,
+      "destructible": false
+    },
+    "factory": {
+      "name": "Factory",
+      "built_at_start": false,
+      "build_cost": {
+        "materials": 2,
+        "gold": 0
+      },
+      "requires": null,
+      "production_cap": 3,
+      "infrastructure_upgrade": "factory_upgrade",
+      "upgraded_production_cap": 6,
+      "units": [
+        "jeep",
+        "tank",
+        "the_transformer"
+      ],
+      "unit_upgrades": [
+        "robotic_facility"
+      ],
+      "unit_upgrades_allowed": 1,
+      "unit_upgrades_allowed_upgraded": 1,
+      "destructible": true
+    },
+    "airport": {
+      "name": "Airport",
+      "built_at_start": false,
+      "build_cost": {
+        "materials": 3,
+        "gold": 0
+      },
+      "requires": "factory",
+      "production_cap": 2,
+      "infrastructure_upgrade": "airport_upgrade",
+      "upgraded_production_cap": 4,
+      "units": [
+        "chopper_carrier",
+        "viper_spy_plane",
+        "fighter_bomber"
+      ],
+      "unit_upgrades": [
+        "fighter_bomber_upgrade"
+      ],
+      "unit_upgrades_allowed": 1,
+      "unit_upgrades_allowed_upgraded": 1,
+      "destructible": true
+    },
+    "base_defenses": {
+      "name": "Base Defenses",
+      "built_at_start": true,
+      "build_cost": null,
+      "requires": null,
+      "production_cap": 4,
+      "infrastructure_upgrade": "base_defense_upgrade",
+      "upgraded_production_cap": 8,
+      "units": [
+        "smart_mines",
+        "rocket_launcher",
+        "laser_cannon"
+      ],
+      "unit_upgrades": [
+        "laser_cannon_upgrade"
+      ],
+      "unit_upgrades_allowed": 1,
+      "unit_upgrades_allowed_upgraded": 1,
+      "destructible": false
+    }
+  },
+  "unit_upgrades": {
+    "stealth_upgrade": {
+      "name": "Stealth Upgrade",
+      "facility": "barracks",
+      "cost": {
+        "materials": 1,
+        "gold": 0
+      },
+      "units": [
+        "stealth_sniper"
+      ]
+    },
+    "cyborg_upgrade": {
+      "name": "Cyborg Upgrade",
+      "facility": "barracks",
+      "cost": {
+        "materials": 1,
+        "gold": 0
+      },
+      "units": [
+        "cyborg_soldier"
+      ]
+    },
+    "robotic_facility": {
+      "name": "Robotic Facility",
+      "facility": "factory",
+      "cost": {
+        "materials": 1,
+        "gold": 0
+      },
+      "units": [
+        "the_transformer"
+      ]
+    },
+    "fighter_bomber_upgrade": {
+      "name": "Fighter Bomber Upgrade",
+      "facility": "airport",
+      "cost": {
+        "materials": 1,
+        "gold": 0
+      },
+      "units": [
+        "fighter_bomber"
+      ]
+    },
+    "laser_cannon_upgrade": {
+      "name": "Laser Cannon Upgrade",
+      "facility": "base_defenses",
+      "cost": {
+        "materials": 1,
+        "gold": 0
+      },
+      "units": [
+        "laser_cannon"
+      ]
+    }
+  },
+  "max_supply": {
+    "worker": 8,
+    "mercenary": 8,
+    "stealth_sniper": 6,
+    "cyborg_soldier": 6,
+    "jeep": 6,
+    "tank": 6,
+    "the_transformer": 6,
+    "chopper_carrier": 4,
+    "viper_spy_plane": 4,
+    "fighter_bomber": 4,
+    "smart_mines": 8,
+    "rocket_launcher": 8,
+    "laser_cannon": 6
+  },
+  "conversion": {
+    "normal": {
+      "mineral": {
+        "materials": 2,
+        "gold": 1
+      },
+      "gem": {
+        "materials": 3,
+        "gold": 2
+      }
+    },
+    "emergency": {
+      "mineral": {
+        "materials": 1,
+        "gold": null
+      },
+      "gem": {
+        "materials": 1,
+        "gold": 1
+      }
+    }
+  },
+  "starting": {
+    "pool": {
+      "materials": 5,
+      "gold": 0
+    },
+    "units": {
+      "worker": 3,
+      "mercenary": 3
+    }
+  },
+  "limits": {
+    "tech_facilities": 2,
+    "building_techs_per_facility": 1,
+    "deployed_together": [
+      {
+        "units": [
+          "smart_mines",
+          "rocket_launcher"
+        ],
+        "max": 8
+      }
+    ]
+  }
+}
