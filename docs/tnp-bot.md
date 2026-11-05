@@ -703,7 +703,10 @@ What it covers, each with a test citing its section:
   cannot retreat, would-be stranded units cannot retreat, a retreat is
   a defeat, and the retreating seat does not attack that round.
 - Damage by initiative group, lowest first; within a group the attacker
-  rolls first, then the defender. A force's target is its controller's
+  rolls first, then the defender, and the group's losses come off only
+  when the whole group has rolled, so a unit destroyed by its own group
+  still shoots, and one destroyed by an earlier group does not (the
+  author, 2026-11-05). A force's target is its controller's
   choice, and choosing it rolls that force's dice in the same action
   (decision 8). The number rolled is the die plus every modifier --
   flanking +1, the position modifier −1 a column skipped, the base
