@@ -187,6 +187,10 @@ Vassal module give them; `tnp/data/human_board.json` keeps them.
 - **The Airport needs a Factory already built**: one finished in an
   earlier turn's Production and Trade. A seat cannot place both in the
   same Infrastructure (the author, 2026-11-05).
+- **A destroyed facility** (6.9) can be built again, at its cost. An
+  Airport goes on producing after its Factory is destroyed, and a
+  Factory may be destroyed while an Airport stands (the author,
+  2026-11-05); a new Airport still needs a Factory built.
 - **A unit upgrade** costs 1 material (the author, 2026-11-05) and lets
   the facility build its upgraded unit.
 - **The Barracks** builds one of its two upgraded units, Stealth or
@@ -422,8 +426,9 @@ First, which seat is the attacker:
   With no advantage, the seat with the lower total of initiative
   values over all its units there is the defender. If the totals are
   equal, each seat rolls a die and the higher roll counts as the higher
-  initiative (the author, 2026-11-05): the seat that rolls lower is the
-  defender. Equal rolls are rolled again.
+  initiative (the author, 2026-11-05): the seat that rolls higher is the
+  attacker and the seat that rolls lower the defender. Equal rolls are
+  rolled again (the author, 2026-11-05).
 
 The attacker reveals every unit in its attacking pile, Workers
 included, and forms them into **forces**: all its units of one kind are
@@ -446,6 +451,16 @@ to produce base defenses:
 | --- | --- | --- |
 | A mineral | 1 | -- |
 | A gem | 1 | 1 |
+
+- **The units join the battle at once**, in the base defense spot (the
+  author, 2026-11-05).
+- **At most the Base Defenses' production cap** -- 4, or 8 with its
+  infrastructure upgrade -- a count of its own, apart from what the
+  turn's Infrastructure queued at Base Defenses (the author,
+  2026-11-05).
+- **The supply limits apply** (2.3) (the author, 2026-11-05).
+- **A Laser Cannon** only once the Laser Cannon upgrade is built (the
+  author, 2026-11-05).
 
 This comes before Tactical Command (the newest rulebook's order).
 
@@ -500,7 +515,12 @@ The attacker may declare a retreat. Only if it does not is the
 defender asked (the author, 2026-11-05).
 
 - The defender of a **base** cannot retreat.
-- **Would-be stranded units cannot retreat.**
+- **A force retreats only if it has a path home**: a path of
+  territories its seat holds from the territory of the battle to its
+  base, so that it would not be stranded (5.7). A force with no such
+  path cannot retreat (the author, 2026-11-05: "so long as there's a
+  path to the base, units can retreat"). This is the rulebook's
+  "would-be stranded units cannot retreat".
 - If either seat retreats, the battle ends after this round, and the
   retreating seat does not attack this round.
 - **A retreat is a defeat.** A force always retreats to its seat's
@@ -555,9 +575,12 @@ its line, one at either end (the author, 2026-11-05).
 
 - A force may attack a base card instead of a force. A base card is a
   building, attacked with the force's **armored** rating (the author,
-  2026-11-05), always with at least −1 for position (4.2), since no
-  force is in its column: −1 for each column from the attacking force's
-  column to the base card's place beyond the end of the line.
+  2026-11-05). **No force can engage a base card, so every force
+  attacking one is at least −1 for position** (4.2): an engaged force
+  takes −1 for each column from its own to the base card's place beyond
+  the end of the line, and an unengaged force -- alone in its column,
+  or flanking -- takes −1. A flanking force still gains its +1 (6.5)
+  (the author, 2026-11-05).
 - **A force that scores 2 or more hits on a base card destroys one
   thing**, the attacker's choice (the author, 2026-11-05): one upgrade
   of one of the defender's facilities, or, once a facility has no
@@ -625,7 +648,13 @@ are the icons on its card, which the unit sheet lists.
   Mercenaries or Workers, 2 Stealth Snipers or Cyborg Soldiers, 2
   Jeeps, or 1 Tank or Transformer, without mixing. *Step 9's:* with the
   tech *Improved Carrier Capacity*, 4 infantry, 3 Jeeps or 2 Tanks or
-  Transformers. A unit carried cannot retreat by an air route.
+  Transformers. In the basic game too (the author, 2026-11-05):
+  - a carried stack is deployed in one attack spot with its Chopper
+    Carriers, and needs no path (5.3), as air units do;
+  - its ground units fight as their own forces, and can take the
+    territory (5.5, 6.11);
+  - a unit carried cannot retreat by an air route: it retreats as any
+    force does, only with a path home (6.6).
 
 ## 8. The advanced game
 
@@ -780,4 +809,24 @@ One line per change, dated, with where it came from.
 - 2026-11-05: The Airport needs a Factory already built, finished in an
   earlier turn -- 2.4. (The author, answering PR #704.)
 - 2026-11-05: The 51% win is checked at Cleanup -- 1.3, 5.10. (The
+  author, answering PR #704.)
+- 2026-11-05: The higher roller of an initiative tie is the attacker;
+  equal rolls are rolled again -- 6.1. (The author, answering PR #704.)
+- 2026-11-05: Emergency base defenses join the battle at once, at most
+  the Base Defenses' cap counted apart from the turn's production, the
+  supply limits applying, a Laser Cannon only once its upgrade is built
+  -- 6.2. (The author, answering PR #704.)
+- 2026-11-05: Chopper Carriers carry in the basic game: a carried
+  stack needs no path, its ground units fight and can take the
+  territory, and retreat only with a path home -- 7. (The author,
+  answering PR #704.)
+- 2026-11-05: A force retreats only with a path of held territories to
+  its base -- the rulebook's "would-be stranded" -- 6.6. (The author,
+  answering PR #704.)
+- 2026-11-05: A destroyed facility can be built again; an Airport goes
+  on producing after its Factory is destroyed, and a Factory may be
+  destroyed while an Airport stands -- 2.4. (The author, answering PR
+  #704.)
+- 2026-11-05: Every force attacking a base card is at least −1, an
+  unengaged one exactly −1, and a flanking one still +1 -- 6.9. (The
   author, answering PR #704.)
