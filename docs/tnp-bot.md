@@ -16,7 +16,7 @@ Open Questions and Dice** (https://claude.ai/artifact/CwXvSPjLSaNaYyVtDkx1TY),
 which also holds the dice modifiers' d12 values, and on the canvas
 drawing of the map and the board
 (https://claude.ai/artifact/4hRVXBPhYeKDHyoUSwnank); each answer was
-recorded here as it comes.
+recorded here as it came.
 
 ## What was found
 
