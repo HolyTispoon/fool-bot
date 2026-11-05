@@ -2780,8 +2780,8 @@ def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
 
 
 def codex_tile(slug: str, count: int, cards: CardCatalog) -> Image.Image:
-    """One card of a codex or a deck: its picture with a badge of its
-    copies, faint where none are left."""
+    """One card of a codex: its picture with a badge of its copies,
+    faint where none are left. **My deck** draws every copy instead."""
     picture = scaled_card(slug, CODEX_CARD, cards)
     if count <= 0:
         picture = faint(picture)
@@ -2837,9 +2837,10 @@ def render_deck(held: Sequence[tuple[str, int]], played: Sequence[tuple[str, int
     2026-10-15: "show what's in play as a zone"). The frames are packed
     by `deck_layout` so the rows are filled rather than a frame left
     alone on a row of its own (the author, 2026-10-15: "should fill the
-    rows"). Each card shows once per part with its copies there on its
-    badge, so a card with copies in two places shows in both (the
-    author, 2026-10-09). The hand's frame is the neutral white the words
+    rows"). Every copy shows as a card of its own, with no badge -- two
+    Crash Bombers in the hand are two cards there (the author,
+    2026-11-05); stacking with a badge of the copies is the codex's
+    alone (`render_codex`). The hand's frame is the neutral white the words
     are, the others the quiet grey -- never gold, which is the tech
     picker's mark and the currency's. A part with no cards is left out.
     The same deck asked again is the bytes already drawn
@@ -2910,11 +2911,15 @@ def _render_deck(held: tuple[tuple[str, int], ...], played: tuple[tuple[str, int
     gap, pad = 14, DECK_BOX_PAD
     card_w, card_h = CODEX_CARD
     face = font(26)
+    # Every copy its own card, unbadged (the author, 2026-11-05: "when
+    # viewing the hand deck and discard - each copy should be separate");
+    # the codex alone stacks.
     parts = [
-        (title, rows, edge) for title, rows, edge in (
+        (title, [slug for slug, count in rows for _ in range(count)], edge)
+        for title, rows, edge in (
             ("Hand", held, WORD), ("In play", played, QUIET),
             ("Discard pile", discarded, QUIET), ("Deck", pile, QUIET),
-        ) if rows
+        ) if any(count > 0 for _, count in rows)
     ]
     layout = deck_layout([len(rows) for _, rows, _ in parts])
     # Each row's frames left to right, each as wide as its cards (or its
@@ -2950,10 +2955,10 @@ def _render_deck(held: tuple[tuple[str, int], ...], played: tuple[tuple[str, int
                                    radius=12, fill=PANEL, outline=edge, width=3)
             draw.text((left + pad, top + DECK_HEADING // 2), title, font=face,
                       fill=edge, anchor="lm")
-            for position, (slug, count) in enumerate(rows):
+            for position, slug in enumerate(rows):
                 line, column = divmod(position, columns)
                 canvas.alpha_composite(
-                    codex_tile(slug, count, cards),
+                    scaled_card(slug, CODEX_CARD, cards),
                     (left + pad + column * (card_w + gap),
                      top + DECK_HEADING + line * (card_h + gap)),
                 )

@@ -2352,20 +2352,28 @@ the first reading having stacked a hand of two into one column beside
 a two-line discard pile. A row narrower than the
 widest has its last frame stretched to the picture's edge, so the
 right edges line up. Each part is in the deck's order -- the starting cards first
-and then each tech level -- and shows each card once with its copies
-there on its badge, so a card with one copy in the hand and another in
-the draw pile shows in both (the author, 2026-10-09: "I want the cards
-in hand to appear together. A second copy of the same card would show
-up again outside of the box"; "also show which cards in the discard").
+and then each tech level -- and a card with one copy in the hand and
+another in the draw pile shows in both (the author, 2026-10-09: "I want
+the cards in hand to appear together. A second copy of the same card
+would show up again outside of the box"; "also show which cards in the
+discard"). **Every copy is a card of its own, with no badge** (the
+author, 2026-11-05: "stacking should be the norm for codex viewing.
+when viewing the hand deck and discard - each copy should be
+separate"): the first reading showed each card once a part with its
+copies on a badge, and a hand of Crash Bomber x2 and Bloodrage Ogre x1
+read as two cards beside **My hand**'s three. The engine's split still
+counts copies (`OwnDeck.held` and the rest are (slug, copies) pairs);
+`render_deck` lays them out one by one, and the frames are packed by
+the cards they draw, not the distinct cards. In play is drawn the same
+way, each copy there being a unit or a spell of its own. Stacking with
+the badge is the codex's alone (`render_codex`, `codex_tile`).
 The hand's frame is drawn in the neutral white the words are and the
 other three in the quiet grey, not gold: the author asked for no gold
 there, gold being the tech picker's mark (its first day, the deck was
 the codex grid with the hand's copies framed in gold on each card,
 which left a hand's cards scattered through the deck). The split is
 the engine's, `OwnDeck.held`, `played`, `discarded` and `pile` beside the
-whole `cards`, so the view computes nothing; `render_deck` shares one card
-tile with `render_codex` (`codex_tile`), whose output the extraction
-left byte-identical. Its caption is the total alone, "Total cards in
+whole `cards`, so the view computes nothing. Its caption is the total alone, "Total cards in
 deck: 13." (the author, 2026-10-09: "cut down on text"), where it
 first counted every place in words; the picture says where the cards
 are, and the draw pile's order is never shown, its cards being in the

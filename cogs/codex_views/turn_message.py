@@ -361,8 +361,7 @@ def deck_caption(deck, side: str = "") -> str:
 async def deck_file(engine, deck) -> discord.File:
     """A deck pictured in four framed parts (`render_deck`): the cards
     in the hand, those in play, those in the discard pile and those in
-    the draw pile, each card once per part with its copies there on its
-    badge -- the engine's split (`OwnDeck.held`, `played`, `discarded`,
+    the draw pile, every copy a card of its own -- the engine's split (`OwnDeck.held`, `played`, `discarded`,
     `pile`)."""
     webp = await asyncio.to_thread(
         render_deck, deck.held, deck.played, deck.discarded, deck.pile, engine.catalog,
