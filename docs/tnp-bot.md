@@ -138,13 +138,13 @@ author has not yet seen are repeated as questions below.
      interaction, and each TNP game gets its own channel, so a TNP
      battle does not slow down a D12 Ball game's channel. What the two
      games share is the application's global limit and the bot's
-     gateway connection. Step 7 measures the requests per battle round
+     gateway connection. Step 8 measures the requests per battle round
      against the five-in-five channel bucket, as D12 Ball's gate does.
    - **Crashes.** An exception in the TNP cog has to stay in the TNP
      cog. A view's errors go through its `SafeView`, and the cog's
      startup sweep catches and logs a bad saved game rather than raising
      out of `cog_load`, so a broken TNP save cannot stop fool-bot from
-     loading D12 Ball. Step 5 tests the second point: a corrupt
+     loading D12 Ball. Step 6 tests the second point: a corrupt
      `data/tnp_games.json` leaves D12 Ball's cog loaded.
 3. **The split from the first commit.** A `tnp/` package holds the
    model, held to the model's rules (no `discord`, no `async def`, no
@@ -190,7 +190,8 @@ author has not yet seen are repeated as questions below.
    both seats have locked in. Until then a seat may change its own plan,
    and its locked-in answer is held on the match the way Codex's tech
    choice is, so a restart loses nothing.
-8. **Within a battle, the choice rolls the dice.** A force's target is
+8. **A d12, and within a battle the choice rolls the dice.** Every die
+   is a d12 (the author, 2026-11-05; question 2). A force's target is
    the player's choice, and picking it rolls that force's dice at once,
    shown in the same message. D12 Ball's rule that "nothing rolls dice on
    its own" exists because there a roll is a moment of its own; here a
@@ -214,15 +215,17 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 
 1. ~~**One bot or two?**~~ Answered (the author, 2026-11-04): a cog in
    fool-bot. See decision 2.
-2. **How hit values work.** The keyword table says Weak hits only on a 6,
-   Fair on 4 to 6, and Strong misses only on a 1. The battle text says
-   "an attack value of 3 hits on 3 or less, sixes always miss, a value
-   above 5 is still 5, an attack rate of 0 rolls one die per two units
-   and hits on 1s". The tech cards add +1 and +2, flanking adds +1, and
-   each column skipped costs −1. One reading reconciles all of it, and
-   the odds come out the same as the keyword table's: **Weak = 1, Fair =
-   3, Strong = 5, Can't = X; hit on a roll at or under the value after
-   modifiers, capped at 5, and a 6 always misses.** Is that the rule?
+2. ~~**How hit values work.**~~ Answered (the author, 2026-11-05):
+   **a d12**. Weak hits only on a 12, Fair on 6 and above, Strong on 3
+   and above; a 12 always hits and a 1 always misses. The hit values are
+   on the player board, which is being redrawn, so the new numbers go on
+   it. Every dice modifier is being adjusted for the d12: the list is in
+   "The dice modifiers, for the d12" below. Still to confirm: that +N
+   means "hits on N lower" (Fair +2 hits on 4 and above), so a 12 still
+   hits and a 1 still misses whatever the modifiers. And that the d6
+   battle text's "a value above 5 is still 5" and "an attack rate of 0
+   rolls one die per two units" go, since the 12 and the 1 bound the
+   roll and no Human unit has a 0.
 3. **Production.** The aide has a Production phase between March and
    Trade, and the rulebook's text leaves it out. Is the order
    Infrastructure, Deployment, March, Production, Trade, Cleanup, with
@@ -232,10 +235,11 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    rulebook's body puts it before, and its own summary and the aide put
    it after.
 5. **Tech facilities: two (board v4) or three (rulebook v3)?**
-6. **The basic game.** The tech decks are "in an advanced game", but
-   harvesting draws tech cards and trading turns cards into resources.
-   What does a harvest give in the basic game? Should the first build be
-   the basic game, the advanced game, or the advanced game alone?
+6. ~~**The basic game.**~~ Answered (the author, 2026-11-05): there is
+   no basic game and no advanced game. The tech cards are always used:
+   the three decks are shuffled at setup, harvesting draws from them, and
+   tactic cards, building techs and tech facilities all play from the
+   first game.
 7. **Trade rates.** The rulebook says they are on the player board, but
    board v4 has none. What does each card trade for, at the normal rate
    and at the emergency (base defense) rate, and what do Jewler and
@@ -272,6 +276,69 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
     base win at once? Does a defender who survives six rounds hold even
     if the base cards took hits?
 
+## The dice modifiers, for the d12
+
+Every card and rule that changes a roll, as unit sheet v3 and rulebook
+v3 word them, so the author can set each one's d12 value (the author,
+2026-11-05). They were all written for a d6. On a d12 each step of +1
+is worth half as much (one face in twelve rather than one in six), so
+the straight translation is to double each number. The last column is
+that translation, a starting point and not a decision.
+
+The three ratings have moved too:
+
+| Rating | d6 (keyword table) | d12 (the author) |
+| --- | --- | --- |
+| Weak | 6 only: 1 in 6, 17% | 12 only: 1 in 12, 8% |
+| Fair | 4 to 6: 3 in 6, 50% | 6 to 12: 7 in 12, 58% |
+| Strong | 2 to 6: 5 in 6, 83% | 3 to 12: 10 in 12, 83% |
+
+So Strong stays the same, Fair gets a little better, and Weak gets half
+as likely to hit.
+
+**Tech cards that add to a roll** (Technology tab; count, type and cost
+as the sheet has them):
+
+| Card | Deck | Type | Count | Text | d6 | Doubled |
+| --- | --- | --- | --- | --- | --- | --- |
+| Arm Workers | orange minerals | tactic | 2 | Workers get +1 attack | +1 | +2 |
+| Enhancing Drugs | orange minerals | tactic | 2 | Mercenaries get −1 initiative, +2 for all rolls; each hit kills 2 mercenaries | +2 | +4 |
+| Advanced Targeting | orange minerals | tactic | 2 | Cyborgs gain +2 air | +2 vs air | +4 vs air |
+| Positioning | orange minerals | tactic | (blank) | Jeeps and Tanks gain +1 when attacking forces they are engaged with (no penalty for adjacent columns, −1 for 2 away etc.) | +1, and the column penalty eased by one | +2, and eased by 2 |
+| Air Cover | orange minerals | tactic | (blank) | Choppers and Vipers gain +3 vs. air | +3 vs air | +6 vs air |
+| Heat Seeking Missile | orange minerals | tactic | 2 | Viper gains +2 attack | +2 | +4 |
+| Explosives | gems | tech facility, 1 material | 3 | Stealth Snipers gain +4 vs. base defense or when targeting base (short text: "inf. gain +4 vs. base") | +4 vs base | +8 vs base |
+| AA Missiles | gems | building tech | 3 | Attached units gain +2 vs. air | +2 vs air | +4 vs air |
+| Lasers | gems | building tech | 3 | Attached units gain +2 vs. Arm. | +2 vs armored | +4 vs armored |
+| Grenades | gems | building tech | 3 | Attached units gain +2 vs. inf. | +2 vs infantry | +4 vs infantry |
+| Specialized Training | gems | building tech | 3 | Attached unit get +1 for all rolls | +1 | +2 |
+
+**Tech cards that give rerolls** (no number to change, but each is
+worth more on a d12, where a miss is more often a near miss):
+
+| Card | Deck | Type | Count | Text |
+| --- | --- | --- | --- | --- |
+| Ammo Depos | orange minerals | tech facility, 1 material | 2 | Gain 2 rerolls each battle |
+| Extra Large Ammo Depos | orange minerals | tech facility, 3 materials | 2 | Gain 4 rerolls each battle |
+
+**The rules' own modifiers** (rulebook v3, "Battle procedure"):
+
+| Modifier | Rulebook text | d6 | Doubled |
+| --- | --- | --- | --- |
+| Flanking | "placing their Forces ... behind existing forces as flanking (gain +1 bonus)" | +1 | +2 |
+| Position | "minus one per column you are skipping" | −1 a column | −2 a column |
+| The base cards | "always with at least −1 position modifier" | −1 at least | −2 at least |
+| The cap | "if your attack value is higher than 5 ... your value is still 5 before position modifiers" | 5 | goes, if the 12 and the 1 bound the roll (question 2) |
+| Attack rate 0 | "may roll 1 die for each two units and score a hit on 1s" | -- | goes (question 2) |
+
+Not listed, because they change no roll: the cards that remove units or
+hits rather than modify dice (Snipe, Super Cannon, Exploding Smoke
+Shells, Shields, Bunkers, Attached Mechanics, Medic on Board), and the
+ones that change initiative or scouting alone (Radars, Jet Engines,
+Satellite Connection). Two rows have no count in the sheet (Positioning
+and Air Cover, as well as Shields), so the importer will refuse them
+until the sheet gives one.
+
 ## The steps
 
 In the order they pay off. Each step is one branch off an up-to-date
@@ -282,15 +349,15 @@ prompts are written once the questions are answered.
 
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
-| 1 | The rules, the data and the bot standing up | medium | `docs/tnp-rules.md` read and approved by the author; `/tnp unit tank` answers in the test server |
-| 2 | The battle, with no frontend | large | a test fights any two Human forces to a result with the seeded `engine.rng`, covering scouting, flanking, the position modifiers, tough, repair, splash, retreat and the base cards |
-| 3 | The map and the player board, drawn by code | medium | the author compares the drawn map and boards to map 3.3 and board v4 and approves them |
-| 4 | A whole game through the driver | large | a test plays Blue against Green from setup to a fallen base through `driver.apply` with nothing from `cogs/` or `discord` imported |
-| 5 | The lobby, the channel and the opening position | medium | two people reach turn 1 on Discord, each with a player board the other cannot see |
-| 6 | The simultaneous turn on Discord | large | two people play Infrastructure to Cleanup, with neutral conquests and a harvest; a restart mid-phase keeps both plans |
-| 7 | Battles on Discord | large | two people fight a battle on Discord round by round, and the request count per round is measured and within the gate |
-| 8 | Finishing a game | small | a base falls, the game ends, offers a rematch and is archived; a seeded whole game is pinned byte for byte as the golden |
-| 9 | The technology cards | large | tactic cards, building techs and tech facilities all play, every Human tech row does what it says, and the import covers the whole Technology tab |
+| 1 | The rules, the data and the bot standing up | medium | `docs/tnp-rules.md` read and approved by the author; `/tnp unit tank` and `/tnp card grenades` answer in the test server |
+| 2 | The battle, with no frontend | large | a test fights any two Human forces to a result with the seeded `engine.rng` and a d12, covering scouting, flanking, the position modifiers, tough, repair, splash, retreat and the base cards |
+| 3 | The map and the player board, drawn by code | medium | the author compares the drawn map and boards to map 3.3 and board v4, with the d12 hit values, and approves them |
+| 4 | A whole game through the driver | large | a test plays Blue against Green from setup to a fallen base through `driver.apply` with nothing from `cogs/` or `discord` imported, harvesting from the three decks and trading cards for resources |
+| 5 | The technology cards | large | tactic cards, building techs and tech facilities all play; every Human tech row does what it says, with the author's d12 values |
+| 6 | The lobby, the channel and the opening position | medium | two people reach turn 1 on Discord, each with a player board and hand the other cannot see |
+| 7 | The simultaneous turn on Discord | large | two people play Infrastructure to Cleanup, building with tech cards, with neutral conquests and a harvest; a restart mid-phase keeps both plans |
+| 8 | Battles on Discord | large | two people fight a battle on Discord round by round, tactic cards included, and the request count per round is measured and within the gate |
+| 9 | Finishing a game | small | a base falls, the game ends, offers a rematch and is archived; a seeded whole game is pinned byte for byte as the golden |
 | -- | Later, and not now | -- | XzzzX and Space Dragons; an AI; undo; a web page like the Codex site |
 
 ### 1. The rules, the data and the bot standing up
@@ -301,7 +368,8 @@ in, and start `docs/design/tnp.md`. Write `scripts/import_tnp_data.py`
 `human_board.json` and `map.json`, each checked by a test against the
 other (every unit a facility builds exists, every adjacency goes both
 ways, every resource is on a territory). Add the `cogs/tnp/` cog to
-fool-bot's extensions in `foolbot.py` with `/tnp unit` and `/tnp rules`.
+fool-bot's extensions in `foolbot.py` with `/tnp unit`, `/tnp card` and
+`/tnp rules`.
 That changes fool-bot's command tree, so the PR says the live host
 needs a command sync. Add the `tnp` series to
 `scripts/claim_web_step.py` and rows for the new packages to the map in
@@ -312,9 +380,10 @@ needs a command sync. Add the `tnp` series to
 `tnp/battle.py`: forces formed from revealed units, scouting advantage
 and its count of forced placements, the battle line (engaged columns and
 flanking), retreat, damage by initiative group with the attacker first,
-hit values per question 2, the position modifier, tough, repair, splash,
-the base cards and the facility they destroy, and victory after six
-rounds. Each choice inside a battle is a prompt kind (place a force,
+the d12 hit values and modifiers (question 2), taking a modifier from a
+card as an input so step 5 only supplies them, the position modifier,
+tough, repair, splash, the base cards and the facility they destroy,
+and victory after six rounds. Each choice inside a battle is a prompt kind (place a force,
 declare a retreat, pick a target), so the battle runs through the same
 driver as the rest of the game. This comes before the turn because it
 holds the riskiest rules and is self-contained.
@@ -334,12 +403,24 @@ here is tested beyond size, as with every other picture
 saved-field table from the first commit), `tnp/game.py` (the record and
 the lobby's rules), `tnp/engine.py`, `tnp/prompts.py` (both seats asked
 at once), `tnp/flow/` (infrastructure, deployment, march, conquest,
-control and stranded, harvest, production, trade, cleanup) and the
+control and stranded, harvest drawing from the three decks, production,
+trade -- cards for resources at the board's rates -- and cleanup) and the
 driver, with `GameService` in `gamesaves/tnp/`. The deliverable is the
 test that plays a game to a fallen base with no frontend imported, plus
 the purity ratchet.
 
-### 5. The lobby, the channel and the opening position
+### 5. The technology cards
+
+The cards' effects, now that the decks are dealt and traded in step 4:
+Tactical Command (face down, both at once, revealed together), building
+techs and their slots, tech facilities and their cap (question 5), and
+every Human tech row's effect as data in the way `codex/effects.py`
+holds Codex's, with the d12 values the author sets from "The dice
+modifiers, for the d12". The tech cards are in every game (question 6),
+so this comes before anything goes on Discord, and steps 7 and 8 carry
+its panels.
+
+### 6. The lobby, the channel and the opening position
 
 `/tnp create_game`, two seats taken by people, the channel opened the
 way Codex opens its own (in a **TNP Games** category, apart from D12
@@ -348,33 +429,26 @@ and each seat's player board in its own panel. The persistent views are
 re-armed at startup, and a test shows that a corrupt TNP games file
 leaves D12 Ball's cog loaded (decision 2).
 
-### 6. The simultaneous turn on Discord
+### 7. The simultaneous turn on Discord
 
-Each phase's panel per seat: the queue in Infrastructure, the stacks and
+Each phase's panel per seat: the hand, building techs and tech
+facilities and the queue in Infrastructure, the stacks and
 territory cards in Deployment, the trade, and **Lock in**. Then the
 reveal, the march's narration as one message per slot, and the map
 redrawn once per slot through the gate. Resuming after a restart reads
 the plans saved on the match.
 
-### 7. Battles on Discord
+### 8. Battles on Discord
 
-A battle's own message and picture. Placement in the battle line, the
+A battle's own message and picture. The tactic card chosen in secret,
+placement in the battle line, the
 retreat declaration and the target choices go to whichever seat is
 asked, each click edits the battle message, and the dice are shown. The
 requests per round are counted with a fake like `tests/codex_cog_fakes.py`
 and kept within the five-in-five bucket.
 
-### 8. Finishing a game
+### 9. Finishing a game
 
 The base falls, concede, abandon, rematch, the channel archived, and
 the golden: a seeded whole game through `GameService` recorded byte for
 byte.
-
-### 9. The technology cards
-
-Tactical Command (face down, both at once, revealed together),
-building techs and their slots, tech facilities and their cap (question
-5), every Human tech row's effect as data in the way `codex/effects.py`
-holds Codex's, and the harvest drawing from the three decks. If question
-6 makes the advanced game the only game, this step moves to after step
-4, and steps 6 and 7 carry its panels.
