@@ -66,10 +66,13 @@ asks the author wherever that guess decides something.
 
 ### The map, as read from map 3.3
 
-The map has to be drawn again by code (the author, 2026-11-04), so the
-adjacency becomes data. This is **my reading of the picture, to be
-confirmed**; three borders meet at a point and might not count as
-adjacent, and those are marked with "?".
+The map has to be drawn again by code (the author, 2026-11-04), so
+the adjacency becomes data. **This table is measured, not read by
+eye**: each territory of map 3.3 was flood-filled and traced, and two
+areas are adjacent where their outlines meet. Two pairs meet at a single
+point and are marked "?": 8 with 10, and 9 with 11, which mirror each
+other. 3 and 12 do not touch. The traced outlines are what the canvas
+drawing of the map uses, and will be `map.json`'s.
 
 | Area | Adjacent to | Resources |
 | --- | --- | --- |
@@ -77,21 +80,21 @@ adjacent, and those are marked with "?".
 | Green base | 11, 12, 15 | -- |
 | 1 (centre) | 2, 3, 4, 5, 6, 7 | -- |
 | 2 | 1, 5, 7, 8, 10 | -- |
-| 3 | 1, 4, 6, 9, 11, 12? | -- |
+| 3 | 1, 4, 6, 9, 11 | -- |
 | 4 | 1, 3, 7, 9 | 10 blue, 10 orange |
 | 5 | 1, 2, 6, 8 | 10 orange, 10 blue |
 | 6 | 1, 3, 5 | 8 gems |
 | 7 | 1, 2, 4 | 8 gems |
 | 8 | 2, 5, 13, 14, 10? | -- |
-| 9 | 3, 4, 12, 15 | -- |
+| 9 | 3, 4, 12, 15, 11? | -- |
 | 10 | Blue base, 2, 14, 8? | -- |
-| 11 | Green base, 3, 12 | -- |
-| 12 | Green base, 9, 11, 15, 3? | 10 orange |
+| 11 | Green base, 3, 12, 9? | -- |
+| 12 | Green base, 9, 11, 15 | 10 orange |
 | 13 | Blue base, 8, 14 | 10 orange |
 | 14 | Blue base, 8, 10, 13 | 10 blue |
 | 15 | Green base, 9, 12 | 10 blue |
 
-The two sides are not mirror images. Green's 12 touches four areas and
+The two sides are not mirror images, though the two corners are. Green's 12 touches four areas and
 lies between 15 and 11; Blue's 13 touches three. Whether that is
 deliberate is question 14.
 
@@ -265,9 +268,11 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 13. **The battle line.** Is it formed again every round, as the rulebook
     lists, or once and then only changed when a force dies? On Discord,
     re-forming every round is the biggest single cost in clicks.
-14. **The map.** Is the adjacency table above right, including the three
-    "?" corners (8 with 10, 3 with 12)? Is the asymmetry between 12 and
-    13 deliberate? And is map 3.3 the map?
+14. **The map.** Are the two corner contacts (8 with 10, 9 with 11)
+    adjacent? Is the asymmetry between 12 and 13 deliberate? And is map
+    3.3 the map? These are notes Q1 to Q3 on the canvas drawing of the
+    map and the board, where each open question is pinned beside what
+    it is about.
 15. **The dice.** Is it all right for the target choice to roll the dice
     (decision 8), rather than a separate Roll button?
 16. **Undo.** Is changing your plan before you lock in enough to start
