@@ -274,14 +274,19 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    unit upgrade box (Stealth, Cyborg, Robotic facility, Fighter Bomber,
    Laser Cannon) shows one material icon, as the infrastructure upgrades
    do for their 1 material, so the reading is 1 material each. Is it?
-10. **Movement.** Partly answered (the author, 2026-11-05): air units
+   Answered for the Barracks (the author, 2026-11-05): its upgrade
+   "enables a second upgrade", so a Barracks without it builds Stealth
+   or Cyborg, not both.
+10. ~~**Movement.**~~ Answered (the author, 2026-11-05): air units
     may attack any territory, with no path of controlled territories, but
-    cannot hold one. Neither rulebook says more than that a neutral
-    territory is taken by revealing a ground unit, that a chopper's stack
-    "moves like air units", and that a carried unit "cannot retreat via
-    an air route". Still open: if air units alone win against an
-    enemy-held territory, does it become neutral or stay the defender's;
-    and may air units defend a territory already held?
+    cannot hold one. If air units alone win against an enemy-held
+    territory, it becomes **neutral**; and a held territory whose
+    defenders are air units alone is neutral too ("neutral in both
+    cases"). The reading built on: air units fight in a defence, but a
+    territory left with only air units on it is nobody's. Neither
+    rulebook says more than that a neutral territory is taken by
+    revealing a ground unit, that a chopper's stack "moves like air
+    units", and that a carried unit "cannot retreat via an air route".
 11. **Spots.** Is it attack spots A and B for everyone, with C only
     through *Command and Control CPU*? Is there one defense spot per
     controlled territory plus the base's? Does an empty controlled
