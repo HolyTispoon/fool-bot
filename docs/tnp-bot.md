@@ -244,21 +244,24 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    order, Form Forces, Emergency Base Defense, Tactical Command.
 5. **Tech facilities: two (board v4 and the Vassal module) or three
    (rulebook v3)?**
-6. ~~**The basic game.**~~ Answered (the author, 2026-11-05): there is
-   no basic game and no advanced game. The tech cards are always used:
-   the three decks are shuffled at setup, harvesting draws from them, and
-   tactic cards, building techs and tech facilities all play from the
-   first game.
+6. ~~**The basic game.**~~ Answered (the author, 2026-11-05, correcting
+   an earlier answer the same day): **the basic game draws no cards**. A
+   harvest takes the mineral and gem tokens themselves into the seat's
+   pool, and they trade for materials or gold at the conversion rates.
+   The advanced game is the one with the three tech decks, where a
+   harvest draws a card instead. Humans against Humans is built as the
+   basic game first, and the tech cards are the last step.
 7. ~~**Trade rates.**~~ Answered from the Vassal module (the author,
-   2026-11-05, pointing there): a mineral card trades for 2 materials or
-   1 gold, a gem card for 3 materials or 2 gold; in emergency production
-   a mineral card gives 1 material (no gold) and a gem card 1 material or
-   1 gold. Still to confirm: a card trades for materials *or* gold, not
-   both (Jewler and Trader read that way), and blue and orange minerals
-   trade alike.
+   2026-11-05, pointing there): a mineral trades for 2 materials or 1
+   gold, a gem for 3 materials or 2 gold; in emergency production a
+   mineral gives 1 material (no gold) and a gem 1 material or 1 gold. In
+   the basic game these are the tokens harvested; in the advanced game,
+   the cards drawn. Still to confirm: one trades for materials *or*
+   gold, not both (Jewler and Trader read that way), and blue and orange
+   minerals trade alike.
 8. **Gold.** The sheet's column is "Gems" and the board shows a coin.
-   Is gold the resource, and does it only come from trading cards? Is
-   the starting pool 5 materials and 0 gold?
+   Is gold the resource, and does it only come from trading minerals and
+   gems? Is the starting pool 5 materials and 0 gold?
 9. **What building costs.** Partly answered from the Vassal module: the
    Factory costs 2 materials, and the Airport 3 and needs a Factory. Each
    unit upgrade box (Stealth, Cyborg, Robotic facility, Fighter Bomber,
@@ -301,7 +304,9 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 
 ## The dice modifiers, for the d12
 
-Every card and rule that changes a roll, as unit sheet v3 and rulebook
+The tech cards are the advanced game's (question 6); the rules' own
+modifiers at the end apply in both. Every card and rule that changes a
+roll, as unit sheet v3 and rulebook
 v3 word them, so the author can set each one's d12 value (the author,
 2026-11-05). They were all written for a d6. On a d12 each step of +1
 is worth half as much (one face in twelve rather than one in six), so
@@ -372,15 +377,15 @@ prompts are written once the questions are answered.
 
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
-| 1 | The rules, the data and the bot standing up | medium | `docs/tnp-rules.md` read and approved by the author; `/tnp unit tank` and `/tnp card grenades` answer in the test server |
+| 1 | The rules, the data and the bot standing up | medium | `docs/tnp-rules.md` read and approved by the author; `/tnp unit tank` answers in the test server |
 | 2 | The battle, with no frontend | large | a test fights any two Human forces to a result with the seeded `engine.rng` and a d12, covering scouting, flanking, the position modifiers, tough, repair, splash, retreat and the base cards |
 | 3 | The map and the player board, drawn by code | medium | the author compares the drawn map and boards to map 3.3 and board v4, with the d12 hit values, and approves them |
-| 4 | A whole game through the driver | large | a test plays Blue against Green from setup to a fallen base through `driver.apply` with nothing from `cogs/` or `discord` imported, harvesting from the three decks and trading cards for resources |
-| 5 | The technology cards | large | tactic cards, building techs and tech facilities all play; every Human tech row does what it says, with the author's d12 values |
-| 6 | The lobby, the channel and the opening position | medium | two people reach turn 1 on Discord, each with a player board and hand the other cannot see |
-| 7 | The simultaneous turn on Discord | large | two people play Infrastructure to Cleanup, building with tech cards, with neutral conquests and a harvest; a restart mid-phase keeps both plans |
-| 8 | Battles on Discord | large | two people fight a battle on Discord round by round, tactic cards included, and the request count per round is measured and within the gate |
-| 9 | Finishing a game | small | a base falls, the game ends, offers a rematch and is archived; a seeded whole game is pinned byte for byte as the golden |
+| 4 | A whole basic game through the driver | large | a test plays Blue against Green from setup to a win -- a fallen base, or 51% harvested -- through `driver.apply` with nothing from `cogs/` or `discord` imported, harvesting tokens and trading them |
+| 5 | The lobby, the channel and the opening position | medium | two people reach turn 1 on Discord, each with a player board the other cannot see |
+| 6 | The simultaneous turn on Discord | large | two people play Infrastructure to Cleanup, with neutral conquests, a harvest and a trade; a restart mid-phase keeps both plans |
+| 7 | Battles on Discord | large | two people fight a battle on Discord round by round, and the request count per round is measured and within the gate |
+| 8 | Finishing a game | small | a game is won, ends, offers a rematch and is archived; a seeded whole basic game is pinned byte for byte as the golden |
+| 9 | The advanced game: the technology cards | large | the advanced game chosen in the lobby; harvests draw from the three decks, and tactic cards, building techs and tech facilities all play on Discord; every Human tech row does what it says, with the author's d12 values; `/tnp card grenades` answers |
 | -- | Later, and not now | -- | XzzzX and Space Dragons; an AI; undo; a web page like the Codex site |
 
 ### 1. The rules, the data and the bot standing up
@@ -391,7 +396,7 @@ in, and start `docs/design/tnp.md`. Write `scripts/import_tnp_data.py`
 `human_board.json` and `map.json`, each checked by a test against the
 other (every unit a facility builds exists, every adjacency goes both
 ways, every resource is on a territory). Add the `cogs/tnp/` cog to
-fool-bot's extensions in `foolbot.py` with `/tnp unit`, `/tnp card` and
+fool-bot's extensions in `foolbot.py` with `/tnp unit` and
 `/tnp rules`.
 That changes fool-bot's command tree, so the PR says the live host
 needs a command sync. Add the `tnp` series to
@@ -420,30 +425,21 @@ off the event loop, and the pictures put in front of the author. Nothing
 here is tested beyond size, as with every other picture
 ([board-image.md](design/board-image.md), "Look at the image").
 
-### 4. A whole game through the driver
+### 4. A whole basic game through the driver
 
-`tnp/components.py` (`MatchState`, the seats, the map's state, the
-saved-field table from the first commit), `tnp/game.py` (the record and
-the lobby's rules), `tnp/engine.py`, `tnp/prompts.py` (both seats asked
-at once), `tnp/flow/` (infrastructure, deployment, march, conquest,
-control and stranded, harvest drawing from the three decks, production,
-trade -- cards for resources at the board's rates -- and cleanup) and the
-driver, with `GameService` in `gamesaves/tnp/`. The deliverable is the
-test that plays a game to a fallen base with no frontend imported, plus
-the purity ratchet.
+`tnp/components.py` (`MatchState`, the seats, the map's state, each
+seat's pool of materials, gold, minerals and gems, the saved-field table
+from the first commit), `tnp/game.py` (the record and the lobby's rules,
+with the advanced game a setting from the start though only the basic
+one plays until step 9), `tnp/engine.py`, `tnp/prompts.py` (both seats
+asked at once), `tnp/flow/` (infrastructure, deployment, march,
+conquest, control and stranded, harvest -- tokens off the map into the
+pool -- production, trade at the conversion rates, cleanup, and the two
+ways to win) and the driver, with `GameService` in `gamesaves/tnp/`. The
+deliverable is the test that plays a game to a win with no frontend
+imported, plus the purity ratchet.
 
-### 5. The technology cards
-
-The cards' effects, now that the decks are dealt and traded in step 4:
-Tactical Command (face down, both at once, revealed together), building
-techs and their slots, tech facilities and their cap (question 5), and
-every Human tech row's effect as data in the way `codex/effects.py`
-holds Codex's, with the d12 values the author sets from "The dice
-modifiers, for the d12". The tech cards are in every game (question 6),
-so this comes before anything goes on Discord, and steps 7 and 8 carry
-its panels.
-
-### 6. The lobby, the channel and the opening position
+### 5. The lobby, the channel and the opening position
 
 `/tnp create_game`, two seats taken by people, the channel opened the
 way Codex opens its own (in a **TNP Games** category, apart from D12
@@ -452,26 +448,37 @@ and each seat's player board in its own panel. The persistent views are
 re-armed at startup, and a test shows that a corrupt TNP games file
 leaves D12 Ball's cog loaded (decision 2).
 
-### 7. The simultaneous turn on Discord
+### 6. The simultaneous turn on Discord
 
-Each phase's panel per seat: the hand, building techs and tech
-facilities and the queue in Infrastructure, the stacks and
+Each phase's panel per seat: the queue in Infrastructure, the stacks and
 territory cards in Deployment, the trade, and **Lock in**. Then the
 reveal, the march's narration as one message per slot, and the map
 redrawn once per slot through the gate. Resuming after a restart reads
 the plans saved on the match.
 
-### 8. Battles on Discord
+### 7. Battles on Discord
 
-A battle's own message and picture. The tactic card chosen in secret,
-placement in the battle line, the
+A battle's own message and picture. Placement in the battle line, the
 retreat declaration and the target choices go to whichever seat is
 asked, each click edits the battle message, and the dice are shown. The
 requests per round are counted with a fake like `tests/codex_cog_fakes.py`
 and kept within the five-in-five bucket.
 
-### 9. Finishing a game
+### 8. Finishing a game
 
-The base falls, concede, abandon, rematch, the channel archived, and
-the golden: a seeded whole game through `GameService` recorded byte for
-byte.
+A win -- a fallen base or 51% harvested -- concede, abandon, rematch,
+the channel archived, and the golden: a seeded whole basic game through
+`GameService` recorded byte for byte.
+
+### 9. The advanced game: the technology cards
+
+The advanced game as a lobby setting: the three decks shuffled at
+setup, and a harvest drawing a card from the matching deck rather than
+taking the token (question 6). Then the cards' effects: Tactical Command
+(face down, both at once, revealed together), building techs and their
+slots, tech facilities and their cap (question 5), and every Human tech
+row's effect as data in the way `codex/effects.py` holds Codex's, with
+the d12 values the author sets from "The dice modifiers, for the d12".
+The panels of steps 6 and 7 grow a hand, the building techs, the tech
+facilities and the tactic card; `/tnp card` joins the reference
+commands.
