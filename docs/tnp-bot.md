@@ -54,7 +54,9 @@ asked.
   as they are harvested), a controller or none, its defenders, and a
   stranded flag per seat.
 - **The turn is simultaneous.** In each phase both seats act, and nothing
-  is revealed until both are done: Infrastructure (spend the pool on
+  is revealed until both are done. Infrastructure and Deployment are
+  done at the same time, in one phase (the author, 2026-11-05):
+  Infrastructure (spend the pool on
   units, buildings and upgrades, all of which complete at Production),
   Deployment (units go face down into the attack spots A and B -- C with
   *Command and Control CPU* -- each with a territory card, and into
@@ -269,8 +271,9 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
      Poor unit rolls none, and three roll one.
 3. ~~**Production.**~~ Answered (the author, 2026-11-05):
    **Production and Trade are one phase**, after March and before
-   Cleanup. The turn is Infrastructure, Deployment, March, Production
-   and Trade, Cleanup; what is placed in Infrastructure is finished in
+   Cleanup. The turn is Infrastructure and Deployment (one phase, done
+   at the same time -- the rulebook's casual mode, the author's choice
+   on 2026-11-05), March, Production and Trade, Cleanup; what is placed in Infrastructure is finished in
    that turn's Production and Trade and deployable the next turn.
    **Cleanup clears every attack and defense spot** (the author,
    2026-11-05): each seat deploys its defenders again every turn, and
@@ -812,8 +815,10 @@ The model of the whole basic game:
   the bot owes. A seat may change its plan until it locks in; the phase
   resolves once both have. The plan is held on the match, so a restart
   keeps it.
-- tnp/flow/: Infrastructure (spend the pool on units, facilities and
-  upgrades, all finished at Production and Trade); Deployment (units
+- tnp/flow/: Infrastructure and Deployment, one phase a seat answers
+  at once, with one Lock in (the author, 2026-11-05) -- Infrastructure
+  (spend the pool on units, facilities and upgrades, all finished at
+  Production and Trade) and Deployment (units
   face down into attack spots A and B, each with a target territory --
   C only with Command and Control CPU, in the advanced game -- and into
   the defense of any territory the seat holds and of its base); March
@@ -880,8 +885,9 @@ Step 6 of docs/tnp-bot.md. Steps 1 to 5 have landed. Read
 docs/design/rate-limits.md whole before adding a send or an edit.
 
 Each phase's panel per seat, built from PendingPrompt.options:
-Infrastructure's queue (what to build, its cost against the pool, the
-facility caps), Deployment's stacks (units into attack spots A and B,
+Infrastructure and Deployment on one panel, done at the same time --
+the queue (what to build, its cost against the pool, the facility
+caps) and the stacks (units into attack spots A and B,
 a target territory each, and into the defenses), Production and
 Trade's trades, and Lock in, the plan editable until then. The public
 message shows who has locked in and nothing of either plan. When both
