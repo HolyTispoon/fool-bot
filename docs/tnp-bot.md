@@ -24,6 +24,7 @@ decide what the model holds.
 | `Units/The New Project unit sheet v3.xlsx` | v3 | four tabs: Humans, XzzzX, Space Dragons, Technology -- costs, the three attack values, initiative, traits, scouting, count |
 | `Player boards/green human base board v4 constructed.png` (and blue) | v4 | production caps, max supply, unit costs in materials and gold, the upgrades, "max 2 tech facilities" |
 | `Map and territories/map3.3.pdf` / `map3.3-1.png` | 3.3 | fifteen territories, two bases, the resource counts; `map2.1`/`map2.2` are older |
+| `vassal module.png` (Vassal module folder) | -- | the Vassal module's Blue board: the **conversion rates**, the Factory's and Airport's build costs, "max 2 tech facilities", the deployment board's attack spaces A, B and C; the Cyborg Soldier's air rating differs from the sheet (question 18) |
 | `Cards and tokens/` | -- | the tech tokens, tech cards and tactic deck art (not yet read) |
 
 The files disagree in places, and those places are listed below. **The
@@ -237,23 +238,28 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 4. **Emergency base defense before or after Tactical Command?** The
    rulebook's body puts it before, and its own summary and the aide put
    it after.
-5. **Tech facilities: two (board v4) or three (rulebook v3)?**
+5. **Tech facilities: two (board v4 and the Vassal module) or three
+   (rulebook v3)?**
 6. ~~**The basic game.**~~ Answered (the author, 2026-11-05): there is
    no basic game and no advanced game. The tech cards are always used:
    the three decks are shuffled at setup, harvesting draws from them, and
    tactic cards, building techs and tech facilities all play from the
    first game.
-7. **Trade rates.** The rulebook says they are on the player board, but
-   board v4 has none. What does each card trade for, at the normal rate
-   and at the emergency (base defense) rate, and what do Jewler and
-   Trader change?
+7. ~~**Trade rates.**~~ Answered from the Vassal module (the author,
+   2026-11-05, pointing there): a mineral card trades for 2 materials or
+   1 gold, a gem card for 3 materials or 2 gold; in emergency production
+   a mineral card gives 1 material (no gold) and a gem card 1 material or
+   1 gold. Still to confirm: a card trades for materials *or* gold, not
+   both (Jewler and Trader read that way), and blue and orange minerals
+   trade alike.
 8. **Gold.** The sheet's column is "Gems" and the board shows a coin.
    Is gold the resource, and does it only come from trading cards? Is
    the starting pool 5 materials and 0 gold?
-9. **What building costs.** The board gives the infrastructure upgrades
-   (1 material each), but not the cost of building the Factory or the
-   Airport, nor the unit upgrades (Stealth, Cyborg, Robotic facility,
-   Fighter Bomber, Laser Cannon). What are those costs?
+9. **What building costs.** Partly answered from the Vassal module: the
+   Factory costs 2 materials, and the Airport 3 and needs a Factory. Each
+   unit upgrade box (Stealth, Cyborg, Robotic facility, Fighter Bomber,
+   Laser Cannon) shows one material icon, as the infrastructure upgrades
+   do for their 1 material, so the reading is 1 material each. Is it?
 10. **Movement.** Attacking needs a path of controlled territories from
     the base. What does "moves like air units" mean for air units and
     for a chopper with its load? Can air units attack a territory with
@@ -280,6 +286,8 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 17. **A successful attack on a base.** Does an attack on an undefended
     base win at once? Does a defender who survives six rounds hold even
     if the base cards took hits?
+18. **The Cyborg Soldier against air.** The unit sheet and board v4 say
+    Fair; the Vassal module says Weak. Which?
 
 ## The dice modifiers, for the d12
 
