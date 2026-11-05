@@ -33,11 +33,14 @@ recorded here as it comes.
 | `vassal module.png` (Vassal module folder) | -- | the Vassal module's Blue board: the **conversion rates**, the Factory's and Airport's build costs, "max 2 tech facilities", the deployment board's attack spaces A, B and C; the Cyborg Soldier's air rating differs from the sheet (question 18) |
 | `Cards and tokens/` | -- | the tech tokens, tech cards and tactic deck art (not yet read) |
 
-The files disagree in places, and those places are listed below. **The newest
-source wins** (the author, 2026-11-05: "whichever is more recent"), and
-the newest is the rulebook Google Doc, edited 2026-10-25; every other
-file was uploaded together in 2018, so their order among themselves is
-asked wherever it decides something.
+The files disagree in places, and those places are listed below. **The more
+recent design wins** (the author, 2026-11-05): board v4 over rulebook
+v3, and the Google Doc's 2026 changes (the 51% win, Emergency Base
+Defense first) over both. A sentence the 2026 edit left alone is as old
+as the .docx, so the edit date alone does not make it newer -- the tech
+facility cap is two, as the board says. Every 2018 file was uploaded
+the same day, so where the dates cannot order them, the author is
+asked.
 
 ### The game, in the terms the code will use
 
@@ -252,13 +255,9 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    Before: the newest rulebook (the Google Doc) has it in the body's
    order, Form Forces, Emergency Base Defense, Tactical Command.
 5. ~~**Tech facilities: two or three?**~~ Answered (the author,
-   2026-11-05): whichever source is more recent. That is the rulebook
-   Google Doc, edited 2026-10-25, which says **three** ("You may only
-   have 3 Tech Facilities at any one time"); board v4 and the Vassal
-   module, which say two, are 2018 uploads. The 2026 edit left that
-   sentence as the .docx has it, so the author was asked whether board
-   v4 -- a later design version than rulebook v3 -- should count as the
-   more recent instead.
+   2026-11-05): **two**, as board v4 and the Vassal module say. The
+   rulebook's three is older text: the Google Doc's 2026 edit left that
+   sentence as the 2018 .docx has it.
 6. ~~**The basic game.**~~ Answered (the author, 2026-11-05, correcting
    an earlier answer the same day): **the basic game draws no cards**. A
    harvest takes the mineral and gem tokens themselves into the seat's
@@ -274,8 +273,8 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    mineral gives 1 material (no gold) and a gem 1 material or 1 gold. In
    the basic game these are the tokens harvested; in the advanced game,
    the cards drawn. A mineral or gem trades for materials or gold,
-   either but not both (the author, 2026-11-05). Still to confirm: blue
-   and orange minerals trade alike.
+   either but not both, and blue and orange minerals trade alike (the
+   author, 2026-11-05).
 8. ~~**Gold.**~~ Answered (the author, 2026-11-05): the sheet's
    "Gems" column is **gold**, the board's coin; it comes only from
    trading minerals and gems, and the pool starts at 5 materials and 0
