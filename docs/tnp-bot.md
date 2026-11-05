@@ -695,8 +695,8 @@ What it covers, each with a test citing its section:
 - The scouting advantage, and the order of placement it decides (the
   author, 2026-11-05): with an advantage of N, the side without it
   places N forces before the advantaged side places one, and the sides
-  then alternate one at a time; with no advantage, the defender places
-  first.
+  then alternate one at a time (confirmed, the author, 2026-11-05);
+  with no advantage, the defender places first.
 - The battle line: a force engaging one column,
   flanking beside or behind the line at +1. Each round only unengaged
   forces are placed -- in round 1 every force, later only those whose
@@ -729,8 +729,9 @@ What it covers, each with a test citing its section:
   Command; one base card at each end of the line (the author,
   2026-11-05), attacked with the armoured rating, since a building is
   armoured (the author, 2026-11-05); a force with 2 or more hits on
-  the base destroys one thing, the attacker's choice: one upgrade of a
-  facility, or, once a facility has no upgrades left, the Factory or
+  the base destroys one thing, the attacker's choice (the author,
+  2026-11-05): one upgrade of a facility, or, once a facility has no
+  upgrades left -- an upgrade must be destroyed before its facility -- the Factory or
   the Airport itself -- the Barracks and Base Defenses cannot be
   destroyed (the author, 2026-11-05) -- and one thing an attack; an attack on an undefended base wins at once;
   a defender who survives six rounds holds, whatever the base cards
