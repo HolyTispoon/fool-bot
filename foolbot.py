@@ -24,6 +24,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 EXTENSIONS = (
     "cogs.coins",
     "cogs.d12ball",
+    "cogs.tnp",
     "cogs.tethysdeck",
     "cogs.debug",
     "cogs.channel_stats",
@@ -39,7 +40,7 @@ def command_sync_forced() -> bool:
 
 class GameBot(gamebot.GameBot):
     """
-    fool-bot: the five extensions, data/bot_state.json, and the
+    fool-bot: the six extensions, data/bot_state.json, and the
     message-content intent, which a game channel's export needs to show
     the players' chat.
     """
