@@ -454,7 +454,7 @@ step's prompt is below, after the preamble every prompt begins with.
 | 2 | The battle, with no frontend | large | a test fights any two Human forces to a result with the seeded `engine.rng` and a d12, covering scouting, flanking, the position modifiers, tough, repair, splash, retreat and the base cards |
 | 3 | The map and the player board, drawn by code | medium | the author compares the drawn map and boards to map 3.3 and board v4, with the d12 hit values, and approves them |
 | 4 | A whole basic game through the driver | large | a test plays Blue against Green from setup to a win -- a fallen base, or 51% harvested -- through `driver.apply` with nothing from `cogs/` or `discord` imported, harvesting tokens and trading them |
-| 5 | The lobby, the channel and the opening position | medium | two people reach turn 1 on Discord, each with a player board the other cannot see |
+| 5 | The lobby, the channel and the opening position | medium | two people reach turn 1 on Discord, one of them from a **TNP** button on the hub, each with a player board the other cannot see |
 | 6 | The simultaneous turn on Discord | large | two people play Infrastructure to Cleanup, with neutral conquests, a harvest and a trade; a restart mid-phase keeps both plans |
 | 7 | Battles on Discord | large | two people fight a battle on Discord round by round, and the request count per round is measured and within the gate |
 | 8 | Finishing a game | small | a game is won, ends, offers a rematch and is archived; a seeded whole basic game is pinned byte for byte as the golden |
@@ -877,8 +877,34 @@ logs and skips a game it cannot load.
 tests/test_tnp_isolation.py: a corrupt data/tnp_games.json leaves
 cogs.d12ball loaded and its commands answering (decision 2).
 
-The stop: two people reach turn 1 on Discord, each with a player board
-the other cannot see.
+The hub (the author, 2026-11-05). Also read docs/design/hub-and-lobby.md.
+The hub's games message gains a **TNP** button beside D12 Ball's and
+Codex's. Unlike Codex's, it opens a lobby itself, since TNP runs in
+fool-bot's own application. A click does what D12 Ball's button does:
+a private lobby channel for the clicker in the TNP Games category,
+with /tnp create_game's lobby posted in it, and that channel becomes
+the game's channel at Start. This step names the D12 Ball files it
+changes and why:
+- cogs/d12ball_views/lobby.py: NewGameHubView gains the button,
+  custom_id "d12ball:hub:tnp", which names no game and no guild, like
+  the other two. Its callback finds the TNP cog by name on the bot and
+  calls its open_lobby. The view imports nothing from cogs/tnp*, so a
+  TNP that failed to load leaves the hub working: the click is answered
+  privately with "TNP isn't available right now" and logged at ERROR.
+- cogs/d12ball_helpers.py: build_hub_message gains a TNP block under
+  Codex's. Draft its description from the rulebook's Overview, and put
+  it in the PR's questions for the author to approve or rewrite, as the
+  D12 Ball block is the author's own copy.
+- docs/design/hub-and-lobby.md: the third button and why it opens a
+  lobby where Codex's cannot.
+The hub's existing message shows the new button only once it is edited,
+so the PR's "For the author" says to run /d12ball setup_hub again in the
+hub channel on the live host after the deploy. A test clicks the new
+button with cogs.tnp loaded and with it missing.
+
+The stop: two people reach turn 1 on Discord, one of them having
+started from the hub's TNP button, each with a player board the other
+cannot see.
 ```
 
 ### 6. The simultaneous turn on Discord
