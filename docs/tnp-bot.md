@@ -720,7 +720,9 @@ What it covers, each with a test citing its section:
   Command; the two base cards at the ends of the line, two hits on one
   destroying a facility; an attack on an undefended base wins at once;
   a defender who survives six rounds holds, whatever the base cards
-  took.
+  took. Base Defense units (Smart Mines, Rocket Launchers, the Laser
+  Cannon) never go into an attack spot, but roll like any other unit
+  when their base is attacked (the author, 2026-11-05).
 - Air units cannot take a territory: one won by air units alone is
   neutral. They can defend one already held: a defender with only air
   units left that wins keeps the territory (the author, 2026-11-05).
