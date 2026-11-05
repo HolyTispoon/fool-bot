@@ -717,8 +717,8 @@ What it covers, each with a test citing its section:
 - Hits remove units; Tough takes two; Repair, Splash and every other
   trait the glossary gives a battle.
 - A base under attack: the emergency base defense, before Tactical
-  Command; the two base cards at the ends of the line, two hits on one
-  destroying a facility; an attack on an undefended base wins at once;
+  Command; one base card at each end of the line (the author,
+  2026-11-05), two hits on one destroying a facility; an attack on an undefended base wins at once;
   a defender who survives six rounds holds, whatever the base cards
   took. Base Defense units (Smart Mines, Rocket Launchers, the Laser
   Cannon) never go into an attack spot, but roll like any other unit
