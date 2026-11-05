@@ -273,9 +273,9 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    gold, a gem for 3 materials or 2 gold; in emergency production a
    mineral gives 1 material (no gold) and a gem 1 material or 1 gold. In
    the basic game these are the tokens harvested; in the advanced game,
-   the cards drawn. Still to confirm: one trades for materials *or*
-   gold, not both (Jewler and Trader read that way), and blue and orange
-   minerals trade alike.
+   the cards drawn. A mineral or gem trades for materials or gold,
+   either but not both (the author, 2026-11-05). Still to confirm: blue
+   and orange minerals trade alike.
 8. **Gold.** The sheet's column is "Gems" and the board shows a coin.
    Is gold the resource, and does it only come from trading minerals and
    gems? Is the starting pool 5 materials and 0 gold?
