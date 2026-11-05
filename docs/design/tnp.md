@@ -15,7 +15,8 @@ section per decision as it lands.
 Step 1 stood it up: the rules as one document, the data and its import,
 the map's outlines traced from the map's own picture, the catalog over
 them, and the `/tnp` group in fool-bot with `/tnp unit` and
-`/tnp rules`. The game itself begins in step 2.
+`/tnp rules`. Step 2 built the battle, with no frontend, through the
+model's own driver.
 
 ## A cog in fool-bot, not a bot of its own
 
@@ -56,7 +57,11 @@ Step 1's modules are already words and readings over data, so the
 `/tnp unit` answer is the model's (`tnp.formatting.unit_lines`) and the
 cog only posts it -- including the d12 numbers, which are
 `catalog.Rating`'s, not a computation in the cog. The purity ratchet
-over `tnp/` starts in step 2, when the first rule lands.
+over `tnp/` started in step 2 with the first rule:
+`tests/test_tnp_purity.py` holds `tnp/` (and `gamesaves/tnp/` once it
+exists) to no `discord`, no `async def`, Pillow only in
+`tnp/render.py`, no import of a cog, and `random` imported only by
+`tnp/engine.py`, so every draw is `engine.rng`.
 
 ## The rules
 
@@ -201,3 +206,96 @@ two, as the board says, not the rulebook's three. Every 2018 file was
 uploaded the same day, so where the dates cannot order them the author
 was asked. [../tnp-bot.md](../tnp-bot.md) lists every source and every
 disagreement settled; none is reopened in the code.
+
+## The battle
+
+Step 2 built the battle (TNP 6) before the turn, because it holds the
+riskiest rules and stands alone. It is the model's shape copied from
+Codex's: `tnp/prompts.py` (`PromptKind`, `PendingPrompt` with its
+options, `Action`, `pending`), `tnp/flow/result.py`,
+`tnp/flow/driver.py` (`apply`, the one door), over `gamekit`'s
+`SavedField`, `jsonable`, `MOVED_ON`, `STEP_OWED` and `Resolver` as
+they are. `tnp/engine.py` holds the catalog and `rng`; `tnp/battle.py`
+holds the state and every reading over it; `tnp/flow/battle.py` holds
+the steps that change it.
+
+**A battle is a saved state of its own.** `BattleState`, with its
+`SavedField` table, is saved whole under `MatchState.battle` -- the
+match's only field until step 4 adds the turn around it -- so a battle
+survives a restart mid-round: `tests/test_tnp_battle.py` saves one
+part-way through, loads it into a fresh engine with the same `rng`
+state, and plays it to the same bytes.
+
+**It is self-contained, by snapshot.** What a battle needs from the
+rest of the game is handed to `begin_battle` as it opens and kept on
+the state: each seat's path home (TNP 6.6), the defending base's built
+facilities and upgrades (TNP 6.9), the defender's pool and supply room
+for an emergency defense (TNP 6.2), and the outside modifiers step 9's
+cards will supply (TNP 4.2, as rows of seat, unit, target type and
+value). What it decides goes back the same way: `outcome` (the winner,
+how, who controls the territory, whether a base fell, the survivors
+with their damage, whose survivors go home), the structures after the
+base card's hit, the pool after the emergency spend and the units it
+produced. Nothing changes on a map or a board mid-battle that the
+battle would need to read again, so a snapshot loses nothing, and the
+March (step 4) is the one place the result lands. The alternative --
+the battle reading and writing seat state step 4 has not designed yet --
+would fix that design here without its context.
+
+**Each choice is a prompt kind**, whose options carry every legal
+answer, and the driver refuses anything else with `RuleRefusal`
+(cited, "TNP 6.5"): `CHOOSE_ROLE` (both seats attacked a neutral
+territory and one has the scouting advantage), `EMERGENCY_DEFENSE`,
+`PLACE_FORCE`, `DECLARE_RETREAT`, `CHOOSE_TARGET` (which rolls the dice
+at once, decision 8), `REPAIR`, `SPLASH` and `DESTROY`. A question with
+no choice in it is not asked: an emergency defense the defender could
+not pay for, a force with no die to roll at anything (a lone Poor unit,
+TNP 4.3) and a target it would roll no die at, a base card's hit with
+only one thing left to destroy. Every answer is one seat's -- a battle
+asks one seat at a time -- so no battle action names a seat; step 4's
+simultaneous phases are the first that will.
+
+**The three joints are owed steps**: `BEGIN_ROUND` (the scouting
+advantage, the unengaged forces lifted out, who places first),
+`CLOSE_GROUP` (Repair asked, then the group's losses together) and
+`END_ROUND` (TNP 6.10). They are where a frontend may want to redraw:
+step 7 edits the battle message round by round, and names
+`END_ROUND` as its batching boundary.
+
+**The line** is a list of columns, each with at most one force a seat
+in front and any number flanking behind. A force is `"<seat>:<unit>"`,
+since a seat's units of one kind are one force; the base cards are the
+targets `base_left` and `base_right`, standing just beyond the line's
+two ends, so an engaged force's position modifier against one is the
+columns from its own to there, and an unengaged force's is −1 (TNP
+6.9). Adjacency is between forces of one seat: neighbouring columns'
+front forces, and a flanking force with the front force it stands
+behind and that force's two neighbours (TNP 6.5, 6.8). Repair takes a
+Worker from a force adjacent to the hit one; Splash an infantry unit
+from a force adjacent to the one hit, of the hit force's seat.
+
+**The losses come off at the group's end** (TNP 6.7): a roll adds to
+the target's hits; Splash and Repair's Workers are units removed
+outright; at `CLOSE_GROUP` each hit Mechanical force with Workers
+beside it is asked first, then each force takes its hits one at a time
+-- a damaged Tough unit removed before an undamaged one is damaged --
+and then its removals. Repair is asked there, not as the hit lands,
+because that is when the unit would come off.
+
+**Provisional readings, asked in step 2's PR ("Questions to the author").**
+Where the rules leave a case open the code takes the narrowest reading
+and the PR asks; each is one branch to change:
+
+- *Who is placed in rounds 2 to 6.* Every unengaged force is lifted
+  and placed again -- flankers and forces alone in a column too --
+  reading TNP 6.5's "each round, only unengaged forces are placed";
+  only engaged pairs stay.
+- *An empty base and the emergency defense.* The defense is offered
+  first (TNP 6.2 says it is for any attack on a base), and the base is
+  judged undefended after it.
+- *Both sides destroyed in one group.* No winner; the territory stays
+  as it was.
+- *A retreat some forces cannot make.* A seat may declare a retreat
+  only where every force of its can go home.
+- *Splash* is once for each roll that hits, not each hit; it removes a
+  damaged unit first; and two flanking forces are not adjacent.
