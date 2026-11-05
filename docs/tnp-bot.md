@@ -60,14 +60,15 @@ asked.
   *Command and Control CPU* -- each with a territory card, and into
   defense spots), March (A for both, then B, then C; within a slot, in
   ascending territory number: neutral conquest, battle, control and
-  stranded, harvest), Production, Trade, Cleanup.
+  stranded, harvest), Production and Trade (one phase), Cleanup.
 - **A battle** is up to six rounds. Each round: scouting advantage, the
   battle line (alternate placement, engaging and flanking), the
   declaration to retreat, damage in initiative order (the attacker rolls
   first within a group), and victory. A base under attack adds the
   emergency base defense, can't retreat, and puts two base cards at the
   ends of the line, where two hits destroy a facility.
-- **The game ends when an attack on a base succeeds.**
+- **The game ends** when an attack on a base succeeds, or when a seat
+  has harvested 51% of the map's resources (question 17).
 - **The Human faction**: fourteen units (Worker, Mercenary, Stealth
   Sniper, Cyborg Soldier, Jeep, Tank, The Transformer, Chopper Carrier,
   Viper Spy Plane, Fighter Bomber, Smart Mines, Rocket Launcher, Laser
@@ -241,16 +242,33 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    "The dice modifiers, for the d12" below. A modifier adds to the
    number rolled (the author, 2026-11-05): a Fair unit at +2 that rolls
    a 4 has a 6, and hits. The 12 and the 1 are the die's face, so a
-   rolled 12 hits and a rolled 1 misses whatever the modifiers. Still to
-   confirm: that the d6
-   battle text's "a value above 5 is still 5" and "an attack rate of 0
-   rolls one die per two units" go, since the 12 and the 1 bound the
-   roll and no Human unit has a 0.
-3. **Production.** The aide has a Production phase between March and
-   Trade, and the rulebook's text leaves it out. Is the order
-   Infrastructure, Deployment, March, Production, Trade, Cleanup, with
-   what is placed in Infrastructure finished at that turn's Production
-   and deployable next turn?
+   rolled 12 hits and a rolled 1 misses whatever the modifiers. The
+   d12 value of each modifier is the author's (the table below). **Still
+   open**, asked again with an explanation (the author asked for one,
+   2026-11-05): two rules of rulebook v3's d6 text. On the d6 a unit
+   hits on its attack value or less, and a 6 always misses.
+   - *The cap*: "if your attack value is higher than 5 (through
+     technological modifiers), your value is still 5 before position
+     modifiers". Tech cards can lift a value no higher than 5, and the
+     column penalty is taken off after: a unit whose bonuses would make
+     its value 7, shooting two columns over, hits on 3 or less. On the d12,
+     where modifiers add to the roll, the same rule would read: **the
+     tech cards' bonuses can bring the number needed down to 2 at best,
+     and the column penalty is applied after that.** Without it, a big
+     bonus swallows the penalty: a Strong unit (3+) with Explosives (+6
+     vs base) attacking the base at −1 hits on anything but a 1; with
+     it, the +6 brings the 3+ to 2+, the −1 makes it 3+, and it hits on
+     10 in 12.
+   - *Attack rate 0*: "a Force with an attack rate of 0 may roll 1 die
+     for each two units and score a hit on 1s" -- a rating below Weak.
+     No Human unit has a 0 (each rating is Strong, Fair, Weak or X,
+     can't), so in Humans against Humans the rule never applies. The
+     reading: leave it out until a faction with a 0 is built.
+3. ~~**Production.**~~ Answered (the author, 2026-11-05):
+   **Production and Trade are one phase**, after March and before
+   Cleanup. The turn is Infrastructure, Deployment, March, Production
+   and Trade, Cleanup; what is placed in Infrastructure is finished in
+   that turn's Production and Trade and deployable the next turn.
 4. ~~**Emergency base defense before or after Tactical Command?**~~
    Before: the newest rulebook (the Google Doc) has it in the body's
    order, Form Forces, Emergency Base Defense, Tactical Command.
@@ -297,30 +315,43 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
     rulebook says more than that a neutral territory is taken by
     revealing a ground unit, that a chopper's stack "moves like air
     units", and that a carried unit "cannot retreat via an air route".
-11. **Spots.** Is it attack spots A and B for everyone, with C only
-    through *Command and Control CPU*? Is there one defense spot per
-    controlled territory plus the base's? Does an empty controlled
-    territory stay controlled?
-12. **What the opponent sees at deployment.** How many face-down units
-    are on each spot? Which territory card is beside each attack spot,
-    or only that one is there?
-13. **The battle line.** Is it formed again every round, as the rulebook
-    lists, or once and then only changed when a force dies? On Discord,
-    re-forming every round is the biggest single cost in clicks.
+11. **Spots.** The author found the question unclear (2026-11-05); it
+    is asked again as three, each with the reading built on if the
+    author agrees:
+    - *How many attacks a turn?* Two, one from attack spot A and one
+      from B; a third, C, only with *Command and Control CPU* (the
+      advanced game).
+    - *Where can units be left to defend?* In any territory the seat
+      holds, and in its base.
+    - *A territory held with nobody left in it:* still the seat's, until
+      an enemy takes it.
+12. ~~**What the opponent sees at deployment.**~~ Answered (the author,
+    2026-11-05): **nothing**. Deployment is done behind a screen, and
+    neither side sees anything until March, when the piles are resolved
+    one at a time. On Discord, each seat deploys in its own private
+    panel, and nothing of it is public until March reveals each pile as
+    it resolves.
+13. ~~**The battle line.**~~ Answered (the author, 2026-11-05): it is
+    formed every round, but **only unengaged forces are placed**. In
+    round 1 that is every force; in later rounds, only the forces whose
+    opponent was destroyed or retreated, so fewer. On Discord a round
+    asks for placement only when a seat has an unengaged force.
 14. ~~**The map.**~~ Answered (the author, 2026-11-05): 8 with 10 and 9
     with 11 are adjacent, the two sides mirror each other, and map 3.3 is
     the map.
-15. **The dice.** Is it all right for the target choice to roll the dice
-    (decision 8), rather than a separate Roll button?
-16. **Undo.** Is changing your plan before you lock in enough to start
-    with, with a real undo later?
-17. **Winning.** The newest rulebook adds a second way to win: harvest
-    51% of the planet's resources. Map 3.3 holds 96 tokens (40 blue
-    minerals, 40 orange, 16 gems), so 49 harvested -- counted as tokens
-    taken off the map, whatever the card drawn? And **a successful attack
-    on a base:** Does an attack on an undefended
-    base win at once? Does a defender who survives six rounds hold even
-    if the base cards took hits?
+15. ~~**The dice.**~~ Answered (the author, 2026-11-05): yes, the
+    target choice rolls the dice in the same click (decision 8), and
+    every roll is shown.
+16. ~~**Undo.**~~ Answered (the author, 2026-11-05): yes, changing the
+    plan before locking in is enough to start with; a real undo comes
+    later (decision 10).
+17. ~~**Winning.**~~ Answered (the author, 2026-11-05), as read: a seat
+    wins by harvesting 51% of the planet's resources -- map 3.3 holds 96
+    tokens (40 blue minerals, 40 orange, 16 gems), so 49 tokens taken off
+    the map, whatever the card drawn in the advanced game -- or by a
+    successful attack on a base. An attack on an undefended base wins at
+    once, and a defender who survives six rounds holds, whatever hits
+    the base cards took.
 18. ~~**The Cyborg Soldier against air.**~~ Answered (the author,
     2026-11-05): **Weak**, as the Vassal module says; the unit sheet and
     board v4 say Fair. The data is imported from the sheet, so the
@@ -336,7 +367,9 @@ v3 word them, so the author can set each one's d12 value (the author,
 2026-11-05). They were all written for a d6. On a d12 each step of +1
 is worth half as much (one face in twelve rather than one in six), so
 the straight translation is to double each number. The last column is
-that translation, a starting point and not a decision.
+that translation, a starting point. The author set the values in the
+last column (the author, 2026-11-05), and those are what is built; the
+rules' own modifiers keep their d6 numbers.
 
 The three ratings have moved too:
 
@@ -352,37 +385,37 @@ as likely to hit.
 **Tech cards that add to a roll** (Technology tab; count, type and cost
 as the sheet has them):
 
-| Card | Deck | Type | Count | Text | d6 | Doubled |
-| --- | --- | --- | --- | --- | --- | --- |
-| Arm Workers | orange minerals | tactic | 2 | Workers get +1 attack | +1 | +2 |
-| Enhancing Drugs | orange minerals | tactic | 2 | Mercenaries get −1 initiative, +2 for all rolls; each hit kills 2 mercenaries | +2 | +4 |
-| Advanced Targeting | orange minerals | tactic | 2 | Cyborgs gain +2 air | +2 vs air | +4 vs air |
-| Positioning | orange minerals | tactic | (blank) | Jeeps and Tanks gain +1 when attacking forces they are engaged with (no penalty for adjacent columns, −1 for 2 away etc.) | +1, and the column penalty eased by one | +2, and eased by 2 |
-| Air Cover | orange minerals | tactic | (blank) | Choppers and Vipers gain +3 vs. air | +3 vs air | +6 vs air |
-| Heat Seeking Missile | orange minerals | tactic | 2 | Viper gains +2 attack | +2 | +4 |
-| Explosives | gems | tech facility, 1 material | 3 | Stealth Snipers gain +4 vs. base defense or when targeting base (short text: "inf. gain +4 vs. base") | +4 vs base | +8 vs base |
-| AA Missiles | gems | building tech | 3 | Attached units gain +2 vs. air | +2 vs air | +4 vs air |
-| Lasers | gems | building tech | 3 | Attached units gain +2 vs. Arm. | +2 vs armored | +4 vs armored |
-| Grenades | gems | building tech | 3 | Attached units gain +2 vs. inf. | +2 vs infantry | +4 vs infantry |
-| Specialized Training | gems | building tech | 3 | Attached unit get +1 for all rolls | +1 | +2 |
+| Card | Deck | Type | Count | Text | d6 | Doubled | The author's d12 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Arm Workers | orange minerals | tactic | 2 | Workers get +1 attack | +1 | +2 | **+3** |
+| Enhancing Drugs | orange minerals | tactic | 2 | Mercenaries get −1 initiative, +2 for all rolls; each hit kills 2 mercenaries | +2 | +4 | **+4** |
+| Advanced Targeting | orange minerals | tactic | 2 | Cyborgs gain +2 air | +2 vs air | +4 vs air | **+3 vs air** |
+| Positioning | orange minerals | tactic | (blank) | Jeeps and Tanks gain +1 when attacking forces they are engaged with (no penalty for adjacent columns, −1 for 2 away etc.) | +1, and the column penalty eased by one | +2, and eased by 2 | **+3, and eased by 1** |
+| Air Cover | orange minerals | tactic | (blank) | Choppers and Vipers gain +3 vs. air | +3 vs air | +6 vs air | **+6 vs air** |
+| Heat Seeking Missile | orange minerals | tactic | 2 | Viper gains +2 attack | +2 | +4 | **+3** |
+| Explosives | gems | tech facility, 1 material | 3 | Stealth Snipers gain +4 vs. base defense or when targeting base (short text: "inf. gain +4 vs. base") | +4 vs base | +8 vs base | **+6 vs base** |
+| AA Missiles | gems | building tech | 3 | Attached units gain +2 vs. air | +2 vs air | +4 vs air | **+3 vs air** |
+| Lasers | gems | building tech | 3 | Attached units gain +2 vs. Arm. | +2 vs armored | +4 vs armored | **+3 vs armored** |
+| Grenades | gems | building tech | 3 | Attached units gain +2 vs. inf. | +2 vs infantry | +4 vs infantry | **+3 vs infantry** |
+| Specialized Training | gems | building tech | 3 | Attached unit get +1 for all rolls | +1 | +2 | **+2** |
 
 **Tech cards that give rerolls** (no number to change, but each is
 worth more on a d12, where a miss is more often a near miss):
 
-| Card | Deck | Type | Count | Text |
-| --- | --- | --- | --- | --- |
-| Ammo Depos | orange minerals | tech facility, 1 material | 2 | Gain 2 rerolls each battle |
-| Extra Large Ammo Depos | orange minerals | tech facility, 3 materials | 2 | Gain 4 rerolls each battle |
+| Card | Deck | Type | Count | Text | The author's d12 |
+| --- | --- | --- | --- | --- | --- |
+| Ammo Depos | orange minerals | tech facility, 1 material | 2 | Gain 2 rerolls each battle | **no change** |
+| Extra Large Ammo Depos | orange minerals | tech facility, 3 materials | 2 | Gain 4 rerolls each battle | **no change** |
 
 **The rules' own modifiers** (rulebook v3, "Battle procedure"):
 
-| Modifier | Rulebook text | d6 | Doubled |
-| --- | --- | --- | --- |
-| Flanking | "placing their Forces ... behind existing forces as flanking (gain +1 bonus)" | +1 | +2 |
-| Position | "minus one per column you are skipping" | −1 a column | −2 a column |
-| The base cards | "always with at least −1 position modifier" | −1 at least | −2 at least |
-| The cap | "if your attack value is higher than 5 ... your value is still 5 before position modifiers" | 5 | goes, if the 12 and the 1 bound the roll (question 2) |
-| Attack rate 0 | "may roll 1 die for each two units and score a hit on 1s" | -- | goes (question 2) |
+| Modifier | Rulebook text | d6 | Doubled | The author's d12 |
+| --- | --- | --- | --- | --- |
+| Flanking | "placing their Forces ... behind existing forces as flanking (gain +1 bonus)" | +1 | +2 | **+1** |
+| Position | "minus one per column you are skipping" | −1 a column | −2 a column | **−1 a column** |
+| The base cards | "always with at least −1 position modifier" | −1 at least | −2 at least | **−1 at least** |
+| The cap | "if your attack value is higher than 5 ... your value is still 5 before position modifiers" | 5 | goes, if the 12 and the 1 bound the roll (question 2) | open (question 2) |
+| Attack rate 0 | "may roll 1 die for each two units and score a hit on 1s" | -- | goes (question 2) | open (question 2) |
 
 Not listed, because they change no roll: the cards that remove units or
 hits rather than modify dice (Snipe, Super Cannon, Exploding Smoke
