@@ -96,9 +96,11 @@ outlines are what the canvas drawing of the map uses, and will be
 | 14 | Blue base, 8, 10, 13 | 10 blue |
 | 15 | Green base, 9, 12 | 10 blue |
 
-The two sides are not mirror images, though the two corners are. Green's 12 touches four areas and
-lies between 15 and 11; Blue's 13 touches three. Whether that is
-deliberate is question 14.
+**The two sides mirror each other** under a half turn (the author,
+2026-11-05: "12 is like 14"): 10 with 11, 14 with 12, 13 with 15, 8 with
+9, 2 with 3, 5 with 4 and 7 with 6, every border matching. The minerals
+are swapped between partners: 14 holds blue and 12 orange, 13 orange
+and 15 blue, so each base has one of each beside it.
 
 ### What is new to this repository
 
@@ -275,12 +277,11 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 13. **The battle line.** Is it formed again every round, as the rulebook
     lists, or once and then only changed when a force dies? On Discord,
     re-forming every round is the biggest single cost in clicks.
-14. **The map.** ~~Are the two corner contacts adjacent?~~ Answered
-    (the author, 2026-11-05): 8 with 10 and 9 with 11 are adjacent. Still
-    open: is the asymmetry between 12 and 13 deliberate, and is map 3.3
-    the map? These are notes Q2 and Q3 on the canvas drawing of the map
-    and the board, where each open question is pinned beside what it is
-    about.
+14. ~~**The map.**~~ The corners and the two sides are answered (the
+    author, 2026-11-05): 8 with 10 and 9 with 11 are adjacent, and the
+    sides mirror each other. Still open: is map 3.3 the map? Note Q3 on
+    the canvas drawing of the map and the board, where each open
+    question is pinned beside what it is about.
 15. **The dice.** Is it all right for the target choice to roll the dice
     (decision 8), rather than a separate Roll button?
 16. **Undo.** Is changing your plan before you lock in enough to start
