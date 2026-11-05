@@ -721,10 +721,10 @@ What it covers, each with a test citing its section:
   every two units. No cap; a rolled 12 hits and a rolled 1 misses.
 - Hits remove units; Tough takes two; Repair, Splash and every other
   trait the glossary gives a battle. "Adjacent" means a force in a
-  neighbouring column (the author, 2026-11-05): Repair takes a Worker
-  from a force beside the hit Mechanical unit's -- no Human unit is
-  both Mechanical and Repair -- and Splash removes an infantry unit
-  from a neighbouring column.
+  neighbouring column or a force flanking it (the author,
+  2026-11-05): Repair takes a Worker from a force adjacent to the hit
+  Mechanical unit's -- no Human unit is both Mechanical and Repair --
+  and Splash removes an infantry unit from an adjacent force.
 - A base under attack: the emergency base defense, before Tactical
   Command; one base card at each end of the line (the author,
   2026-11-05), attacked with the armoured rating, since a building is
