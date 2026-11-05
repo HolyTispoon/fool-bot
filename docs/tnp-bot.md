@@ -33,9 +33,11 @@ recorded here as it comes.
 | `vassal module.png` (Vassal module folder) | -- | the Vassal module's Blue board: the **conversion rates**, the Factory's and Airport's build costs, "max 2 tech facilities", the deployment board's attack spaces A, B and C; the Cyborg Soldier's air rating differs from the sheet (question 18) |
 | `Cards and tokens/` | -- | the tech tokens, tech cards and tactic deck art (not yet read) |
 
-The files disagree in places, and those places are listed below. **The
-plan assumes the newest file wins** (board v4 over rulebook v3), and
-asks the author wherever that guess decides something.
+The files disagree in places, and those places are listed below. **The newest
+source wins** (the author, 2026-11-05: "whichever is more recent"), and
+the newest is the rulebook Google Doc, edited 2026-10-25; every other
+file was uploaded together in 2018, so their order among themselves is
+asked wherever it decides something.
 
 ### The game, in the terms the code will use
 
@@ -249,8 +251,14 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 4. ~~**Emergency base defense before or after Tactical Command?**~~
    Before: the newest rulebook (the Google Doc) has it in the body's
    order, Form Forces, Emergency Base Defense, Tactical Command.
-5. **Tech facilities: two (board v4 and the Vassal module) or three
-   (rulebook v3)?**
+5. ~~**Tech facilities: two or three?**~~ Answered (the author,
+   2026-11-05): whichever source is more recent. That is the rulebook
+   Google Doc, edited 2026-10-25, which says **three** ("You may only
+   have 3 Tech Facilities at any one time"); board v4 and the Vassal
+   module, which say two, are 2018 uploads. The 2026 edit left that
+   sentence as the .docx has it, so the author was asked whether board
+   v4 -- a later design version than rulebook v3 -- should count as the
+   more recent instead.
 6. ~~**The basic game.**~~ Answered (the author, 2026-11-05, correcting
    an earlier answer the same day): **the basic game draws no cards**. A
    harvest takes the mineral and gem tokens themselves into the seat's
