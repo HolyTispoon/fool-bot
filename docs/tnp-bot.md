@@ -30,7 +30,7 @@ recorded here as it comes.
 | `Units/The New Project unit sheet v3.xlsx` | v3 | four tabs: Humans, XzzzX, Space Dragons, Technology -- costs, the three attack values, initiative, traits, scouting, count |
 | `Player boards/green human base board v4 constructed.png` (and blue) | v4 | production caps, max supply, unit costs in materials and gold, the upgrades, "max 2 tech facilities" |
 | `Map and territories/map3.3.pdf` / `map3.3-1.png` | 3.3, **the map** (the author, 2026-11-05) | fifteen territories, two bases, the resource counts; `map2.1`/`map2.2` are older |
-| `vassal module.png` (Vassal module folder) | -- | the Vassal module's Blue board: the **conversion rates**, the Factory's and Airport's build costs, "max 2 tech facilities", the deployment board's attack spaces A, B and C; the Cyborg Soldier's air rating differs from the sheet (question 18) |
+| `vassal module.png` (Vassal module folder) | -- | the Vassal module's Blue board: the **conversion rates**, the Factory's and Airport's build costs, "max 2 tech facilities", the deployment board's attack spaces A, B and C; the Cyborg Soldier's air rating, Weak, which the author chose over the sheet's Fair (question 18) |
 | `Cards and tokens/` | -- | the tech tokens, tech cards and tactic deck art (not yet read) |
 
 The files disagree in places, and those places are listed below. **The more
@@ -321,8 +321,10 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
     on a base:** Does an attack on an undefended
     base win at once? Does a defender who survives six rounds hold even
     if the base cards took hits?
-18. **The Cyborg Soldier against air.** The unit sheet and board v4 say
-    Fair; the Vassal module says Weak. Which?
+18. ~~**The Cyborg Soldier against air.**~~ Answered (the author,
+    2026-11-05): **Weak**, as the Vassal module says; the unit sheet and
+    board v4 say Fair, so the importer overrides the sheet's value for
+    this one cell and says so.
 
 ## The dice modifiers, for the d12
 
