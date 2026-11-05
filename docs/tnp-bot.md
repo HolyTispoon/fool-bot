@@ -276,9 +276,10 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    the cards drawn. A mineral or gem trades for materials or gold,
    either but not both (the author, 2026-11-05). Still to confirm: blue
    and orange minerals trade alike.
-8. **Gold.** The sheet's column is "Gems" and the board shows a coin.
-   Is gold the resource, and does it only come from trading minerals and
-   gems? Is the starting pool 5 materials and 0 gold?
+8. ~~**Gold.**~~ Answered (the author, 2026-11-05): the sheet's
+   "Gems" column is **gold**, the board's coin; it comes only from
+   trading minerals and gems, and the pool starts at 5 materials and 0
+   gold.
 9. ~~**What building costs.**~~ Answered: the Factory costs 2
    materials, and the Airport 3 and needs a Factory (the Vassal module);
    each unit upgrade -- Stealth, Cyborg, Robotic facility, Fighter
