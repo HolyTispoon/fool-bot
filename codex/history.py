@@ -19,9 +19,9 @@ draw deals the same cards**: undo cannot be used to redraw.
 
 Two undos are over the snapshots alone: `undo_to_turn_start` (the
 active player's own: where the turn opened on their tech, it is asked
-again -- the confirmation of picks made during the other's turn, the
-picker otherwise -- and the ready phase runs again on the answer -- the
-author, 2026-10-10) and `undo_to_previous_turn` (which unwinds the
+again from nothing -- picks made during the other's turn cleared too
+(the author, 2026-11-05) -- and the ready phase runs again on the
+answer -- the author, 2026-10-10) and `undo_to_previous_turn` (which unwinds the
 opponent's turn too, so a frontend asks the opponent first). The third,
 **the fine undo**, is over the journal: `undo_points` reads the turn as
 it replays and names each point between two actions of the active
@@ -208,13 +208,15 @@ def _restore(match: MatchState, data: dict, snapshots: list[dict]) -> None:
 
 def start_tech_over(match: MatchState) -> None:
     """
-    An undo to a turn's start asks the tech again. Where the turn's
-    snapshot is its hand-over (phase `ready`: a turn that opened on its
-    player's tech, since 2026-10-10), the restored position asks it by
-    itself -- the active player's standing picks wait for their
-    confirmation, which runs the ready phase again, and the other
-    player's picks are not yet made -- so there is nothing to take back
-    or clear. **Where the snapshot is the main phase's opening** -- a
+    An undo to a turn's start asks the tech again, from nothing. Where
+    the turn's snapshot is its hand-over (phase `ready`: a turn that
+    opened on its player's tech, since 2026-10-10), the restored
+    position asks it by itself, and the ready phase runs again on the
+    answer; the active player's picks standing there, made during the
+    other's turn, are cleared like any other choice the turn made (the
+    author, 2026-11-05: a change made at the turn's start was wiped and
+    a pick made before it came back, so the undo treated the two
+    differently), and the other player's picks are not yet made. **Where the snapshot is the main phase's opening** -- a
     turn that owed no tech, or a game saved before the hand-over became
     the start -- the picks the ready phase put into the discard pile
     (`teched`) go back into their codex and the choice is owed again,
@@ -225,6 +227,10 @@ def start_tech_over(match: MatchState) -> None:
     make them choose again").
     """
     if match.phase != "main":
+        for seat in seats.turn_seats(match):
+            active = match.player(seat)
+            if active.tech_owed and not active.tech_confirmed:
+                active.tech_choice = None
         return
     for seat in seats.turn_seats(match):
         active = match.player(seat)
@@ -251,9 +257,9 @@ def _take_back(player, slug: str) -> None:
 
 def tech_started_over(match: MatchState) -> tuple[int, ...]:
     """The seats whose tech choice is asked again from nothing: whoever
-    owes one with no picks standing -- after an undo, everyone whose
-    choice it started over. Not a player whose standing picks wait for
-    their confirmation: the undo offers them as they were."""
+    owes one with no picks standing -- after an undo to a turn's start,
+    everyone who owes one, since the undo clears every unconfirmed pick
+    (`start_tech_over`)."""
     return tuple(
         player.seat for player in match.players
         if player.tech_owed and not player.tech_confirmed and player.tech_choice is None

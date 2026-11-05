@@ -541,8 +541,11 @@ class UndoTests(unittest.TestCase):
         act(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", player=2)
         settle(engine, game, match)
         history.undo_to_turn_start(match)
+        # The picks made during the other team's turn are cleared with
+        # the rest of the turn's choices (the author, 2026-11-05).
         self.assertEqual(asked(engine, game, match),
-                         [(PromptKind.TECH_CONFIRM, 1), (PromptKind.TECH_CONFIRM, 2)])
+                         [(PromptKind.TECH_CHOICE, 1), (PromptKind.TECH_CHOICE, 2)])
+        self.assertEqual(history.tech_started_over(match)[:2], (1, 2))
 
 
 def rows_of(engine, match, attacker):

@@ -605,7 +605,10 @@ and the step's prompt is rewritten rather than argued with.
     "offer to confirm tech but also redo the ready phase": where a turn
     opens on its player's tech, its snapshot is the hand-over, so the
     confirmation and the ready phase are the journal's first entries
-    and run again after the undo.
+    and run again after the undo. On 2026-11-05 the author had the
+    undo clear picks made during the other's turn too, so the tech is
+    chosen again from nothing rather than confirmed (the design note,
+    "Undo's groundwork").
     **What it costs:** two saved fields from the first commit, a
     shuffle that can take a recorded order back, and every frontend
     surface -- the panel, the turn message, the board -- re-rendering
