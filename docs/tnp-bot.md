@@ -310,11 +310,14 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    or Cyborg, not both.
 10. ~~**Movement.**~~ Answered (the author, 2026-11-05): air units
     may attack any territory, with no path of controlled territories, but
-    cannot hold one. If air units alone win against an enemy-held
-    territory, it becomes **neutral**; and a held territory whose
-    defenders are air units alone is neutral too ("neutral in both
-    cases"). The reading built on: air units fight in a defence, but a
-    territory left with only air units on it is nobody's. Neither
+    cannot take one. If air units alone win against an enemy-held
+    territory, it becomes **neutral**. **Corrected** (the author,
+    2026-11-05, replacing the earlier "neutral in both cases" for the
+    second case): a seat that defends a territory it already holds with
+    air units alone, and wins, **still holds it**. Holding a territory
+    means a ground unit once took it and its control token was placed;
+    air units cannot take a territory, but they can defend one already
+    held. Neither
     rulebook says more than that a neutral territory is taken by
     revealing a ground unit, that a chopper's stack "moves like air
     units", and that a carried unit "cannot retreat via an air route".
@@ -580,8 +583,8 @@ Five commits, in this order.
    it changes: the d12, its ratings and the author's modifier values,
    no cap, Poor (shown X) as the old attack rate 0; Production and
    Trade one phase; deployment hidden until March; only unengaged forces placed
-   in a later round's battle line; air units leaving a territory
-   neutral; the spots; two tech facilities; the conversion rates; gold
+   in a later round's battle line; air units unable to take a
+   territory but able to defend one already held; the spots; two tech facilities; the conversion rates; gold
    and the starting pool; the build and upgrade costs; the Barracks
    upgrade; the two ways to win. Number the sections so code and tests
    can cite them ("TNP 5.3"). A change log at its foot: one dated line
@@ -705,8 +708,9 @@ What it covers, each with a test citing its section:
   destroying a facility; an attack on an undefended base wins at once;
   a defender who survives six rounds holds, whatever the base cards
   took.
-- Air units fight in a defence; a territory won by air units alone, or
-  left held only by air units, is neutral.
+- Air units cannot take a territory: one won by air units alone is
+  neutral. They can defend one already held: a defender with only air
+  units left that wins keeps the territory (the author, 2026-11-05).
 - The end: six rounds, a retreat, or one side with no force left.
 
 Each choice is a prompt kind -- PLACE_FORCE, DECLARE_RETREAT,
@@ -797,8 +801,10 @@ The model of the whole basic game:
   gems traded at the conversion rates, each for materials or for gold
   and never both, blue and orange alike; emergency production);
   Cleanup. Air units attack any territory with no path of held
-  territories, and hold none. A territory held with nobody left in it
-  stays held until an enemy takes it.
+  territories; an attack won by air units alone leaves the territory
+  neutral, but air units defending a territory already held keep it.
+  A territory held with nobody left in it stays held until an enemy
+  takes it.
 - The two ways to win: a successful attack on a base, or 49 of the
   map's 96 tokens harvested by one seat.
 - gamesaves/tnp/service.py (GameService: apply_action through
