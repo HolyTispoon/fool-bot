@@ -253,16 +253,20 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
      unit (3+) with Explosives (+6 vs base) attacking the base at −1
      hits on anything but a 1.
    - **Attack rate 0 stays: it is the older name of "Can't"** (the
-     author). A force rated Can't against a type still attacks it,
+     author), and the rating is called **X** (the author, 2026-11-05:
+     "use X instead of can't"). The sheet and board v4 spell it Can't;
+     the importer reads either spelling as X. A force rated X against a
+     type still attacks it,
      rolling **one die for each two units** and needing a 12, as Weak
      does -- the d12's counterpart of the d6's 1s -- so a modifier adds
-     to its roll like any other. Many Human units have a Can't (the
-     Jeep, the Tank and Smart Mines against air, the Rocket Launcher against infantry, the Chopper
-     Carrier against infantry and armour), so
-     the rule is in the basic game. The d6 text's "attack rate of X
-     can never attack that type" has no unit left on the sheet, and is
-     not built. The reading built on, to be confirmed: the dice are
-     rounded down, so a lone unit rated Can't rolls none.
+     to its roll like any other. Many Human units have an X (the
+     Jeep, the Tank and Smart Mines against air, the Rocket Launcher
+     against infantry, the Chopper Carrier against infantry and
+     armour), so the rule is in the basic game. The d6 text gave X
+     another meaning, "an attack rate of X can never attack that type";
+     that rule is not built, since X now names the old attack rate 0.
+     The reading built on, to be confirmed: the dice are rounded down,
+     so a lone unit rated X rolls none.
 3. ~~**Production.**~~ Answered (the author, 2026-11-05):
    **Production and Trade are one phase**, after March and before
    Cleanup. The turn is Infrastructure, Deployment, March, Production
@@ -373,7 +377,7 @@ The three ratings have moved too:
 
 | Rating | d6 (keyword table) | d12 (the author) |
 | --- | --- | --- |
-| Can't | 1 only, one die per two units | 12 only, one die per two units |
+| X (Can't on the sheet) | 1 only, one die per two units | 12 only, one die per two units |
 | Weak | 6 only: 1 in 6, 17% | 12 only: 1 in 12, 8% |
 | Fair | 4 to 6: 3 in 6, 50% | 6 to 12: 7 in 12, 58% |
 | Strong | 2 to 6: 5 in 6, 83% | 3 to 12: 10 in 12, 83% |
@@ -414,7 +418,7 @@ worth more on a d12, where a miss is more often a near miss):
 | Position | "minus one per column you are skipping" | −1 a column | −2 a column | **−1 a column** |
 | The base cards | "always with at least −1 position modifier" | −1 at least | −2 at least | **−1 at least** |
 | The cap | "if your attack value is higher than 5 ... your value is still 5 before position modifiers" | 5 | goes, if the 12 and the 1 bound the roll (question 2) | **goes** |
-| Attack rate 0 (Can't) | "may roll 1 die for each two units and score a hit on 1s" | 1s, half the dice | -- | **12 only, half the dice** (question 2) |
+| Attack rate 0 (X) | "may roll 1 die for each two units and score a hit on 1s" | 1s, half the dice | -- | **12 only, half the dice** (question 2) |
 
 Not listed, because they change no roll: the cards that remove units or
 hits rather than modify dice (Snipe, Super Cannon, Exploding Smoke
@@ -505,11 +509,11 @@ Hard rules for every step:
   and tnp/data/map.json are the hand-kept exceptions, each checked by a
   test against the imported data.
 - The dice: a d12 a unit. Weak hits on 12, Fair on 6+, Strong on 3+;
-  Can't, the old attack rate 0, rolls one die for every two units and
-  needs a 12. A modifier adds to the number rolled, with no cap; a
-  rolled 12 always hits and a rolled 1 always misses. A modifier's d12
-  value is the author's column of "The dice modifiers, for the d12".
-  Every draw is engine.rng; a test seeds it.
+  X (the sheet's Can't, the old attack rate 0) rolls one die for
+  every two units and needs a 12. A modifier adds to the number
+  rolled, with no cap; a rolled 12 always hits and a rolled 1 always
+  misses. A modifier's d12 value is the author's column of "The dice
+  modifiers, for the d12". Every draw is engine.rng; a test seeds it.
 - Hidden information: a seat's queue, deployment, hand and plan are
   that seat's alone until the phase reveals them. Nothing hidden goes
   into a public message, a log line or the #logs mirror; say in the PR
@@ -573,7 +577,7 @@ Five commits, in this order.
    and the player aide's turn order folded in, and every answer under
    docs/tnp-bot.md's "Questions for the author" written into the section
    it changes: the d12, its ratings and the author's modifier values,
-   no cap, Can't as the old attack rate 0; Production and Trade one
+   no cap, X as the old attack rate 0; Production and Trade one
    phase; deployment hidden until March; only unengaged forces placed
    in a later round's battle line; air units leaving a territory
    neutral; the spots; two tech facilities; the conversion rates; gold
@@ -595,7 +599,8 @@ Five commits, in this order.
    Technology tab (Count, Title, Type, Materials, ability, iconn,
    colorr, Short Ability) into tnp/data/technology.json, each whole,
    keyed by slug, with a header saying it is regenerated and never
-   edited by hand. A rating other than Strong, Fair, Weak or Can't is
+   edited by hand. The ratings are Strong, Fair, Weak and X, the sheet
+   writing X as Can't (either spelling is read as X); any other value is
    refused; a tech row with no Count (Positioning, Air Cover and
    Shields today) is reported and left out. Before running it, look at
    the sheet's Cyborg Soldier vs air cell: the author chose Weak
@@ -689,7 +694,7 @@ What it covers, each with a test citing its section:
   flanking +1, the position modifier −1 a column skipped, the base
   cards' −1 at least, and modifiers handed in from outside, which step 9
   supplies from the cards -- against the rating's number for the
-  target's type: Strong 3, Fair 6, Weak 12, Can't 12 with one die for
+  target's type: Strong 3, Fair 6, Weak 12, X 12 with one die for
   every two units. No cap; a rolled 12 hits and a rolled 1 misses.
 - Hits remove units; Tough takes two; Repair, Splash and every other
   trait the glossary gives a battle.
@@ -709,8 +714,8 @@ slug and count; tests/test_tnp_battle.py fights any two Human forces to
 a result through driver.apply with engine.rng seeded;
 tests/test_tnp_purity.py starts the ratchet over tnp/.
 
-One reading here is the worksheet's, not yet the author's: Can't's dice
-are rounded down, so a lone unit rated Can't rolls none. Build it so,
+One reading here is the worksheet's, not yet the author's: X's dice
+are rounded down, so a lone unit rated X rolls none. Build it so,
 and ask it in the PR's questions.
 
 The stop: the test fights any two Human forces to a result with the
@@ -734,7 +739,7 @@ scripts/render_tnp_sample.py:
 - A seat's player board, from human_board.json and humans.json: the
   four facilities, their caps, what is built and what is queued, the
   upgrades, each unit's cost, its ratings as d12 numbers (Strong 3+,
-  Fair 6+, Weak 12, Can't 12 at one die per two units), initiative,
+  Fair 6+, Weak 12, X 12 at one die per two units), initiative,
   traits and supply left, the limits and the conversion rates. The
   layout the author has seen is the canvas's Human base board
   (https://claude.ai/artifact/4hRVXBPhYeKDHyoUSwnank).
