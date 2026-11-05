@@ -323,8 +323,9 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
     if the base cards took hits?
 18. ~~**The Cyborg Soldier against air.**~~ Answered (the author,
     2026-11-05): **Weak**, as the Vassal module says; the unit sheet and
-    board v4 say Fair, so the importer overrides the sheet's value for
-    this one cell and says so.
+    board v4 say Fair. The data is imported from the sheet, so the
+    sheet's cell is to be corrected to Weak before step 1's import,
+    rather than the value patched in code.
 
 ## The dice modifiers, for the d12
 
