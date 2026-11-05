@@ -272,6 +272,12 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    Cleanup. The turn is Infrastructure, Deployment, March, Production
    and Trade, Cleanup; what is placed in Infrastructure is finished in
    that turn's Production and Trade and deployable the next turn.
+   **Cleanup clears every attack and defense spot** (the author,
+   2026-11-05): each seat deploys its defenders again every turn, and
+   only stranded units stay where they are. A battle's winner leaves
+   its survivors in the territory's defense spot for the rest of that
+   March, so a later attack there fights them, and Cleanup then clears
+   them too.
 4. ~~**Emergency base defense before or after Tactical Command?**~~
    Before: the newest rulebook (the Google Doc) has it in the body's
    order, Form Forces, Emergency Base Defense, Tactical Command.
@@ -800,7 +806,8 @@ The model of the whole basic game:
   one phase (the queue built and deployable next turn; minerals and
   gems traded at the conversion rates, each for materials or for gold
   and never both, blue and orange alike; emergency production);
-  Cleanup. Air units attack any territory with no path of held
+  Cleanup (every attack and defense spot cleared back to the seat's
+  available units, except stranded units, which stay). Air units attack any territory with no path of held
   territories; an attack won by air units alone leaves the territory
   neutral, but air units defending a territory already held keep it.
   A territory held with nobody left in it stays held until an enemy
