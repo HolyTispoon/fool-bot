@@ -37,8 +37,8 @@
       "short_ability": "",
       "icon": ""
     },
-    "jewler": {
-      "name": "Jewler",
+    "jeweler": {
+      "name": "Jeweler",
       "count": 4,
       "type": "tech_facility",
       "deck": "blue_minerals",
@@ -137,8 +137,8 @@
       "short_ability": "discount 1 mineral",
       "icon": ""
     },
-    "surpisingly_valuable_side_effects": {
-      "name": "Surpisingly valuable side-effects",
+    "surprisingly_valuable_side_effects": {
+      "name": "Surprisingly valuable side-effects",
       "count": 2,
       "type": "building_tech",
       "deck": "blue_minerals",
@@ -267,8 +267,8 @@
       "short_ability": "",
       "icon": "tactics.png"
     },
-    "heat_seeking_missle": {
-      "name": "Heat seeking missle",
+    "heat_seeking_missile": {
+      "name": "Heat seeking missile",
       "count": 2,
       "type": "tactic",
       "deck": "orange_minerals",

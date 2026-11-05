@@ -164,9 +164,8 @@ Airport); and Smart Mines, Rocket Launcher and Laser Cannon (armored,
 Base Defenses).
 
 **The Cyborg Soldier's rating against air is Weak** (the author,
-2026-11-05, as the Vassal module has it); the unit sheet and board v4
-say Fair, and the sheet is to be corrected before the import rather
-than the value patched in code.
+2026-11-05, as the Vassal module has it). Board v4 says Fair; the unit
+sheet said Fair too, and was corrected on 2026-11-05.
 
 ### 2.4 The player board
 

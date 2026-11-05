@@ -109,9 +109,11 @@ other than Strong, Fair, Weak or Poor (the sheet's *Can't*, *Poor* and
 tech type or deck its tables do not know. A row it cannot use and need
 not refuse -- the Humans tab's total of the Count column, the three
 tech rows with no Count (Positioning, Air Cover, Shields) -- is
-reported and left out. Names are kept as the sheet spells them,
-"Jewler" and "Heat seeking missle" among them; a spelling is the
-sheet's to fix.
+reported and left out. Names are kept as the sheet spells them; a
+spelling is the sheet's to fix, which is how "Jewler", "Heat seeking
+missle" and "Surpisingly valuable side-effects" became "Jeweler", "Heat
+seeking missile" and "Surprisingly valuable side-effects" on
+2026-11-05, their slugs with them.
 
 - **A unit's traits are its icons**, the sheet's trait1 to trait3, not
   its Ability text, because the icons are what the board and the
@@ -135,9 +137,14 @@ sheet's to fix.
 
 **The sheet's Cyborg Soldier against air.** The author chose Weak,
 as the Vassal module has it (question 18), but the sheet still said Fair
-when step 1 imported it (the workbook last modified 2018-10-19), so
-`humans.json` says Fair until the sheet is corrected and the import run
-again. The value is not patched in code, and no test pins either.
+when step 1 first imported it (the workbook last modified 2018-10-19).
+It was corrected in the sheet, not in code: at the author's word
+(2026-11-05) the one cell, and the three names above, were changed in
+the `.xlsx` itself -- its XML edited in place, so nothing else in the
+workbook moved -- and the import run again. The connector cannot
+replace a Drive file's content, so the corrected workbook goes up as a
+new version of the same file, keeping its Drive id, by hand.
+`tests/test_tnp_data.py` now holds Weak (TNP 2.3).
 
 **The player board** (`human_board.json`) holds what exists nowhere in
 the sheet: each facility's cap before and after its infrastructure

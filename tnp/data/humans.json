@@ -92,7 +92,7 @@
       "attack": {
         "infantry": "fair",
         "armored": "strong",
-        "air": "fair"
+        "air": "weak"
       },
       "initiative": 3,
       "traits": [

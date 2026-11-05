@@ -55,6 +55,10 @@ class UnitDataTests(unittest.TestCase):
         for unit in self.catalog.units.values():
             self.assertEqual(set(unit.attack), set(UnitType))
 
+    def test_the_cyborg_soldier_is_weak_against_air(self) -> None:
+        """TNP 2.3: the author's Weak (question 18), corrected in the sheet."""
+        self.assertIs(self.catalog.units["cyborg_soldier"].rating(UnitType.AIR), Rating.WEAK)
+
     def test_the_supply_on_the_board_is_the_sheets_count(self) -> None:
         """Board v4's "max supply" against the unit sheet's Count."""
         board = self.catalog.board["max_supply"]
