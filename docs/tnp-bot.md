@@ -23,7 +23,7 @@ decide what the model holds.
 | `Rules/Glossary.docx`, `Rules/player aide 3-5.pdf` | aide 3-5 | the traits; a turn order that **has** a Production phase (the rulebook's text does not) |
 | `Units/The New Project unit sheet v3.xlsx` | v3 | four tabs: Humans, XzzzX, Space Dragons, Technology -- costs, the three attack values, initiative, traits, scouting, count |
 | `Player boards/green human base board v4 constructed.png` (and blue) | v4 | production caps, max supply, unit costs in materials and gold, the upgrades, "max 2 tech facilities" |
-| `Map and territories/map3.3.pdf` / `map3.3-1.png` | 3.3 | fifteen territories, two bases, the resource counts; `map2.1`/`map2.2` are older |
+| `Map and territories/map3.3.pdf` / `map3.3-1.png` | 3.3, **the map** (the author, 2026-11-05) | fifteen territories, two bases, the resource counts; `map2.1`/`map2.2` are older |
 | `vassal module.png` (Vassal module folder) | -- | the Vassal module's Blue board: the **conversion rates**, the Factory's and Airport's build costs, "max 2 tech facilities", the deployment board's attack spaces A, B and C; the Cyborg Soldier's air rating differs from the sheet (question 18) |
 | `Cards and tokens/` | -- | the tech tokens, tech cards and tactic deck art (not yet read) |
 
@@ -277,11 +277,9 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
 13. **The battle line.** Is it formed again every round, as the rulebook
     lists, or once and then only changed when a force dies? On Discord,
     re-forming every round is the biggest single cost in clicks.
-14. ~~**The map.**~~ The corners and the two sides are answered (the
-    author, 2026-11-05): 8 with 10 and 9 with 11 are adjacent, and the
-    sides mirror each other. Still open: is map 3.3 the map? Note Q3 on
-    the canvas drawing of the map and the board, where each open
-    question is pinned beside what it is about.
+14. ~~**The map.**~~ Answered (the author, 2026-11-05): 8 with 10 and 9
+    with 11 are adjacent, the two sides mirror each other, and map 3.3 is
+    the map.
 15. **The dice.** Is it all right for the target choice to roll the dice
     (decision 8), rather than a separate Roll button?
 16. **Undo.** Is changing your plan before you lock in enough to start
