@@ -702,7 +702,9 @@ What it covers, each with a test citing its section:
   forces are placed -- in round 1 every force, later only those whose
   opponent was destroyed or retreated (the author, 2026-11-05); a round
   with nothing to place asks nothing.
-- The retreat declaration, both seats at once. A base's defender
+- The retreat declaration: the attacker first, and only if it does
+  not retreat is the defender asked (the author, 2026-11-05). A base's
+  defender
   cannot retreat, would-be stranded units cannot retreat, a retreat is
   a defeat, and the retreating seat does not attack that round.
 - Damage by initiative group, lowest first; within a group the attacker
@@ -913,8 +915,8 @@ in the game.
 A battle gets its own message, with step 3's battle picture, edited in
 place round by round through the gate. Placement in the battle line,
 the retreat declaration and the target choices go to whichever seat is
-asked, from the prompt's options; the retreat declaration asks both
-seats at once and reveals together. Choosing a target rolls that
+asked, from the prompt's options; the retreat declaration asks the
+attacker, and then the defender only if the attacker stayed. Choosing a target rolls that
 force's dice in the same click, and every roll is shown: the dice, the
 number each needed and why (the rating and each modifier). A round with
 nothing to place asks nothing. When the battle ends, March goes on from
