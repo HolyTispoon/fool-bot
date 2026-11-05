@@ -20,6 +20,7 @@ decide what the model holds.
 | File in Drive | Version | What it gives |
 | --- | --- | --- |
 | `Rules/Rulebook - The New Project 3.docx` | v3, "everything is simultaneous" | setup, the turn, the battle procedure, the glossary |
+| `Rulebook - The New Project 3` (Google Doc, the folder's root, edited 2026-10-25) | v3, **the newest copy** | the .docx's text with two changes: a second way to win -- "harvest 51% of the planet's resources" -- and Emergency Base Defense before Tactical Command; two open comments of the author's from 2017 (faction tech decks, emergency production) |
 | `Rules/Glossary.docx`, `Rules/player aide 3-5.pdf` | aide 3-5 | the traits; a turn order that **has** a Production phase (the rulebook's text does not) |
 | `Units/The New Project unit sheet v3.xlsx` | v3 | four tabs: Humans, XzzzX, Space Dragons, Technology -- costs, the three attack values, initiative, traits, scouting, count |
 | `Player boards/green human base board v4 constructed.png` (and blue) | v4 | production caps, max supply, unit costs in materials and gold, the upgrades, "max 2 tech facilities" |
@@ -238,9 +239,9 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    Infrastructure, Deployment, March, Production, Trade, Cleanup, with
    what is placed in Infrastructure finished at that turn's Production
    and deployable next turn?
-4. **Emergency base defense before or after Tactical Command?** The
-   rulebook's body puts it before, and its own summary and the aide put
-   it after.
+4. ~~**Emergency base defense before or after Tactical Command?**~~
+   Before: the newest rulebook (the Google Doc) has it in the body's
+   order, Form Forces, Emergency Base Defense, Tactical Command.
 5. **Tech facilities: two (board v4 and the Vassal module) or three
    (rulebook v3)?**
 6. ~~**The basic game.**~~ Answered (the author, 2026-11-05): there is
@@ -263,10 +264,14 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
    unit upgrade box (Stealth, Cyborg, Robotic facility, Fighter Bomber,
    Laser Cannon) shows one material icon, as the infrastructure upgrades
    do for their 1 material, so the reading is 1 material each. Is it?
-10. **Movement.** Attacking needs a path of controlled territories from
-    the base. What does "moves like air units" mean for air units and
-    for a chopper with its load? Can air units attack a territory with
-    no controlled path?
+10. **Movement.** Partly answered (the author, 2026-11-05): air units
+    may attack any territory, with no path of controlled territories, but
+    cannot hold one. Neither rulebook says more than that a neutral
+    territory is taken by revealing a ground unit, that a chopper's stack
+    "moves like air units", and that a carried unit "cannot retreat via
+    an air route". Still open: if air units alone win against an
+    enemy-held territory, does it become neutral or stay the defender's;
+    and may air units defend a territory already held?
 11. **Spots.** Is it attack spots A and B for everyone, with C only
     through *Command and Control CPU*? Is there one defense spot per
     controlled territory plus the base's? Does an empty controlled
@@ -284,7 +289,11 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
     (decision 8), rather than a separate Roll button?
 16. **Undo.** Is changing your plan before you lock in enough to start
     with, with a real undo later?
-17. **A successful attack on a base.** Does an attack on an undefended
+17. **Winning.** The newest rulebook adds a second way to win: harvest
+    51% of the planet's resources. Map 3.3 holds 96 tokens (40 blue
+    minerals, 40 orange, 16 gems), so 49 harvested -- counted as tokens
+    taken off the map, whatever the card drawn? And **a successful attack
+    on a base:** Does an attack on an undefended
     base win at once? Does a defender who survives six rounds hold even
     if the base cards took hits?
 18. **The Cyborg Soldier against air.** The unit sheet and board v4 say
