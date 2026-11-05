@@ -167,14 +167,14 @@ class HistoryTests(unittest.TestCase):
         prompt = pending_prompt(self.engine, self.game, self.match)
         self.assertEqual((prompt.kind, prompt.asked_player), (PromptKind.MAIN_ACTION, 1))
 
-    def test_a_turn_start_undo_offers_the_standing_picks_and_runs_the_ready_phase_again(self) -> None:
+    def test_a_turn_start_undo_clears_the_standing_picks_and_runs_the_ready_phase_again(self) -> None:
         """Seat 1 picked during seat 2's turn: turn 3 opens on the
         confirmation, and after a hire the undo to the turn's start puts
-        the hand-over back -- the picks standing, their confirmation
-        offered again, nobody told to choose again but the other player
-        -- and the confirmation runs the ready phase again (the author,
-        2026-10-10: "offer to confirm tech but also redo the ready
-        phase")."""
+        the hand-over back with the picks cleared -- made before the
+        turn or at its start, a choice the undo takes back is taken
+        back (the author, 2026-11-05) -- both players told to choose
+        again, and the choice runs the ready phase again (the author,
+        2026-10-10: "redo the ready phase")."""
         engine, game, match = new_game(seed=11)
         begin(engine, game, match)
         end_turn(engine, game, match)
@@ -191,16 +191,46 @@ class HistoryTests(unittest.TestCase):
 
         history.undo_to_turn_start(match)
         self.assertEqual(match.phase, "ready")
+        self.assertIsNone(match.player(1).tech_choice)
         prompt = pending_prompt(engine, game, match)
-        self.assertEqual((prompt.kind, prompt.asked_player), (PromptKind.TECH_CONFIRM, 1))
-        self.assertEqual(tuple(prompt.options.picks), ("iron_man", "iron_man"))
-        self.assertEqual(history.tech_started_over(match), (2,))
+        self.assertEqual((prompt.kind, prompt.asked_player), (PromptKind.TECH_CHOICE, 1))
+        self.assertEqual(tuple(prompt.options.picks), ())
+        self.assertEqual(history.tech_started_over(match), (1, 2))
         self.assertEqual(match.journal, [])
-        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", {"player": 1})
+        self.assertIsNone(history.latest_snapshot(match)["players"][0]["tech_choice"])
+        apply(engine, game, match, PromptKind.TECH_CHOICE,
+              arguments={"player": 1, "picks": ["iron_man", "iron_man"]})
         self.assertEqual(match.phase, "main")
         self.assertEqual(history.position(match), opened)
         self.assertEqual(match.player(1).workers, workers)
-        self.assertEqual([entry["action"]["kind"] for entry in match.journal], ["tech_confirm"])
+        self.assertEqual([entry["action"]["kind"] for entry in match.journal], ["tech_choice"])
+
+    def test_a_turn_start_undo_clears_picks_changed_at_the_turn_start(self) -> None:
+        """Seat 1 picked during seat 2's turn, then at turn 3's start
+        pressed Change and picked again: the undo to the turn's start
+        brings back neither -- the earlier pick, in the snapshot, is
+        cleared like the later one in the journal (the author,
+        2026-11-05)."""
+        engine, game, match = new_game(seed=11)
+        begin(engine, game, match)
+        end_turn(engine, game, match)
+        apply(engine, game, match, PromptKind.TECH_CHOICE,
+              arguments={"player": 1, "picks": ["iron_man", "iron_man"]})
+        end_turn(engine, game, match)
+        apply(engine, game, match, PromptKind.TECH_CONFIRM, "change", {"player": 1})
+        picks = [slug for slug, count in engine.codex_counts(match.player(1))
+                 if count and slug != "iron_man"][:1] * 2
+        apply(engine, game, match, PromptKind.TECH_CHOICE, arguments={"player": 1, "picks": picks})
+        self.assertEqual(match.phase, "main")
+        self.assertEqual(sorted(match.player(1).teched), sorted(picks))
+
+        history.undo_to_turn_start(match)
+        self.assertEqual(match.phase, "ready")
+        self.assertIsNone(match.player(1).tech_choice)
+        prompt = pending_prompt(engine, game, match)
+        self.assertEqual((prompt.kind, prompt.asked_player, tuple(prompt.options.picks)),
+                         (PromptKind.TECH_CHOICE, 1, ()))
+        self.assertIn(1, history.tech_started_over(match))
 
     def test_undo_to_the_start_of_the_previous_turn(self) -> None:
         self.play_turn_3()

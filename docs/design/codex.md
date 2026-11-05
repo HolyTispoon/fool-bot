@@ -346,11 +346,10 @@ emptying the **journal**. **Where the turn opens on its player's tech,
 the snapshot is the hand-over** (`begin_tech`, since 2026-10-10), before
 the choice or its confirmation and the ready phase it runs, which the
 journal then records as the turn's first entries -- so an undo to the
-turn's start asks the tech again -- the confirmation where the picks
-were made during the other's turn, the picker otherwise -- and the
-ready phase runs again on the answer (the
-author, 2026-10-10: "offer to confirm tech but also redo the ready
-phase"). Where no tech is owed -- a player's first turn -- `begin_turn`
+turn's start asks the tech again, from nothing, and the ready phase
+runs again on the answer (the author, 2026-10-10: "redo the ready
+phase"; picks made during the other's turn cleared too since
+2026-11-05, below). Where no tech is owed -- a player's first turn -- `begin_turn`
 takes it at the start of the main phase, once the gold is collected,
 after the ready phase and the upkeep (`_open_main`, which takes none
 where the turn has one). Either way the patrol lock that ends the turn
@@ -374,15 +373,22 @@ snapshot it led to already holds its effects.
   `undo_targets` says which are open. Who may ask for which -- the
   opponent's consent for the second -- is step 4's frontend. **An undo
   to a turn's start asks the tech again.** Where the turn's snapshot
-  is its hand-over, the restored position asks it by itself: the
-  active player's standing picks wait for their confirmation, offered
-  again (`TECH_CONFIRM`, with **Change** to pick anew), and the other
-  player's picks, made during the turn, are gone with it; the
-  confirmation runs the ready phase and the upkeep again -- the
-  upkeep's order asked again where it was asked -- and a reshuffle in
-  that upkeep shuffles afresh, since the tech may have changed what the
-  discard pile holds. Nobody is told to choose again but a player with
-  no picks standing (`tech_started_over`). **Where the snapshot is the
+  is its hand-over, the restored position asks it by itself, and
+  `start_tech_over` clears the active player's standing picks, made
+  during the other's turn and so in the snapshot: the picker comes up
+  empty (`TECH_CHOICE`), not the confirmation. Until 2026-11-05 the
+  undo offered those picks for confirmation again (the author,
+  2026-10-10: "offer to confirm tech"), which treated two choices of
+  the same player differently: a **Change** made at the turn's start
+  was in the journal and gone with the undo, while the pick it replaced
+  was in the snapshot and came back (the author, 2026-11-05: "it counts
+  the tech changes at the start of my turn as part of my turn but not
+  tech choices I did during my opponent's turn"). The other player's
+  picks, made during the turn, are gone with the journal. The choice
+  runs the ready phase and the upkeep again -- the upkeep's order asked
+  again where it was asked -- and a reshuffle in that upkeep shuffles
+  afresh, since the tech may have changed what the discard pile holds.
+  Everybody asked again is told so (`tech_started_over`). **Where the snapshot is the
   main phase's opening** -- a turn that owed no tech, or a game saved
   before the hand-over became the start -- the undo clears every tech
   choice, a confirmed one too, and asks it again (the author,

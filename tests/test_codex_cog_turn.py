@@ -1023,7 +1023,10 @@ class TurnEndTests(TurnTestCase):
         self.assertEqual(self.table.match.phase, "ready")
         self.assertNotIn(3, self.game.start_message_ids)
         self.assertIn(start, self.table.game_channel.deleted)
-        again = await self.table.press((await self.table.turn_button("tech", first)).view(), "Confirm")
+        picker = (await self.table.turn_button("tech", first)).view()
+        self.assertIsInstance(picker, TechChoiceView)
+        picked = await pick_tech(self.table, picker, who=first)
+        again = await self.table.press(picked.view(), "Save tech", who=first)
         self.assertNothingWentWrong(again)
         self.assertIn(self.game.start_message_ids[3], self.table.game_channel.pinned)
         self.assertNotEqual(self.game.start_message_ids[3], start)
@@ -1165,13 +1168,14 @@ class TurnEndTests(TurnTestCase):
         self.assertNotIn("Showing", picker.caption())
         self.assertTrue(all(option.description is None for menu in picker.menus for option in menu.options))
 
-    async def test_an_undo_to_the_turn_start_offers_the_confirmation_and_redoes_the_ready_phase(self) -> None:
+    async def test_an_undo_to_the_turn_start_clears_the_picks_and_redoes_the_ready_phase(self) -> None:
         """The turn's tech confirmed and the main phase open, an undo to
-        the turn's start puts the hand-over back: the picks stand and
-        their confirmation is offered again, the discard pile is as it
-        was before the confirm, nobody is told to choose again, and
-        Confirm runs the ready phase again -- its lines once in the turn
-        message, after the undone line (the author, 2026-10-10)."""
+        the turn's start puts the hand-over back with the picks made
+        during the other's turn cleared (the author, 2026-11-05): the
+        picker comes up empty, the discard pile is as it was before the
+        confirm, the turn message tells the player to choose again, and
+        Save tech runs the ready phase again -- its lines once in the
+        turn message, after the undone line (the author, 2026-10-10)."""
         first, _ = await self.reach_turn_three()
         seat = self.game.seat_of(first.id)
         texts = self.table.game_channel.texts
@@ -1188,22 +1192,25 @@ class TurnEndTests(TurnTestCase):
         undo = (await self.table.press(panel, "Undo")).view()
         call = await self.table.press(undo, "To the start of my turn")
         self.assertNothingWentWrong(call)
-        confirm = call.view()
-        self.assertIsInstance(confirm, TechConfirmView)
+        picker = call.view()
+        self.assertIsInstance(picker, TechChoiceView)
+        self.assertEqual(picker.picks, [])
         match = self.table.match
         self.assertEqual(match.phase, "ready")
         player = match.player(seat)
-        self.assertEqual(player.tech_choice, teched)
+        self.assertIsNone(player.tech_choice)
         self.assertEqual(len(player.discard), len(discard) - 2)
         self.assertEqual(sum(player.codex.values()), sum(codex.values()) + 2)
         text = texts[self.game.turn_message_id]
         self.assertIn(history.UNDONE, text)
         self.assertNotIn("tech card", text)
-        self.assertNotIn(self.table.cog.render_text(history.tech_again(seat), self.game), text)
+        self.assertIn(self.table.cog.render_text(history.tech_again(seat), self.game), text)
 
-        confirmed = await self.table.press(confirm, "Confirm")
-        self.assertNothingWentWrong(confirmed)
-        self.assertIsInstance(confirmed.view(), TurnPanelView)
+        picked = await pick_tech(self.table, picker, who=first)
+        self.assertEqual(sorted(picked.view().picks), sorted(teched))
+        saved = await self.table.press(picked.view(), "Save tech", who=first)
+        self.assertNothingWentWrong(saved)
+        self.assertEqual(self.table.match.phase, "main")
         self.assertEqual(history.position(self.table.match), opened)
         text = texts[self.game.turn_message_id]
         self.assertEqual(text.count("tech card"), 1)
