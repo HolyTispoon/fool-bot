@@ -9,8 +9,9 @@ Claim a step of a web app worksheet before starting work on it.
     python3 scripts/claim_web_step.py --series codex 2
     python3 scripts/claim_web_step.py --series multiplayer 2
     python3 scripts/claim_web_step.py --series pbd 2
+    python3 scripts/claim_web_step.py --series tnp 2
 
-Six series share the one script: `web` (the default) claims a step of
+Seven series share the one script: `web` (the default) claims a step of
 docs/web-app-next.md as the branch `web-step-<n>` for a PR titled
 `Web app step <n>: ...`; `redesign` claims a step of
 docs/web-app-redesign.md as `redesign-step-<n>` for a PR titled
@@ -20,8 +21,9 @@ docs/landing-pages.md as `landing-step-<n>` for a PR titled
 as `codex-step-<n>` for a PR titled `Codex step <n>: ...`; `multiplayer`
 claims a step of docs/codex-multiplayer.md as `codex-mp-step-<n>` for a PR
 titled `Codex multiplayer step <n>: ...`; `pbd` claims a step of
-docs/pbd-site.md as `pbd-step-<n>` for a PR titled `PBD step <n>: ...`.
-Everything below reads the same for all six.
+docs/pbd-site.md as `pbd-step-<n>` for a PR titled `PBD step <n>: ...`;
+`tnp` claims a step of docs/tnp-bot.md as `tnp-step-<n>` for a PR titled
+`TNP step <n>: ...`. Everything below reads the same for all seven.
 
 A claim is the branch `web-step-<n>` on origin, holding one empty commit
 on top of origin/main that names who claimed it. It is created with
@@ -57,6 +59,7 @@ SERIES = {
         "docs/codex-multiplayer.md", "codex-mp-step", "Codex multiplayer step",
     ),
     "pbd": ("docs/pbd-site.md", "pbd-step", "PBD step"),
+    "tnp": ("docs/tnp-bot.md", "tnp-step", "TNP step"),
 }
 WORKSHEET, BRANCH, TITLE = SERIES["web"]
 
@@ -175,7 +178,8 @@ def main() -> int:
             "which worksheet's steps: web (docs/web-app-next.md, the "
             "default), redesign (docs/web-app-redesign.md), landing "
             "(docs/landing-pages.md), codex (docs/codex-bot.md), multiplayer "
-            "(docs/codex-multiplayer.md) or pbd (docs/pbd-site.md)"
+            "(docs/codex-multiplayer.md), pbd (docs/pbd-site.md) or tnp "
+            "(docs/tnp-bot.md)"
         ),
     )
     options = parser.parse_args()
