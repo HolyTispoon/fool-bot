@@ -265,8 +265,8 @@ Answered questions move into `docs/tnp-rules.md` and the step prompts.
      infantry, the Chopper Carrier against infantry and armour), so the
      rule is in the basic game. The d6 text's "an attack rate of X can
      never attack that type" is not built: no rating can never attack.
-     The reading built on, to be confirmed: the dice are rounded down,
-     so a lone Poor unit rolls none.
+     The dice are **rounded down** (the author, 2026-11-05): a lone
+     Poor unit rolls none, and three roll one.
 3. ~~**Production.**~~ Answered (the author, 2026-11-05):
    **Production and Trade are one phase**, after March and before
    Cleanup. The turn is Infrastructure, Deployment, March, Production
@@ -510,9 +510,9 @@ Hard rules for every step:
   test against the imported data.
 - The dice: a d12 a unit. Weak hits on 12, Fair on 6+, Strong on 3+;
   Poor, shown X (the sheet's Can't, the old attack rate 0), rolls one
-  die for every two units and needs a 12. A modifier adds to the
-  number rolled, with no cap; a rolled 12 always hits and a rolled 1
-  always misses. A modifier's d12 value is the author's column of "The
+  die for every two units, rounded down, and needs a 12. A modifier
+  adds to the number rolled, with no cap; a rolled 12 always hits and
+  a rolled 1 always misses. A modifier's d12 value is the author's column of "The
   dice modifiers, for the d12". Every draw is engine.rng; a test seeds
   it.
 - Hidden information: a seat's queue, deployment, hand and plan are
@@ -716,9 +716,8 @@ slug and count; tests/test_tnp_battle.py fights any two Human forces to
 a result through driver.apply with engine.rng seeded;
 tests/test_tnp_purity.py starts the ratchet over tnp/.
 
-One reading here is the worksheet's, not yet the author's: Poor's dice
-are rounded down, so a lone Poor unit rolls none. Build it so,
-and ask it in the PR's questions.
+Poor's dice are rounded down (the author, 2026-11-05): a lone Poor
+unit rolls none, and three roll one.
 
 The stop: the test fights any two Human forces to a result with the
 seeded engine.rng and a d12, covering scouting, flanking, the position
