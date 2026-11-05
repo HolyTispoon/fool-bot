@@ -113,7 +113,8 @@ reported and left out. Names are kept as the sheet spells them; a
 spelling is the sheet's to fix, which is how "Jewler", "Heat seeking
 missle" and "Surpisingly valuable side-effects" became "Jeweler", "Heat
 seeking missile" and "Surprisingly valuable side-effects" on
-2026-11-05, their slugs with them.
+2026-11-05, and "Convertors" and "Hasted distillations" the author's
+"Converters" and "Rapid Distillation", their slugs with them.
 
 - **A unit's traits are its icons**, the sheet's trait1 to trait3, not
   its Ability text, because the icons are what the board and the

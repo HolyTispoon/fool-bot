@@ -77,8 +77,8 @@
       "short_ability": "",
       "icon": ""
     },
-    "convertors": {
-      "name": "Convertors",
+    "converters": {
+      "name": "Converters",
       "count": 2,
       "type": "tech_facility",
       "deck": "blue_minerals",
@@ -87,8 +87,8 @@
       "short_ability": "",
       "icon": ""
     },
-    "hasted_distillations": {
-      "name": "Hasted distillations",
+    "rapid_distillation": {
+      "name": "Rapid Distillation",
       "count": 2,
       "type": "tech_facility",
       "deck": "blue_minerals",
