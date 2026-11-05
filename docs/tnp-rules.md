@@ -457,7 +457,9 @@ to produce base defenses:
   infrastructure upgrade -- a count of its own, apart from what the
   turn's Infrastructure queued at Base Defenses (the author,
   2026-11-05).
-- **The supply limits apply** (2.3) (the author, 2026-11-05).
+- **The supply limits apply** (2.3), and so does the limit of 8 Smart
+  Mines and Rocket Launchers deployed together (2.4) (the author,
+  2026-11-05).
 - **A Laser Cannon** only once the Laser Cannon upgrade is built (the
   author, 2026-11-05).
 
@@ -519,7 +521,9 @@ defender asked (the author, 2026-11-05).
   base, so that it would not be stranded (5.7). A force with no such
   path cannot retreat (the author, 2026-11-05: "so long as there's a
   path to the base, units can retreat"). This is the rulebook's
-  "would-be stranded units cannot retreat".
+  "would-be stranded units cannot retreat". **An air force always
+  retreats**, path or none (the author, 2026-11-05); ground units a
+  Chopper Carrier carried still need the path (7).
 - If either seat retreats, the battle ends after this round, and the
   retreating seat does not attack this round.
 - **A retreat is a defeat.** A force always retreats to its seat's
@@ -829,3 +833,8 @@ One line per change, dated, with where it came from.
 - 2026-11-05: Every force attacking a base card is at least −1, an
   unengaged one exactly −1, and a flanking one still +1 -- 6.9. (The
   author, answering PR #704.)
+- 2026-11-05: Emergency base defenses count toward the 8 Smart Mines
+  and Rocket Launchers deployed together -- 6.2. (The author, answering
+  PR #704.)
+- 2026-11-05: An air force always retreats, with no path home -- 6.6.
+  (The author, answering PR #704.)
