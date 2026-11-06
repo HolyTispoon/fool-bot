@@ -246,6 +246,9 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("reveal a ground unit from attack A to take area 14", first["content"])
         self.assertIn(f"/{turn.game.table_message_id})", first["content"])
         self.assertIsNotNone(first.get("file"))
+        # The one asked is pinged, and nobody else may be.
+        self.assertIn("<@101> Answer from **My board**", first["content"])
+        self.assertEqual([one.id for one in first["allowed_mentions"].users], [101])
 
         conquer, _ = await turn.my_board("blue")
         self.assertIsInstance(conquer, ConquerPanelView)
@@ -262,7 +265,11 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("takes area 13", sends[1])
         self.assertIn("March is over.", sends[2])
         self.assertIn("Production", sends[2])
-        self.assertIn("Open **My board**", sends[2])
+        # Both seats are asked to trade: both pinged, on the last message alone.
+        self.assertIn("<@101> <@202> Open **My board**", sends[2])
+        pings = [one[2]["allowed_mentions"] for one in turn.channel.since(answered) if one[0] == "send"]
+        self.assertEqual([one.id for one in pings[2].users], [101, 202])
+        self.assertFalse(pings[0].users)
         match = turn.match()
         self.assertEqual(match.phase, "trade")
         self.assertEqual({area: match.controller(area) for area in ("13", "14", "15")},

@@ -274,9 +274,23 @@ class TurnMixin:
             return []
         link = self.table_link(game)
         where = f"**My board** on the table ({link})" if link else "**My board** on the table"
+        ping = " ".join(f"<@{user_id}>" for user_id in self.asked_players(game, result))
+        ping = f"{ping} " if ping else ""
         if len(result.prompts) == 1 and result.prompts[0].kind not in SIMULTANEOUS:
-            return [self.render_text(result.prompts[0].ask, game), f"Answer from {where}."]
-        return [f"Open {where} to answer."]
+            return [self.render_text(result.prompts[0].ask, game), f"{ping}Answer from {where}."]
+        return [f"{ping}Open {where} to answer."]
+
+    def asked_players(self, game: TnpGame, result) -> list[int]:
+        """The people asked something now, each once -- one person in both
+        seats of a test game pinged once. The only mentions TNP makes: a
+        post that ends on a question pings whoever must answer it (the
+        author, 2026-11-06), and nothing else pings anyone."""
+        found: list[int] = []
+        for prompt in result.prompts:
+            user_id = game.seats.get(prompt.asked_seat, {}).get("id")
+            if user_id is not None and user_id not in found:
+                found.append(user_id)
+        return found
 
     async def present(self, channel, game: TnpGame, result, action: Optional[Action] = None) -> None:
         """
@@ -290,28 +304,40 @@ class TurnMixin:
             return
         quiet = self.lone_lock(result, action)
         messages = [] if quiet else self.messages_for(result)
+        pinged: list[int] = []
         if messages:
             closing = self.closing_lines(game, result)
             if closing:
                 messages[-1] = (messages[-1][0] + closing, messages[-1][1])
-        for lines, picture in messages:
+                if not (result.match is not None and result.match.battle is not None
+                        and result.match.battle.outcome is None):
+                    pinged = self.asked_players(game, result)
+        for index, (lines, picture) in enumerate(messages):
             text = "\n".join(self.render_text(line, game) for line in lines)
-            await self.post(channel, game, text, picture)
+            last = index == len(messages) - 1
+            await self.post(channel, game, text, picture, pinged if last else ())
         if messages or quiet or result.board_changed:
             await self.boards.refresh(channel, game)
 
-    async def post(self, channel, game: TnpGame, text: str, picture=None) -> None:
+    async def post(self, channel, game: TnpGame, text: str, picture=None, pinged=()) -> None:
         """One message, with its map where it has one -- and where the
         text is longer than Discord takes, the rest in the messages after
-        it, the map on the last."""
+        it, the map on the last. `pinged` are the users its mentions may
+        ping; every other mention is inert."""
         chunks = split_text(text)
         for index, chunk in enumerate(chunks):
             file = None
             if picture is not None and index == len(chunks) - 1:
                 file = self.match_file_from_png(game, await self.draw_map(picture))
             try:
+                mentions = discord.AllowedMentions.none()
+                if pinged:
+                    mentions = discord.AllowedMentions(
+                        everyone=False, roles=False,
+                        users=[discord.Object(id=user_id) for user_id in pinged],
+                    )
                 await channel.send(
-                    chunk, allowed_mentions=discord.AllowedMentions.none(),
+                    chunk, allowed_mentions=mentions,
                     **({} if file is None else {"file": file}),
                 )
             except discord.HTTPException as error:

@@ -773,6 +773,11 @@ taken the revealed piles off it.
   plans or trades, and where they are answered -- **My board** on the
   table, linked by the table's message link (no request: the link is
   built from its ids).
+  **Whoever is asked is pinged there** (the author, 2026-11-06, on
+  PR #712): their mention on that last message, each person once, with
+  `allowed_mentions` naming them alone; nothing else TNP posts pings
+  anyone, the table and the seat tokens included. A battle that waits
+  for step 7 pings nobody: nothing on Discord can answer it yet.
 - **The map is drawn per spot on that spot's message, not on the
   table.** The worksheet asked for the table's map redrawn once a slot
   through the gate; but the gate coalesces writes inside its window and
