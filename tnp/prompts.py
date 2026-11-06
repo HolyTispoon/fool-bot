@@ -179,6 +179,9 @@ class PlanOptions(_Wire):
     together: tuple["TogetherLimit", ...]
     #: The plan saved so far (`tnp.turn.normal_plan`'s shape), or `None`.
     plan: Optional[Mapping[str, Any]] = None
+    #: What the saved plan's Infrastructure costs (`tnp.turn.plan_cost`):
+    #: `{"materials", "gold"}`, nothing where no plan is saved.
+    cost: Mapping[str, int] = field(default_factory=lambda: {"materials": 0, "gold": 0})
 
 
 @dataclass(frozen=True)
@@ -207,6 +210,9 @@ class TradeOptions(_Wire):
     rates: Mapping[str, Mapping[str, Optional[int]]]
     #: The trade saved so far (`tnp.turn.normal_trade`'s shape), or `None`.
     trade: Optional[Mapping[str, Any]] = None
+    #: What the saved trade gains (`tnp.turn.trade_gains`):
+    #: `{"materials", "gold"}`, nothing where no trade is saved.
+    gains: Mapping[str, int] = field(default_factory=lambda: {"materials": 0, "gold": 0})
 
 
 @dataclass(frozen=True)
@@ -588,7 +594,17 @@ def _plan_options(engine, match, prompt) -> PlanOptions:
             for limit in catalog.board["limits"]["deployed_together"]
         ),
         plan=state.plan,
+        cost=_plan_cost(engine, state.plan),
     )
+
+
+def _plan_cost(engine, plan) -> dict:
+    from tnp import turn
+
+    if not plan:
+        return {"materials": 0, "gold": 0}
+    cost = turn.plan_cost(engine, turn.normal_plan(plan))
+    return {"materials": cost.materials, "gold": cost.gold}
 
 
 def _conquer_options(engine, match, prompt) -> ConquerOptions:
@@ -610,14 +626,19 @@ def _harvest_options(engine, match, prompt) -> HarvestOptions:
 
 
 def _trade_options(engine, match, prompt) -> TradeOptions:
+    from tnp import turn
     from tnp.components import RESOURCES
 
     state = match.seat(prompt.asked_seat)
+    gains = {"materials": 0, "gold": 0}
+    if state.plan:
+        gains = turn.trade_gains(engine, turn.normal_trade(state.plan))
     return TradeOptions(
         prompt.asked_seat,
         {kind: int(state.pool.get(kind, 0)) for kind in RESOURCES},
         engine.catalog.board["conversion"]["normal"],
         state.plan,
+        gains,
     )
 
 

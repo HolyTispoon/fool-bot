@@ -37,7 +37,7 @@ from tnp.engine import RulesEngine  # noqa: E402
 from tnp.flow import battle as fight  # noqa: E402
 from tnp.flow import driver  # noqa: E402
 from tnp.prompts import Action, PendingPrompt, PromptKind, pending  # noqa: E402
-from tnp.render import render_battle, render_board, render_map  # noqa: E402
+from tnp.render import render_attack, render_battle, render_board, render_map  # noqa: E402
 
 
 def midgame_map(engine: RulesEngine) -> MapBrief:
@@ -146,6 +146,9 @@ def main() -> None:
     pictures = {
         "map-opening.png": render_map(catalog, opening_map(catalog)),
         "map-midgame.png": render_map(catalog, midgame_map(engine)),
+        # March's attacks, each its own picture: one pile, and a battle's two.
+        "attack-A-2.png": render_attack(catalog, midgame_map(engine), "2", "A"),
+        "attack-B-9.png": render_attack(catalog, midgame_map(engine), "9", "B"),
         "board-blue-opening.png": render_board(catalog, opening_board(catalog, "blue")),
         "board-green-opening.png": render_board(catalog, opening_board(catalog, "green")),
         "board-green-midgame.png": render_board(catalog, midgame_board(engine)),

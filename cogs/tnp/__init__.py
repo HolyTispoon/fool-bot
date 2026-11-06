@@ -6,8 +6,9 @@ in fool-bot, under its token (docs/tnp-bot.md, decision 2).
 are (docs/design/cog-structure.md): `core` (the games, the engine, the
 service and the locks, the tokens, the startup sweep), `lobby`
 (`/tnp create_game`, the hub's **TNP** button's `open_lobby`, Start),
-`table` (the game's channel, the table, each seat's panel,
-`/tnp resume`) and `reference` (`/tnp unit`, `/tnp rules`). Nothing in
+`table` (the game's channel, the table, `/tnp resume`), `turns` (each
+seat's panel and its controls, the answers, what a turn posts, the
+table through the write gate) and `reference` (`/tnp unit`, `/tnp rules`). Nothing in
 it decides a rule: it asks `tnp/` and posts the answer.
 
 **An exception here stays here** (decision 2): `cog_load` reads the
@@ -29,6 +30,7 @@ from cogs.tnp.core import CoreMixin
 from cogs.tnp.lobby import LobbyMixin
 from cogs.tnp.reference import ReferenceMixin
 from cogs.tnp.table import TableMixin
+from cogs.tnp.turns import TurnMixin
 from cogs.tnp_helpers import UNAVAILABLE
 
 LOGGER = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ class Tnp(
     CoreMixin,
     LobbyMixin,
     TableMixin,
+    TurnMixin,
     ReferenceMixin,
     commands.GroupCog,
     group_name="tnp",

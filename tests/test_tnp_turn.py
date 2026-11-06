@@ -373,7 +373,23 @@ class MarchTests(unittest.TestCase):
         said = words(self.engine, run)
         self.assertIn("Blue reveals a Mercenary in attack A and takes area 14.", said)
         self.assertIn("Blue's 3 Worker harvest area 14: 3 blue minerals, 3 harvested in all.", said)
-        self.assertEqual(self.match.revealed[0], {"seat": "blue", "area": "14", "spot": "A", "units": {"mercenary": 1}})
+        # One pile, shown once: the Mercenary that took it and the
+        # Workers that harvested it.
+        self.assertEqual(self.match.revealed, [
+            {"seat": "blue", "area": "14", "spot": "A", "units": {"mercenary": 1, "worker": 3}},
+        ])
+
+    def test_a_pile_shown_twice_is_revealed_once(self) -> None:
+        """A Worker revealed to take a territory (TNP 5.5) is one of the
+        Workers that then harvest it (TNP 5.8): the map shows the pile
+        once, with its three Workers, never a Worker and three more."""
+        lock(self.engine, self.game, self.match, "blue", {
+            "attacks": {"A": {"target": "14", "units": {"worker": 3}}},
+        })
+        lock(self.engine, self.game, self.match, "green")
+        self.assertEqual(self.match.revealed, [
+            {"seat": "blue", "area": "14", "spot": "A", "units": {"worker": 3}},
+        ])
 
     def test_the_seat_chooses_which_tokens(self) -> None:
         """TNP 5.8: from a territory of two kinds, the seat chooses."""

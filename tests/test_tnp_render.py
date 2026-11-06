@@ -14,7 +14,7 @@ from tnp.briefs import DEFENSE, BoardBrief, MapBrief, Pile, opening_board, openi
 from tnp.catalog import catalog
 from tnp.render import (
     BATTLE_WIDTH, BOARD_WIDTH, PILE_HEADING, PILE_PITCH, crossing_areas, render_battle, render_board,
-    render_map,
+    render_attack, render_map,
 )
 from tnp_battles import fight, stage
 
@@ -39,6 +39,31 @@ class TnpMapPictureTests(unittest.TestCase):
             caption="Turn 2 · March",
         )
         self.assertEqual(picture(render_map(catalog(), brief)).size, (1627, 1282 + PILE_HEADING + 2 * PILE_PITCH))
+
+
+class TnpAttackPictureTests(unittest.TestCase):
+    """An attack's picture: the map around its territory, and the piles
+    revealed there as rows of unit tiles. Looked at, not tested for how
+    it looks; every area draws, its piles adding rows."""
+
+    def test_every_area_draws(self) -> None:
+        brief = opening_map(catalog())
+        for area in catalog().areas:
+            image = picture(render_attack(catalog(), brief, area, "A"))
+            self.assertEqual(image.format, "PNG")
+            # The map alone, no wider than its square and the padding.
+            self.assertLessEqual(image.width, 900 + 64, area)
+
+    def test_revealed_piles_add_their_tiles(self) -> None:
+        bare = picture(render_attack(catalog(), opening_map(catalog()), "14", "A"))
+        brief = MapBrief(
+            controllers={"14": "blue"}, resources=opening_map(catalog()).resources,
+            revealed=(Pile("blue", "14", "A", {"worker": 3, "mercenary": 1}),
+                      Pile("green", "9", "A", {"worker": 2})),
+        )
+        shown = picture(render_attack(catalog(), brief, "14", "A"))
+        # The piles stand in a column right of the map.
+        self.assertGreater(shown.width, bare.width)
 
 
 class TnpMapMarksFitTests(unittest.TestCase):

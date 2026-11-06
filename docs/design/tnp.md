@@ -21,7 +21,9 @@ battle by code. Step 4 built the whole basic game around the battle --
 the turn, the record, the service and the games file -- and played it
 to both wins through the driver alone. Step 5 put it on Discord as far
 as turn 1: the lobby, the game's channel, the table and each seat's
-panel, and the hub's **TNP** button.
+panel, and the hub's **TNP** button. Step 6 put the turn on Discord:
+each seat's controls, March posted attack spot by attack spot, the
+trade, Cleanup -- everything but a battle.
 
 ## A cog in fool-bot, not a bot of its own
 
@@ -381,9 +383,9 @@ plans back -- `GameService.resume` puts the unlocked seat's prompt up
 with its saved plan in its options -- which is Codex's standing tech
 choice held on the match ([codex.md](codex.md)) and is why there is no
 undo yet: a plan can be changed until it is locked (decision 10). A
-whole plan rather than a click at a time because a step 6 panel holds
-the draft and sends it, and the model then checks one thing, not a
-history of edits.
+whole plan rather than a click at a time because the model then checks
+one thing, not a history of edits; step 6's panel sends the whole plan
+again with every change (below, "The turn on Discord").
 
 **Hidden until revealed.** A plan prompt's options carry the seat's
 plan and its units, so it is its asked seat's alone, and
@@ -398,7 +400,11 @@ neutral conquest the one ground unit revealed to take the territory
 (TNP 5.5), and a harvest the Workers that did it. The rest of a pile
 that took a neutral territory stays face down in its spot.
 `MatchState.revealed` is the public record of what March showed, which
-`tnp.briefs.map_brief` builds the map from; `board_brief` is the
+`tnp.briefs.map_brief` builds the map from -- **one entry a pile** (a
+seat's units from one spot at one area), a pile shown twice, as a
+conquest's unit and then its harvesting Workers, keeping the most of
+each unit ever shown rather than the two showings added (PR #712: the
+map had drawn "1 Worker" and "3 Worker" as two piles); `board_brief` is the
 seat's own. `tests/test_tnp_driver_full_game.py` holds that the plan
 phase and its reveal name no unit.
 
@@ -630,8 +636,8 @@ rollover match -- and from the Codex bot's.
   each seat "is planning", "has locked in", or, in the trade, "has
   nothing to trade". Who is asked is read off `pending_prompts`, the one
   reading, and nothing of a plan is read at all. **My board**
-  (`TableView`, persistent) is its one button. Step 6 edits the table
-  through `BoardRefresher`'s gate as seats lock in; step 5 posts it once.
+  (`TableView`, persistent) is its one button. Since step 6 it is
+  edited through `BoardRefresher`'s gate (below, "The turn on Discord").
 - **The seat tokens are rendered at the door** (`cogs/tnp_helpers.py`,
   `TnpTokens`): `{seat:blue}` is "**Blue** (Alice)", the seat and its
   player's name -- never a mention, so the table pings nobody and an
@@ -672,9 +678,8 @@ hidden, and what is hidden is ephemeral, to its seat's player alone.**
   of each, the facilities and upgrades, the units at the base, the
   attack spots and the territories a ground unit has a path to now. All
   of it is read off `PendingPrompt.options`; the cog computes none of
-  it. A watcher is told the boards are the players'. Step 6 puts the
-  controls on the panel; until then it says planning on Discord is not
-  built yet.
+  it. A watcher is told the boards are the players'. Step 6 put the
+  controls on the panel (below).
 - **Where it was checked**: the table's text is `table_lines`, which
   reads `locked` and the asked seats and no plan
   (`test_nothing_of_a_plan_reaches_the_channel` saves a plan and reads
@@ -686,3 +691,154 @@ hidden, and what is hidden is ephemeral, to its seat's player alone.**
   kind, never the item, whose label will name a seat's units. A
   refusal is shown to the clicker alone and never logged.
 
+
+## The turn on Discord
+
+Step 6 of the worksheet: two people play a turn from Infrastructure and
+Deployment to Cleanup on Discord. Everything but a battle -- a battle
+met in March is named, and the game waits there for step 7.
+
+**A panel a seat, its controls from its prompt's options.** **My board**
+answers with the seat's board and its panel, ephemeral, and the panel's
+controls are `cogs/tnp_views/panel.py`'s, one view a turn prompt kind
+(`panel_view`, the one mapping): the plan (**What to change** -- the
+units to build, the facilities and upgrades, attack spots A and B, each
+defense -- then that part's menus, **Lock in** and **Clear plan**), the
+trade (a token kind, how many for materials and how many for gold,
+**Lock in**, **Clear trade**), March's **Ground unit to reveal**, and the
+harvest's counts and **Take**. Every menu is built from
+`PendingPrompt.options` -- the units to build with their most, the
+targets with whether a ground unit has a path now, the units at the
+base, the defenses, the tokens held -- and the panel's words are
+`tnp.formatting`'s (`plan_lines`, `plan_offer_lines`, `trade_lines`),
+off the same options: the saved plan and what its Infrastructure costs
+(`PlanOptions.cost`), the saved trade and what it gains
+(`TradeOptions.gains`), both added to the options for this, since a
+cost is the model's to work out.
+
+- **Every change is a save through the service.** A menu choice sends
+  the whole plan again (`PLAN`, `save`), which the model checks as it
+  saves (`check_plan`). So the draft is never the panel's: it is on the
+  match from the first click, a refusal -- six units from a Barracks of
+  four -- is shown at the panel's head with its section and the plan
+  stays as it was saved, and **a restart keeps both plans**: **My
+  board** opens a fresh panel over the plan saved on the match.
+  `tests/test_tnp_cog_turn.py` restarts the cog between two plans and
+  locks both in. What the panel holds itself is only what is not yet an
+  answer (`PanelState`): which part is being changed, the unit a count
+  is for, an attack's target before any unit is in it -- the model drops
+  an attack with no units, so a target alone would be lost -- and a
+  harvest's counts before **Take**.
+- **A click redraws the panel in place, through the click's own
+  response**, which spends nothing from the channel's bucket; the board
+  under it is drawn again only where the turn or the phase moved since
+  it was drawn (`PanelState.drawn`), deferred and edited through the
+  click's webhook. A panel answers clicks for an hour (`PANEL_TIMEOUT`,
+  Codex's), and is not persistent: after that, or a restart, **My
+  board** opens a fresh one over what is saved. Nothing is lost by it.
+- **Only the seat's player may click it** -- both seats', in a test game.
+  A helper may not: the panel is a seat's hidden plan.
+
+**The table is edited through the write gate** (`BoardRefresher`,
+[rate-limits.md](rate-limits.md)), shared with D12 Ball and Codex: the
+table message, `TableView`, and `table_lines` as the text beside the
+map. A lock-in that leaves the other seat still answering edits the
+table's text alone -- who has locked in, nothing of either plan -- and
+posts nothing, the table saying it; the map, unchanged, is not
+uploaded. No full-image link (`links` off): the map opens by a click on
+it, and a link is a second request after every upload. The table's
+first post is handed to the gate (`posted`), so the gate's first edit
+skips what is already up.
+
+**March, an attack spot a message.** The second lock-in runs the whole
+turn the bot owes -- the reveal, every attack, Production, and where no
+seat has a token to trade, the trades and Cleanup -- in one call, so
+the service has to say where one attack spot ends and the next begins
+and what the map looked like there; by the end of the call Cleanup has
+taken the revealed piles off it.
+
+- **`StepResult.part`** is the model's report of where: a March
+  attack's spot, "A" or "B", on the lines that attack said, and on a
+  conquest's or a harvest's answer -- and **`StepResult.area`** the
+  territory or base the attack resolved at. They say where one thing
+  ends and what it was about, never how lines are put together.
+- **The cog's batching stops the run after each March attack**
+  (`Batching.stop_after`, `cogs/tnp/core.py`'s `STOPS`), and the service
+  closes a group at each stop with its part, its area and **the frontend's
+  picture of the position there** (`Batching.picture`: the cog hands
+  back the map's brief, public by construction), then runs on. An
+  answer whose lines name a part is a group of its own, never the
+  lead-in to the next part's.
+- **The cog posts one message an attack spot** (`messages_for`): the
+  groups of one part together, with **a picture for each attack in it**
+  (`tnp.render.render_attack`, below), then one message for the rest -- March's end, Production,
+  the trades, Cleanup -- without a picture, the table carrying the map.
+  The reveal's lines lead into the first spot's. A message ends on what
+  is asked now: a seat's March question with its ask, or both seats'
+  plans or trades, and where they are answered -- **My board** on the
+  table, linked by the table's message link (no request: the link is
+  built from its ids).
+  **Whoever is asked is pinged there** (the author, 2026-11-06, on
+  PR #712): their mention on that last message, each person once, with
+  `allowed_mentions` naming them alone; nothing else TNP posts pings
+  anyone, the table and the seat tokens included. A battle that waits
+  for step 7 pings nobody: nothing on Discord can answer it yet.
+- **An attack is pictured on its spot's message, not on the table.**
+  The worksheet asked for the table's map redrawn once a slot through
+  the gate; but the gate coalesces writes inside its window and a
+  trailing write draws the position as it is when it runs, so the
+  per-spot maps of one call would never be on the table -- and by then
+  Cleanup has cleared what March revealed. On its own message each
+  attack's picture stays in the channel's history, uploaded with the
+  send the lines cost anyway (a message carries up to ten files); the
+  table goes to the position at the end of the call, through the gate,
+  once.
+- **An attack's picture is the map around its territory, with the
+  piles revealed there as their units** (the author, 2026-11-06, on
+  PR #712: "show the piles of units", "only part of the map, the
+  target territory with a bit of its surrounding"). `render_attack`
+  draws the whole map's brief -- so it holds nothing the map does not
+  -- over a square around the territory: the territory whole, ringed in
+  red, a colour no token, seat or unit type is drawn in (the author,
+  2026-11-06: "a color other than gold"), with 60 map pixels round it
+  -- the edges of its neighbours -- at least 480 a side, slid to stay
+  inside the map, and drawn on a side of 900 pixels, at most two and a
+  half times as near as the whole map ("zoom in more on the
+  territory"). A neighbour's marks are drawn only where they fit inside
+  the window whole: half a token at the edge says nothing. The map is
+  on the left ("move it to the left") and the piles in a column on its
+  right: each pile revealed at that area -- an attack's, or in a battle
+  the defense's too -- is its seat's name and spot and a tile a unit,
+  two a row, large enough to read where Discord shows the picture
+  small: the count, the name, the unit type's stripe. `scripts/render_tnp_sample.py`
+  draws two (`attack-A-2.png`, one pile; `attack-B-9.png`, a defense
+  and an attack).
+- **A battle met in March** posts its opening lines and "battles arrive
+  in step 7"; the panel of a seat asked a battle's question says the
+  same, and the game waits there.
+
+**The requests a whole turn spends** from the channel's bucket,
+measured by `test_a_whole_turn_from_infrastructure_to_cleanup` over
+`tests/codex_cog_fakes.py`'s channel, from the first plan click to turn
+2, for a turn with two neutral conquests -- one asking which unit is
+revealed -- a harvest each and both seats trading: **ten**, five sends
+and five table edits. Blue's lock-in: one edit (the text). Green's: the
+reveal and attack A's opening, with its map, a send, and the table, an
+edit. Blue's conquest: attack A's rest and B's, each a send with its
+map, March's end and Production a send, and the table an edit. Blue's
+trade: one edit. Green's: the trades, Cleanup and turn 2 a send, and
+the table an edit. Every plan click, every panel and every **My board**
+is an interaction's own route and spends none of it. With the gate's
+real six-second window, edits inside one window collapse into one
+trailing write, so the count is at most this.
+
+**Hidden information, where it was checked.** The panels are ephemeral
+and their words are the seat's own options; the table's text is
+`table_lines`, read before and after each lock-in; what is posted is the
+model's narration, which says only what the rules reveal (above, "The
+turn"); and the attacks' pictures are drawn from `map_brief`.
+`test_a_whole_turn_from_infrastructure_to_cleanup` holds that no unit
+and no target of either plan is in anything the channel was sent or
+edited to before the reveal, and `test_a_lone_lock_in_edits_the_table_and_posts_nothing`
+that a lock-in says only that. The cog's log lines name a game and
+nothing of a seat's; a refusal is shown to the clicker alone.

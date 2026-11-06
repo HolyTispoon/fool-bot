@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from cogs.d12ball_boards import BoardRefresher
 from cogs.tnp_helpers import TnpTokens
 from cogs.tnp_views import LobbyView, TableView
 from gamelocks import GameLocks
@@ -24,9 +25,16 @@ from gamesaves.tnp.storage import load_games
 from tnp.catalog import Catalog, CatalogError, load
 from tnp.components import MatchState
 from tnp.engine import RulesEngine
+from tnp.flow.result import FollowOnStep
 from tnp.game import GameStatus, TnpGame
 
 LOGGER = logging.getLogger(__name__)
+
+#: Where a run stops for a picture (`Batching.stop_after`): after each
+#: March attack, so each attack spot's lines are posted with the map as
+#: that spot left it (docs/design/tnp.md, "The turn on Discord").
+STOPS = frozenset({FollowOnStep.MARCH})
+
 
 class CoreMixin:
     def setup_state(self) -> None:
@@ -37,6 +45,23 @@ class CoreMixin:
         self.engine: Optional[RulesEngine] = None
         self.games: dict[str, TnpGame] = {}
         self.tokens = TnpTokens(None)
+        # The table's write gate (docs/design/rate-limits.md), shared
+        # with D12 Ball and Codex: the table message, its view and its
+        # text. No full-image link -- the map opens by a click on it, and
+        # a link is a second request after every upload.
+        self.boards = BoardRefresher(
+            self,
+            keep_view=lambda game: TableView(self, game.game_id),
+            links=lambda game: False,
+            message_of=lambda game: game.table_message_id,
+            text_for=self.table_text_or_none,
+            label="TNP",
+        )
+
+    async def cog_unload(self) -> None:
+        """A trailing table write still waiting holds this cog's games:
+        dropped, as D12 Ball's and Codex's are."""
+        self.boards.shutdown()
 
     async def cog_load(self) -> None:
         try:
@@ -80,7 +105,9 @@ class CoreMixin:
             return None
         service = self.__dict__.get("_service")
         if service is None or service.engine is not self.engine or service.games is not self.games:
-            service = GameService(self.engine, self.games, Batching())
+            service = GameService(
+                self.engine, self.games, Batching(stop_after=STOPS, picture=self.map_picture),
+            )
             self.__dict__["_service"] = service
         return service
 

@@ -606,6 +606,147 @@ def _draw_area_marks(draw, catalog: Catalog, brief: MapBrief, area: Area, at, s:
 
 
 # ============================================================================
+# An attack: the map around its territory, and the piles it revealed
+# ============================================================================
+
+#: The most an attack's picture may bring the map nearer than the whole
+#: map's, and the side of the square its map is drawn in, in pixels.
+ATTACK_ZOOM = 2.5
+ATTACK_MAP_SIDE = 900
+#: The map shown round the territory, in map pixels, and the least a
+#: side of the picture's map may be.
+ATTACK_MARGIN = 60
+ATTACK_MIN_SIDE = 480
+ATTACK_PAD = 32
+ATTACK_GAP = 28
+UNIT_TILE_W = 236
+UNIT_TILE_H = 150
+UNIT_TILE_GAP = 16
+#: The piles' column, right of the map: two tiles a row, large enough
+#: to read where Discord shows the picture small.
+TILES_PER_ROW = 2
+PILES_W = TILES_PER_ROW * UNIT_TILE_W + (TILES_PER_ROW - 1) * UNIT_TILE_GAP
+#: The ring round the territory attacked: a red no token, seat or unit
+#: type is drawn in (the author, 2026-11-06: not gold).
+RING = (214, 38, 64)
+
+
+def _widen(low: float, high: float, wanted: float, floor: float, ceiling: float) -> tuple[float, float]:
+    """`low`..`high` grown to `wanted` about its middle, kept inside
+    `floor`..`ceiling` by sliding, and cut to them where it cannot fit."""
+    grow = max(0.0, wanted - (high - low)) / 2
+    low, high = low - grow, high + grow
+    if low < floor:
+        high, low = high + (floor - low), floor
+    if high > ceiling:
+        low, high = low - (high - ceiling), ceiling
+    return max(low, floor), min(high, ceiling)
+
+
+def _attack_window(areas: tuple[Area, ...], area: Area) -> tuple[float, float, float, float]:
+    """
+    The part of the map an attack's picture shows, in map pixels: the
+    territory whole with a margin round it -- the edges of the areas
+    beside it -- square, at least `ATTACK_MIN_SIDE` a side, slid to stay
+    inside the map.
+    """
+    xs = [x for x, _ in area.outline]
+    ys = [y for _, y in area.outline]
+    side = max(ATTACK_MIN_SIDE, max(xs) - min(xs) + 2 * ATTACK_MARGIN, max(ys) - min(ys) + 2 * ATTACK_MARGIN)
+    floor_x, floor_y, ceiling_x, ceiling_y = _map_bounds(areas)
+    left, right = _widen(min(xs), max(xs), side, floor_x, ceiling_x)
+    top, bottom = _widen(min(ys), max(ys), side, floor_y, ceiling_y)
+    return left, top, right, bottom
+
+
+def render_attack(catalog: Catalog, brief: MapBrief, area: str, spot: str) -> bytes:
+    """
+    One attack as March resolves it, as PNG bytes: "Attack A ·
+    Territory 14" over the map close round the territory attacked --
+    the territory ringed in red, the edges of its neighbours in view,
+    every mark the whole map draws, nearer -- on the left, and on its
+    right the piles March has revealed there, each as its units' tiles
+    in its seat's colour. `brief` is the whole map's
+    (`tnp.briefs.map_brief`), so nothing hidden can reach the picture.
+    """
+    areas = _ordered_areas(catalog)
+    target = catalog.areas[area]
+    left, top, right, bottom = _attack_window(areas, target)
+    zoom = min(ATTACK_ZOOM, ATTACK_MAP_SIDE / (max(right - left, bottom - top) * MAP_SCALE))
+    s = SUPERSAMPLE * zoom
+    crop_w = round((right - left) * MAP_SCALE * zoom)
+    crop_h = round((bottom - top) * MAP_SCALE * zoom)
+
+    big = Image.new("RGB", (crop_w * SUPERSAMPLE, crop_h * SUPERSAMPLE), INK)
+    draw = ImageDraw.Draw(big)
+
+    def at(point) -> tuple[float, float]:
+        x, y = point
+        return ((x - left) * MAP_SCALE * s, (y - top) * MAP_SCALE * s)
+
+    for one in areas:
+        if one.is_base:
+            fill = SEAT_COLOURS[one.seat]["base"]
+        elif one.slug in brief.controllers:
+            fill = SEAT_COLOURS[brief.controllers[one.slug]]["held"]
+        else:
+            fill = WHITE
+        draw.polygon([at(point) for point in one.outline], fill=fill)
+    draw.polygon([at(point) for point in target.outline], outline=RING, width=round(5 * s))
+    for one in areas:
+        # A neighbour's marks only where they stand inside the picture:
+        # half a token at the edge says nothing.
+        rows, size, layout, centre = _placement(None, brief, one, s)
+        cx, cy = centre if centre is not None else _anchor(one.outline)
+        w, h = (extent / (MAP_SCALE * s) for extent in _layout_size(rows, layout, size))
+        if one is target or (left <= cx - w / 2 and cx + w / 2 <= right and top <= cy - h / 2 and cy + h / 2 <= bottom):
+            _draw_area_marks(draw, catalog, brief, one, at, s)
+    crop = big.resize((crop_w, crop_h), Image.LANCZOS)
+
+    piles = [pile for pile in brief.revealed if pile.area == area]
+    pile_heights = [
+        64 + -(-len([1 for count in pile.units.values() if count]) // TILES_PER_ROW)
+        * (UNIT_TILE_H + UNIT_TILE_GAP) + 20
+        for pile in piles
+    ]
+    header = 84
+    width = ATTACK_PAD + crop_w + ((ATTACK_GAP + PILES_W) if piles else 0) + ATTACK_PAD
+    height = header + max(crop_h, sum(pile_heights)) + ATTACK_PAD
+
+    image = Image.new("RGB", (width, height), WHITE)
+    paint = ImageDraw.Draw(image)
+    title = f"Attack {spot} · {_area_words(catalog, area)}"
+    paint.text((ATTACK_PAD, 58), title, font=font(40), fill=INK, anchor="ls")
+    image.paste(crop, (ATTACK_PAD, header))
+    paint.rounded_rectangle((ATTACK_PAD, header, ATTACK_PAD + crop_w, header + crop_h), radius=8,
+                            outline=INK, width=3)
+
+    x0 = ATTACK_PAD + crop_w + ATTACK_GAP
+    y = header
+    name_face, count_face, unit_face = font(30), font(68), font(30, bold=False)
+    for pile, pile_h in zip(piles, pile_heights):
+        colours = SEAT_COLOURS[pile.seat]
+        _spot_badge(paint, pile, (x0, y), 46)
+        paint.text((x0 + 58, y + 23), _fit(_pile_words(catalog, pile), name_face, PILES_W - 58),
+                   font=name_face, fill=colours["ink"], anchor="lm")
+        tiles = [(slug, count) for slug, count in pile.units.items() if count]
+        for index, (slug, count) in enumerate(tiles):
+            row, col = divmod(index, TILES_PER_ROW)
+            tx = x0 + col * (UNIT_TILE_W + UNIT_TILE_GAP)
+            ty = y + 64 + row * (UNIT_TILE_H + UNIT_TILE_GAP)
+            border, ink = TYPE_COLOURS[catalog.units[slug].type]
+            paint.rounded_rectangle((tx, ty, tx + UNIT_TILE_W, ty + UNIT_TILE_H), radius=10,
+                                    fill=WHITE, outline=colours["strong"], width=3)
+            paint.rounded_rectangle((tx + 3, ty + 3, tx + 19, ty + UNIT_TILE_H - 3), radius=6, fill=border)
+            paint.text((tx + 36, ty + 56), str(count), font=count_face, fill=INK, anchor="lm")
+            paint.text((tx + 36, ty + 118), _fit(catalog.name(slug), unit_face, UNIT_TILE_W - 48),
+                       font=unit_face, fill=ink, anchor="lm")
+        y += pile_h
+
+    return _png(image)
+
+
+# ============================================================================
 # The player board
 # ============================================================================
 
