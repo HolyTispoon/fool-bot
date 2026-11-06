@@ -8,7 +8,7 @@ none sends or saves anything. `tnp.prompts.pending` is the one reading
 of what the battle waits on, and every step ends by asking it.
 
 What a battle decides is handed back on the state (`outcome`) for the
-March (step 4) to put on the map; see `tnp.battle` for what it is handed
+March (`tnp.flow.turn.settle_battle`) to put on the map; see `tnp.battle` for what it is handed
 in.
 """
 
@@ -140,7 +140,7 @@ def begin_battle(
     carries the defender's `structures` (its built facilities and
     upgrades) and `emergency` (its pool and supply room).
 
-    The caller is the March (step 4), which has already applied the
+    The caller is March (`tnp.flow.turn`), which has already applied the
     deployment rules; what this refuses (`RuleRefusal`) is a battle the
     rules could not have produced.
     """

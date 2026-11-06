@@ -28,9 +28,28 @@ class FollowOnStep(Enum):
     """
     The steps a step can end by naming -- the keys of
     `tnp.flow.driver.MODEL_STEPS`, which covers this enum exactly. Each
-    is a joint of the battle a frontend may have something to decide
-    at: step 7 redraws the battle round by round.
+    is a joint a frontend may have something to decide at: step 6 posts
+    March attack by attack, and step 7 redraws the battle round by round.
     """
+
+    # -- The turn (TNP 5) -------------------------------------------------
+    #: Both seats have locked in Infrastructure and Deployment: each
+    #: pays, its queue goes on its facilities and its units into their
+    #: spots, and March opens (TNP 5.2, 5.3).
+    REVEAL = auto()
+    #: The next attack of March, or March's end (TNP 5.4 to 5.8).
+    MARCH = auto()
+    #: A battle in March is over: its outcome goes on the map (TNP 5.7,
+    #: 6.11).
+    SETTLE_BATTLE = auto()
+    #: Production and Trade opens: the queues are finished (TNP 5.9).
+    PRODUCE = auto()
+    #: Both seats have locked in their trades (TNP 5.9).
+    SETTLE_TRADES = auto()
+    #: Cleanup, the 51% count, and the next turn (TNP 5.10, 1.3).
+    CLEANUP = auto()
+
+    # -- The battle (TNP 6) ---------------------------------------------
 
     #: A round's start (TNP 6.4, 6.5): the scouting advantage, the
     #: unengaged forces lifted out of the line, and who places first.

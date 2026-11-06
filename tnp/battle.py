@@ -13,7 +13,7 @@ upgrades (TNP 6.9), the pool and the supply an emergency defense spends
 (TNP 6.2), and step 9's card modifiers (TNP 4.2) -- is handed in when it
 opens and kept on it, and what it decides is handed back in `outcome`
 and beside it (`structures`, `emergency`, `produced`), for the March
-(step 4) to put on the map. See docs/design/tnp.md, "The battle".
+(`tnp.flow.turn.settle_battle`) to put on the map. See docs/design/tnp.md, "The battle".
 
 **The line** is a list of columns, left to right. A column holds at
 most one force a seat **in front** -- two, one a seat, is an engaged

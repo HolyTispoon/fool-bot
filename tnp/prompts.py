@@ -10,11 +10,18 @@ every legal choice, one dataclass per kind built by the `OPTIONS` table
 off `tnp.battle`'s readings -- which a view and `driver.answer` both
 read, so nothing computes a candidate list of its own.
 
-Step 2 asks only a battle's questions (TNP 6), each of one seat at a
-time: `asked_seat` is the seat asked. Step 4 adds the turn's, two of
-which ask both seats at once (docs/tnp-bot.md, decision 7). A battle's
-units are revealed (TNP 6.1) and a seat's pool is open information
-(TNP 2.2), so nothing a battle prompt carries is hidden.
+Step 2 asks a battle's questions (TNP 6), each of one seat at a time:
+`asked_seat` is the seat asked. Step 4 adds the turn's (TNP 5): two
+**simultaneous** kinds, `PLAN` and `TRADE`, which ask both seats at
+once (docs/tnp-bot.md, decision 7), and `CONQUER`, one seat's in March.
+**`pending_all` is the one reading** -- every question open now, both
+seats' in a simultaneous phase, or the step the bot owes -- and
+`pending` the one thing where there is one thing, raising
+`SeveralAsked` where both seats are asked (Codex's two-headed dragon,
+`codex/prompts.py`). A battle's units are revealed (TNP 6.1) and a
+seat's pool is open information (TNP 2.2), so nothing a battle prompt
+carries is hidden; **a `PLAN` or `TRADE` prompt is its asked seat's
+alone** -- its options carry the seat's saved plan and its units.
 """
 
 from __future__ import annotations
@@ -34,6 +41,7 @@ from tnp.battle import (
     ROLE,
     ROUND,
     ROUND_END,
+    SEATS,
     BattleState,
     aimed,
     carriable,
@@ -55,15 +63,28 @@ from tnp.battle import (
     unplaced,
 )
 from tnp.catalog import UnitType
+from tnp.components import MARCH, OVER, PLAN, PRODUCTION, TRADE, CLEANUP, MatchState
 from tnp.flow.result import FollowOn, FollowOnStep
 from tnp.wire import jsonable
 
 if TYPE_CHECKING:
-    from tnp.components import MatchState
     from tnp.engine import RulesEngine
 
 
 class PromptKind(Enum):
+    # -- The turn (TNP 5) ---------------------------------------------------
+    #: Infrastructure and Deployment, both seats at once: the plan, kept
+    #: until the seat locks in (TNP 5.2, 5.3).
+    PLAN = "plan"
+    #: Which ground unit is revealed to take a neutral territory (TNP 5.5).
+    CONQUER = "conquer"
+    #: Which kinds of token a harvest takes, where the territory holds
+    #: more than one (TNP 5.8).
+    HARVEST = "harvest"
+    #: Production and Trade's trade, both seats at once (TNP 5.9).
+    TRADE = "trade"
+
+    # -- The battle (TNP 6) ---------------------------------------------------
     #: Both seats attacked a neutral territory and one has the scouting
     #: advantage: it chooses to attack or defend (TNP 6.1).
     CHOOSE_ROLE = "choose_role"
@@ -96,6 +117,96 @@ class _Wire:
 
 
 # -- What each kind offers -------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BuildOption(_Wire):
+    """A unit the seat's board builds now (TNP 5.2): its facility, its
+    cost, and the most of it the supply and the facility's cap allow."""
+
+    unit: str
+    facility: str
+    materials: int
+    gold: int
+    most: int
+
+
+@dataclass(frozen=True)
+class FacilityCap(_Wire):
+    facility: str
+    cap: int
+
+
+@dataclass(frozen=True)
+class StructureOption(_Wire):
+    """A facility or upgrade the seat may place this Infrastructure."""
+
+    structure: str
+    materials: int
+    gold: int
+
+
+@dataclass(frozen=True)
+class AttackTarget(_Wire):
+    """An area an attack may be aimed at, who holds it, and whether a
+    ground unit has a path there now (TNP 5.3) -- an attack may still be
+    planned without one, in the hope of a path by the time it resolves."""
+
+    area: str
+    held_by: Optional[str]
+    path: bool
+
+
+@dataclass(frozen=True)
+class PlanOptions(_Wire):
+    seat: str
+    turn: int
+    #: The pool (TNP 2.2): what Infrastructure spends is the materials
+    #: and gold in it.
+    pool: Mapping[str, int]
+    build: tuple[BuildOption, ...]
+    caps: tuple[FacilityCap, ...]
+    structures: tuple[StructureOption, ...]
+    #: The units at the base, deployable (TNP 5.3).
+    available: Mapping[str, int]
+    #: The attack spots, and what each may be aimed at (TNP 2.5, 5.3).
+    spots: tuple[str, ...]
+    targets: tuple[AttackTarget, ...]
+    #: Where defenders may go: the territories held, and the base.
+    defenses: tuple[str, ...]
+    #: The units that go only into the base defense spot (TNP 7).
+    base_only: tuple[str, ...]
+    together: tuple["TogetherLimit", ...]
+    #: The plan saved so far (`tnp.turn.normal_plan`'s shape), or `None`.
+    plan: Optional[Mapping[str, Any]] = None
+
+
+@dataclass(frozen=True)
+class ConquerOptions(_Wire):
+    area: str
+    spot: str
+    #: The ground units in the attacking pile, one of which is revealed.
+    units: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class HarvestOptions(_Wire):
+    area: str
+    #: How many tokens the Workers take: one a Worker (TNP 5.8).
+    count: int
+    #: The tokens left on the territory, by kind.
+    left: Mapping[str, int]
+
+
+@dataclass(frozen=True)
+class TradeOptions(_Wire):
+    seat: str
+    #: The minerals and gems in the pool, by kind.
+    tokens: Mapping[str, int]
+    #: The conversion rates (TNP 5.9): `{"mineral": {"materials", "gold"}, "gem": ...}`.
+    rates: Mapping[str, Mapping[str, Optional[int]]]
+    #: The trade saved so far (`tnp.turn.normal_trade`'s shape), or `None`.
+    trade: Optional[Mapping[str, Any]] = None
 
 
 @dataclass(frozen=True)
@@ -249,7 +360,7 @@ class DestroyOptions(_Wire):
 
 
 PromptOptions = Union[
-    RoleOptions, EmergencyOptions, RepositionOptions, PlaceOptions, RetreatOptions, TargetOptions,
+    PlanOptions, ConquerOptions, HarvestOptions, TradeOptions, RoleOptions, EmergencyOptions, RepositionOptions, PlaceOptions, RetreatOptions, TargetOptions,
     RepairOptions, SplashOptions, DestroyOptions,
 ]
 
@@ -278,15 +389,22 @@ class Action:
     """
     What somebody did, named by the question it answers (`codex.prompts.Action`):
     `choice` is which of the prompt's answers (`CHOICES`), `arguments`
-    what was chosen -- a force, a slot, a target.
+    what was chosen -- a force, a slot, a target, a plan. **`seat` names
+    whose answer it is**, which a simultaneous kind (`SIMULTANEOUS`)
+    must, since both seats are asked at once; any other kind may, and is
+    refused where it names a seat that was not asked.
     """
 
     kind: PromptKind
     choice: str = ""
     arguments: Mapping[str, Any] = field(default_factory=dict)
+    seat: Optional[str] = None
 
     def to_dict(self) -> dict:
-        return {"kind": self.kind.value, "choice": self.choice, "arguments": jsonable(dict(self.arguments))}
+        return {
+            "kind": self.kind.value, "choice": self.choice,
+            "arguments": jsonable(dict(self.arguments)), "seat": self.seat,
+        }
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "Action":
@@ -295,11 +413,20 @@ class Action:
             kind=PromptKind(data["kind"]),
             choice=data.get("choice") or "",
             arguments=dict(data.get("arguments") or {}),
+            seat=data.get("seat"),
         )
+
+
+#: The kinds that ask both seats at once (decision 7).
+SIMULTANEOUS = frozenset({PromptKind.PLAN, PromptKind.TRADE})
 
 
 #: The answers each kind offers. A kind with one answer offers "".
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
+    PromptKind.PLAN: ("save", "lock"),
+    PromptKind.CONQUER: ("",),
+    PromptKind.HARVEST: ("",),
+    PromptKind.TRADE: ("save", "lock"),
     PromptKind.CHOOSE_ROLE: ("attack", "defend"),
     PromptKind.EMERGENCY_DEFENSE: ("build", "none"),
     PromptKind.REPOSITION_FLANKERS: ("keep", "move"),
@@ -315,12 +442,14 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
 # -- The options ---------------------------------------------------------------
 
 
-def _role_options(engine, battle: BattleState, prompt) -> RoleOptions:
+def _role_options(engine, match, prompt) -> RoleOptions:
+    battle = match.battle
     advantage = scouting_advantage(engine, battle)
     return RoleOptions(advantage["seat"], advantage["by"])
 
 
-def _emergency_options(engine, battle: BattleState, prompt) -> EmergencyOptions:
+def _emergency_options(engine, match, prompt) -> EmergencyOptions:
+    battle = match.battle
     most, together = emergency_limits(engine, battle)
     pool = (battle.emergency or {}).get("pool", {})
     return EmergencyOptions(
@@ -335,7 +464,8 @@ def _emergency_options(engine, battle: BattleState, prompt) -> EmergencyOptions:
     )
 
 
-def _reposition_options(engine, battle: BattleState, prompt) -> RepositionOptions:
+def _reposition_options(engine, match, prompt) -> RepositionOptions:
+    battle = match.battle
     seat = prompt.asked_seat
     found = []
     for column in battle.line:
@@ -345,7 +475,8 @@ def _reposition_options(engine, battle: BattleState, prompt) -> RepositionOption
     return RepositionOptions(seat, tuple(found))
 
 
-def _place_options(engine, battle: BattleState, prompt) -> PlaceOptions:
+def _place_options(engine, match, prompt) -> PlaceOptions:
+    battle = match.battle
     seat = prompt.asked_seat
     return PlaceOptions(
         seat=seat,
@@ -359,7 +490,8 @@ def _place_options(engine, battle: BattleState, prompt) -> PlaceOptions:
     )
 
 
-def _retreat_options(engine, battle: BattleState, prompt) -> RetreatOptions:
+def _retreat_options(engine, match, prompt) -> RetreatOptions:
+    battle = match.battle
     seat = prompt.asked_seat
     if battle.paths_home.get(seat, False):
         return RetreatOptions(seat, battle.round)
@@ -378,7 +510,8 @@ def _retreat_options(engine, battle: BattleState, prompt) -> RetreatOptions:
     )
 
 
-def _target_options(engine, battle: BattleState, prompt) -> TargetOptions:
+def _target_options(engine, match, prompt) -> TargetOptions:
+    battle = match.battle
     seat = prompt.asked_seat
     shooters = []
     for ident in rollers(engine, battle, seat):
@@ -395,7 +528,8 @@ def _target_options(engine, battle: BattleState, prompt) -> TargetOptions:
     return TargetOptions(seat, battle.group, tuple(shooters))
 
 
-def _repair_options(engine, battle: BattleState, prompt) -> RepairOptions:
+def _repair_options(engine, match, prompt) -> RepairOptions:
+    battle = match.battle
     owed = battle.owed[0]
     return RepairOptions(
         owed["force"], battle.hits.get(owed["force"], 0),
@@ -403,16 +537,95 @@ def _repair_options(engine, battle: BattleState, prompt) -> RepairOptions:
     )
 
 
-def _splash_options(engine, battle: BattleState, prompt) -> SplashOptions:
+def _splash_options(engine, match, prompt) -> SplashOptions:
+    battle = match.battle
     owed = battle.owed[0]
     return SplashOptions(owed["force"], owed["hit"], splash_targets(engine, battle, owed["hit"]))
 
 
-def _destroy_options(engine, battle: BattleState, prompt) -> DestroyOptions:
+def _destroy_options(engine, match, prompt) -> DestroyOptions:
+    battle = match.battle
     return DestroyOptions(destroyable(engine, battle))
 
 
+def _plan_options(engine, match, prompt) -> PlanOptions:
+    from tnp import turn
+
+    seat = prompt.asked_seat
+    state = match.seat(seat)
+    catalog = engine.catalog
+    room = turn.supply_room(engine, match, seat)
+    build = []
+    for slug, unit in catalog.units.items():
+        if not turn.can_build_unit(engine, state, slug):
+            continue
+        most = min(room[slug], turn.production_cap(engine, state, unit.facility))
+        build.append(BuildOption(slug, unit.facility, unit.cost.materials, unit.cost.gold, most))
+    return PlanOptions(
+        seat=seat,
+        turn=match.turn,
+        pool=dict(state.pool),
+        build=tuple(build),
+        caps=tuple(
+            FacilityCap(slug, turn.production_cap(engine, state, slug))
+            for slug in catalog.facilities if slug in state.built
+        ),
+        structures=tuple(
+            StructureOption(slug, turn.structure_cost(engine, slug).materials,
+                            turn.structure_cost(engine, slug).gold)
+            for slug in turn.structures_open(engine, state)
+        ),
+        available=dict(state.available),
+        spots=turn.attack_spots(match),
+        targets=tuple(
+            AttackTarget(area, match.controller(area), turn.has_path(engine, match, seat, area))
+            for area in sorted(turn.attack_targets(engine, seat), key=turn.area_order)
+        ),
+        defenses=turn.defense_areas(engine, match, seat),
+        base_only=tuple(slug for slug in catalog.units if engine.has_trait(slug, "base_defense")),
+        together=tuple(
+            TogetherLimit(tuple(limit["units"]), int(limit["max"]))
+            for limit in catalog.board["limits"]["deployed_together"]
+        ),
+        plan=state.plan,
+    )
+
+
+def _conquer_options(engine, match, prompt) -> ConquerOptions:
+    from tnp import turn
+
+    resolving = match.resolving
+    return ConquerOptions(
+        resolving["area"], resolving["spot"],
+        tuple(turn.ground_units(engine, resolving["piles"][prompt.asked_seat])),
+    )
+
+
+def _harvest_options(engine, match, prompt) -> HarvestOptions:
+    from tnp.flow.turn import harvest_choice
+
+    resolving = match.resolving
+    count, left = harvest_choice(match, resolving["area"], resolving["harvest"]["workers"])
+    return HarvestOptions(resolving["area"], count, left)
+
+
+def _trade_options(engine, match, prompt) -> TradeOptions:
+    from tnp.components import RESOURCES
+
+    state = match.seat(prompt.asked_seat)
+    return TradeOptions(
+        prompt.asked_seat,
+        {kind: int(state.pool.get(kind, 0)) for kind in RESOURCES},
+        engine.catalog.board["conversion"]["normal"],
+        state.plan,
+    )
+
+
 OPTIONS = {
+    PromptKind.PLAN: _plan_options,
+    PromptKind.CONQUER: _conquer_options,
+    PromptKind.HARVEST: _harvest_options,
+    PromptKind.TRADE: _trade_options,
     PromptKind.CHOOSE_ROLE: _role_options,
     PromptKind.EMERGENCY_DEFENSE: _emergency_options,
     PromptKind.REPOSITION_FLANKERS: _reposition_options,
@@ -425,8 +638,8 @@ OPTIONS = {
 }
 
 
-def with_options(engine: "RulesEngine", battle: BattleState, prompt: PendingPrompt) -> PendingPrompt:
-    return replace(prompt, options=OPTIONS[prompt.kind](engine, battle, prompt))
+def with_options(engine: "RulesEngine", match: MatchState, prompt: PendingPrompt) -> PendingPrompt:
+    return replace(prompt, options=OPTIONS[prompt.kind](engine, match, prompt))
 
 
 # -- The asks --------------------------------------------------------------------
@@ -512,20 +725,124 @@ def _pending(engine: "RulesEngine", battle: BattleState) -> Union[PendingPrompt,
     return None
 
 
-def pending(engine: "RulesEngine", game, match: "MatchState") -> Union[PendingPrompt, FollowOn, None]:
+#: Where the turn's phase is one the bot runs, the step it owes.
+TURN_STEPS = {
+    PRODUCTION: FollowOnStep.PRODUCE,
+    CLEANUP: FollowOnStep.CLEANUP,
+}
+
+
+def _plan_ask(match: MatchState, seat: str) -> PendingPrompt:
+    return PendingPrompt(
+        PromptKind.PLAN,
+        f"{tokens.seat(seat)}, turn {match.turn}: Infrastructure and Deployment. Plan what to "
+        "build and where your units go, then lock in.",
+        seat,
+    )
+
+
+def _trade_ask(match: MatchState, seat: str) -> PendingPrompt:
+    return PendingPrompt(
+        PromptKind.TRADE,
+        f"{tokens.seat(seat)}, Production and Trade: trade your minerals and gems, then lock in.",
+        seat,
+    )
+
+
+def _turn_pending(engine: "RulesEngine", game, match: MatchState) -> list[Union[PendingPrompt, FollowOn]]:
     """
-    What this match is waiting on: a seat's question, with its options,
-    or the step the bot owes -- or `None` where nothing is (no battle,
-    or one already over). `game`, the record, is step 5's; nothing reads
-    it yet.
+    Everything a game's turn waits on (TNP 5): a battle's one question
+    while March fights one, the step that puts its outcome on the map
+    once it is over, both seats' plans or trades in a simultaneous phase
+    -- each seat that has not locked in, and in the trade only a seat
+    with something to trade -- and otherwise the step the bot owes.
     """
+    from tnp import turn
+
+    if match.winner is not None or match.phase == OVER:
+        return []
     battle = match.battle
-    if battle is None:
-        return None
-    waiting = _pending(engine, battle)
-    if isinstance(waiting, PendingPrompt):
-        return with_options(engine, battle, waiting)
-    return waiting
+    if battle is not None:
+        if battle.outcome is None:
+            waiting = _pending(engine, battle)
+            return [] if waiting is None else [waiting]
+        return [FollowOn(FollowOnStep.SETTLE_BATTLE)]
+    phase = match.phase
+    if phase == PLAN:
+        asked = [_plan_ask(match, seat) for seat in SEATS if not match.seat(seat).locked]
+        return asked or [FollowOn(FollowOnStep.REVEAL)]
+    if phase == MARCH:
+        resolving = match.resolving
+        if resolving is not None and resolving.get("stage") == "harvest":
+            seat = resolving["harvest"]["seat"]
+            return [PendingPrompt(
+                PromptKind.HARVEST,
+                f"{tokens.seat(seat)}, your Workers harvest {tokens.area(resolving['area'])}: "
+                "choose which tokens they take.", seat,
+            )]
+        if resolving is not None and resolving.get("stage") == "conquer":
+            (seat,) = resolving["piles"]
+            return [PendingPrompt(
+                PromptKind.CONQUER,
+                f"{tokens.seat(seat)}, reveal a ground unit from attack {resolving['spot']} to take "
+                f"{tokens.area(resolving['area'])}.", seat,
+            )]
+        return [FollowOn(FollowOnStep.MARCH)]
+    if phase == TRADE:
+        asked = [
+            _trade_ask(match, seat) for seat in SEATS
+            if not match.seat(seat).locked and turn.has_tokens(match, seat)
+        ]
+        return asked or [FollowOn(FollowOnStep.SETTLE_TRADES)]
+    if phase in TURN_STEPS:
+        return [FollowOn(TURN_STEPS[phase])]
+    return []
+
+
+def pending_all(engine: "RulesEngine", game, match: MatchState) -> tuple[Union[PendingPrompt, FollowOn], ...]:
+    """
+    **Everything this match is waiting on -- the one reading.** One
+    prompt a seat in a simultaneous phase (both, until one locks in),
+    one seat's question in a battle or in March, a step the bot owes
+    alone, or nothing (the game over, or a battle staged alone and
+    over). Each prompt carries its options. `game`, the record, is
+    step 5's; nothing reads it yet.
+    """
+    if not match.playing:
+        battle = match.battle
+        waiting = None if battle is None else _pending(engine, battle)
+        found = [] if waiting is None else [waiting]
+    else:
+        found = _turn_pending(engine, game, match)
+    return tuple(
+        with_options(engine, match, one) if isinstance(one, PendingPrompt) else one
+        for one in found
+    )
+
+
+class SeveralAsked(RuntimeError):
+    """`pending` was asked of a match whose phase asks both seats at once:
+    it has no one question. A frontend lists them with `pending_prompts`
+    (`codex.prompts.SeveralAsked`, the precedent)."""
+
+
+def pending(engine: "RulesEngine", game, match: MatchState) -> Union[PendingPrompt, FollowOn, None]:
+    """
+    The one thing this match is waiting on: a seat's question, with its
+    options, or the step the bot owes -- or `None` where nothing is.
+    **Raises `SeveralAsked` where both seats are asked at once**: nothing
+    may read one seat's plan prompt for the phase's.
+    """
+    everything = pending_all(engine, game, match)
+    if len(everything) > 1:
+        raise SeveralAsked("Both seats are asked; list them with pending_prompts.")
+    return everything[0] if everything else None
+
+
+def pending_prompts(engine, game, match) -> tuple[PendingPrompt, ...]:
+    """Every question asked now, in seat order: both seats' in a
+    simultaneous phase, none while the bot owes a step."""
+    return tuple(one for one in pending_all(engine, game, match) if isinstance(one, PendingPrompt))
 
 
 def pending_prompt(engine, game, match) -> Optional[PendingPrompt]:
@@ -533,6 +850,15 @@ def pending_prompt(engine, game, match) -> Optional[PendingPrompt]:
     return waiting if isinstance(waiting, PendingPrompt) else None
 
 
+def prompt_for(engine, game, match, seat: str) -> Optional[PendingPrompt]:
+    """The question `seat` is asked now, if any -- what a seat's own
+    panel shows."""
+    for one in pending_prompts(engine, game, match):
+        if one.asked_seat == seat:
+            return one
+    return None
+
+
 def owed_step(engine, game, match) -> Optional[FollowOn]:
-    waiting = pending(engine, game, match)
-    return waiting if isinstance(waiting, FollowOn) else None
+    everything = pending_all(engine, game, match)
+    return everything[0] if everything and isinstance(everything[0], FollowOn) else None

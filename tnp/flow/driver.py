@@ -9,8 +9,10 @@ is the shape it is (docs/design/model-discord-split.md,
 docs/design/game-service.md). **`apply` is the one door** every click
 goes through. It does not persist and it does not authorise: whose
 Discord account may press a button is the frontend's question, and the
-save is the service's (step 4 of docs/tnp-bot.md). There is no journal
-yet: undo is later (docs/tnp-bot.md, decision 10).
+save is the service's (`gamesaves.tnp.service`). There is no journal
+yet: undo is later (docs/tnp-bot.md, decision 10). A simultaneous
+phase's answers name their seat (`Action.seat`), since both seats are
+asked at once (`tnp.prompts.pending_all`).
 """
 
 from __future__ import annotations
@@ -20,9 +22,12 @@ from typing import TYPE_CHECKING, Callable, Iterable, Mapping, Optional, Union
 
 from gamekit.driver import MOVED_ON, STEP_OWED  # noqa: F401 -- re-exported
 from tnp.flow import battle as fight
+from tnp.flow import turn
 from tnp.flow.result import FollowOn, FollowOnStep, Roll, StepResult
 from tnp.game import RuleRefusal
-from tnp.prompts import CHOICES, Action, PendingPrompt, PromptKind, pending
+from tnp.prompts import (
+    CHOICES, SIMULTANEOUS, Action, PendingPrompt, PromptKind, pending_all,
+)
 
 if TYPE_CHECKING:
     from tnp.components import MatchState
@@ -37,6 +42,12 @@ __all__ = [
 #: Every `FollowOnStep`, run. `tests/test_tnp_battle.py` holds it to the
 #: enum exactly.
 MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
+    FollowOnStep.REVEAL: turn.reveal,
+    FollowOnStep.MARCH: turn.march,
+    FollowOnStep.SETTLE_BATTLE: turn.settle_battle,
+    FollowOnStep.PRODUCE: turn.produce,
+    FollowOnStep.SETTLE_TRADES: turn.settle_trades,
+    FollowOnStep.CLEANUP: turn.cleanup,
     FollowOnStep.BEGIN_ROUND: fight.begin_round,
     FollowOnStep.CLOSE_GROUP: fight.close_group,
     FollowOnStep.END_ROUND: fight.end_round,
@@ -166,6 +177,10 @@ class Refusal:
 
 #: What a click on a prompt the position has moved on from is told.
 STALE_CLICK: Mapping[PromptKind, str] = {
+    PromptKind.PLAN: "That seat has locked in, or Infrastructure and Deployment is over.",
+    PromptKind.CONQUER: "That territory has already been taken or not.",
+    PromptKind.HARVEST: "That harvest has already been taken.",
+    PromptKind.TRADE: "That seat has locked in, or the trade is over.",
     PromptKind.CHOOSE_ROLE: "The sides have already been chosen.",
     PromptKind.EMERGENCY_DEFENSE: "The emergency defense has already been decided.",
     PromptKind.REPOSITION_FLANKERS: "The flanking forces have already been kept or moved.",
@@ -182,6 +197,22 @@ def _required(value, name: str):
     if value is None:
         raise RuleRefusal(f"That answer needs a {name}.")
     return value
+
+
+def _answer_plan(engine, game, match, prompt, choice, *, plan=None) -> StepResult:
+    return turn.answer_plan(engine, game, match, prompt.asked_seat, choice, plan)
+
+
+def _answer_conquer(engine, game, match, prompt, choice, *, unit=None) -> StepResult:
+    return turn.answer_conquer(engine, game, match, prompt.asked_seat, _required(unit, "unit"))
+
+
+def _answer_harvest(engine, game, match, prompt, choice, *, tokens=None) -> StepResult:
+    return turn.answer_harvest(engine, game, match, prompt.asked_seat, tokens)
+
+
+def _answer_trade(engine, game, match, prompt, choice, *, trade=None) -> StepResult:
+    return turn.answer_trade(engine, game, match, prompt.asked_seat, choice, trade)
 
 
 def _answer_role(engine, game, match, prompt, choice) -> StepResult:
@@ -222,6 +253,10 @@ def _answer_destroy(engine, game, match, prompt, choice, *, thing=None) -> StepR
 
 #: Every `PromptKind`, answered. Covers the enum exactly.
 ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
+    PromptKind.PLAN: _answer_plan,
+    PromptKind.CONQUER: _answer_conquer,
+    PromptKind.HARVEST: _answer_harvest,
+    PromptKind.TRADE: _answer_trade,
     PromptKind.CHOOSE_ROLE: _answer_role,
     PromptKind.EMERGENCY_DEFENSE: _answer_emergency,
     PromptKind.REPOSITION_FLANKERS: _answer_reposition,
@@ -235,6 +270,10 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
 
 #: The arguments each kind's answer may take.
 ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
+    PromptKind.PLAN: frozenset({"plan"}),
+    PromptKind.CONQUER: frozenset({"unit"}),
+    PromptKind.HARVEST: frozenset({"tokens"}),
+    PromptKind.TRADE: frozenset({"trade"}),
     PromptKind.CHOOSE_ROLE: frozenset(),
     PromptKind.EMERGENCY_DEFENSE: frozenset({"units", "trade"}),
     PromptKind.REPOSITION_FLANKERS: frozenset({"forces"}),
@@ -250,17 +289,29 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
 def answer(engine: "RulesEngine", game, match: "MatchState",
            action: Action) -> Union[StepResult, Refusal]:
     """
-    Answer the question this match is waiting on, and nothing after it.
-    Refused while the bot owes a step, for a question not asked, for an
-    answer the kind does not offer, for an argument it does not take, and
-    wherever the position says no (`RuleRefusal`, the one exception
-    caught).
+    Answer a question this match is waiting on, and nothing after it.
+    Refused while the bot owes a step, for a question not asked -- of
+    that seat, where the action names one, which a simultaneous kind
+    must -- for an answer the kind does not offer, for an argument it
+    does not take, and wherever the position says no (`RuleRefusal`, the
+    one exception caught). A refusal changes nothing, even where it was
+    found part-way.
     """
-    waiting = pending(engine, game, match)
-    if isinstance(waiting, FollowOn):
+    everything = pending_all(engine, game, match)
+    if everything and isinstance(everything[0], FollowOn):
         return Refusal(STEP_OWED, waiting_on=None)
-    if waiting is None or waiting.kind is not action.kind:
-        return Refusal(STALE_CLICK.get(action.kind, MOVED_ON), waiting_on=waiting)
+    asked = [one for one in everything if isinstance(one, PendingPrompt)]
+    first = asked[0] if asked else None
+    if action.kind in SIMULTANEOUS and action.seat is None:
+        return Refusal("That answer names the seat it is for.", waiting_on=first)
+    if action.seat is not None:
+        mine = [one for one in asked if one.asked_seat == action.seat]
+        first = mine[0] if mine else first
+        asked = mine
+    found = [one for one in asked if one.kind is action.kind]
+    if not found:
+        return Refusal(STALE_CLICK.get(action.kind, MOVED_ON), waiting_on=first)
+    waiting = found[0]
     if action.choice not in CHOICES[action.kind]:
         return Refusal("That is not one of the answers this question offers.", waiting_on=waiting)
     unexpected = set(action.arguments) - ARGUMENTS[action.kind]
@@ -269,14 +320,13 @@ def answer(engine: "RulesEngine", game, match: "MatchState",
             "That answer does not take " + ", ".join(sorted(unexpected)) + ".",
             waiting_on=waiting,
         )
-    before = match.battle.to_dict()
+    before = match.to_dict()
     try:
         return ANSWERS[action.kind](engine, game, match, waiting, action.choice, **dict(action.arguments))
     except RuleRefusal as refused:
-        # A refusal changes nothing, even where it was found part-way.
-        from tnp.battle import BattleState
+        from tnp.components import MatchState
 
-        match.battle = BattleState.from_dict(before)
+        match.__dict__.update(MatchState.from_dict(before).__dict__)
         return Refusal(str(refused), waiting_on=waiting, cite=refused.cite)
 
 
@@ -303,7 +353,7 @@ def resume(engine: "RulesEngine", game, match: "MatchState",
     """Run the step the bot owes, where it owes one -- after a restart
     that came between two of its own steps, or after a `stop_after`.
     `None` where somebody is asked or nothing is."""
-    waiting = pending(engine, game, match)
-    if not isinstance(waiting, FollowOn):
+    everything = pending_all(engine, game, match)
+    if not everything or not isinstance(everything[0], FollowOn):
         return None
-    return advance(engine, game, match, StepResult(next=waiting), own_message=own_message)
+    return advance(engine, game, match, StepResult(next=everything[0]), own_message=own_message)

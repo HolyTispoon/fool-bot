@@ -17,7 +17,9 @@ the map's outlines traced from the map's own picture, the catalog over
 them, and the `/tnp` group in fool-bot with `/tnp unit` and
 `/tnp rules`. Step 2 built the battle, with no frontend, through the
 model's own driver. Step 3 drew the map, the player board and the
-battle by code.
+battle by code. Step 4 built the whole basic game around the battle --
+the turn, the record, the service and the games file -- and played it
+to both wins through the driver alone.
 
 ## A cog in fool-bot, not a bot of its own
 
@@ -62,7 +64,8 @@ over `tnp/` started in step 2 with the first rule:
 `tests/test_tnp_purity.py` holds `tnp/` (and `gamesaves/tnp/` once it
 exists) to no `discord`, no `async def`, Pillow only in
 `tnp/render.py`, no import of a cog, and `random` imported only by
-`tnp/engine.py`, so every draw is `engine.rng`.
+`tnp/engine.py`, so every draw is `engine.rng`. Since step 4 it covers
+`gamesaves/tnp/` too.
 
 ## The rules
 
@@ -222,7 +225,7 @@ the steps that change it.
 
 **A battle is a saved state of its own.** `BattleState`, with its
 `SavedField` table, is saved whole under `MatchState.battle` -- the
-match's only field until step 4 adds the turn around it -- so a battle
+match's only field until step 4 added the turn around it -- so a battle
 survives a restart mid-round: `tests/test_tnp_battle.py` saves one
 part-way through, loads it into a fresh engine with the same `rng`
 state, and plays it to the same bytes.
@@ -333,6 +336,132 @@ force's column, +1 on top of the −1 a column; a split force's hits on those
 staying first; Splash once a roll, from the side hit, a damaged unit
 first.
 
+## The turn
+
+Step 4 built the turn (TNP 5) around step 2's battle, in the same
+shapes. `tnp/components.py` holds the match: the turn and the phase,
+each area (`AreaState`: its controller, its tokens left, its Stranded
+tokens), each seat (`SeatState`: its faction, what is built, its pool,
+its units at the base, what its Infrastructure queued, the tokens it
+has harvested, and its plan), the defense spots by area and seat
+(`Pile`, units with their damage), the attack piles March has not
+reached, the attack being resolved, what March has revealed, and the
+winner -- each class with its own `SavedField` table, held to its
+fields by `tests/test_tnp_turn.py`. `tnp/turn.py` holds the readings --
+what a seat's held territories join to its base, whether a pile
+reaches, what a seat owns and may build, and the checks on a plan and
+a trade -- and `tnp/flow/turn.py` the steps. `tnp/game.py` gained the
+record, `TnpGame`; `gamesaves/tnp/` the service and `data/tnp_games.json`.
+
+**A simultaneous phase.** Infrastructure and Deployment, and Production
+and Trade's trade, ask both seats at once (decision 7): `PLAN` and
+`TRADE` are prompt kinds asked of each seat that has not locked in, and
+in the trade only of a seat with a mineral or a gem, since a question
+with no choice is not asked. `tnp.prompts.pending_all` is the one
+reading -- every prompt open, or the step the bot owes -- and `pending`
+the one thing where there is one, raising `SeveralAsked` where both
+seats are asked, as Codex's two-headed dragon does
+([codex.md](codex.md), "Multiplayer"). An answer to a simultaneous kind
+names its seat (`Action.seat`); `driver.answer` finds that seat's
+prompt and refuses an action without one. Once both have locked in the
+phase is the bot's to move on: `REVEAL` and `SETTLE_TRADES` are owed
+steps.
+
+**Where a locked plan is kept: on the match.** A seat's answer is its
+whole plan -- a dict of what to build, which facilities and upgrades,
+each attack spot's target and units, each defense's units
+(`tnp/turn.py`'s docstring has the shape) -- or its whole trade, and it
+lives on `SeatState.plan` with `locked`, saved with the match. `save`
+keeps it, checked as it is saved so a locked plan is always one the
+rules allow; `lock` locks in the plan given or the one saved; and a
+locked seat is asked nothing more. So a restart mid-phase reads both
+plans back -- `GameService.resume` puts the unlocked seat's prompt up
+with its saved plan in its options -- which is Codex's standing tech
+choice held on the match ([codex.md](codex.md)) and is why there is no
+undo yet: a plan can be changed until it is locked (decision 10). A
+whole plan rather than a click at a time because a step 6 panel holds
+the draft and sends it, and the model then checks one thing, not a
+history of edits.
+
+**Hidden until revealed.** A plan prompt's options carry the seat's
+plan and its units, so it is its asked seat's alone, and
+`GameResult.to_dict` writes no prompt. What is said in public is said
+by the steps, and they say only what the rules reveal: a save says
+nothing; a lock-in that the seat has locked in; the reveal what each
+seat paid -- the pool is open information (TNP 2.2) -- and never what
+for; production that the queues are finished, and nothing of them; a
+trade in full, its tokens and its gains being the pool's. March
+reveals as it resolves: a battle reveals every unit in it (TNP 6.1), a
+neutral conquest the one ground unit revealed to take the territory
+(TNP 5.5), and a harvest the Workers that did it. The rest of a pile
+that took a neutral territory stays face down in its spot.
+`MatchState.revealed` is the public record of what March showed, which
+`tnp.briefs.map_brief` builds the map from; `board_brief` is the
+seat's own. `tests/test_tnp_driver_full_game.py` holds that the plan
+phase and its reveal name no unit.
+
+**March, attack by attack.** `MARCH` is an owed step that resolves one
+attack -- A for both seats, then B, within a spot in ascending
+territory number, a base after every territory -- so step 6 can post
+each as its own lines. A pile that no longer reaches its target as its
+attack resolves (no path of held territories, and ground units its
+Chopper Carriers cannot carry, TNP 5.3, 7) sends its ground units back
+to its base unrevealed, and its air units, where it has any, attack
+alone -- they must (the author, 2026-11-06). Otherwise: two seats at one area, or a held territory, or
+the other seat's units already standing there, or a base, is a battle
+through `begin_battle`, with each seat's attacking pile and its units
+in the area's defense spot as its forces and the base's structures,
+pool and supply room handed in; a neutral territory nobody contests is
+always taken by revealing a ground unit -- `CONQUER` asks which only
+where the pile has more than one kind -- and a territory the seat holds
+is harvested. **A harvest from a territory of two kinds is the seat's
+choice** (the author, 2026-11-06): `HARVEST` asks it, with the attack
+still resolving, only where the Workers take less than all that is
+left; otherwise the tokens are taken at once. `SETTLE_BATTLE` is the owed step that puts a battle's
+`outcome` on the map: survivors, control, the Stranded tokens, the
+emergency spend and the base card's destruction, the harvest, and a
+fallen base's win. Battles are fought through the battle's own prompts
+in the middle of the phase, so a battle in March is one seat's question
+at a time.
+
+**The Stranded tokens** (TNP 5.7) are placed where a change of control
+cuts a held territory off from its seat's base with its units in it --
+comparing what each seat's held territories joined before and after --
+and lifted only once the territory is joined to the base again: taking
+a territory beside it lifts the token where that makes the path, and
+not otherwise (the author, 2026-11-06, reading TNP 5.7's "takes a
+territory adjacent" as needing a path). A seat that loses a territory
+loses its token there. Cleanup leaves stranded piles where they are,
+their units, not being at the base, cannot be deployed, and nobody
+deploys into a cut-off territory: defenders go only where the base
+joins (TNP 2.5, the author, 2026-11-06).
+
+**The winning checks.** A fallen base wins at once, in
+`SETTLE_BATTLE`; 49 tokens harvested is counted at Cleanup (TNP 1.3,
+5.10), after the trade. The service finishes the record in the same
+save as the match that has a winner.
+
+**What the author settled on PR #710** (2026-11-06), all in
+docs/tnp-rules.md and its log: a neutral territory reached with a
+ground unit is always taken, and the rest of the pile stays face down;
+the seat chooses the kind its Workers harvest; a pile with no path
+sends its ground units home and its air units on; air units and a
+carried stack attack a base with no path; units queued at a facility
+destroyed that turn are lost with their cost; **a damage token lasts
+the battle alone**, so `settle_battle` puts the survivors in the spot
+with none (`Pile.damaged` stays in the save format, written empty);
+a base resolves last in its spot; defenders go only where the base
+joins; both seats at a held territory fight with the holder's pile
+beside its defenders; the Stranded token as above; and an air-only
+pile at an uncontested neutral territory waits in its spot.
+
+**The whole game through the driver.** `tests/tnp_games.py` plays a
+game with simple strategies that read each prompt's options as a view
+would; `tests/test_tnp_driver_full_game.py` plays Blue against Green to
+a fallen base and to 51%, every position round-tripped through its save
+before the next question, and checks in a fresh interpreter that no
+`discord` and no `cogs` was imported.
+
 ## The pictures
 
 Step 3 drew the map, a seat's player board and the battle by code
@@ -356,10 +485,10 @@ and `BoardBrief` is one seat's own board, queue included, which the
 frontend shows to that seat alone (TNP 5.2). The renderer decides
 nothing about who sees what, so a picture cannot leak by a branch
 someone forgot. The battle needs no brief: `BattleState` is public and
-already one picture's worth. Step 3 builds only the opening briefs
-(`opening_map`, `opening_board`, from TNP 3); step 4, which puts the map
-and the seats on `MatchState`, adds the readings that build a brief from
-a match, which is why the mid-game samples are staged by hand.
+already one picture's worth. Step 3 built the opening briefs
+(`opening_map`, `opening_board`, from TNP 3); step 4 added the readings
+that build a brief from a match (`map_brief`, `board_brief`), after the
+mid-game samples were staged by hand.
 
 **The map** is `map.json`'s traced outlines filled over a dark ground,
 so the gaps between them are map 3.3's own lines, thick and thin where

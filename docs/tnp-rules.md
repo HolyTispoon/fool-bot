@@ -211,7 +211,10 @@ Each seat deploys onto its own **deployment board**, behind its screen:
   **C**, only with the tech *Command and Control CPU* -- the advanced
   game (the author, 2026-11-05).
 - **Defense spots**: one for any territory the seat holds, and its
-  **base defense spot** (the author, 2026-11-05).
+  **base defense spot** (the author, 2026-11-05). A seat deploys
+  defenders only into a held territory its held territories join to
+  its base: the only units in a territory cut off from the base are the
+  stranded ones already there (5.7) (the author, 2026-11-06).
 
 Each stack placed in a spot goes with the territory it attacks or
 defends; the base has its own spot.
@@ -331,14 +334,21 @@ defends:
   on a territory it cannot reach yet, in the hope that it will hold the
   territories between by the time that attack resolves.
 - **Air units attack any territory**, with no path (the author,
-  2026-11-05).
+  2026-11-05) -- or a base, also with no path (the author,
+  2026-11-06), and so does a carried stack (7).
+- **A pile with no path when its attack resolves** -- ground units its
+  Chopper Carriers cannot carry, and no path of held territories to
+  the target -- sends its ground units back to its base, unrevealed.
+  Its air units, if it has any, go on and attack alone: they must (the
+  author, 2026-11-06).
 
 ### 5.4 March
 
 In order, both seats resolve attack spot A, then both resolve B, then
 both resolve C. Where two attacks resolve in the same spot, they go in
-**ascending territory number**: 1 first, 2 second, and so on. Each
-attack is resolved through four steps, 5.5 to 5.8, before the next
+**ascending territory number**: 1 first, 2 second, and so on, and an
+attack on a base last, after every territory (the author, 2026-11-06).
+Each attack is resolved through four steps, 5.5 to 5.8, before the next
 begins.
 
 ### 5.5 Neutral conquest
@@ -346,12 +356,23 @@ begins.
 If the territory attacked is neutral and nobody else is fighting for
 it, the attacker may reveal **one ground unit** (infantry or armored)
 from the attacking pile to take it: the seat's control token goes on
-it. **Air units cannot take a territory** (the author, 2026-11-05).
+it. **The attacker always takes it**, choosing which ground unit to
+reveal (the author, 2026-11-06). Only that unit is revealed: the rest
+of the pile stays face down in the territory's defense spot until
+Cleanup, or until a battle there reveals it (the author, 2026-11-06).
+**Air units cannot take a territory** (the author, 2026-11-05): air
+units alone at a neutral territory nobody contests take nothing, and
+wait face down in its defense spot for the rest of March, so a later
+attack there fights them (the author, 2026-11-06).
 
 ### 5.6 Battle
 
 If the territory is held by the other seat, or the other seat attacks
-it too, there is a battle (6). A harvest may still follow it.
+it too, there is a battle (6). A harvest may still follow it. Where
+both seats attack, in the same spot, a territory one of them holds,
+that seat's attacking pile defends alongside its units in the
+territory's defense spot, and its Workers harvest if it wins (the
+author, 2026-11-06).
 
 ### 5.7 Control and stranded
 
@@ -364,14 +385,18 @@ the rest of March, so a later attack there fights them (the author,
 If the territory taken leaves any territory a seat holds no longer
 joined to that seat's base by its held territories, that seat's units
 there are **stranded**: a Stranded token goes on the territory's
-defense spot. If a seat takes a territory adjacent to one where its
-units are stranded, that Stranded token is removed.
+defense spot. The token is removed once the territory is joined to the
+seat's base again: taking a territory beside it lifts the token only
+where that makes a path of held territories from the base to it (the
+author, 2026-11-06).
 
 ### 5.8 Harvest
 
 If the territory has resource tokens left and the winning attacker has
 **Workers** in the attacking pile, it harvests: **for each Worker, one
-token is taken off the territory**. In the basic game the token goes
+token is taken off the territory**, and where the territory holds more
+than one kind the seat chooses which (the author, 2026-11-06). In the
+basic game the token goes
 into the seat's pool (the author, 2026-11-05); *step 9's:* in the
 advanced game the seat draws a card from that resource's deck instead
 (8.1).
@@ -386,7 +411,9 @@ One phase (the author, 2026-11-05), both seats at once:
 
 - **Production.** Everything placed in Infrastructure is finished: the
   units join the seat's available units, ready to deploy next turn, and
-  the facilities and upgrades are built.
+  the facilities and upgrades are built. Units queued at a facility a
+  base card destroyed this turn (6.9) are not produced, and what was
+  paid for them is lost (the author, 2026-11-06).
 - **Trade.** A seat may trade the minerals and gems in its pool for
   materials or gold at the board's conversion rates (the Vassal
   module, the author, 2026-11-05):
@@ -587,7 +614,8 @@ Each hit removes one unit from the force attacked, except:
 
 - **Tough** (7): a Tough unit hit is damaged -- a damage token covers
   its icon -- and a damaged Tough unit hit is removed. It takes two
-  hits. **A damaged Tough unit always takes a hit before an undamaged
+  hits. A damage token lasts the rest of the battle, and comes off when
+  the battle ends (the author, 2026-11-06). **A damaged Tough unit always takes a hit before an undamaged
   one** in its force (the author, 2026-11-05).
 - **Repair** (7): when a Mechanical unit is hit, its seat may remove a
   Worker from a force adjacent to the hit unit's force to ignore the
@@ -915,3 +943,30 @@ One line per change, dated, with where it came from.
   one column away, −1 two away -- replacing −1 a column from two away
   and no +1 against a base card -- 6.5, 6.7, 6.9. (The author,
   answering PR #708.)
+- 2026-11-06: A neutral territory reached with a ground unit is always
+  taken, the attacker choosing which ground unit to reveal; the rest of
+  the pile stays face down; air units alone take nothing and wait in
+  the spot for the rest of March -- 5.5. (The author, answering PR #710.)
+- 2026-11-06: The seat chooses which kind of token its Workers take
+  from a territory holding more than one -- 5.8. (The author, answering
+  PR #710.)
+- 2026-11-06: A pile with no path when its attack resolves sends its
+  ground units home unrevealed, and its air units attack alone, as they
+  must; air units and a carried stack attack a base with no path --
+  5.3. (The author, answering PR #710.)
+- 2026-11-06: Units queued at a facility destroyed that turn are not
+  produced, and their cost is lost -- 5.9. (The author, answering PR
+  #710.)
+- 2026-11-06: A damage token lasts the rest of the battle -- 6.8. (The
+  author, answering PR #710.)
+- 2026-11-06: An attack on a base resolves last in its spot -- 5.4.
+  (The author, answering PR #710.)
+- 2026-11-06: Defenders go only into a held territory joined to the
+  base; the only units in a cut-off territory are stranded ones -- 2.5.
+  (The author, answering PR #710.)
+- 2026-11-06: Both seats attacking a territory one holds: the holder's
+  pile defends with its defense spot, and its Workers harvest if it
+  wins -- 5.6. (The author, answering PR #710.)
+- 2026-11-06: A Stranded token comes off only once a path of held
+  territories joins the territory to the base again, not for taking a
+  territory beside it -- 5.7. (The author, answering PR #710.)
