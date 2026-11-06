@@ -34,6 +34,7 @@ from tnp.components import (
     RESOURCES,
     TRADE,
     WON_BY_BASE,
+    WON_BY_CONCESSION,
     WON_BY_HARVEST,
     MatchState,
 )
@@ -595,12 +596,34 @@ def _win(match: MatchState, seat: str, by: str, result: StepResult) -> None:
     match.attacks = {}
     if by == WON_BY_BASE:
         result.narration.append(f"{tokens.seat(seat)} wins the game: {tokens.area(base_of(other(seat)))} has fallen.")
+    elif by == WON_BY_CONCESSION:
+        result.narration.append(f"{tokens.seat(other(seat))} concedes. {tokens.seat(seat)} wins the game.")
     else:
         result.narration.append(
             f"{tokens.seat(seat)} wins the game: {match.seat(seat).harvested} of the planet's "
             "tokens harvested, 51% of them."
         )
     result.board_changed = True
+
+
+def concede(engine: "RulesEngine", game, match: MatchState, seat: str) -> StepResult:
+    """
+    `seat` gives the game up, whatever phase or battle it is in: the
+    other seat wins (`WON_BY_CONCESSION`), and a battle being fought or
+    an attack being resolved is dropped where it stands -- the game is
+    over, so nothing of it is put on the map. Refused once the game is
+    over. A door of the service's own, not a prompt kind: it answers no
+    question and is open to either seat at any moment (Codex's,
+    docs/design/codex.md, "The end of a game").
+    """
+    if match.winner is not None or match.phase == OVER:
+        raise RuleRefusal("This game is already over.")
+    if seat not in SEATS:
+        raise RuleRefusal("Only a seat in the game can concede it.")
+    match.battle, match.resolving = None, None
+    result = StepResult()
+    _win(match, other(seat), WON_BY_CONCESSION, result)
+    return result
 
 
 # -- Production and Trade ---------------------------------------------------------
@@ -715,6 +738,6 @@ def cleanup(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") -
 
 
 __all__ = [
-    "answer_conquer", "answer_harvest", "harvest_choice", "answer_plan", "answer_trade", "cleanup", "march", "next_attack",
+    "answer_conquer", "concede", "answer_harvest", "harvest_choice", "answer_plan", "answer_trade", "cleanup", "march", "next_attack",
     "produce", "reveal", "settle_battle", "settle_trades",
 ]

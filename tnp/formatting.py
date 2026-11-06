@@ -139,6 +139,14 @@ def board_caption(match: "MatchState") -> str:
     return f"Turn {match.turn}"
 
 
+#: How a won game was won, on the table (TNP 1.3), by `MatchState.won_by`.
+WON_HOW = {
+    "base": ": the other seat's base has fallen",
+    "harvest": ": 51% of the planet's tokens harvested",
+    "concession": ": the other seat conceded",
+}
+
+
 def table_lines(engine: "RulesEngine", game, match: "MatchState") -> list[str]:
     """
     The table's lines, public: the turn and the phase, and in a phase
@@ -153,7 +161,7 @@ def table_lines(engine: "RulesEngine", game, match: "MatchState") -> list[str]:
 
     lines = [phase_heading(match)]
     if match.winner is not None:
-        lines.append(f"{tokens.seat(match.winner)} has won.")
+        lines.append(f"{tokens.seat(match.winner)} has won{WON_HOW.get(match.won_by, '')}.")
         return lines
     doing = ANSWERING.get(match.phase)
     if doing is None:

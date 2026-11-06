@@ -58,6 +58,9 @@ BASIC_ATTACK_SPOTS = ("A", "B")
 #: How a seat wins (TNP 1.3).
 WON_BY_BASE = "base"
 WON_BY_HARVEST = "harvest"
+#: The other seat gave the game up (step 8 of docs/tnp-bot.md): not a
+#: rule of the game's, a player's own choice, as in Codex's.
+WON_BY_CONCESSION = "concession"
 
 #: Tokens a seat must harvest to win: 51% of map 3.3's 96 (TNP 1.3).
 HARVEST_TO_WIN = 49

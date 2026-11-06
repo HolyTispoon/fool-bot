@@ -103,6 +103,10 @@ class TnpGame:
     #: The frontend's, like the message ids above, and `None` between
     #: battles.
     battle_post: Optional[dict] = None
+    #: A finished game's rematch, once opened, so a second press of
+    #: **Rematch** finds it; and the game a rematch was opened from.
+    rematch_game_id: Optional[str] = None
+    rematch_of: Optional[str] = None
     #: One of `VENUES`: what `channel_id` is.
     venue: str = "channel"
     status: GameStatus = GameStatus.LOBBY
@@ -203,6 +207,29 @@ class TnpGame:
         if self.status is GameStatus.PLAYING:
             self.status = GameStatus.FINISHED
 
+    def rematch(self, game_id: str, game_number: int) -> "TnpGame":
+        """
+        This finished game played again: a new lobby with the same seats
+        -- the same people, or the one person of a test game -- in the
+        same place, the basic game again, started from its lobby's
+        **Start** as any game is (Codex's `CodexGame.rematch`). Refused
+        for a game that is not finished: an abandoned game is not played
+        again.
+        """
+        if self.status is not GameStatus.FINISHED:
+            raise RuleRefusal("Only a finished game can be played again.")
+        return TnpGame(
+            game_id=game_id,
+            game_number=game_number,
+            guild_id=self.guild_id,
+            channel_id=self.channel_id,
+            venue=self.venue,
+            seats={seat: dict(held) for seat, held in self.seats.items()},
+            test_game=self.test_game,
+            advanced=self.advanced,
+            rematch_of=self.game_id,
+        )
+
     def abandon(self) -> None:
         if self.status in (GameStatus.FINISHED, GameStatus.ABANDONED):
             raise RuleRefusal("This game is already over.")
@@ -217,6 +244,8 @@ GAME_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("message_id"),
     SavedField("table_message_id"),
     SavedField("battle_post"),
+    SavedField("rematch_game_id"),
+    SavedField("rematch_of"),
     SavedField("venue", default="channel", read=_venue_in),
     SavedField("status", default=GameStatus.LOBBY, write=lambda status: status.value, read=_status_in),
     SavedField("seats", factory=lambda: _seats_in(None), write=_seats_out, read=_seats_in),
