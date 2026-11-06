@@ -17,11 +17,13 @@ tested for how it looks, by the standing rule that nothing printed is
 | `battle-mat` | tabloid | The round track, the initiative groups, the line's four rows in columns, the modifiers and hits |
 | `track-sheet` | letter | The harvest track, 0 to 49, and four base cards to cut out |
 | `<seat>-screen` | tabloid | Folded in three; its inside is the player aid |
-| `<seat>-keywords` | letter | Every unit trait with the units that carry it, and every term the rules use |
+| `<seat>-unit-traits` | letter | Every unit trait, with the units that carry it |
+| `<seat>-keywords` | 2 x letter | Every term the rules use, with its section |
+| `<seat>-territory-cards` | letter | One card a territory and the enemy base, 2.5 x 1.7 in: a pile goes on the card of what it attacks or defends |
 | `<seat>-player-board` | 2 x letter | The four facilities, two a sheet |
-| `<seat>-deployment-board` | letter | Attack spots A and B, a defense spot a territory and the base's, the available units |
+| `<seat>-deployment-board` | letter | Attack spots A and B, three defense spots, the base's own spot, the available units |
 | `<seat>-unit-counters` | letter | 80 counters, 1 in: every unit as many times as its supply |
-| `tokens` | 3 x letter | 298 tokens, 3/4 in |
+| `tokens` | 2 x letter | 234 tokens, 3/4 in |
 | `rules.pdf` | letter | docs/tnp-rules.md, set by D12 Ball's rulebook builder |
 
 Three PDFs to print from: `print-letter.pdf`, `print-tabloid.pdf`, and
@@ -46,7 +48,7 @@ It does not call `render_map` or `render_board`. Those are laid out in
 Discord's pixels for a live position -- the pool in the board's header,
 supply left, a queue as a count -- and the table needs the empty
 version of each, at 300 dpi, with places to put things: a queue box, a
-square for each Built marker, a slot for a target chip.
+square for each Built marker, a slot for a territory card.
 
 **Every number is read from the data**: a unit's cost, ratings,
 initiative, traits and supply from `humans.json`; caps, build costs,
@@ -77,17 +79,24 @@ runs out uses anything.
   over to show a second state -- a Tough unit's damage is a token on it
   (TNP 6.8), a hidden pile is behind the screen rather than face down --
   so no sheet needs duplex printing and nothing can come out misaligned.
-- **A target chip, not a marker on a track.** Each attack spot needs to
-  say what it attacks. A track of the sixteen targets with a marker on
-  one was tried first: at 3/4 inch a marker covers a 1/2-inch cell's
-  neighbours, and anything larger does not fit the board. A chip naming
-  its target, laid in the spot's slot, is what the 2018 board did ("with
-  territory cards"), and reads at a glance. **Two sets a seat**, 1 to 15
-  and BASE, because A and B may attack the same territory -- the only
-  way to harvest twice in a turn (TNP 5.8).
-- **The defense spots are fixed, one a territory**, rather than generic
-  spaces labelled with a chip: a seat may attack a territory it also
-  defends, and a fixed spot needs no chip.
+- **A territory card under every pile** (the author, 2026-11-06: "we
+  need a deck of territory cards to go in the piles"). Each player has a
+  deck, one card for each territory and the enemy base -- its number, a
+  small map with it picked out, what it is adjacent to and holds, all
+  from `map.json` -- and a pile in an attack or defense spot sits on the
+  card of what it attacks or defends, as the 2018 board's "territory
+  cards" did. They replaced the first draft's target chips. **One card a
+  territory** is enough because a player never attacks a territory it
+  defends (the author, 2026-11-06), so the deck also keeps a territory to
+  one pile a turn. A card is 2.5 x 1.7 in so a deck is one letter sheet,
+  and a stack of counters sits on it.
+- **Three defense spots, and the base's** (the author, 2026-11-06:
+  "there are only 3 defense spots ... you can't defend more than that at
+  any given turn"). The base's spot is a fourth, its own; a territory
+  where stranded units stand keeps one of the three. **docs/tnp-rules.md
+  and the bot still give a spot to every held territory** (TNP 2.5): the
+  rules change is in another PR, and the kit prints the new rule ahead
+  of it, citing TNP 2.5.
 - **Built markers and the queue.** A facility or an upgrade bought in
   Infrastructure is finished at Production and Trade (TNP 5.2, 5.9), so
   the board has a queue in each facility: its units and the Built marker
@@ -112,18 +121,27 @@ The screen is printed on one side and folded so the print faces its
 seat; the back is plain paper, and the pool stands in front of it,
 where both seats see it (TNP 2.2).
 
-## The keyword sheet
+## The unit traits and the keywords
 
-A seat's glossary, beside the screen (the author, 2026-11-06: "the
-player aide with all the keywords"): **every trait a unit carries**, and
-under each the units that carry it, and **every term the rules use**,
+Each player's glossary, beside the screen (the author, 2026-11-06: "the
+player aide with all the keywords"), in two parts the author asked to be
+kept apart: **the unit traits**, a sheet of their own, each with the
+units that carry it, and **the keywords**, every term the rules use,
 alphabetical, each with the section it is from. The traits are read
 from the data -- a unit given a new trait appears under it on the next
 build, and a trait `keywords.TRAITS` has no words for stops the build
 (a `KeyError` naming it) rather than printing a bare name. The terms
 are the kit's own list, `TERMS`, held to docs/tnp-rules.md by reading,
-like the screen. One letter sheet: the entries are tried at falling
-sizes (`SIZES`) and drawn at the largest that fits, about 7 pt today.
+like the screen. **The type is a size, never a fit** (the author,
+2026-11-06: "larger font"): about 12 pt for the traits and 10 pt for the
+terms, which flow over as many sheets as they take -- two today.
+
+## The printed words
+
+**A player, never a seat** (the author, 2026-11-06). The bot's code and
+docs say seat; everything the kit prints says player. And no printed
+sentence is a fragment: "the advanced game's" on its own is not a
+sentence (the author, 2026-11-06).
 
 ## Paper
 
@@ -138,9 +156,8 @@ into the margin to line the first one up.
 
 ## Open
 
-Taken as defaults on 2026-11-06, for the author to change:
+The token counts in `TOKEN_COUNTS` are the author's (2026-11-06). Open:
 
-- the token counts in `TOKEN_COUNTS`, materials and gold in 1s and 5s;
 - the rules PDF opens with the bot's own preamble (which version, how
   the bot plays it), since it is docs/tnp-rules.md unedited;
 - the advanced game's cards, and the third attack spot, are not in it.

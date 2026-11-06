@@ -10,8 +10,9 @@ The kit's pieces, each drawn in one cell of a cut sheet
 - **Tokens and markers**, 3/4 inch square: the 96 resource tokens map
   3.3 holds (TNP 2.1), materials and gold, control tokens, Stranded
   tokens, damage tokens, the Built markers for the player board, each
-  harvest track's markers, the battle's round and group markers, and
-  each seat's target chips, which name what an attack spot attacks.
+  harvest track's markers, and the battle's round and group markers.
+  What a pile attacks or defends is its territory card
+  (`tnpkit.territories`).
 
 Every count is read from the data -- a unit's supply, a territory's
 tokens -- or is the kit's own and says so in `TOKEN_COUNTS`.
@@ -253,27 +254,6 @@ def disc_marker(fill, ink, text: str, under: Optional[str] = None, ground=WHITE)
     return draw_it
 
 
-def target_chip(seat: str, target: str) -> Piece:
-    """A seat's target chip: laid on an attack spot's slot, it names
-    the territory -- or the enemy base -- the spot attacks."""
-    colours = SEAT_COLOURS[seat]
-
-    def draw_it(tile: Image.Image) -> None:
-        draw = _fill(tile, WHITE)
-        inset = tile.width * 0.07
-        draw.rounded_rectangle((inset, inset, tile.width - inset, tile.height - inset), radius=tile.width * 0.1,
-                               fill=WHITE, outline=colours["strong"], width=round(tile.width * 0.05))
-        _centred(draw, (tile.width / 2, tile.height * 0.25), "TARGET", tile.width * 0.1, colours["ink"])
-        size = 0.42 if target.isdigit() else 0.2
-        _centred(draw, (tile.width / 2, tile.height * 0.58), target, tile.width * size, colours["ink"])
-
-    return draw_it
-
-
-#: Each seat's target chips: every territory and the enemy's base,
-#: twice, so attack spots A and B may name the same one.
-TARGETS = tuple(str(number) for number in range(1, 16)) + ("BASE",)
-TARGET_SETS = 2
 
 
 def harvest_marker(seat: str) -> Piece:
@@ -323,6 +303,3 @@ def other_tokens(catalog: Catalog) -> list[Piece]:
     pieces.extend((round_marker(), group_marker()))
     return pieces
 
-
-def target_chips() -> list[Piece]:
-    return [target_chip(seat, target) for seat in SEATS for _ in range(TARGET_SETS) for target in TARGETS]

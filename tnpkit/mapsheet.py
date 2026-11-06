@@ -173,4 +173,4 @@ def _legend(draw: ImageDraw.ImageDraw, catalog: Catalog, x: float, y: float, rig
         "A control token on a territory says who holds it. It stays held with nobody in it, "
         "until an enemy takes it (TNP 2.1).", y,
     )
-    y = paragraph("A Stranded token: that seat's units there are cut off from its base (TNP 5.7).", y)
+    y = paragraph("A Stranded token: that player's units there are cut off from its base (TNP 5.7).", y)

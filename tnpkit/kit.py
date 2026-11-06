@@ -22,7 +22,7 @@ from PIL import Image
 
 from d12ball.rulebooks import Book, book_bytes
 from tnp.catalog import Catalog, load
-from tnpkit import boards, keywords, mapsheet, pieces, screen
+from tnpkit import boards, keywords, mapsheet, pieces, screen, territories
 from tnpkit.paper import DPI, cut_sheet, halves, save
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -61,16 +61,22 @@ def build_sheets(catalog: Catalog) -> list[Sheet]:
                   f"{word}. Its inside is the player aid."),
             Sheet(f"{seat}-player-board", tuple(boards.render_player_board(catalog, seat)), "letter",
                   f"{word}'s player board: two sheets, side by side, behind the screen."),
-            Sheet(f"{seat}-keywords", (keywords.render_keywords(catalog, seat),), "letter",
-                  f"{word}'s keyword sheet: every unit trait, with the units that carry it, and every term the "
-                  "rules use, each with its section."),
+            Sheet(f"{seat}-unit-traits", tuple(keywords.render_traits(catalog, seat)), "letter",
+                  f"{word}'s unit traits: every trait a unit carries, with the units that carry it."),
+            Sheet(f"{seat}-keywords", tuple(keywords.render_terms(catalog, seat)), "letter",
+                  f"{word}'s keywords: every term the rules use, with its section."),
+            Sheet(f"{seat}-territory-cards",
+                  tuple(cut_sheet(territories.territory_deck(catalog, seat), territories.CARD,
+                                  title=f"{word} territory cards")), "letter",
+                  f"{word}'s territory cards: one for each territory and the enemy base. Each pile in a spot "
+                  "goes on the card of what it attacks or defends."),
             Sheet(f"{seat}-deployment-board", (boards.render_deployment_board(catalog, seat),), "letter",
                   f"{word}'s deployment board, behind the screen."),
             Sheet(f"{seat}-unit-counters", tuple(counters), "letter",
                   f"{word}'s {len(pieces.unit_counters(catalog, seat))} unit counters, 1 inch: every unit as "
                   "many times as its supply."),
         ]
-    tokens = pieces.resource_tokens(catalog) + pieces.other_tokens(catalog) + pieces.target_chips()
+    tokens = pieces.resource_tokens(catalog) + pieces.other_tokens(catalog)
     sheets.append(Sheet("tokens", tuple(cut_sheet(tokens, (0.75, 0.75), title="Tokens")), "letter",
                         f"{len(tokens)} tokens, 3/4 inch (listed below)."))
     return sheets
@@ -89,12 +95,10 @@ def token_lines(catalog: Catalog) -> list[str]:
         f"- Materials: {counts['materials_1']} worth 1 and {counts['materials_5']} worth 5. Gold: "
         f"{counts['gold_1']} worth 1 and {counts['gold_5']} worth 5. The bank is not limited: run out, and "
         "use anything.",
-        f"- {counts['control']} control tokens and {counts['stranded']} Stranded tokens a seat.",
+        f"- {counts['control']} control tokens and {counts['stranded']} Stranded tokens a player.",
         f"- {counts['damage']} damage tokens, for damaged Tough units (TNP 6.8).",
-        f"- {built} Built markers a seat: one for each facility that does not start built and each upgrade.",
-        "- A harvest marker a seat, and the battle's round and group markers.",
-        f"- {pieces.TARGET_SETS} sets of target chips a seat, 1 to 15 and BASE, so attack spots A and B may "
-        "name the same territory.",
+        f"- {built} Built markers a player: one for each facility that does not start built and each upgrade.",
+        "- A harvest marker a player, and the battle's round and group markers.",
     ]
 
 
@@ -153,8 +157,8 @@ boards cite them ("TNP 6.7").
 1. The map in the middle, each territory's tokens on it as its pill
    says. The battle mat and the track sheet beside it, both harvest
    markers on 0.
-2. Each seat: its screen, and behind it its player board and deployment
-   board. {start_units} on the deployment board's available units, the
+2. Each player: its screen, and behind it its player board, deployment
+   board and deck of territory cards. {start_units} on the deployment board's available units, the
    rest of its counters in a supply pile; {start_materials} materials in
    front of its screen -- the pool is open information (TNP 2.2). Its
    {start_built} are built; its {start_unbuilt} are not.
