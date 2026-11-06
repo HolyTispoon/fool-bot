@@ -6,7 +6,8 @@ test seeds `engine.rng`, or patches `engine.rng.randint` with the rolls
 it wants (docs/tnp-bot.md, the preamble's dice rule).
 
 The battle's readings are `tnp.battle`'s, over the state it holds; this
-is the catalog and the dice they stand on. Step 4 grows it the turn's.
+is the catalog and the dice they stand on; the turn's readings are
+`tnp.turn`'s, over the match.
 """
 
 from __future__ import annotations

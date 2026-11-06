@@ -12,6 +12,9 @@ state and its readings), `components` (`MatchState`), `prompts`
 (`pending`, the one reading), `flow` (the steps and `driver.apply`),
 `tokens`, `wire` and `game` (`RuleRefusal`). Step 3 gives the pictures:
 `briefs` (what the map and a board are drawn from, filtered for whoever
-sees them) and `render` (the map, a seat's board and the battle). See
-docs/design/tnp.md.
+sees them) and `render` (the map, a seat's board and the battle). Step
+4 gives the turn (TNP 5): `components` grows the seats, the map and the
+phases, `turn` the readings over them, `flow.turn` the steps, `game` the
+record (`TnpGame`), and `prompts` the simultaneous phases' reading,
+`pending_all`. See docs/design/tnp.md.
 """

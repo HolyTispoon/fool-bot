@@ -20,16 +20,20 @@ The battle needs no brief: it is a saved state of its own
 
 Step 3 builds the opening position's briefs (`opening_map`,
 `opening_board`) from the data; step 4, which adds the map and the
-seats to `MatchState`, adds the readings that build them from a match.
-See docs/design/tnp.md, "The pictures".
+seats to `MatchState`, adds the readings that build them from a match
+(`map_brief`, `board_brief`). See docs/design/tnp.md, "The pictures".
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
+from typing import TYPE_CHECKING, Mapping
 
 from tnp.catalog import Catalog
+
+if TYPE_CHECKING:
+    from tnp.components import MatchState
+    from tnp.engine import RulesEngine
 
 #: The resource tokens, in the order they are drawn (TNP 2.1, 2.2).
 RESOURCES = ("blue_minerals", "orange_minerals", "gems")
@@ -114,4 +118,56 @@ def opening_board(catalog: Catalog, seat: str) -> BoardBrief:
         supply_left={
             slug: unit.supply - int(units.get(slug, 0)) for slug, unit in catalog.units.items()
         },
+    )
+
+
+def map_brief(match: "MatchState", caption: str = "") -> MapBrief:
+    """
+    The map of a match as everybody may see it: who holds each
+    territory, the tokens left, the Stranded tokens, and what March has
+    revealed this turn (`MatchState.revealed`) -- never an attack pile
+    or a defense spot March has not reached (TNP 5.3).
+    """
+    return MapBrief(
+        controllers={
+            slug: area.controller for slug, area in match.areas.items()
+            if area.controller is not None and not slug.endswith("_base")
+        },
+        resources={
+            slug: {key: int(area.resources.get(key, 0)) for key in RESOURCES}
+            for slug, area in match.areas.items() if not slug.endswith("_base")
+        },
+        stranded={slug: tuple(area.stranded) for slug, area in match.areas.items() if area.stranded},
+        revealed=tuple(
+            Pile(one["seat"], one["area"], one["spot"], dict(one["units"])) for one in match.revealed
+        ),
+        caption=caption,
+    )
+
+
+def board_brief(engine: "RulesEngine", match: "MatchState", seat: str, caption: str = "") -> BoardBrief:
+    """
+    A seat's own board -- **that seat's alone** (TNP 5.2): its pool, what
+    is built, and its queue -- in Infrastructure and Deployment the queue
+    its saved plan holds, after it what was paid for -- with the supply
+    left.
+    """
+    from tnp.components import PLAN
+    from tnp.turn import supply_room
+
+    state = match.seat(seat)
+    queued_units = dict(state.queued_units)
+    queued = set(state.queued)
+    if match.phase == PLAN and state.plan:
+        queued_units = dict(state.plan.get("build", {}))
+        queued = set(state.plan.get("structures", []))
+    room = supply_room(engine, match, seat)
+    return BoardBrief(
+        seat=seat,
+        pool={key: int(state.pool.get(key, 0)) for key in POOL},
+        built=frozenset(state.built),
+        queued=frozenset(queued),
+        queued_units=queued_units,
+        supply_left={slug: room[slug] - queued_units.get(slug, 0) for slug in room},
+        caption=caption,
     )

@@ -51,6 +51,9 @@ SAVING_SERVICE_MODULES = (
     # (docs/design/codex.md). Its `save_games` writes
     # data/codex_games.json.
     "gamesaves.codex.service",
+    # TNP's service, a cog in fool-bot's process (docs/design/tnp.md).
+    # Its `save_games` writes data/tnp_games.json.
+    "gamesaves.tnp.service",
 )
 
 
