@@ -150,7 +150,7 @@ class CoreMixin:
     def restore_game(self, game: TnpGame) -> None:
         if game.status is GameStatus.LOBBY:
             if game.message_id is not None:
-                self.bot.add_view(LobbyView(self, game.game_id, game.advanced), message_id=game.message_id)
+                self.bot.add_view(LobbyView(self, game.game_id), message_id=game.message_id)
             return
         if game.status is GameStatus.FINISHED:
             # **Rematch** on its table, until a rematch is opened from it.

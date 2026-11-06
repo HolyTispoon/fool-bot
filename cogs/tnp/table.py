@@ -125,7 +125,7 @@ class TableMixin:
         """The lobby posted in `place`, or `None` where Discord refused it."""
         try:
             return await place.send(
-                self.lobby_text(game), view=LobbyView(self, game.game_id, game.advanced),
+                self.lobby_text(game), view=LobbyView(self, game.game_id),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         except discord.HTTPException as error:

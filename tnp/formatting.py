@@ -30,6 +30,13 @@ TRAIT_NAMES = {
     "transport": "Transport",
 }
 
+#: A faction's name, as the rules spell it (TNP 1.2).
+FACTION_NAMES = {
+    "humans": "Humans",
+    "xzzzx": "XzzzX",
+    "space_dragons": "Space Dragons",
+}
+
 TYPE_NAMES = {
     UnitType.INFANTRY: "infantry",
     UnitType.ARMORED: "armored",

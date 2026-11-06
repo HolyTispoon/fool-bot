@@ -42,12 +42,10 @@ class LobbyMixin:
             name = game.seats[seat]["name"]
             rows.append(f"**{seat_word(seat)}**: {name if name else '*open*'}")
         if game.status is not GameStatus.LOBBY:
-            waiting = "The game has started."
+            rows.append("The game has started.")
         elif game.full:
-            waiting = "Both seats are taken: either player may **Start**."
-        else:
-            waiting = "Take a seat to play."
-        return "\n".join([head, *rows, waiting])
+            rows.append("Both seats are taken: either player may **Start**.")
+        return "\n".join([head, *rows])
 
     @app_commands.command(name="create_game", description="Open a TNP lobby in a channel of its own.")
     @app_commands.describe(test_game="A test game: you may take both seats and play both sides")

@@ -38,6 +38,12 @@ POOL = ("materials", "gold") + RESOURCES
 #: from the first commit so the others come in as data.
 HUMANS = "humans"
 
+#: Every faction of the game, in the order the lobby shows them (TNP
+#: 1.2), and the ones that can be played: the XzzzX and the Space
+#: Dragons are shown, greyed out, until their rules come in.
+FACTIONS = (HUMANS, "xzzzx", "space_dragons")
+PLAYABLE_FACTIONS = (HUMANS,)
+
 # The turn's phases, as saved (TNP 5.1). Infrastructure and Deployment
 # are one phase, done at the same time; Production and Trade one phase,
 # its production run as it opens.

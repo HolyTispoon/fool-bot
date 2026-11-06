@@ -1,11 +1,12 @@
 """
 `LobbyView`: the lobby `/tnp create_game` -- or the hub's **TNP** button
 -- posts, rebuilt from the record on every change (docs/design/tnp.md,
-"The lobby, the channel and the table"): **Sit as Blue**, **Sit as
-Green**, **Leave**, **Start**, and the game's one setting, **Advanced
-game** or **Basic game** -- the technology cards (TNP 8), a seated
-player's or a helper's to change. Both seats are people's; there is no
-AI (TNP 1.2).
+"The lobby, the channel and the table"): **Join as Blue**, **Join as
+Green**, **Leave**, **Start** and **Test game**; **Basic game** and
+**Advanced game**, the technology cards (TNP 8), the one chosen in
+green; and under them a button a faction -- **Join as Humans**, the first free seat, and the
+XzzzX and the Space Dragons greyed out until their rules come in. Both
+seats are people's; there is no AI (TNP 1.2).
 
 Persistent, its custom ids fixed and carrying the game id, so a restart
 re-arms it. Every move is a service method over the record's own rule
@@ -20,6 +21,8 @@ from __future__ import annotations
 import discord
 
 from cogs.tnp_views.base import SafeView, send_ephemeral
+from tnp.components import FACTIONS, PLAYABLE_FACTIONS
+from tnp.formatting import FACTION_NAMES
 from tnp.game import SEAT_NAMES, GameStatus, RuleRefusal
 
 
@@ -31,22 +34,33 @@ class LobbyView(SafeView):
     here asks for a confirmation, as in D12 Ball's and Codex's.
     """
 
-    def __init__(self, cog, game_id: str, advanced: bool = False) -> None:
+    def __init__(self, cog, game_id: str) -> None:
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
+        game = self.game()
+        test_game = bool(game and game.test_game)
+        advanced = bool(game and game.advanced)
         buttons = [
-            *((f"Sit as {seat.title()}", f"seat_{seat}", discord.ButtonStyle.primary)
+            *((f"Join as {seat.title()}", f"seat_{seat}", discord.ButtonStyle.primary, 0, False)
               for seat in SEAT_NAMES),
-            ("Leave", "leave", discord.ButtonStyle.secondary),
-            ("Start", "start", discord.ButtonStyle.success),
-            # The setting's button names the game it switches to; its
-            # custom id is one whichever it says, so a restart re-arms it.
-            ("Basic game" if advanced else "Advanced game", "advanced", discord.ButtonStyle.secondary),
+            ("Leave", "leave", discord.ButtonStyle.secondary, 0, False),
+            ("Start", "start", discord.ButtonStyle.success, 0, False),
+            (f"Test game: {'on' if test_game else 'off'}", "test_game",
+             discord.ButtonStyle.success if test_game else discord.ButtonStyle.secondary, 0, False),
+            # The game, the one chosen in green: the basic game, or the
+            # advanced one with the technology cards (TNP 8).
+            ("Basic game", "basic",
+             discord.ButtonStyle.secondary if advanced else discord.ButtonStyle.success, 1, False),
+            ("Advanced game", "advanced",
+             discord.ButtonStyle.success if advanced else discord.ButtonStyle.secondary, 1, False),
+            *((f"Join as {FACTION_NAMES[faction]}", f"join_{faction}", discord.ButtonStyle.primary,
+               2, faction not in PLAYABLE_FACTIONS) for faction in FACTIONS),
         ]
-        for label, action, style in buttons:
+        for label, action, style, row, disabled in buttons:
             button = discord.ui.Button(
                 label=label, style=style, custom_id=f"tnp:lobby:{action}:{game_id}",
+                row=row, disabled=disabled,
             )
             button.callback = self._callback(action)
             self.add_item(button)
@@ -68,14 +82,22 @@ class LobbyView(SafeView):
             await interaction.response.defer()
             await self.cog.start_game(interaction, game)
             return
-        if action == "advanced" and not self.may_act_in_game(interaction, game):
-            await send_ephemeral(interaction, "Only a seated player may choose the game.")
+        if action in ("test_game", "basic", "advanced") and not self.may_act_in_game(interaction, game):
+            await send_ephemeral(interaction, "Only a seated player may change the game's settings.")
             return
         try:
-            if action == "advanced":
-                game = self.cog.service.set_advanced(game.game_id, not game.advanced)
-            elif action == "leave":
+            if action == "leave":
                 self.cog.service.leave(game.game_id, interaction.user.id)
+            elif action in ("basic", "advanced"):
+                self.cog.service.set_advanced(game.game_id, action == "advanced")
+            elif action == "test_game":
+                self.cog.service.set_test_game(game.game_id, not game.test_game)
+            elif action.startswith("join_"):
+                if action.removeprefix("join_") not in PLAYABLE_FACTIONS:
+                    raise RuleRefusal("That faction cannot be played yet.", cite="TNP 1.2")
+                self.cog.service.take_seat(
+                    game.game_id, interaction.user.id, interaction.user.display_name,
+                )
             else:
                 seat = action.removeprefix("seat_")
                 self.cog.service.take_seat(
@@ -86,6 +108,6 @@ class LobbyView(SafeView):
             return
         game = self.game() or game
         await interaction.response.edit_message(
-            content=self.cog.lobby_text(game), view=LobbyView(self.cog, game.game_id, game.advanced),
+            content=self.cog.lobby_text(game), view=LobbyView(self.cog, game.game_id),
             allowed_mentions=discord.AllowedMentions.none(),
         )

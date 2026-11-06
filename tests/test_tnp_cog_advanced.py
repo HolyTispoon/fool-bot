@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import unittest
 
+import discord
+
 from codex_cog_fakes import find_button, find_select
 from cogs.tnp_views import LobbyView
 from cogs.tnp_views.battle import TacticalCommandView
@@ -25,12 +27,13 @@ class AdvancedTurn(Turn):
         await self.cog.create_game.callback(self.cog, self.interaction(self.blue, self.hub), False)
         game = self.game
         lobby = LobbyView(self.cog, game.game_id)
-        await lobby.children[1].callback(self.interaction(self.green))
+        green = next(item for item in lobby.children if ":seat_green:" in item.custom_id)
+        await green.callback(self.interaction(self.green))
         setting = next(item for item in lobby.children if ":advanced:" in item.custom_id)
         call = self.interaction(self.blue)
         await setting.callback(call)
         self.lobby_call = call
-        start = next(item for item in LobbyView(self.cog, game.game_id, True).children if ":start:" in item.custom_id)
+        start = next(item for item in LobbyView(self.cog, game.game_id).children if ":start:" in item.custom_id)
         await start.callback(self.interaction(self.blue))
         return game
 
@@ -55,7 +58,9 @@ class TnpAdvancedCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(turn.game.advanced)
         edited = [kwargs for kind, _, kwargs in turn.lobby_call.answers if kind == "response.edit"][-1]
         self.assertIn("the advanced game, with the technology cards", edited["content"])
-        self.assertTrue(any(item.label == "Basic game" for item in edited["view"].children))
+        chosen = {item.label: item.style for item in edited["view"].children}
+        self.assertEqual(chosen["Advanced game"], discord.ButtonStyle.success)
+        self.assertEqual(chosen["Basic game"], discord.ButtonStyle.secondary)
         match = turn.match()
         self.assertTrue(match.advanced)
         self.assertEqual(sum(len(cards) for cards in match.decks.values()), 103)

@@ -182,6 +182,19 @@ class TnpGame:
         for seat in held:
             self.seats[seat] = {"id": None, "name": None}
 
+    def set_test_game(self, test_game: bool) -> None:
+        """
+        A test game, in which one person may hold both seats, or not.
+        Turned off with one person in both seats, they keep Blue and
+        Green is open again.
+        """
+        self._in_lobby()
+        self.test_game = test_game
+        if not test_game:
+            blue, green = (self.seats[seat]["id"] for seat in SEAT_NAMES)
+            if blue is not None and blue == green:
+                self.seats[SEAT_NAMES[1]] = {"id": None, "name": None}
+
     def set_advanced(self, advanced: bool) -> None:
         """The basic game or the advanced one, with the technology cards
         (TNP 8) -- the lobby's one setting."""

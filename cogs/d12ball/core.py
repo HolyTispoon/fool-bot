@@ -88,6 +88,7 @@ from cogs.d12ball_helpers import (
     load_condition_emojis,
     load_d12_emoji,
     CODEX_HUB_EMOJI_NAME,
+    TNP_HUB_EMOJI_NAME,
     load_d12_button_emoji,
     load_role_emojis,
     load_species_ability_emojis,
@@ -555,6 +556,7 @@ class CoreMixin:
         # The Codex medallion, fool-bot's own upload, for the hub's Codex
         # heading and button; None until cog_load.
         self.codex_emoji: Optional[str] = None
+        self.tnp_emoji: Optional[str] = None
         self.ai_strategies = build_ai_strategies(
             self.player_catalog,
             self.maneuver_catalog,
@@ -819,6 +821,9 @@ class CoreMixin:
         self.d12_emoji = await load_d12_emoji(self.bot, application_emojis)
         self.codex_emoji = await load_d12_emoji(
             self.bot, application_emojis, name=CODEX_HUB_EMOJI_NAME,
+        )
+        self.tnp_emoji = await load_d12_emoji(
+            self.bot, application_emojis, name=TNP_HUB_EMOJI_NAME,
         )
         self.d12_button_emoji = await load_d12_button_emoji(
             self.bot, application_emojis,

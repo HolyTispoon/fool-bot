@@ -113,6 +113,7 @@ class NewGameHubView(SafeView):
 
         tnp = discord.ui.Button(
             label="TNP",
+            emoji=getattr(cog, "tnp_emoji", None) or None,
             style=discord.ButtonStyle.success,
             custom_id="d12ball:hub:tnp",
         )
