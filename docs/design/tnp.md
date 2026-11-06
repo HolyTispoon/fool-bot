@@ -246,7 +246,7 @@ would fix that design here without its context.
 answer, and the driver refuses anything else with `RuleRefusal`
 (cited, "TNP 6.5"): `CHOOSE_ROLE` (both seats attacked a neutral
 territory and one has the scouting advantage), `EMERGENCY_DEFENSE`,
-`PLACE_FORCE`, `DECLARE_RETREAT`, `CHOOSE_TARGET` (which rolls the dice
+`REPOSITION_FLANKERS`, `PLACE_FORCE`, `DECLARE_RETREAT`, `CHOOSE_TARGET` (which rolls the dice
 at once, decision 8), `REPAIR`, `SPLASH` and `DESTROY`. A question with
 no choice in it is not asked: an emergency defense the defender could
 not pay for, a force with no die to roll at anything (a lone Poor unit,
@@ -287,8 +287,14 @@ Once the other seat is all placed and engaged, the seat places the rest
 of its own one after another, flanking where a force has no flanker
 yet, or as new columns. `slots` is the one reading of where; the turn
 is the placement's consequence, so it lives with the answer and leaves
-`slots` as it was. Every unengaged force, flankers included, is lifted
-and placed again at a round's start.
+`slots` as it was. At a round's start every unengaged force in front
+is lifted to be placed again, and a flanking force behind it goes with
+it; a flanker behind an engaged pair stays where it stands unless its
+seat repositions it -- `REPOSITION_FLANKERS`, asked of the attacker and
+then the defender, only where one has a flanker, before the placing
+begins, because a flanker that is moved is placed with the others under
+the same turns. Keeping is the default answer, since it is what most
+players want (the author, 2026-11-06).
 
 **A retreat with no path home is partial** (TNP 6.6, 7, the author,
 2026-11-06). The air units go, and the Chopper Carriers take what the
@@ -311,7 +317,7 @@ and then its removals. Repair is asked there, not as the hit lands,
 because that is when the unit would come off.
 
 **What the author settled on PR #708** (2026-11-06), all in
-docs/tnp-rules.md and its log: flankers are placed again each round; an
+docs/tnp-rules.md and its log: flankers kept where they stand or repositioned each round; an
 undefended base is offered its emergency defense before it falls; both
 sides destroyed together is nobody's battle, the territory as it was;
 the retreat and the placing turns above; one flanker a force, in its

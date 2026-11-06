@@ -54,6 +54,7 @@ BASE_CARD_HITS = 2
 ROLE = "role"            # TNP 6.1: the advantaged seat chooses its side
 EMERGENCY = "emergency"  # TNP 6.2: the defender of a base produces defenses
 ROUND = "round"          # owed: the round's start
+REPOSITION = "reposition"  # TNP 6.5: flanking forces kept or taken out
 PLACE = "place"          # TNP 6.5
 RETREAT = "retreat"      # TNP 6.6
 DAMAGE = "damage"        # TNP 6.7
@@ -186,6 +187,9 @@ class BattleState:
     #: The seats that declared a retreat this round, and the seats asked.
     retreats: list[str] = field(default_factory=list)
     retreat_asked: list[str] = field(default_factory=list)
+    #: The seats asked this round whether they keep their flanking
+    #: forces where they stand (TNP 6.5).
+    reposition_asked: list[str] = field(default_factory=list)
     #: How many units of each force are retreating this round: they do
     #: not attack, and leave at the round's end (TNP 6.6).
     leaving: dict[str, int] = field(default_factory=dict)
@@ -264,6 +268,7 @@ BATTLE_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("run_left", default=0),
     SavedField("retreats", factory=list, write=list, read=list),
     SavedField("retreat_asked", factory=list, write=list, read=list),
+    SavedField("reposition_asked", factory=list, write=list, read=list),
     SavedField("leaving", factory=dict, write=dict, read=dict),
     SavedField("withdrawn", factory=dict, write=_copy, read=_copy),
     SavedField("group"),
@@ -348,6 +353,24 @@ def adjacent_forces(battle: BattleState, ident: str) -> list[str]:
         found.id for found in battle.living(battle.force(ident).seat)
         if adjacent(battle, ident, found.id)
     ]
+
+
+def flankers_of(battle: BattleState, seat: str) -> list[str]:
+    """A seat's flanking forces in the line, left to right."""
+    found = []
+    for column in battle.line:
+        found.extend(column.flankers(seat))
+    return found
+
+
+def reposition_asker(battle: BattleState) -> Optional[str]:
+    """Who is asked whether they keep their flanking forces where they
+    stand, at a round's start after the first: the attacker first, then
+    the defender, each only where it has one (TNP 6.5)."""
+    for seat in (battle.attacker, battle.defender):
+        if seat not in battle.reposition_asked and flankers_of(battle, seat):
+            return seat
+    return None
 
 
 # -- The scouting advantage ------------------------------------------------------

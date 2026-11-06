@@ -28,6 +28,7 @@ from tnp.battle import (
     LOSSES,
     OVER,
     PLACE,
+    REPOSITION,
     RETREAT,
     ROLE,
     ROUND,
@@ -45,12 +46,14 @@ from tnp.battle import (
     dice,
     emergency_cap,
     emergency_limits,
+    flankers_of,
     groups,
     initiative_totals,
     is_base,
     modifier,
     other,
     repair_workers,
+    reposition_asker,
     retreat_asker,
     roller,
     rollers,
@@ -419,19 +422,22 @@ def answer_emergency(engine: "RulesEngine", match: "MatchState", choice: str,
 def begin_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str = "") -> StepResult:
     """
     A round begins (TNP 6.4, 6.5): after the first, every unengaged force
-    is lifted out of the line to be placed again -- only engaged pairs
-    stay, and flanking forces are placed again too -- the scouting
-    advantage is counted, and the placing begins: with an advantage of N
-    the other seat places N forces first, with none the defender has the
-    first turn (`answer_place` says what a turn is).
+    in front is lifted out of the line to be placed again -- engaged pairs
+    stay, and so do the flanking forces behind them, which each seat may
+    then keep or take out (`answer_reposition`) -- the scouting advantage
+    is counted, and the placing begins (`_start_placing`).
     """
     battle = match.battle
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
+    battle.reposition_asked = []
     if battle.round > 1:
         kept = []
         for column in battle.line:
             if len(column.front) == 2:
-                kept.append(Column(front=dict(column.front)))
+                kept.append(Column(
+                    front=dict(column.front),
+                    flank={seat: list(ids) for seat, ids in column.flank.items() if ids},
+                ))
         battle.line = kept
     battle.retreats, battle.retreat_asked, battle.leaving = [], [], {}
     battle.group, battle.rolled = None, []
@@ -444,6 +450,17 @@ def begin_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
             f"{battle.advantage['by']}."
         )
     result.narration.append(words)
+    if reposition_asker(battle) is not None:
+        battle.phase = REPOSITION
+    else:
+        _start_placing(battle)
+    return _waiting(engine, match, result)
+
+
+def _start_placing(battle: BattleState) -> None:
+    """With an advantage of N the other seat places N forces first; with
+    none the defender has the first turn (TNP 6.5; `answer_place` says
+    what a turn is)."""
     if battle.advantage is not None:
         first, run = other(battle.advantage["seat"]), battle.advantage["by"]
     else:
@@ -453,6 +470,33 @@ def begin_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
     battle.to_place = first if unplaced(battle, first) else None
     battle.run_left = run
     battle.phase = PLACE
+
+
+def answer_reposition(engine: "RulesEngine", match: "MatchState", choice: str,
+                      forces: Optional[list] = None) -> StepResult:
+    """A seat keeps its flanking forces where they stand, or takes the
+    ones `forces` names out of the line to be placed again (TNP 6.5)."""
+    battle = match.battle
+    seat = reposition_asker(battle)
+    result = StepResult()
+    if choice == "move":
+        chosen = list(dict.fromkeys(forces or []))
+        if not chosen:
+            raise RuleRefusal("Choose the flanking forces to reposition, or keep them.", cite="TNP 6.5")
+        standing = flankers_of(battle, seat)
+        if any(one not in standing for one in chosen):
+            raise RuleRefusal("Only a flanking force of yours may be repositioned.", cite="TNP 6.5")
+        for column in battle.line:
+            if seat in column.flank:
+                column.flank[seat] = [one for one in column.flank[seat] if one not in chosen]
+        result.board_changed = True
+        result.narration.append(
+            f"{tokens.seat(seat)} repositions "
+            + ", ".join(force_words(battle.force(one)) for one in chosen) + "."
+        )
+    battle.reposition_asked.append(seat)
+    if reposition_asker(battle) is None:
+        _start_placing(battle)
     return _waiting(engine, match, result)
 
 
@@ -930,7 +974,8 @@ def _settle(engine: "RulesEngine", battle: Optional[BattleState]) -> None:
 
 
 __all__ = [
-    "answer_destroy", "answer_emergency", "answer_place", "answer_repair", "answer_retreat",
+    "answer_destroy", "answer_emergency", "answer_place", "answer_repair", "answer_reposition",
+    "answer_retreat",
     "answer_role", "answer_splash", "answer_target", "begin_battle", "begin_round",
     "close_group", "emergency_possible", "end_round", "finish", "force_words",
 ]

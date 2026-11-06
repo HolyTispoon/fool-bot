@@ -85,14 +85,16 @@ def asked(engine: RulesEngine, match: MatchState) -> Optional[PendingPrompt]:
 def first(prompt: PendingPrompt) -> Action:
     """The first legal answer to any battle question: the first force to
     its first slot, the first shooter at its first target, fight on,
-    attack, build nothing, give no Workers, take the splash, the first
-    thing destroyed."""
+    attack, build nothing, keep the flankers, give no Workers, take the
+    splash, the first thing destroyed."""
     options = prompt.options
     kind = prompt.kind
     if kind is PromptKind.CHOOSE_ROLE:
         return Action(kind, "attack")
     if kind is PromptKind.EMERGENCY_DEFENSE:
         return Action(kind, "none")
+    if kind is PromptKind.REPOSITION_FLANKERS:
+        return Action(kind, "keep")
     if kind is PromptKind.PLACE_FORCE:
         force = options.forces[0]
         return Action(kind, "", {"force": force.force, "slot": force.slots[0]})

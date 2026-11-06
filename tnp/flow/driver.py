@@ -168,6 +168,7 @@ class Refusal:
 STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.CHOOSE_ROLE: "The sides have already been chosen.",
     PromptKind.EMERGENCY_DEFENSE: "The emergency defense has already been decided.",
+    PromptKind.REPOSITION_FLANKERS: "The flanking forces have already been kept or moved.",
     PromptKind.PLACE_FORCE: "That placing has moved on.",
     PromptKind.DECLARE_RETREAT: "That retreat has already been declared or not.",
     PromptKind.CHOOSE_TARGET: "That roll has moved on.",
@@ -189,6 +190,10 @@ def _answer_role(engine, game, match, prompt, choice) -> StepResult:
 
 def _answer_emergency(engine, game, match, prompt, choice, *, units=None, trade=None) -> StepResult:
     return fight.answer_emergency(engine, match, choice, units=units, trade=trade)
+
+
+def _answer_reposition(engine, game, match, prompt, choice, *, forces=None) -> StepResult:
+    return fight.answer_reposition(engine, match, choice, forces=forces)
 
 
 def _answer_place(engine, game, match, prompt, choice, *, force=None, slot=None) -> StepResult:
@@ -219,6 +224,7 @@ def _answer_destroy(engine, game, match, prompt, choice, *, thing=None) -> StepR
 ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.CHOOSE_ROLE: _answer_role,
     PromptKind.EMERGENCY_DEFENSE: _answer_emergency,
+    PromptKind.REPOSITION_FLANKERS: _answer_reposition,
     PromptKind.PLACE_FORCE: _answer_place,
     PromptKind.DECLARE_RETREAT: _answer_retreat,
     PromptKind.CHOOSE_TARGET: _answer_target,
@@ -231,6 +237,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
 ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.CHOOSE_ROLE: frozenset(),
     PromptKind.EMERGENCY_DEFENSE: frozenset({"units", "trade"}),
+    PromptKind.REPOSITION_FLANKERS: frozenset({"forces"}),
     PromptKind.PLACE_FORCE: frozenset({"force", "slot"}),
     PromptKind.DECLARE_RETREAT: frozenset({"carried"}),
     PromptKind.CHOOSE_TARGET: frozenset({"force", "target"}),

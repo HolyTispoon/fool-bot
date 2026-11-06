@@ -29,6 +29,7 @@ from tnp.battle import (
     EMERGENCY,
     LOSSES,
     PLACE,
+    REPOSITION,
     RETREAT,
     ROLE,
     ROUND,
@@ -43,6 +44,7 @@ from tnp.battle import (
     emergency_limits,
     modifier,
     repair_workers,
+    reposition_asker,
     retreat_asker,
     roller,
     rollers,
@@ -68,6 +70,9 @@ class PromptKind(Enum):
     #: The defender of a base may produce base defenses from its pool at
     #: the emergency rates (TNP 6.2).
     EMERGENCY_DEFENSE = "emergency_defense"
+    #: A round after the first: keep the flanking forces where they
+    #: stand, or take some out to be placed again (TNP 6.5).
+    REPOSITION_FLANKERS = "reposition_flankers"
     #: One unengaged force into the line (TNP 6.5).
     PLACE_FORCE = "place_force"
     #: Retreat or fight on: the attacker first, then the defender (TNP 6.6).
@@ -126,6 +131,22 @@ class EmergencyOptions(_Wire):
     together: tuple[TogetherLimit, ...]
     #: What an action's `trade` may name.
     trades: tuple[str, ...] = ("blue", "orange", "gems_materials", "gems_gold")
+
+
+@dataclass(frozen=True)
+class FlankerOption(_Wire):
+    force: str
+    unit: str
+    count: int
+    #: The force it stands behind.
+    behind: str
+
+
+@dataclass(frozen=True)
+class RepositionOptions(_Wire):
+    seat: str
+    #: Its flanking forces, any of which an action's `forces` may name.
+    flankers: tuple[FlankerOption, ...]
 
 
 @dataclass(frozen=True)
@@ -228,7 +249,7 @@ class DestroyOptions(_Wire):
 
 
 PromptOptions = Union[
-    RoleOptions, EmergencyOptions, PlaceOptions, RetreatOptions, TargetOptions,
+    RoleOptions, EmergencyOptions, RepositionOptions, PlaceOptions, RetreatOptions, TargetOptions,
     RepairOptions, SplashOptions, DestroyOptions,
 ]
 
@@ -281,6 +302,7 @@ class Action:
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.CHOOSE_ROLE: ("attack", "defend"),
     PromptKind.EMERGENCY_DEFENSE: ("build", "none"),
+    PromptKind.REPOSITION_FLANKERS: ("keep", "move"),
     PromptKind.PLACE_FORCE: ("",),
     PromptKind.DECLARE_RETREAT: ("retreat", "fight"),
     PromptKind.CHOOSE_TARGET: ("",),
@@ -311,6 +333,16 @@ def _emergency_options(engine, battle: BattleState, prompt) -> EmergencyOptions:
         ),
         together=tuple(TogetherLimit(units, room) for units, room in together),
     )
+
+
+def _reposition_options(engine, battle: BattleState, prompt) -> RepositionOptions:
+    seat = prompt.asked_seat
+    found = []
+    for column in battle.line:
+        for one in column.flankers(seat):
+            force = battle.force(one)
+            found.append(FlankerOption(one, force.unit, force.count, column.front[seat]))
+    return RepositionOptions(seat, tuple(found))
 
 
 def _place_options(engine, battle: BattleState, prompt) -> PlaceOptions:
@@ -383,6 +415,7 @@ def _destroy_options(engine, battle: BattleState, prompt) -> DestroyOptions:
 OPTIONS = {
     PromptKind.CHOOSE_ROLE: _role_options,
     PromptKind.EMERGENCY_DEFENSE: _emergency_options,
+    PromptKind.REPOSITION_FLANKERS: _reposition_options,
     PromptKind.PLACE_FORCE: _place_options,
     PromptKind.DECLARE_RETREAT: _retreat_options,
     PromptKind.CHOOSE_TARGET: _target_options,
@@ -449,6 +482,13 @@ def _pending(engine: "RulesEngine", battle: BattleState) -> Union[PendingPrompt,
             PromptKind.EMERGENCY_DEFENSE,
             f"{tokens.seat(battle.defender)}, your base is attacked: produce emergency defenses?",
             battle.defender,
+        )
+    if phase == REPOSITION:
+        seat = reposition_asker(battle)
+        return PendingPrompt(
+            PromptKind.REPOSITION_FLANKERS,
+            f"{tokens.seat(seat)}, round {battle.round}: keep your flanking forces where they "
+            "stand, or reposition them?", seat,
         )
     if phase == PLACE:
         return PendingPrompt(

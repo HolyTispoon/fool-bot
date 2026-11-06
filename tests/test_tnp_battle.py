@@ -214,6 +214,62 @@ class PlacementTests(unittest.TestCase):
         self.assertIn("flank:0", prompt.options.forces[0].slots)
 
 
+class FlankersTests(unittest.TestCase):
+    def _round_two(self, choice=None, forces=None):
+        engine, match = stage({"mercenary": 1, "worker": 1}, {"mercenary": 1})
+        place(engine, match, "green:mercenary", "column:0")
+        place(engine, match, "blue:mercenary", "engage:0")
+        place(engine, match, "blue:worker", "flank:0")
+        fight_on(engine, match)
+        fight_on(engine, match)
+        shoot(engine, match, "blue:mercenary", "green:mercenary", rolls=[2])
+        shoot(engine, match, "green:mercenary", "blue:mercenary", rolls=[2])
+        shoot(engine, match, "blue:worker", "green:mercenary", rolls=[2])
+        return engine, match
+
+    def test_a_flanker_is_kept_or_repositioned(self) -> None:
+        """TNP 6.5: at a round's start a flanking force stays where it stands, or its seat repositions it."""
+        engine, match = self._round_two()
+        prompt = asked(engine, match)
+        self.assertEqual((prompt.kind, prompt.asked_seat), (PromptKind.REPOSITION_FLANKERS, "blue"))
+        self.assertEqual([(one.force, one.behind) for one in prompt.options.flankers],
+                         [("blue:worker", "blue:mercenary")])
+        play(engine, match, Action(PromptKind.REPOSITION_FLANKERS, "keep"))
+        self.assertEqual(locate(match.battle, "blue:worker"), (0, True))
+        self.assertIs(asked(engine, match).kind, RETREAT)
+
+    def test_a_repositioned_flanker_is_placed_again(self) -> None:
+        engine, match = self._round_two()
+        play(engine, match, Action(PromptKind.REPOSITION_FLANKERS, "move", {"forces": ["blue:worker"]}))
+        prompt = asked(engine, match)
+        self.assertEqual((prompt.kind, [one.force for one in prompt.options.forces]), (PLACE, ["blue:worker"]))
+        self.assertIn("column:1", prompt.options.forces[0].slots)
+        refused = driver.apply(engine, None, match, Action(PromptKind.REPOSITION_FLANKERS, "keep"))
+        self.assertIsInstance(refused, driver.Refusal)
+
+    def test_a_flanker_goes_with_its_force(self) -> None:
+        """TNP 6.5: a flanking force behind a force that is placed again is placed again with it."""
+        engine, match = stage({"mercenary": 1, "worker": 1, "jeep": 1}, {"mercenary": 1, "cyborg_soldier": 1})
+        # Blue's Jeep: Green, without the advantage, places one first.
+        place(engine, match, "green:mercenary", "column:0")
+        place(engine, match, "blue:mercenary", "engage:0")
+        place(engine, match, "blue:jeep", "column:1")
+        place(engine, match, "green:cyborg_soldier", "engage:1")
+        place(engine, match, "blue:worker", "flank:0")
+        fight_on(engine, match)
+        fight_on(engine, match)
+        shoot(engine, match, "blue:mercenary", "green:mercenary", rolls=[9])
+        shoot(engine, match, "blue:jeep", "green:cyborg_soldier", rolls=[2])
+        shoot(engine, match, "green:mercenary", "blue:mercenary", rolls=[2])
+        shoot(engine, match, "green:cyborg_soldier", "blue:jeep", rolls=[2])
+        shoot(engine, match, "blue:worker", "green:cyborg_soldier", rolls=[2])
+        self.assertEqual(match.battle.round, 2)
+        self.assertIsNone(locate(match.battle, "blue:worker"))
+        prompt = asked(engine, match)
+        self.assertEqual((prompt.kind, prompt.asked_seat), (PLACE, "blue"))
+        self.assertEqual([one.force for one in prompt.options.forces], ["blue:worker", "blue:mercenary"])
+
+
 class RetreatTests(unittest.TestCase):
     def _placed(self, attacker, defender, **staging):
         engine, match = stage(attacker, defender, **staging)
@@ -738,6 +794,8 @@ class AnyTwoForcesTests(unittest.TestCase):
                 return Action(kind, "splash", {"force": chooser.choice(options.forces)})
             if kind is PromptKind.DESTROY:
                 return Action(kind, "", {"thing": chooser.choice(options.things)})
+            if kind is PromptKind.REPOSITION_FLANKERS and chooser.random() < 0.5:
+                return Action(kind, "move", {"forces": [options.flankers[0].force]})
             return first(prompt)
         return policy
 
