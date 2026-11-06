@@ -23,7 +23,8 @@ to both wins through the driver alone. Step 5 put it on Discord as far
 as turn 1: the lobby, the game's channel, the table and each seat's
 panel, and the hub's **TNP** button. Step 6 put the turn on Discord:
 each seat's controls, March posted attack spot by attack spot, the
-trade, Cleanup -- everything but a battle.
+trade, Cleanup -- everything but a battle. Step 7 put the battle on
+Discord, on a message of its own, round by round.
 
 ## A cog in fool-bot, not a bot of its own
 
@@ -695,8 +696,8 @@ hidden, and what is hidden is ephemeral, to its seat's player alone.**
 ## The turn on Discord
 
 Step 6 of the worksheet: two people play a turn from Infrastructure and
-Deployment to Cleanup on Discord. Everything but a battle -- a battle
-met in March is named, and the game waits there for step 7.
+Deployment to Cleanup on Discord. Everything but a battle, which step 7
+put on a message of its own (below, "Battles on Discord").
 
 **A panel a seat, its controls from its prompt's options.** **My board**
 answers with the seat's board and its panel, ephemeral, and the panel's
@@ -781,8 +782,9 @@ taken the revealed piles off it.
   **Whoever is asked is pinged there** (the author, 2026-11-06, on
   PR #712): their mention on that last message, each person once, with
   `allowed_mentions` naming them alone; nothing else TNP posts pings
-  anyone, the table and the seat tokens included. A battle that waits
-  for step 7 pings nobody: nothing on Discord can answer it yet.
+  anyone, the table and the seat tokens included. A battle's question
+  is answered on the battle's own message, and the ping goes there
+  (below, "Battles on Discord").
 - **An attack is pictured on its spot's message, not on the table.**
   The worksheet asked for the table's map redrawn once a slot through
   the gate; but the gate coalesces writes inside its window and a
@@ -813,9 +815,8 @@ taken the revealed piles off it.
   small: the count, the name, the unit type's stripe. `scripts/render_tnp_sample.py`
   draws two (`attack-A-2.png`, one pile; `attack-B-9.png`, a defense
   and an attack).
-- **A battle met in March** posts its opening lines and "battles arrive
-  in step 7"; the panel of a seat asked a battle's question says the
-  same, and the game waits there.
+- **A battle met in March** posts its opening lines on its spot's
+  message, and the battle its own message after it (below).
 
 **The requests a whole turn spends** from the channel's bucket,
 measured by `test_a_whole_turn_from_infrastructure_to_cleanup` over
@@ -842,3 +843,131 @@ and no target of either plan is in anything the channel was sent or
 edited to before the reveal, and `test_a_lone_lock_in_edits_the_table_and_posts_nothing`
 that a lock-in says only that. The cog's log lines name a game and
 nothing of a seat's; a refusal is shown to the clicker alone.
+
+
+## Battles on Discord
+
+Step 7 of the worksheet: two people fight a battle round by round on
+Discord, and March goes on from where it stopped once it is over.
+
+**A battle has its own message** (`cogs/tnp/battles.py`): the battle's
+picture (`render_battle`, step 3's), its heading -- where, which round
+of the six, who attacks whom (`tnp.formatting.battle_heading`) -- what
+its round has said so far, and the question it is asking, with the
+controls under it. It is posted after the attack spot's message that
+opened the battle, and pings whoever is asked.
+
+- **The question is public; the controls are the asked seat's.** A
+  battle reveals every unit in it (TNP 6.1), so nothing on the message
+  is hidden, and a step-6 panel's ephemeral answer would have had the
+  two players opening **My board** for every placing turn and every
+  initiative group. Only the asked seat's player may click -- both
+  seats', in a test game -- and anyone else is told whose question it
+  is, privately. A seat's panel asked a battle's question points at the
+  battle message.
+- **One view a battle prompt kind** (`cogs/tnp_views/battle.py`,
+  `battle_view` the one mapping), each built from the prompt's options
+  and nothing else: **Attack**/**Defend** for the scouting advantage's
+  side; the emergency defense's unit counts and, as a second part since
+  the menus outnumber a message's rows, its trades; the flankers to
+  reposition, or **Keep them where they stand**; the force to place and
+  then where -- each slot in the model's words (`slot_text`): engage a
+  force, a new column at a gap, flank behind one's own; **Fight on** or
+  **Retreat**, with how many of each unit the Chopper Carriers carry
+  where there is no path home; the force to roll and then its target;
+  the Workers given to repair; the force to splash; what a base card's
+  hits destroy.
+- **Choosing a target rolls in the same click** (decision 8), and the
+  target menu says what a roll will need before it is made: each
+  target's dice and what a die must show, its description the rating
+  against the target's type and every modifier by its reason
+  (`target_text`, `target_reason`).
+- **Every roll is shown whole.** A roll's line is the model's: the dice,
+  and in brackets the rating against the target's type with its number,
+  each modifier by its reason -- "−1, a column across", "+1 flanking",
+  "+2 from the cards" -- and what each die needed: "Blue's 3 Mercenary
+  fire at Green's 2 Mercenary: rolled 7, 2, 11 (Fair against infantry,
+  6+; −1, a column across: each die hits on 7+) — 2 hits." The parts are
+  one reading, `tnp.battle.modifier_parts`, which `modifier` adds up, so
+  the number rolled at and the reasons given cannot disagree; what a die
+  must show is `tnp.battle.needs` -- the rating's number less the
+  modifier, never below 2 (a 1 misses) nor above 12 (a 12 hits). `Roll`
+  and `TargetOption` carry the rating, the parts and that number.
+- **A round with nothing to place asks nothing.** From round 2 an
+  engaged pair stays where it stands (TNP 6.5), so where every force is
+  engaged the round opens on its retreats; that was the model's already
+  (`_settle`), and `test_a_battle_round_by_round_and_the_requests_each_spends`
+  holds it on Discord.
+
+**A click redraws the battle message through the click's own
+response, never the channel.** The worksheet asked for the message
+edited round by round through the gate. But every change to a battle is
+an answer to a click on that very message, and an edit through the
+click's own interaction -- deferred, then `edit_original_response`, the
+webhook route -- spends nothing from the channel's bucket
+([rate-limits.md](rate-limits.md)). So the message is redrawn after
+every click, the picture uploaded again only where the battle moved,
+and the gate is not needed for it: the channel route is taken only for
+a battle a `/tnp resume` moves on, which is rare. A choice that is not
+yet an answer -- the force a slot menu is for, a carried count -- is a
+redraw through `response.edit_message`, the same free route.
+
+**A round's record is posted once, as it ends.** The run stops at
+`END_ROUND` (`STOPS`), and the cog keeps the battle as the round left it
+-- a copy, its round track put back on the round that ended, since
+`end_round` has already moved it up -- beside the map (`Picture`). The
+record is the round's heading, every line the round said, every roll
+whole, and that picture: one send, the round's one request on the
+channel's bucket. The battle's outcome on the map (`SETTLE_BATTLE`, its
+own group, `OWN_MESSAGE`) joins its last round's record rather than
+leading into the next attack's, and the battle message is then redrawn
+as the battle ended, its controls gone. Then March goes on as step 6
+posts it. A round's record pings whoever the next round asks first, on
+the battle message's link; within a round the asked seat changes
+without a ping, since an edit cannot ping and a send each time is a
+request each time.
+
+**What the round has said so far is the record's**
+(`TnpGame.battle_post`: the battle message's id, which battle -- the
+turn, the attack spot and the area, `battle_key` -- and the round's
+lines, tokens unrendered). Each click's result carries its own lines
+only, and the message shows the whole round, so they are kept; on the
+record, as the table's message id is, so a restart loses none of it.
+`None` between battles.
+
+**Persistent, and right after a restart.** Every control's `custom_id`
+is fixed by the game and the control (`tnp:battle:<game>:<part>`), and
+the startup sweep re-arms the battle message's view by its id
+(`restore_battle_view`), built from the question as it stands. Every
+menu's value is a whole answer -- a force and its slot, a force and its
+target, a count and whose -- so a menu on a message drawn before the
+restart answers what it shows. A button that would send what the view
+held (a retreat's carried counts, a repair's Workers, an emergency
+defense) shows the question afresh instead, once, saying so
+(`restored`). **`/tnp resume`** posts the battle again on a fresh
+message, with the round's lines, before the fresh table.
+
+**The table is left alone while only the battle moves**: its map
+cannot change until the battle's outcome is put on it, so a click inside
+a battle refreshes nothing; the outcome, March's next attack and
+Production do, through the gate, as in step 6.
+
+**The requests a battle spends** from the channel's bucket, measured by
+`test_a_battle_round_by_round_and_the_requests_each_spends` over
+`tests/codex_cog_fakes.py`'s channel, for a six-round battle of three
+Mercenaries against two that nobody hits: **one a round** -- the
+round's record -- for rounds 1 to 5, whatever was clicked inside it,
+and **three** for round 6, whose end is also the battle's: its record
+with the outcome, March's end and Production as one send, and the
+table's edit. Opening the battle costs the spot's message and the
+battle message, two sends, beside the lock-in's table edit. Every click
+on the battle message is the interaction's own route. A round's record
+longer than a message is split, a send a part, which a round of many
+forces can reach; it is still one round's few, against the five-in-five
+window, made minutes apart.
+
+**Hidden information.** The battle message and the records say what the
+battle has revealed and nothing else: the heading, the battle's own
+lines and its picture, all from `BattleState`, which is public (TNP 6.1).
+Nothing of either seat's plan beyond the battle's own units is read.
+

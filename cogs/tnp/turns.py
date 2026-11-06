@@ -14,8 +14,8 @@ seat's panel, the answers it sends, and what a turn puts in the channel.
 - **What a turn posts** is the model's lines, one message an attack
   spot in March -- A, then B -- each with the map as that spot left it,
   and one for what follows; a lone lock-in posts nothing, the table
-  saying it. A battle met in March is named and the game waits: battles
-  are step 7's.
+  saying it. A battle met in March is fought on its own message
+  (`cogs/tnp/battles.py`), and a round's record is posted as it ends.
 
 Every picture is drawn off the event loop (`asyncio.to_thread`).
 Nothing here decides a rule.
@@ -26,19 +26,21 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from typing import Any, Optional, Sequence
 
 import discord
 
-from cogs.tnp_views import PanelState, panel_view, send_ephemeral
+from cogs.tnp.battles import ROUND_FILENAME, battle_key, fighting
+from cogs.tnp_views import BATTLE_VIEWS, PanelState, panel_view, send_ephemeral
 from tnp import tokens
 from tnp.briefs import board_brief, map_brief
 from tnp.catalog import Cost
 from tnp.formatting import (
-    board_caption, cost_text, map_caption, phase_heading, plan_lines, plan_offer_lines,
-    pool_text, token_text, trade_lines,
+    battle_heading, board_caption, cost_text, map_caption, phase_heading, plan_lines,
+    plan_offer_lines, pool_text, token_text, trade_lines,
 )
+from tnp.flow.result import FollowOnStep
 from tnp.game import GameStatus, RuleRefusal, TnpGame
 from tnp.prompts import SIMULTANEOUS, Action, PendingPrompt, PromptKind, prompt_for
 from tnp.render import render_attack, render_board, render_map
@@ -56,11 +58,36 @@ MESSAGE_FILES = 10
 #: An attack's picture's name (`render_attack`).
 ATTACK_FILENAME = "tnp-attack-{spot}-{area}.png"
 
-#: What a panel and the channel say of a battle until step 7.
-BATTLES_NOT_YET = (
-    "Battles can't be fought on Discord yet -- they arrive in step 7 of the build -- "
-    "so this game waits at this battle."
-)
+#: What a seat's panel says while its seat is asked a battle's question.
+BATTLE_ELSEWHERE = "Your battle question is on the battle message in the channel"
+
+
+@dataclass
+class Post:
+    """One message a result posts (`plan_posts`): a March attack spot's
+    ("part"), a battle round's record ("round", with the battle as the
+    round left it and which battle), or the rest ("rest")."""
+
+    kind: str
+    lines: list
+    part: Optional[str] = None
+    battle: Any = None
+    key: Optional[str] = None
+    #: The attacks pictured on it, by area: `(spot, area, map brief)`.
+    pictures: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PostPlan:
+    """What a result posts, and the battle around it: `battle` the
+    battle being fought at the end, `(key, its round's lines so far)`;
+    `ended` the battle the record held that is over now; `settled`
+    whether a battle's outcome went on the map."""
+
+    posts: list
+    battle: Optional[tuple] = None
+    ended: Optional[str] = None
+    settled: bool = False
 
 #: Under a plan's controls.
 PLAN_HINT = (
@@ -165,8 +192,8 @@ class TurnMixin:
         if prompt is None:
             if match.seat(seat).locked:
                 lines.append("You have locked in. Nothing is shown to anyone until both of you have.")
-            elif match.battle is not None and match.battle.outcome is None:
-                lines.append(BATTLES_NOT_YET)
+            elif fighting(match):
+                lines.append("A battle is being fought; the other seat is asked on its message.")
             else:
                 lines.append("Nothing is asked of you now.")
             return "\n".join(lines)
@@ -176,8 +203,9 @@ class TurnMixin:
             said = plan_lines(prompt.options) + plan_offer_lines(prompt.options) + [PLAN_HINT]
         elif prompt.kind is PromptKind.TRADE:
             said = trade_lines(prompt.options)
-        elif prompt.kind not in (PromptKind.CONQUER, PromptKind.HARVEST):
-            said = [BATTLES_NOT_YET]
+        elif prompt.kind in BATTLE_VIEWS:
+            link = self.battle_link(game)
+            said = [f"{BATTLE_ELSEWHERE}" + (f": {link}" if link else ".")]
         lines += [self.render_text(line, game) for line in said]
         return fit("\n".join(lines))
 
@@ -228,39 +256,71 @@ class TurnMixin:
 
     # -- What a turn posts ----------------------------------------------------
 
-    def messages_for(self, result) -> list[tuple[list[str], list]]:
+    def plan_posts(self, game: TnpGame, result) -> "PostPlan":
         """
-        A result's lines as the messages they are posted in, each with
-        the pictures it carries: the groups a March attack spot closed
-        (`Narration.part`, "A" then "B") one message a spot, with a
-        picture for each attack in it -- the map around the area it
-        resolved at (`Narration.area`), as the spot left it, with the
-        piles revealed there -- and everything else -- March's end,
-        Production, the trades, Cleanup -- one message after them with
-        no picture, the table carrying the map.
+        A result's lines as the messages they are posted in, and where a
+        battle's round stands:
+
+        - the groups a March attack spot closed (`Narration.part`, "A"
+          then "B") one message a spot, with a picture for each attack in
+          it -- the map around the area it resolved at (`Narration.area`),
+          as the spot left it, with the piles revealed there;
+        - **a battle round's record** where a round ended (a group closed
+          at `END_ROUND`): what the round said before this click, kept on
+          the record, and what it said in it, with the battle as the round
+          left it -- the battle's outcome on the map (`SETTLE_BATTLE`'s
+          own group) joined to its last round;
+        - everything else -- March's end, Production, the trades, Cleanup
+          -- one message after them with no picture, the table carrying
+          the map;
+        - and **while a battle is on at the end**, the lines of its round
+          so far, for the battle message, rather than a post.
         """
-        messages: list[dict] = []
+        prior = game.battle_post or {}
+        log_key, log = prior.get("key"), list(prior.get("lines") or [])
+        posts: list[Post] = []
+        settled = False
         for group in result.groups:
             lines = [line for line in group.lines if line]
-            last = messages[-1] if messages else None
-            if last is None or last["part"] != group.part:
-                last = {"part": group.part, "lines": [], "pictures": {}}
-                messages.append(last)
-            last["lines"] += lines
-            if group.part is not None and group.area is not None and group.picture is not None:
+            picture = group.picture
+            if group.step is FollowOnStep.END_ROUND and picture is not None and picture.battle is not None:
+                if picture.key != log_key:
+                    log_key, log = picture.key, []
+                posts.append(Post(
+                    "round", [battle_heading(picture.battle), *log, *lines],
+                    battle=picture.battle, key=picture.key,
+                ))
+                log = []
+                continue
+            if group.step is FollowOnStep.SETTLE_BATTLE:
+                settled = True
+                if posts:
+                    posts[-1].lines += lines
+                elif lines:
+                    posts.append(Post("rest", lines))
+                continue
+            last = posts[-1] if posts else None
+            if last is None or last.kind == "round" or last.part != group.part:
+                last = Post("part" if group.part is not None else "rest", [], part=group.part)
+                posts.append(last)
+            last.lines += lines
+            if group.part is not None and group.area is not None and picture is not None:
                 # The latest picture of each area the spot resolved at,
                 # in the order the spot first reached it.
-                last["pictures"][group.area] = (group.part, group.area, group.picture)
+                last.pictures[group.area] = (group.part, group.area, picture.map)
         tail = [line for line in result.narration if line]
-        if tail:
-            if messages and messages[-1]["part"] is None:
-                messages[-1]["lines"] += tail
+        match = result.match
+        battle = None
+        if fighting(match):
+            key = battle_key(match)
+            battle = (key, (log if key == log_key else []) + tail)
+        elif tail:
+            if posts and posts[-1].kind == "rest":
+                posts[-1].lines += tail
             else:
-                messages.append({"part": None, "lines": tail, "pictures": {}})
-        return [
-            (one["lines"], list(one["pictures"].values())[:MESSAGE_FILES])
-            for one in messages if one["lines"]
-        ]
+                posts.append(Post("rest", tail))
+        ended = prior.get("key") if prior.get("key") and (battle is None or battle[0] != prior.get("key")) else None
+        return PostPlan([post for post in posts if post.lines], battle, ended, settled)
 
     def lone_lock(self, result, action: Optional[Action]) -> bool:
         """A seat locking in while the other is still asked the same: the
@@ -272,17 +332,19 @@ class TurnMixin:
         )
 
     def closing_lines(self, game: TnpGame, result) -> list[str]:
-        """What a post ends on: a battle met in March, which waits for
-        step 7, or where the questions now asked are answered."""
-        match = result.match
-        if match is not None and match.battle is not None and match.battle.outcome is None:
-            return [BATTLES_NOT_YET]
+        """What a post ends on: where the questions now asked are
+        answered -- **My board** on the table, or for a battle's, the
+        battle message."""
         if not result.prompts:
             return []
-        link = self.table_link(game)
-        where = f"**My board** on the table ({link})" if link else "**My board** on the table"
         ping = " ".join(f"<@{user_id}>" for user_id in self.asked_players(game, result))
         ping = f"{ping} " if ping else ""
+        if fighting(result.match):
+            link = self.battle_link(game)
+            where = f"the battle message ({link})" if link else "the battle message"
+            return [f"{ping}{self.render_text(result.prompts[0].ask, game)} Answer on {where}."]
+        link = self.table_link(game)
+        where = f"**My board** on the table ({link})" if link else "**My board** on the table"
         if len(result.prompts) == 1 and result.prompts[0].kind not in SIMULTANEOUS:
             return [self.render_text(result.prompts[0].ask, game), f"{ping}Answer from {where}."]
         return [f"{ping}Open {where} to answer."]
@@ -299,31 +361,87 @@ class TurnMixin:
                 found.append(user_id)
         return found
 
-    async def present(self, channel, game: TnpGame, result, action: Optional[Action] = None) -> None:
+    async def present(self, channel, game: TnpGame, result, action: Optional[Action] = None, *,
+                      clicked=None, fresh_battle: bool = False) -> None:
         """
-        What a result puts in public: its messages, A then B then the
-        rest (`messages_for`), each its own send with its map; the
-        questions now asked named at the foot; and the table edited
-        through the gate. A save says nothing and moves nothing. A
-        failed send is logged and the rest goes on -- the turn is saved.
+        What a result puts in public, in order: the battle message clicked
+        redrawn through the click's own webhook (`clicked`); the posts,
+        A then B, a round's record, then the rest (`plan_posts`), each its
+        own send with its pictures; a battle that has just opened -- or,
+        with `fresh_battle`, one being fought -- posted as its own
+        message; the questions now asked named at the foot, whoever must
+        answer pinged; and the table edited through the gate, unless only
+        a battle moved. A save says nothing and moves nothing. A failed
+        send is logged and the rest goes on -- the turn is saved.
         """
         if channel is None or result.refused:
             return
         quiet = self.lone_lock(result, action)
-        messages = [] if quiet else self.messages_for(result)
+        plan = self.plan_posts(game, result)
+        posts = [] if quiet else plan.posts
+        match = result.match
+        prior = game.battle_post or {}
+        # The round records' pictures, drawn once each: the last of a
+        # battle's is also its message's final picture.
+        pngs: dict[int, bytes] = {}
+        for index, post in enumerate(posts):
+            if post.kind == "round":
+                pngs[index] = await self.battle_png(post.battle)
+        final = None
+        if plan.ended is not None:
+            for index, post in enumerate(posts):
+                if post.kind == "round" and post.key == plan.ended:
+                    final = (post, pngs[index])
+        # The battle message: the clicked one redrawn, or a battle's end
+        # put on it; a new battle's posted after the posts.
+        new_battle = plan.battle is not None and (
+            fresh_battle or prior.get("key") != plan.battle[0] or prior.get("id") is None
+        )
+        if plan.battle is not None:
+            self.note_battle(game, key=plan.battle[0], lines=plan.battle[1])
+        elif prior.get("key"):
+            self.note_battle(game, key=None, lines=())
+        if final is not None:
+            post, png = final
+            if clicked is not None:
+                # The record's lines less its heading, which the
+                # battle message has of its own.
+                await self.edit_clicked_battle(clicked, game, match, post.lines[1:], picture=True,
+                                               battle=post.battle, png=png)
+            else:
+                await self.edit_battle_message(channel, game, match, post.lines[1:], post.battle, png,
+                                               message_id=prior.get("id"))
+        elif plan.ended is not None:
+            # Over with no round's end -- a base nobody defended once its
+            # emergency defense was declined: its controls taken off.
+            await self.close_battle_message(channel, clicked, game, prior.get("id"))
+        elif plan.battle is not None and not new_battle:
+            if clicked is not None:
+                await self.edit_clicked_battle(clicked, game, match, plan.battle[1],
+                                               picture=result.board_changed or bool(posts))
+            else:
+                await self.edit_battle_message(channel, game, match, plan.battle[1])
         pinged: list[int] = []
-        if messages:
+        if posts and not new_battle:
             closing = self.closing_lines(game, result)
             if closing:
-                messages[-1] = (messages[-1][0] + closing, messages[-1][1])
-                if not (result.match is not None and result.match.battle is not None
-                        and result.match.battle.outcome is None):
-                    pinged = self.asked_players(game, result)
-        for index, (lines, pictures) in enumerate(messages):
-            text = "\n".join(self.render_text(line, game) for line in lines)
-            last = index == len(messages) - 1
-            await self.post(channel, game, text, pictures, pinged if last else ())
-        if messages or quiet or result.board_changed:
+                posts[-1].lines += closing
+                pinged = self.asked_players(game, result)
+        for index, post in enumerate(posts):
+            text = "\n".join(self.render_text(line, game) for line in post.lines)
+            last = index == len(posts) - 1
+            files = []
+            if post.kind == "round":
+                files = [self.battle_file(pngs[index], ROUND_FILENAME.format(round=post.battle.round))]
+            await self.post(channel, game, text, list(post.pictures.values())[:MESSAGE_FILES],
+                            pinged if last else (), files=files)
+        if new_battle:
+            await self.post_battle_message(channel, game, match, plan.battle[1],
+                                           self.asked_players(game, result))
+        table_moved = quiet or plan.settled or any(post.kind != "round" for post in posts) or (
+            result.board_changed and plan.battle is None and plan.ended is None
+        )
+        if table_moved:
             await self.boards.refresh(channel, game)
 
     async def attack_file(self, spot: str, area: str, brief) -> discord.File:
@@ -332,16 +450,18 @@ class TurnMixin:
         png = await asyncio.to_thread(render_attack, self.catalog, brief, area, spot)
         return discord.File(io.BytesIO(png), filename=ATTACK_FILENAME.format(spot=spot, area=area))
 
-    async def post(self, channel, game: TnpGame, text: str, pictures=(), pinged=()) -> None:
-        """One message, with its attacks' pictures where it has any -- and
-        where the text is longer than Discord takes, the rest in the
-        messages after it, the pictures on the last. `pinged` are the
-        users its mentions may ping; every other mention is inert."""
+    async def post(self, channel, game: TnpGame, text: str, pictures=(), pinged=(), files=()) -> None:
+        """One message, with its attacks' pictures where it has any, and
+        `files` drawn already (a round's battle) -- and where the text is
+        longer than Discord takes, the rest in the messages after it, the
+        pictures on the last. `pinged` are the users its mentions may
+        ping; every other mention is inert."""
         chunks = split_text(text)
+        drawn = list(files)
         for index, chunk in enumerate(chunks):
             files = []
             if index == len(chunks) - 1:
-                files = [await self.attack_file(*picture) for picture in pictures]
+                files = drawn + [await self.attack_file(*picture) for picture in pictures]
             mentions = discord.AllowedMentions.none()
             if pinged:
                 mentions = discord.AllowedMentions(
@@ -381,4 +501,4 @@ def split_text(text: str) -> list[str]:
     return chunks or [""]
 
 
-__all__ = ["BATTLES_NOT_YET", "BOARD_FILENAME", "MAP_FILENAME", "TurnMixin", "split_text"]
+__all__ = ["BATTLE_ELSEWHERE", "BOARD_FILENAME", "MAP_FILENAME", "Post", "PostPlan", "TurnMixin", "split_text"]

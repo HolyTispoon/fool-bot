@@ -32,8 +32,15 @@ LOGGER = logging.getLogger(__name__)
 
 #: Where a run stops for a picture (`Batching.stop_after`): after each
 #: March attack, so each attack spot's lines are posted with the map as
-#: that spot left it (docs/design/tnp.md, "The turn on Discord").
-STOPS = frozenset({FollowOnStep.MARCH})
+#: that spot left it (docs/design/tnp.md, "The turn on Discord"), and
+#: after each battle round's end, so a round is its own record with the
+#: battle as the round left it ("Battles on Discord").
+STOPS = frozenset({FollowOnStep.MARCH, FollowOnStep.END_ROUND})
+
+#: The steps whose lines are their own group (`Batching.own_message`):
+#: a battle's outcome put on the map, which closes the battle's last
+#: round rather than leading into the next attack.
+OWN_MESSAGE = frozenset({FollowOnStep.SETTLE_BATTLE})
 
 
 class CoreMixin:
@@ -106,7 +113,8 @@ class CoreMixin:
         service = self.__dict__.get("_service")
         if service is None or service.engine is not self.engine or service.games is not self.games:
             service = GameService(
-                self.engine, self.games, Batching(stop_after=STOPS, picture=self.map_picture),
+                self.engine, self.games,
+                Batching(stop_after=STOPS, own_message=OWN_MESSAGE, picture=self.position_picture),
             )
             self.__dict__["_service"] = service
         return service
@@ -160,3 +168,4 @@ class CoreMixin:
             )
             return
         self.bot.add_view(TableView(self, game.game_id), message_id=game.table_message_id)
+        self.restore_battle_view(game)

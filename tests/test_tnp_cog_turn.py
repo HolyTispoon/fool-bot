@@ -25,6 +25,7 @@ from unittest import mock
 from codex_cog_fakes import FakeChannel, FakeInteraction, find_button, find_select, user
 from cogs import d12ball_boards
 from cogs.tnp import Tnp
+from cogs.tnp import battles as tnp_battles
 from cogs.tnp import core as tnp_core
 from cogs.tnp import table as tnp_table
 from cogs.tnp import turns as tnp_turns
@@ -52,7 +53,7 @@ class Turn:
         self.stack.enter_context(mock.patch.object(d12ball_boards, "BOARD_REFRESH_INTERVAL", 0))
         for module, name in (
             (tnp_table, "render_map"), (tnp_turns, "render_map"), (tnp_turns, "render_board"),
-            (tnp_turns, "render_attack"),
+            (tnp_turns, "render_attack"), (tnp_battles, "render_battle"),
         ):
             self.stack.enter_context(mock.patch.object(module, name, side_effect=picture))
         self.bot = mock.MagicMock()
@@ -319,29 +320,6 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kinds.count("send"), 5)
         self.assertEqual(kinds.count("edit"), 5)
         self.assertEqual(len(kinds), 10)
-
-    async def test_a_battle_met_in_march_is_named_and_the_game_waits(self) -> None:
-        """Blue attacks area 14, which Green holds: a battle (TNP 5.6),
-        which step 7 fights."""
-        turn = self.turn
-        match = turn.match()
-        match.areas["14"].controller = "green"
-        match.pile("14", "green").add({"mercenary": 2})
-        match.seat("green").available["mercenary"] -= 2
-        turn.cog.service.persist(turn.game, match)
-        view, _ = await turn.my_board("blue")
-        view, _ = await turn.choose(view, "What to change", "attack:A")
-        view, _ = await turn.choose(view, "Attack A's target", "14")
-        view, _ = await turn.choose(view, "Unit for attack A", "mercenary")
-        view, _ = await turn.choose(view, "How many Mercenary in attack A", "3")
-        await turn.press(view, "Lock in")
-        view, _ = await turn.my_board("green")
-        await turn.press(view, "Lock in")
-        said = turn.public()
-        self.assertIn("arrive in step 7", said)
-        self.assertIsNotNone(turn.match().battle)
-        view, call = await turn.my_board("blue")
-        self.assertIn("arrive in step 7", call.answers[-1][1][0])
 
 
 class TnpTurnRestartTests(unittest.IsolatedAsyncioTestCase):
