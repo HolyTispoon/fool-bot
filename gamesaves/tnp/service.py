@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import Callable, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from gamesaves.tnp.storage import save_games
 from tnp.components import MatchState
@@ -47,24 +47,40 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class Batching:
-    """The frontend's batching (`gamesaves.codex.service.Batching`):
+    """
+    The frontend's batching (`gamesaves.codex.service.Batching`):
     `own_message` closes a group after a step; `stop_after` stops a run
-    there. Step 6 names March's attacks; step 7 the battle's rounds."""
+    there, and the service closes the group at the stop and runs on.
+    `picture`, where the frontend gives one, is asked at each stop for
+    what the position looks like there -- Discord's cog hands back the
+    map's brief, public by construction -- and kept on the group, since
+    a run goes on past the position it pictures. Step 6 stops after each
+    March attack; step 7 names the battle's rounds.
+    """
 
     stop_after: frozenset = frozenset()
     own_message: frozenset = frozenset()
+    picture: Optional[Callable[[MatchState], Any]] = None
 
 
 @dataclass(frozen=True)
 class Narration:
     """Lines that belong together, and the step that said them (`None`
-    for the action's own)."""
+    for the action's own); `part`, which part of the phase they are
+    about (`StepResult.part`: a March attack's spot), and `picture`, the
+    frontend's own picture of the position where the group closed."""
 
     lines: tuple[str, ...]
     step: Optional[FollowOnStep] = None
+    part: Optional[str] = None
+    picture: Any = None
 
     def to_dict(self) -> dict:
-        return {"lines": list(self.lines), "step": None if self.step is None else self.step.name}
+        return {
+            "lines": list(self.lines),
+            "step": None if self.step is None else self.step.name,
+            "part": self.part,
+        }
 
 
 @dataclass(frozen=True)
@@ -275,26 +291,22 @@ class GameService:
         if game.status is not GameStatus.PLAYING:
             raise RuleRefusal("This game is not being played.")
         match = self.load(game)
-        applied = driver.apply(
-            self.engine, game, match, action,
-            stop_after=self.batching.stop_after, own_message=self.batching.own_message,
-        )
-        if isinstance(applied, driver.Refusal):
+        answered = driver.answer(self.engine, game, match, action)
+        if isinstance(answered, driver.Refusal):
             return GameResult(
-                refusal=applied.reason, cite=applied.cite,
-                waiting_on=applied.waiting_on, match=match,
+                refusal=answered.reason, cite=answered.cite,
+                waiting_on=answered.waiting_on, match=match,
             )
-        self.persist(game, match)
-        result = GameResult(
-            groups=tuple(Narration(group.narration, group.step) for group in applied.groups),
-            narration=tuple(applied.result.narration),
-            prompts=self.prompts(game, match),
-            board_changed=applied.board_changed,
-            match=match,
-            rolls=applied.rolls,
-        )
-        self.announce(game, result)
-        return result
+        groups: list[Narration] = []
+        if answered.part is not None and answered.narration:
+            # The answer's own lines name a part of the phase -- a
+            # conquest in attack A -- so they are a group of their own,
+            # never the lead-in to the next part's.
+            groups.append(Narration(tuple(answered.narration), None, answered.part))
+            answered = StepResult(
+                board_changed=answered.board_changed, next=answered.next, rolls=answered.rolls,
+            )
+        return self._finish(game, match, answered, groups)
 
     def resume(self, game_id: str) -> tuple[str, GameResult]:
         """
@@ -319,20 +331,43 @@ class GameService:
     def run(self, game: TnpGame, match: MatchState, result: StepResult) -> GameResult:
         """Run the chain `result` starts until only somebody's answer can
         carry on, then save once."""
-        ran = driver.advance(
-            self.engine, game, match, result,
-            own_message=self.batching.own_message,
-        )
-        while ran.stopped_on is not None:  # pragma: no cover - no stop is named for the bot's own run
-            ran = driver.advance(self.engine, game, match, ran.result)
+        return self._finish(game, match, result, [])
+
+    def _finish(self, game: TnpGame, match: MatchState, result: StepResult,
+                groups: list[Narration]) -> GameResult:
+        """
+        Run on from `result` through every stop the frontend named
+        (`Batching.stop_after`) until only somebody's answer can carry
+        on, **save once**, and hand back what was said. A stop closes
+        the group it ends -- its lines, the step, the part they are
+        about and the frontend's picture of the position there -- and
+        the run goes on from where it stopped.
+        """
+        board_changed = result.board_changed
+        rolls: list = []
+        while True:
+            ran = driver.advance(
+                self.engine, game, match, result,
+                stop_after=self.batching.stop_after, own_message=self.batching.own_message,
+            )
+            board_changed = board_changed or ran.board_changed
+            groups.extend(Narration(group.narration, group.step) for group in ran.groups)
+            rolls.extend(ran.rolls)
+            if ran.stopped_on is None:
+                break
+            picture = None if self.batching.picture is None else self.batching.picture(match)
+            groups.append(Narration(
+                tuple(ran.result.narration), ran.stopped_on.step, ran.result.part, picture,
+            ))
+            result = StepResult(next=ran.result.next)
         self.persist(game, match)
         done = GameResult(
-            groups=tuple(Narration(group.narration, group.step) for group in ran.groups),
+            groups=tuple(groups),
             narration=tuple(ran.result.narration),
             prompts=self.prompts(game, match),
-            board_changed=ran.board_changed,
+            board_changed=board_changed,
             match=match,
-            rolls=ran.rolls,
+            rolls=tuple(rolls),
         )
         self.announce(game, done)
         return done

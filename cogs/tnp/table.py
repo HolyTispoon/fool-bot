@@ -9,10 +9,8 @@ Discord"):
 - **The table** is the one public message: the map (`tnp.briefs.map_brief`,
   public by construction), the turn and the phase, and who has locked in
   (`tnp.formatting.table_lines`), with **My board** under it.
-- **A panel** is one seat's, ephemeral, to its player alone: its player
-  board (`board_brief`, that seat's alone), its pool, and what its
-  prompt offers -- read off `PendingPrompt.options` and nothing else.
-  Step 6 puts the controls on it.
+- **A panel** is one seat's, ephemeral, to its player alone, and its
+  controls: `cogs/tnp/turns.py`.
 
 Every picture is drawn off the event loop (`asyncio.to_thread`).
 """
@@ -22,34 +20,21 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-from typing import Optional, Sequence
+from typing import Optional
 
 import discord
 from discord import app_commands
 
 from cogs.game_auth import may_act_in_game
 from cogs.tnp_helpers import UNAVAILABLE, channel_name, lobby_channel_name, tnp_games_category
+from cogs.tnp.turns import MAP_FILENAME
 from cogs.tnp_views import LobbyView, TableView, send_ephemeral
-from tnp import tokens
-from tnp.briefs import board_brief, map_brief
-from tnp.formatting import (
-    board_caption, cost_text, map_caption, phase_heading, pool_text, table_lines,
-)
-from tnp.catalog import Cost
+from tnp.briefs import map_brief
+from tnp.formatting import map_caption, table_lines
 from tnp.game import GameStatus, RuleRefusal, TnpGame
-from tnp.prompts import PendingPrompt, PromptKind
-from tnp.render import render_board, render_map
+from tnp.render import render_map
 
 LOGGER = logging.getLogger(__name__)
-
-#: The map's file, and a board's: one name each, so an edit in place of
-#: the table (step 6) replaces the picture rather than adding one.
-MAP_FILENAME = "tnp-map.png"
-BOARD_FILENAME = "tnp-board-{seat}.png"
-
-#: What a panel says beneath what may be done, until step 6 puts the
-#: controls on it.
-NO_CONTROLS_YET = "*Planning and locking in on Discord are not built yet: this is your board as it stands.*"
 
 
 class TableMixin:
@@ -200,9 +185,19 @@ class TableMixin:
             self.render_text(line, game) for line in table_lines(self.engine, game, match)
         )
 
-    async def map_file(self, match) -> discord.File:
+    async def post_table_message(self, channel, game: TnpGame, match):
+        """The table sent, its picture handed to the gate as the one on
+        the message (`BoardRefresher.posted`), so the gate's next write
+        skips what is already up."""
         png = await asyncio.to_thread(render_map, self.catalog, map_brief(match, map_caption(match)))
-        return discord.File(io.BytesIO(png), filename=MAP_FILENAME)
+        text = self.table_text(game, match)
+        message = await channel.send(
+            text,
+            file=discord.File(io.BytesIO(png), filename=MAP_FILENAME),
+            view=TableView(self, game.game_id),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+        return message, png, text
 
     async def post_table(self, channel, game: TnpGame) -> Optional[discord.Message]:
         """
@@ -213,96 +208,16 @@ class TableMixin:
         """
         match = self.service.load(game)
         try:
-            message = await channel.send(
-                self.table_text(game, match),
-                file=await self.map_file(match),
-                view=TableView(self, game.game_id),
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
+            message, png, text = await self.post_table_message(channel, game, match)
         except discord.HTTPException as error:
             LOGGER.error("Could not post the table of TNP game %s; it needs /tnp resume: %s",
                          game.game_id, error)
             return None
         game.table_message_id = message.id
         self.service.save()
+        self.boards.forget(game)
+        self.boards.posted(channel, game, message, png, text)
         return message
-
-    # -- A seat's panel ----------------------------------------------------
-
-    async def send_panels(self, interaction: discord.Interaction, game: TnpGame,
-                          seats: Sequence[str]) -> None:
-        """
-        Each seat the clicker holds -- both, in a test game -- as an
-        ephemeral message of its own: the seat's board, drawn for that
-        seat alone, and the panel's words. The click is acknowledged
-        privately first, since a board drawn and uploaded can outlast
-        Discord's three seconds.
-        """
-        if not interaction.response.is_done():
-            await interaction.response.defer(ephemeral=True, thinking=True)
-        match = self.service.load(game)
-        prompts = {prompt.asked_seat: prompt for prompt in self.service.prompts(game, match)}
-        for seat in seats:
-            brief = board_brief(self.engine, match, seat, board_caption(match))
-            png = await asyncio.to_thread(render_board, self.catalog, brief)
-            await interaction.followup.send(
-                self.panel_text(game, match, seat, prompts.get(seat)),
-                file=discord.File(io.BytesIO(png), filename=BOARD_FILENAME.format(seat=seat)),
-                ephemeral=True,
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
-
-    def panel_text(self, game: TnpGame, match, seat: str,
-                   prompt: Optional[PendingPrompt]) -> str:
-        """
-        A seat's panel in words: whose board it is, its pool, and what
-        it may do now -- the prompt's ask, and in a plan the prompt's
-        options, every one listed as the options hold it. **That seat's
-        alone**: it reads the seat's own prompt and nothing of the other
-        seat's.
-        """
-        lines = [
-            self.render_text(f"{phase_heading(match)} -- your board, {tokens.seat(seat)}.", game),
-            f"Pool: {pool_text(match.seat(seat).pool)}.",
-        ]
-        if prompt is None:
-            lines.append("You have locked in." if match.seat(seat).locked else "Nothing is asked of you now.")
-            return "\n".join(lines)
-        lines.append(self.render_text(prompt.ask, game))
-        if prompt.kind is PromptKind.PLAN and prompt.options is not None:
-            lines.extend(self.plan_lines(prompt.options, game))
-        lines.append(NO_CONTROLS_YET)
-        return "\n".join(lines)
-
-    def plan_lines(self, options, game: TnpGame) -> list[str]:
-        """What a plan's options offer, as words -- the units to build,
-        the facilities and upgrades to place, the units at the base and
-        the attack spots -- each as the options hold it."""
-        name = self.catalog.name
-        lines = []
-        if options.build:
-            lines.append("Build: " + "; ".join(
-                f"{name(one.unit)} ({cost_text(Cost(one.materials, one.gold))}, up to {one.most})"
-                for one in options.build
-            ) + ".")
-        if options.structures:
-            lines.append("Place: " + "; ".join(
-                f"{name(one.structure)} ({cost_text(Cost(one.materials, one.gold))})"
-                for one in options.structures
-            ) + ".")
-        if options.available:
-            lines.append("At your base, to deploy: " + ", ".join(
-                f"{count} {name(slug)}" for slug, count in options.available.items() if count
-            ) + ".")
-        if options.spots:
-            reached = [one.area for one in options.targets if one.path]
-            line = f"Attack spots: {', '.join(options.spots)}"
-            if reached:
-                line += "; a ground unit has a path now to " + ", ".join(
-                    self.render_text(tokens.area(area), game) for area in reached
-                )
-            lines.append(line + ".")
-        return lines
 
     # -- /tnp resume ---------------------------------------------------------
 
@@ -328,11 +243,16 @@ class TableMixin:
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
-            found, _ = service.resume(game.game_id)
+            found, result = service.resume(game.game_id)
         except RuleRefusal as refused:
             await interaction.followup.send(str(refused), ephemeral=True)
             return
         channel = self.bot.get_channel(game.channel_id) or interaction.channel
+        if result.groups or result.narration:
+            # The step the bot owed said something: posted as a turn's
+            # lines are, before the fresh table.
+            for lines, picture in self.messages_for(result):
+                await self.post(channel, game, "\n".join(self.render_text(line, game) for line in lines), picture)
         message = await self.post_table(channel, game)
         said = "The table is back up." if message is not None else "I could not post the table."
         await interaction.followup.send(f"Found {found}. {said}", ephemeral=True)

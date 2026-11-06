@@ -27,6 +27,7 @@ from cogs.tnp import Tnp
 # an extension drops `cogs.tnp.*` from sys.modules (docs/design/testing.md).
 from cogs.tnp import core as tnp_core
 from cogs.tnp import table as tnp_table
+from cogs.tnp import turns as tnp_turns
 from cogs.tnp_helpers import UNAVAILABLE, channel_name
 from cogs.tnp_views import LobbyView, TableView
 from save_patches import suppressed_cog_saves
@@ -134,7 +135,8 @@ def pictures():
     """The map and the boards stood in for, so a test draws nothing."""
     return (
         mock.patch.object(tnp_table, "render_map", return_value=MAP_PNG),
-        mock.patch.object(tnp_table, "render_board", return_value=BOARD_PNG),
+        mock.patch.object(tnp_turns, "render_map", return_value=MAP_PNG),
+        mock.patch.object(tnp_turns, "render_board", return_value=BOARD_PNG),
     )
 
 
@@ -297,7 +299,7 @@ class TnpLobbyTests(unittest.IsolatedAsyncioTestCase):
         game = table.game
         boards = {}
         for who, seat in ((table.blue, "blue"), (table.green, "green")):
-            with mock.patch.object(tnp_table, "board_brief", wraps=tnp_table.board_brief) as brief:
+            with mock.patch.object(tnp_turns, "board_brief", wraps=tnp_turns.board_brief) as brief:
                 call = await table.click(TableView(table.cog, game.game_id), "board", who)
             self.assertEqual([one.args[2] for one in brief.call_args_list], [seat])
             (sent,) = call.followup.send.await_args_list

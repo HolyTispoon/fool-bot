@@ -106,13 +106,19 @@ class StepResult:
     """
     What one step did, and what should happen next. `narration` is a
     list of blocks in the order they were said, which the frontend
-    joins; `board_changed` says whether anything a picture draws moved.
+    joins; `board_changed` says whether anything a picture draws moved;
+    `part` which part of the phase the lines are about.
     """
 
     narration: list[str] = field(default_factory=list)
     board_changed: bool = False
     next: Optional[Union["PendingPrompt", FollowOn]] = None
     rolls: list[Roll] = field(default_factory=list)
+    #: Which part of its phase the step's own lines are about, where the
+    #: phase has parts a frontend may tell apart: a March attack's spot,
+    #: "A" or "B" (TNP 5.4). Where one thing ends and the next begins,
+    #: never how the lines are put together, which is the frontend's.
+    part: Optional[str] = None
 
     def to_dict(self) -> dict:
         from tnp.wire import jsonable
@@ -122,4 +128,5 @@ class StepResult:
             "board_changed": self.board_changed,
             "next": jsonable(self.next),
             "rolls": [roll.to_dict() for roll in self.rolls],
+            "part": self.part,
         }
