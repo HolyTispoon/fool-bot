@@ -12,6 +12,8 @@ board.png
 d12ball/print/
 # ...and the Tethys deck's (scripts/render_tethys_deck.py)
 tethysdeck/print/
+# ...and the TNP print-and-play kit (scripts/render_tnp_kit.py)
+tnpkit/print/
 # ...and where it used to go, so an old checkout's copies stay untracked
 /print/
 cards/

@@ -580,7 +580,9 @@ and the Drive's unit pictures are not imported.
 marked as the advanced game's, because board v4 prints them.
 
 **Fonts** are D12 Ball's Roboto Slab, read by absolute path from
-`d12ball/fonts/` and never copied. The pictures name a seat "Blue" or
+`d12ball/fonts/` and never copied.
+The print-and-play kit draws the table's pieces with the same
+primitives, in `tnpkit/` ([tnp-print-kit.md](tnp-print-kit.md)). The pictures name a seat "Blue" or
 "Green" and no player: a mention cannot be drawn, and the message the
 picture rides on names the players.
 
