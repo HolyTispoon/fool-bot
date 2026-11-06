@@ -923,9 +923,32 @@ own group, `OWN_MESSAGE`) joins its last round's record rather than
 leading into the next attack's, and the battle message is then redrawn
 as the battle ended, its controls gone. Then March goes on as step 6
 posts it. A round's record pings whoever the next round asks first, on
-the battle message's link; within a round the asked seat changes
-without a ping, since an edit cannot ping and a send each time is a
-request each time.
+the battle message's link.
+
+**Whoever a question passes to is pinged, every time** (the author,
+2026-11-06, on PR #713: "ping each time"). Inside a round the asked
+seat changes as the placing turns and the initiative groups go back and
+forth; an edit cannot ping, so a click that hands the question to the
+other player sends one short message -- their mention, the ask, the
+battle message's link -- pinging them alone (`ping_the_asked`). Not
+where a post of the same click already pings them (a round's record, a
+new battle), and never in a test game, where one person holds both
+seats (`handed_over` compares people, not seats). It costs a request a
+hand-over, made by a person's click, so never more than one at a time.
+
+**A question with one answer is answered for its seat, and reported**
+(the author, 2026-11-06, on PR #713). A placing with one force left and
+one place for it, and a target where the seat has one force to roll and
+it one target, are made by the model as the battle settles
+(`tnp.flow.battle._only_answer`, from `_settle`), the line saying so:
+"Green's 2 Mercenary take their place in the line, the only place they
+could go."; "Blue's 3 Mercenary, the only force to roll, at its only
+target, fire at ...". A question with a "no" in it -- a retreat, a
+repair, a splash, keeping the flankers -- always has a choice, and is
+asked. It is the engine's setting, `answers_the_only_choice`, on by
+default; step 2's battle tests, which walk each placing and roll by
+hand with their scripted dice, turn it off (`tests/tnp_battles.stage`),
+and `OnlyChoiceTests` turns it on.
 
 **What the round has said so far is the record's**
 (`TnpGame.battle_post`: the battle message's id, which battle -- the
@@ -956,12 +979,17 @@ Production do, through the gate, as in step 6.
 `test_a_battle_round_by_round_and_the_requests_each_spends` over
 `tests/codex_cog_fakes.py`'s channel, for a six-round battle of three
 Mercenaries against two that nobody hits: **one a round** -- the
-round's record -- for rounds 1 to 5, whatever was clicked inside it,
-and **three** for round 6, whose end is also the battle's: its record
-with the outcome, March's end and Production as one send, and the
-table's edit. Opening the battle costs the spot's message and the
-battle message, two sends, beside the lock-in's table edit. Every click
-on the battle message is the interaction's own route. A round's record
+round's record -- for rounds 1 to 5, since every placing and roll there
+has one answer and only Blue is asked, and **three** for round 6, whose
+end is also the battle's: its record with the outcome, March's end and
+Production as one send, and the table's edit. Opening the battle costs
+the spot's message and the battle message, two sends, beside the
+lock-in's table edit. With two kinds of unit a side
+(`test_a_question_passed_to_the_other_player_pings_them`) the question
+changes hands three or four times a round, and each hand-over is a
+ping: four or five requests a round, one or two a click and never more
+than three, each after somebody's click. Every click on the battle
+message is itself the interaction's own route. A round's record
 longer than a message is split, a send a part, which a round of many
 forces can reach; it is still one round's few, against the five-in-five
 window, made minutes apart.

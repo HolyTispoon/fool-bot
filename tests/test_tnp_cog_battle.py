@@ -136,7 +136,11 @@ class TnpBattleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("send", kind)
         self.assertEqual("tnp-battle.png", sent["file"].filename)
         view = sent["view"]
-        self.assertIsInstance(view, PlaceView)
+        # Both placings had one place to go, so were made for the seats
+        # and reported (the author, 2026-11-06, on PR #713); the first
+        # question is Blue's retreat.
+        self.assertIsInstance(view, RetreatView)
+        self.assertIn("the only place they could go", sent["content"])
         # Whoever is asked is pinged on it, and nobody else.
         asked = view.prompt.asked_seat
         self.assertIn(f"<@{turn.who[asked].id}>", sent["content"])
@@ -153,8 +157,7 @@ class TnpBattleTests(unittest.IsolatedAsyncioTestCase):
         view = current_view(turn)
         other = "blue" if view.prompt.asked_seat == "green" else "green"
         before = turn.match().to_dict()
-        menu = find_select(view, "Where")
-        call = await click(turn, view, menu, who=turn.who[other], values=[menu.options[0].value])
+        call = await click(turn, view, find_button(view, "Fight on"), who=turn.who[other])
         self.assertIn("battle question is", call.text())
         self.assertEqual(before, turn.match().to_dict())
 
@@ -162,8 +165,9 @@ class TnpBattleTests(unittest.IsolatedAsyncioTestCase):
         """Every die rolls a 2 -- a miss at any modifier these forces
         roll at -- so nobody loses a unit, and the defender holds for six
         rounds (TNP 6.10). Each round is one send on the channel: its
-        record. Round 2 on, both forces stay engaged, so nothing is
-        placed and the round asks its retreats first (TNP 6.5)."""
+        record. Every placing and every roll here has one answer, made
+        for its seat, so each round asks Blue's retreat alone and the
+        question never passes to the other player."""
         turn = self.turn
         await open_battle(turn)
         mark = len(turn.channel.requests)
@@ -194,8 +198,7 @@ class TnpBattleTests(unittest.IsolatedAsyncioTestCase):
         for one in range(1, 6):
             self.assertEqual(1, spent[one], f"round {one}")
         self.assertLessEqual(spent[6], BUCKET)
-        self.assertEqual(PromptKind.PLACE_FORCE, first_asked[1])
-        for one in range(2, 7):
+        for one in range(1, 7):
             self.assertEqual(PromptKind.DECLARE_RETREAT, first_asked[one], f"round {one}")
         rounds = [kwargs for kind, _, kwargs in turn.channel.requests[mark:]
                   if kind == "send" and kwargs.get("files")
@@ -217,6 +220,58 @@ class TnpBattleTests(unittest.IsolatedAsyncioTestCase):
         final = next(kwargs for kind, _, kwargs in reversed(call.answers) if kind == "original.edit")
         self.assertIsNone(final["view"])
         self.assertIn("**Battle at area 14**, over", final["content"])
+
+    async def test_a_question_passed_to_the_other_player_pings_them(self) -> None:
+        """Two kinds of unit a side, so placing and the targets go back
+        and forth (the author, 2026-11-06, on PR #713: "ping each
+        time"): every hand-over inside a round is one message pinging
+        the person now asked, and nobody else; no click spends more than
+        three requests on the channel."""
+        turn = self.turn
+        match = turn.match()
+        match.areas["14"].controller = "green"
+        match.pile("14", "green").add({"mercenary": 2, "worker": 1})
+        match.seat("green").available["mercenary"] -= 2
+        match.seat("green").available["worker"] -= 1
+        turn.cog.service.persist(turn.game, match)
+        view, _ = await turn.my_board("blue")
+        view, _ = await turn.choose(view, "What to change", "attack:A")
+        view, _ = await turn.choose(view, "Attack A's target", "14")
+        view, _ = await turn.choose(view, "Unit for attack A", "mercenary")
+        view, _ = await turn.choose(view, "How many Mercenary in attack A", "3")
+        view, _ = await turn.choose(view, "Unit for attack A", "worker")
+        view, _ = await turn.choose(view, "How many Worker in attack A", "2")
+        await turn.press(view, "Lock in")
+        view, _ = await turn.my_board("green")
+        await turn.press(view, "Lock in")
+        call, handovers, pings, most = None, 0, [], 0
+        with dice(turn, 2):
+            for _ in range(200):
+                if turn.match().battle is None:
+                    break
+                view = current_view(turn, call)
+                asked = view.prompt.asked_seat
+                before = len(turn.channel.requests)
+                call = await answer_first(turn, view)
+                spent = turn.channel.requests[before:]
+                most = max(most, len(spent))
+                now = turn.match()
+                recorded = any(kwargs.get("files") for kind, _, kwargs in spent if kind == "send")
+                if now.battle is not None and now.battle.outcome is None and not recorded:
+                    if current_view(turn, call).prompt.asked_seat != asked:
+                        handovers += 1
+                pings += [
+                    kwargs for kind, _, kwargs in spent
+                    if kind == "send" and not kwargs.get("files")
+                    and "Answer on the battle message" in str(kwargs.get("content"))
+                ]
+        self.assertIsNone(turn.match().battle)
+        self.assertGreater(handovers, 5)
+        self.assertEqual(handovers, len(pings))
+        for ping in pings:
+            (pinged,) = ping["allowed_mentions"].users
+            self.assertTrue(ping["content"].startswith(f"<@{pinged.id}>"))
+        self.assertLessEqual(most, 3)
 
     async def test_the_table_is_left_alone_while_only_the_battle_moves(self) -> None:
         turn = self.turn
@@ -253,7 +308,8 @@ class TnpBattleTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(sent["view"], BattleView)
         # What the round had said is on the new message too.
         self.assertEqual(lines, turn.game.battle_post["lines"])
-        self.assertIn("Round 1.", sent["content"])
+        self.assertTrue(lines)
+        self.assertIn(lines[0], sent["content"])
 
 
 class TnpBattleRestartTests(unittest.IsolatedAsyncioTestCase):

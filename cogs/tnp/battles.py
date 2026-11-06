@@ -234,7 +234,7 @@ class BattleMixin:
                                            picture=False)
             return
         await self.present(self.game_channel(game, interaction.channel), game, result, action,
-                           clicked=interaction)
+                           clicked=interaction, asked_before=view.prompt.asked_seat)
 
     async def redraw_battle(self, interaction: discord.Interaction, view, held: BattleHeld) -> None:
         """The same question shown with what the view holds changed -- a
@@ -325,6 +325,30 @@ class BattleMixin:
                 await channel.get_partial_message(message_id).edit(**fields)
         except discord.HTTPException as error:
             LOGGER.error("Could not close the battle message of TNP game %s: %s", game.game_id, error)
+
+    async def ping_the_asked(self, channel, game: TnpGame, result) -> None:
+        """
+        A battle's question passed to somebody else inside a round: a
+        short message pinging them, its ask and the battle message's link
+        (the author, 2026-11-06, on PR #713: "ping each time"). One send,
+        since an edit cannot ping; the person asked pinged alone.
+        """
+        pinged = self.asked_players(game, result)
+        if not pinged or not result.prompts:
+            return
+        link = self.battle_link(game)
+        where = f"the battle message ({link})" if link else "the battle message"
+        text = " ".join(f"<@{one}>" for one in pinged) + " " + self.render_text(
+            f"{result.prompts[0].ask} Answer on {where}.", game,
+        )
+        try:
+            await channel.send(
+                text, allowed_mentions=discord.AllowedMentions(
+                    everyone=False, roles=False, users=[discord.Object(id=one) for one in pinged],
+                ),
+            )
+        except discord.HTTPException as error:
+            LOGGER.error("Could not ping the asked player in TNP game %s: %s", game.game_id, error)
 
     async def edit_battle_message(self, channel, game: TnpGame, match, lines, battle=None,
                                   png: Optional[bytes] = None, message_id: Optional[int] = None) -> None:

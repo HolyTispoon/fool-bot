@@ -349,6 +349,16 @@ class TurnMixin:
             return [self.render_text(result.prompts[0].ask, game), f"{ping}Answer from {where}."]
         return [f"{ping}Open {where} to answer."]
 
+    def handed_over(self, game: TnpGame, result, asked_before: Optional[str]) -> bool:
+        """Whether a battle click passed the question to another person:
+        the seat asked now is held by somebody other than whoever held
+        the seat asked before -- never in a test game, one person in both
+        seats."""
+        if asked_before is None or not result.prompts:
+            return False
+        before = game.seats.get(asked_before, {}).get("id")
+        return any(one != before for one in self.asked_players(game, result))
+
     def asked_players(self, game: TnpGame, result) -> list[int]:
         """The people asked something now, each once -- one person in both
         seats of a test game pinged once. The only mentions TNP makes: a
@@ -362,7 +372,8 @@ class TurnMixin:
         return found
 
     async def present(self, channel, game: TnpGame, result, action: Optional[Action] = None, *,
-                      clicked=None, fresh_battle: bool = False) -> None:
+                      clicked=None, fresh_battle: bool = False,
+                      asked_before: Optional[str] = None) -> None:
         """
         What a result puts in public, in order: the battle message clicked
         redrawn through the click's own webhook (`clicked`); the posts,
@@ -438,6 +449,10 @@ class TurnMixin:
         if new_battle:
             await self.post_battle_message(channel, game, match, plan.battle[1],
                                            self.asked_players(game, result))
+        elif plan.battle is not None and not posts and self.handed_over(game, result, asked_before):
+            # The battle's question passed to somebody else inside the
+            # round, and no post of this click pings them already.
+            await self.ping_the_asked(channel, game, result)
         table_moved = quiet or plan.settled or any(post.kind != "round" for post in posts) or (
             result.board_changed and plan.battle is None and plan.ended is None
         )
