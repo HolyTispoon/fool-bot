@@ -1,7 +1,8 @@
 """
 `/tnp create_game`, the hub's **TNP** button, and what Start does
 (docs/design/tnp.md, "The lobby, the channel and the table"): both open
-the game's own channel, `tnp-<n>` under **TNP Games**, and post the
+the game's own channel, `tnp-<n>` under **TNP Games** -- or, where the
+bot may not make one, a public thread of that name -- and post the
 lobby in it with the person who asked already in the Blue seat; Start
 renames that channel for its players, `tnp-<n>-<blue>-vs-<green>`, deals
 the opening position (TNP 3), and posts the table under the lobby.
@@ -15,10 +16,17 @@ import discord
 from discord import app_commands
 
 from cogs.tnp_helpers import UNAVAILABLE, seat_word
-from cogs.tnp_views import LobbyView, send_ephemeral
+from cogs.tnp_views import send_ephemeral
 from tnp.game import SEAT_NAMES, GameStatus, RuleRefusal, TnpGame
 
 LOGGER = logging.getLogger(__name__)
+
+#: What the person who asked for the lobby is told, by where it opened.
+LOBBY_OPENED = {
+    "channel": "Lobby open: {place}",
+    "thread": ("Lobby open in a thread: {place}. I could not create a channel for the game "
+               "(that needs **Manage Channels**), so it is played in the thread."),
+}
 
 
 class LobbyMixin:
@@ -52,9 +60,11 @@ class LobbyMixin:
         the person who asked sat as Blue. **`/tnp create_game` and the
         hub's TNP button both come here** (the author, 2026-11-05): the
         hub's click is fool-bot's, since TNP is a cog of fool-bot's own
-        application. The person who asked is told where, privately.
-        Where the channel or its lobby cannot be made, nothing is kept
-        and they are told why.
+        application. **Where the bot may not make the channel, the game
+        is played in a public thread** of that name in the channel the
+        lobby was asked for in (the author, 2026-11-06; `open_game_place`).
+        The person who asked is told where, privately. Where neither can
+        be made, nothing is kept and they are told why.
         """
         guild = interaction.guild
         if guild is None or not isinstance(interaction.user, discord.Member):
@@ -69,27 +79,14 @@ class LobbyMixin:
         game = service.create_game(guild_id=guild.id, test_game=test_game)
         service.take_seat(game.game_id, creator.id, creator.display_name, SEAT_NAMES[0])
         try:
-            channel = await self.create_game_channel(guild, game)
+            place, venue, message = await self.open_game_place(interaction, game)
         except ValueError as error:
             service.discard_game(game.game_id)
             await interaction.followup.send(str(error), ephemeral=True)
             return
-        try:
-            message = await channel.send(
-                self.lobby_text(game), view=LobbyView(self, game.game_id),
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
-        except discord.HTTPException as error:
-            LOGGER.warning("Could not post the lobby of TNP game %s: %s", game.game_id, error)
-            service.discard_game(game.game_id)
-            await self.delete_channel(channel, game)
-            await interaction.followup.send(
-                "I made the game's channel but could not post its lobby there.", ephemeral=True,
-            )
-            return
-        game.channel_id, game.message_id = channel.id, message.id
+        game.channel_id, game.venue, game.message_id = place.id, venue, message.id
         service.save()
-        await interaction.followup.send(f"Lobby open: {channel.mention}", ephemeral=True)
+        await interaction.followup.send(LOBBY_OPENED[venue].format(place=place.mention), ephemeral=True)
 
     async def start_game(self, interaction: discord.Interaction, game: TnpGame) -> None:
         """

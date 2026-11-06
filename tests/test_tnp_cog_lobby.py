@@ -32,7 +32,7 @@ from cogs.tnp_views import LobbyView, TableView
 from save_patches import suppressed_cog_saves
 from tnp.game import GameStatus, TnpGame
 
-GUILD, GAME_CHANNEL, HUB_CHANNEL = 1, 20, 5
+GUILD, GAME_CHANNEL, HUB_CHANNEL, THREAD = 1, 20, 5, 30
 LOBBY_MESSAGE, TABLE_MESSAGE = 100, 200
 MAP_PNG, BOARD_PNG = b"map-png", b"board-png"
 
@@ -44,10 +44,11 @@ def user(user_id: int, name: str, helper: bool = False):
     return member
 
 
-def interaction(who, channel_id: int = GAME_CHANNEL, guild=None):
+def interaction(who, channel_id: int = GAME_CHANNEL, guild=None, channel=None):
     fake = mock.MagicMock()
     fake.user = who
     fake.channel_id = channel_id
+    fake.channel = channel
     fake.guild = guild
     fake.response.is_done.return_value = False
     fake.response.send_message = mock.AsyncMock()
@@ -94,7 +95,16 @@ class Table:
         self.channel.edit = mock.AsyncMock()
         self.channel.delete = mock.AsyncMock()
         self.guild.create_text_channel = mock.AsyncMock(return_value=self.channel)
-        self.bot.get_channel.side_effect = {GAME_CHANNEL: self.channel}.get
+        # The channel the lobby is asked for in, where a thread is opened
+        # when no channel can be made.
+        self.thread = mock.MagicMock(spec=discord.Thread, id=THREAD, mention=f"<#{THREAD}>",
+                                     archived=False)
+        self.thread.send = mock.AsyncMock(side_effect=[self.lobby_message, self.table_message])
+        self.thread.edit = mock.AsyncMock()
+        self.thread.delete = mock.AsyncMock()
+        self.typed = mock.MagicMock(spec=discord.TextChannel, id=HUB_CHANNEL)
+        self.typed.create_thread = mock.AsyncMock(return_value=self.thread)
+        self.bot.get_channel.side_effect = {GAME_CHANNEL: self.channel, THREAD: self.thread}.get
         self.cog = Tnp(self.bot)
         self.blue, self.green = user(101, "Alice"), user(202, "Bob")
         self.watcher = user(303, "Carol")
@@ -109,12 +119,13 @@ class Table:
         return game
 
     async def create_game(self, who=None, test_game: bool = False):
-        call = interaction(who or self.blue, channel_id=HUB_CHANNEL, guild=self.guild)
+        call = interaction(who or self.blue, channel_id=HUB_CHANNEL, guild=self.guild,
+                           channel=self.typed)
         await self.cog.create_game.callback(self.cog, call, test_game)
         return call
 
-    async def click(self, view, action: str, who):
-        call = interaction(who, guild=self.guild)
+    async def click(self, view, action: str, who, channel=None):
+        call = interaction(who, guild=self.guild, channel=channel)
         await button(view, action).callback(call)
         return call
 
@@ -169,14 +180,60 @@ class TnpLobbyTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(f"<#{GAME_CHANNEL}>", call.followup.send.await_args.args[0])
         self.assertTrue(call.followup.send.await_args.kwargs["ephemeral"])
 
-    async def test_a_channel_refused_keeps_no_game(self) -> None:
+    def refuse_channels(self) -> None:
+        self.table.guild.create_text_channel.side_effect = discord.Forbidden(
+            mock.MagicMock(status=403), "Missing Permissions",
+        )
+
+    async def test_where_no_channel_may_be_made_the_game_is_played_in_a_thread(self) -> None:
+        """The author, 2026-11-06: a thread in the channel the lobby was
+        asked for in, named as the channel would have been."""
         table = self.table
-        table.guild.create_text_channel.side_effect = discord.Forbidden(
+        self.refuse_channels()
+        call = await table.create_game()
+        game = table.game
+        kwargs = table.typed.create_thread.await_args.kwargs
+        self.assertEqual(kwargs["name"], f"tnp-{game.game_number}")
+        self.assertEqual(kwargs["type"], discord.ChannelType.public_thread)
+        self.assertEqual((game.venue, game.channel_id, game.message_id),
+                         ("thread", THREAD, LOBBY_MESSAGE))
+        self.assertIsInstance(table.thread.send.await_args.kwargs["view"], LobbyView)
+        self.assertIn("thread", call.followup.send.await_args.args[0])
+        # Start renames the thread and posts the table in it.
+        view = LobbyView(table.cog, game.game_id)
+        await table.click(view, "seat_green", table.green, table.thread)
+        await table.click(view, "start", table.blue, table.thread)
+        self.assertEqual(table.thread.edit.await_args.kwargs["name"],
+                         f"tnp-{game.game_number}-alice-vs-bob")
+        self.assertIsInstance(table.thread.send.await_args.kwargs["view"], TableView)
+        self.assertEqual(game.table_message_id, TABLE_MESSAGE)
+
+    async def test_neither_a_channel_nor_a_thread_keeps_no_game(self) -> None:
+        table = self.table
+        self.refuse_channels()
+        table.typed.create_thread.side_effect = discord.Forbidden(
             mock.MagicMock(status=403), "Missing Permissions",
         )
         call = await table.create_game()
         self.assertEqual(table.cog.games, {})
-        self.assertIn("Manage Channels", call.followup.send.await_args.args[0])
+        said = call.followup.send.await_args.args[0]
+        self.assertIn("Manage Channels", said)
+        self.assertIn("Create Public Threads", said)
+
+    async def test_a_click_wakes_an_archived_thread_first(self) -> None:
+        table = self.table
+        self.refuse_channels()
+        await table.create_game()
+        table.thread.archived = True
+        view = LobbyView(table.cog, table.game.game_id)
+        call = interaction(table.green, guild=table.guild, channel=table.thread)
+        self.assertTrue(await view.interaction_check(call))
+        table.thread.edit.assert_awaited_once_with(archived=False)
+        # Not archived: nothing is spent.
+        table.thread.archived = False
+        table.thread.edit.reset_mock()
+        self.assertTrue(await view.interaction_check(call))
+        table.thread.edit.assert_not_called()
 
     async def test_taking_and_leaving_a_seat_edits_the_lobby_through_the_click(self) -> None:
         table = self.table

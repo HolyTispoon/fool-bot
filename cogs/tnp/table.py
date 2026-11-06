@@ -29,7 +29,7 @@ from discord import app_commands
 
 from cogs.game_auth import may_act_in_game
 from cogs.tnp_helpers import UNAVAILABLE, channel_name, lobby_channel_name, tnp_games_category
-from cogs.tnp_views import TableView, send_ephemeral
+from cogs.tnp_views import LobbyView, TableView, send_ephemeral
 from tnp import tokens
 from tnp.briefs import board_brief, map_brief
 from tnp.formatting import (
@@ -93,16 +93,100 @@ class TableMixin:
         except discord.HTTPException as error:
             raise ValueError(f"Discord could not create the channel: {error}")
 
-    async def delete_channel(self, channel, game: TnpGame) -> None:
+    async def open_game_place(self, interaction: discord.Interaction, game: TnpGame):
+        """
+        Where the game is played, with its lobby posted there: **a
+        channel of its own** (`create_game_channel`), or where the bot may
+        not make one, **a public thread** named `tnp-<n>` in the channel
+        the lobby was asked for in -- the hub's channel, for the hub's
+        button (the author, 2026-11-06). A week's auto-archive, the
+        longest: a post wakes it, and so does any click or `/tnp` command
+        (`wake_thread`). A place made whose lobby cannot be posted is
+        deleted and the next tried. Returns `(place, venue, message)`;
+        raises `ValueError` with the sentence to show where there is
+        nowhere.
+        """
         try:
-            await channel.delete(reason="The TNP lobby could not be posted")
+            channel = await self.create_game_channel(interaction.guild, game)
+        except ValueError as error:
+            LOGGER.info("TNP game %s: no channel of its own, so a thread (%s)", game.game_id, error)
+        else:
+            message = await self.post_lobby(channel, game)
+            if message is not None:
+                return channel, "channel", message
+            await self.delete_place(channel, game)
+        here = interaction.channel or self.bot.get_channel(interaction.channel_id)
+        if isinstance(here, discord.TextChannel):
+            try:
+                thread = await here.create_thread(
+                    name=lobby_channel_name(game),
+                    type=discord.ChannelType.public_thread,
+                    auto_archive_duration=10080,
+                    reason=f"TNP game {game.game_number}",
+                )
+            except discord.HTTPException as error:
+                LOGGER.info("TNP game %s: no thread either (%s)", game.game_id, error)
+            else:
+                message = await self.post_lobby(thread, game)
+                if message is not None:
+                    return thread, "thread", message
+                await self.delete_place(thread, game)
+        raise ValueError(
+            "I could not create a channel or a thread for the game: that needs "
+            "**Manage Channels**, or **Create Public Threads** in this channel."
+        )
+
+    async def post_lobby(self, place, game: TnpGame) -> Optional[discord.Message]:
+        """The lobby posted in `place`, or `None` where Discord refused it."""
+        try:
+            return await place.send(
+                self.lobby_text(game), view=LobbyView(self, game.game_id),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
         except discord.HTTPException as error:
-            LOGGER.warning("Could not delete the empty channel of TNP game %s: %s",
+            LOGGER.info("Could not post the lobby of TNP game %s: %s", game.game_id, error)
+            return None
+
+    async def delete_place(self, place, game: TnpGame) -> None:
+        """A channel or thread made for a lobby that could not be posted."""
+        try:
+            await place.delete(reason="The TNP lobby could not be posted")
+        except discord.HTTPException as error:
+            LOGGER.warning("Could not delete the empty place of TNP game %s: %s",
                            game.game_id, error)
 
+    async def wake_thread(self, thread, game: Optional[TnpGame]) -> None:
+        """
+        A game's thread taken out of the archive before a click or a
+        command on it is answered, where Discord archived it after a week
+        idle: a message in an archived thread cannot be edited, the
+        click's own answer among them (`cogs/codex/ending.py`'s
+        `wake_thread`). One request, and only then. An open game's or
+        lobby's alone; a failure is logged and the click goes on.
+        """
+        if not (isinstance(thread, discord.Thread) and thread.archived and game is not None
+                and game.venue == "thread"
+                and game.status in (GameStatus.LOBBY, GameStatus.PLAYING)):
+            return
+        try:
+            await thread.edit(archived=False)
+        except discord.HTTPException as error:
+            LOGGER.warning("Could not take the thread of TNP game %s out of the archive: %s",
+                           game.game_id, error)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Every `/tnp` command first wakes the archived thread it is
+        typed in, where a TNP game is open there (`wake_thread`). Never
+        refuses."""
+        thread = interaction.channel
+        if isinstance(thread, discord.Thread) and thread.archived:
+            await self.wake_thread(thread, self.game_for_channel(thread.id))
+        return True
+
     async def name_game_channel(self, channel, game: TnpGame) -> None:
-        """At Start, `tnp-<n>-<blue>-vs-<green>`; its permissions stand.
-        A failure is logged and the game goes on."""
+        """At Start, the channel -- or the thread -- renamed
+        `tnp-<n>-<blue>-vs-<green>`; its permissions stand. A failure is
+        logged and the game goes on."""
         try:
             await channel.edit(name=channel_name(game), reason=f"TNP game {game.game_number} started")
         except discord.HTTPException as error:

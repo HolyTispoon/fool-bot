@@ -50,10 +50,15 @@ class SafeView(GameLockedView):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """A click while TNP's data has not loaded is told so, and runs
-        nothing (decision 2)."""
+        nothing (decision 2). A click on a game played in a thread first
+        takes the thread out of the archive, where Discord archived it
+        after a week idle (`Tnp.wake_thread`)."""
         if self.cog.service is None:
             await send_ephemeral(interaction, UNAVAILABLE)
             return False
+        thread = interaction.channel
+        if isinstance(thread, discord.Thread) and thread.archived:
+            await self.cog.wake_thread(thread, self.game())
         return True
 
     async def on_error(self, interaction: discord.Interaction, error: Exception,

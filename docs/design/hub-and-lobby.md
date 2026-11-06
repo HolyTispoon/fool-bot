@@ -79,7 +79,8 @@ does bar naming specific opponents up front). Two pieces:
     The callback finds the TNP cog **by name on the bot**
     (`bot.get_cog("Tnp")`) and hands the click to its `open_lobby` --
     the one `/tnp create_game` calls: a channel `tnp-<n>` under **TNP
-    Games** with the clicker sat as Blue, which becomes the game's
+    Games** with the clicker sat as Blue -- where the bot may not make
+    one, a public thread in the hub's channel -- which becomes the game's
     channel at Start. The view imports nothing from `cogs/tnp*`, so a
     TNP that failed to load leaves the hub working: the click is
     answered privately with "TNP isn't available right now" and logged

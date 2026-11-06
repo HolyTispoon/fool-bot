@@ -579,21 +579,30 @@ picture rides on names the players.
 
 Step 5 of the worksheet. **`/tnp create_game` and the hub's TNP button
 are one method**, `Tnp.open_lobby` (`cogs/tnp/lobby.py`): a channel
-`tnp-<n>` under **TNP Games**, the lobby posted in it, and the person
+`tnp-<n>` under **TNP Games** (else a thread, below), the lobby posted in it, and the person
 who asked already sat as Blue. The number is the guild's next
 (`GameService.next_game_number`). The category is TNP's own, apart from
 D12 Ball's PBD categories -- whose names `/debug`'s reset and the pin
 rollover match -- and from the Codex bot's.
 
-- **One place, a channel.** Codex falls back to a thread, then to the
-  channel the command was typed in ([codex.md](codex.md), "The lobby and
-  the channel"); TNP does not yet. Where the channel cannot be made
-  (no Manage Channels) or its lobby cannot be posted, nothing is kept --
-  `GameService.discard_game` forgets the lobby, a channel made is
-  deleted -- and the asker is told why. A fallback would need a `venue`
-  on the record, and nothing has asked for one.
-- **The channel is open to the whole server**, from the lobby to the
-  end, as Codex's is: anyone may read it, talk in it and take the free
+- **A channel, else a thread** (the author, 2026-11-06, answering PR #711's question:
+  "should fall back on a thread"). `open_game_place` tries a channel of
+  its own first; where the bot may not make one (no Manage Channels), a
+  public thread named `tnp-<n>` in the channel the lobby was asked for
+  in -- the hub's channel, for the hub's button -- with a week's
+  auto-archive, the longest. The record says which, `TnpGame.venue`
+  ("channel" or "thread"; "channel" in a save from before it). A thread
+  is renamed at Start as a channel is, and **any click or `/tnp`
+  command on an open game in an archived thread first takes it out of
+  the archive** (`wake_thread`, from `SafeView.interaction_check` and
+  the cog's own) -- one request, only while archived -- since a message
+  in an archived thread cannot be edited. Codex's third place, the
+  channel the command was typed in, is not offered. A place whose lobby
+  cannot be posted is deleted and the next tried; where neither can be
+  made, `GameService.discard_game` forgets the lobby and the asker is
+  told what each needs.
+- **The channel is open to the whole server** (and a thread is public),
+  from the lobby to the end, as Codex's is: anyone may read it, talk in it and take the free
   seat. D12 Ball hides a started game from `@everyone`; TNP need not,
   since nothing hidden is ever in the channel (below).
 - **The lobby** (`cogs/tnp_views/lobby.py`, `LobbyView`, persistent) is
