@@ -340,8 +340,8 @@ def render_map(catalog: Catalog, brief: MapBrief) -> bytes:
     # The legend.
     y = (oy + map_h + 24) * s
     x = ox * s
-    face = font(24 * s, bold=False)
-    icon = 32 * s
+    face = font(26 * s, bold=False)
+    icon = 40 * s
     entries = [
         ("blue_minerals", "Blue minerals"), ("orange_minerals", "Orange minerals"), ("gems", "Gems"),
     ]
@@ -437,17 +437,18 @@ def _draw_area_marks(draw, catalog: Catalog, brief: MapBrief, area: Area, at, s:
     left = brief.resources.get(area.slug, {})
     tokens = [(kind, int(left.get(kind, 0))) for kind in RESOURCES if int(left.get(kind, 0)) > 0]
     if tokens:
-        pill_h, pill_face, gap = 46 * s, font(28 * s), 10 * s
-        widths = [_pill_width(str(count), pill_face, pill_h, icon=True) for _, count in tokens]
+        # One token a row: two side by side would not fit territories 4
+        # and 5 at this size (the author, 2026-11-06: the tokens too small).
+        pill_h, pill_face = 66 * s, font(42 * s)
+        for kind, count in tokens:
+            pill_w = _pill_width(str(count), pill_face, pill_h, icon=True)
 
-        def token_mark(x, y, tokens=tokens, widths=widths):
-            for (kind, count), pill_w in zip(tokens, widths):
+            def token_mark(x, y, kind=kind, count=count):
                 fill, ink = RESOURCE_COLOURS[kind]
                 _pill(draw, x, y, str(count), pill_face, fill=WHITE, ink=ink, height=pill_h,
-                      outline=fill, icon=kind, border=3 * s)
-                x += pill_w + gap
+                      outline=fill, icon=kind, border=4 * s)
 
-        rows.append((sum(widths) + gap * (len(widths) - 1), pill_h, token_mark))
+            rows.append((pill_w, pill_h, token_mark))
 
     for seat in brief.stranded.get(area.slug, ()):
         pill_h, pill_face = 44 * s, font(25 * s)
@@ -789,7 +790,7 @@ def _board_footer(draw, catalog: Catalog, y: float) -> float:
     draw.text(((columns[0] + columns[1]) / 2, y + 66), "NORMAL", font=font(SMALLEST), fill=MUTED, anchor="mm")
     draw.text(((columns[2] + columns[3]) / 2, y + 66), "EMERGENCY", font=font(SMALLEST), fill=HIT, anchor="mm")
     for column, kind in zip(columns, ("materials", "gold", "materials", "gold")):
-        _icon(draw, kind, (column - 13, y + 82), 26)
+        _icon(draw, kind, (column - 17, y + 78), 34)
     for row_no, (token, words) in enumerate((("mineral", "Mineral"), ("gem", "Gem"))):
         row_y = y + 140 + row_no * 38
         draw.text((left + pad, row_y), words, font=font(20, bold=False), fill=INK, anchor="lm")

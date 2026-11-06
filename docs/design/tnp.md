@@ -412,7 +412,10 @@ white). Discord shows a picture at a third of its width or less until
 it is opened, so no word is drawn smaller than `render.SMALLEST`
 (16 pixels) on a picture 1,600 to 1,700 wide, and the map's marks --
 its numbers, tokens, Stranded tokens and pile discs -- are larger
-still. Every fill is white or a colour that means something: a chip is
+still: a resource token is a 66-pixel pill, one a row, since two side by
+side do not fit territories 4 and 5 at that size (the author,
+2026-11-06, a second time: "mineral and gem tokens are also too
+small"). Every fill is white or a colour that means something: a chip is
 white with an outline, a rating's cell green, amber, red or grey, a
 held territory its seat's tint. No beige or cream is left.
 
