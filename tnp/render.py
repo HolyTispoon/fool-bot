@@ -46,7 +46,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 from tnp import battle as lines
 from tnp.battle import BASE_LEFT, BASE_RIGHT, ROUNDS, SEATS, BattleState
-from tnp.briefs import DEFENSE, POOL, RESOURCES, BoardBrief, MapBrief, Pile
+from tnp.briefs import (
+    DEFENSE, EMPTY, FACE_DOWN, POOL, RESOURCES, SHOWN, BoardBrief, DeploySpot, DeploymentBrief,
+    MapBrief, Pile, SpotsBrief,
+)
 from tnp.catalog import Area, Catalog, Rating, Unit, UnitType
 from tnp.formatting import TRAIT_NAMES
 
@@ -744,6 +747,175 @@ def render_attack(catalog: Catalog, brief: MapBrief, area: str, spot: str) -> by
         y += pile_h
 
     return _png(image)
+
+
+# ============================================================================
+# The deployment boards
+# ============================================================================
+
+DEPLOY_WIDTH = 1800
+DEPLOY_PAD = 32
+DEPLOY_GAP = 18
+DEPLOY_TILE_H = 104
+DEPLOY_TILE_GAP = 10
+#: A spot's box above its tiles: its name, a line for its card, and one
+#: for an attack with no current path.
+DEPLOY_HEAD = 126
+
+
+def _spot_name(spot: DeploySpot) -> str:
+    if spot.spot == "base":
+        return "Base defense"
+    if spot.spot.isdigit():
+        return f"Defense {spot.spot}"
+    return f"Attack {spot.spot}"
+
+
+def _spot_card(catalog: Catalog, spot: DeploySpot, own: bool) -> str:
+    """The line under a spot's name: its card, who holds it, and on a
+    seat's own board whether an attack has a path now."""
+    if spot.state == EMPTY:
+        return "empty"
+    if spot.area is None or (spot.state == FACE_DOWN and not own):
+        return "face down"
+    if spot.spot == "base":
+        return "your base" if own else ""
+    words = _area_words(catalog, spot.area)
+    if spot.spot.isdigit():
+        return words
+    holder = "neutral" if spot.held_by is None else _seat_word(spot.held_by)
+    if spot.area.endswith("_base"):
+        holder = ""
+    return f"→ {words}" + (f" · {holder}" if holder else "")
+
+
+def _spot_column(draw, catalog: Catalog, seat: str, spot: DeploySpot, box, *, own: bool,
+                 picked: bool) -> None:
+    """One spot: its name and card, then a tile a unit; a face-down pile
+    on the public boards is its seat's colour and no tiles."""
+    left, top, right, bottom = box
+    colours = SEAT_COLOURS[seat]
+    hidden = spot.state == FACE_DOWN and not own
+    if spot.state == EMPTY:
+        _dashed_box(draw, box, MUTED, dash=10, width=3)
+    elif hidden:
+        draw.rounded_rectangle(box, radius=10, fill=colours["strong"])
+    else:
+        draw.rounded_rectangle(box, radius=10, fill=WHITE, outline=INK, width=3)
+    if picked:
+        draw.rounded_rectangle((left - 6, top - 6, right + 6, bottom + 6), radius=14, outline=RING, width=6)
+    ink = WHITE if hidden else (MUTED if spot.state == EMPTY else INK)
+    width = right - left - 28
+    draw.text((left + 14, top + 34), _fit(_spot_name(spot), font(30), width), font=font(30), fill=ink, anchor="lm")
+    card = _spot_card(catalog, spot, own)
+    if card:
+        draw.text((left + 14, top + 72), _fit(card, font(22, bold=False), width), font=font(22, bold=False),
+                  fill=ink if hidden else SOFT_INK, anchor="lm")
+    if own and spot.path is False:
+        draw.text((left + 14, top + 102), _fit("no current path", font(22), width), font=font(22),
+                  fill=RING, anchor="lm")
+    if hidden:
+        return
+    y = top + DEPLOY_HEAD
+    for slug, count in spot.units.items():
+        if not count:
+            continue
+        _deploy_tile(draw, catalog, seat, slug, count, (left + 12, y, right - 12, y + DEPLOY_TILE_H))
+        y += DEPLOY_TILE_H + DEPLOY_TILE_GAP
+
+
+def _deploy_tile(draw, catalog: Catalog, seat: str, slug: str, count: int, box) -> None:
+    """A unit in a pile: the count, the name, its type's stripe, in its
+    seat's colour -- March's attack picture's tile, narrower."""
+    left, top, right, bottom = box
+    border, ink = TYPE_COLOURS[catalog.units[slug].type]
+    draw.rounded_rectangle(box, radius=10, fill=WHITE, outline=SEAT_COLOURS[seat]["strong"], width=3)
+    draw.rounded_rectangle((left + 3, top + 3, left + 17, bottom - 3), radius=6, fill=border)
+    draw.text((left + 32, top + 38), str(count), font=font(48), fill=INK, anchor="lm")
+    draw.text((left + 32, top + 82), _fit(catalog.name(slug), font(24, bold=False), right - left - 44),
+              font=font(24, bold=False), fill=ink, anchor="lm")
+
+
+def _units_height(spot: DeploySpot) -> float:
+    tiles = len([1 for count in spot.units.values() if count])
+    return DEPLOY_HEAD + tiles * (DEPLOY_TILE_H + DEPLOY_TILE_GAP) + 8
+
+
+def _spot_row(draw, catalog: Catalog, seat: str, spots: Sequence[DeploySpot], top: float, *,
+              own: bool, picked: Optional[str] = None) -> float:
+    """A seat's spots in one row, every box the row's height; the row's
+    bottom."""
+    count = len(spots)
+    col = (DEPLOY_WIDTH - 2 * DEPLOY_PAD - (count - 1) * DEPLOY_GAP) / count
+    height = max(
+        [DEPLOY_HEAD + 30] + [_units_height(spot) for spot in spots if own or spot.state != FACE_DOWN]
+    )
+    for index, spot in enumerate(spots):
+        left = DEPLOY_PAD + index * (col + DEPLOY_GAP)
+        _spot_column(draw, catalog, seat, spot, (left, top, left + col, top + height), own=own,
+                     picked=picked is not None and picked == spot.spot)
+    return top + height
+
+
+def render_deployment(catalog: Catalog, brief: DeploymentBrief) -> bytes:
+    """
+    **A seat's attack board** as PNG bytes -- that seat's alone (TNP 5.3):
+    its attack spots with their targets, defense spots 1 to 3, the base's,
+    each with the units the plan puts in it; the spot the panel is
+    changing ringed; and under them the units still at the base and what
+    is queued, deployable next turn.
+    """
+    spots = (*brief.attacks, *brief.defenses, brief.base)
+    count = len(spots)
+    col = (DEPLOY_WIDTH - 2 * DEPLOY_PAD - (count - 1) * DEPLOY_GAP) / count
+    row_h = max([DEPLOY_HEAD + 30] + [_units_height(spot) for spot in spots])
+    left_units = [(slug, n) for slug, n in brief.at_base.items() if n]
+    strip_rows = max(1, -(-len(left_units) // count))
+    header = 96
+    strip_top = header + row_h + 36
+    height = strip_top + 56 + strip_rows * (DEPLOY_TILE_H + DEPLOY_TILE_GAP) + (48 if brief.queued else 0) + DEPLOY_PAD
+    image = Image.new("RGB", (DEPLOY_WIDTH, round(height)), WHITE)
+    draw = ImageDraw.Draw(image)
+    colours = SEAT_COLOURS[brief.seat]
+    draw.text((DEPLOY_PAD, 60), f"{_seat_word(brief.seat)} — attack board", font=font(42), fill=colours["ink"], anchor="ls")
+    if brief.caption:
+        draw.text((DEPLOY_WIDTH - DEPLOY_PAD, 60), brief.caption, font=font(26, bold=False), fill=SOFT_INK, anchor="rs")
+    _spot_row(draw, catalog, brief.seat, spots, header, own=True, picked=brief.picked)
+    draw.line((DEPLOY_PAD, strip_top - 14, DEPLOY_WIDTH - DEPLOY_PAD, strip_top - 14), fill=INK, width=3)
+    draw.text((DEPLOY_PAD, strip_top + 24), "At your base" if left_units else "At your base: nothing left to deploy",
+              font=font(30), fill=INK, anchor="lm")
+    y = strip_top + 56
+    for index, (slug, n) in enumerate(left_units):
+        row, place = divmod(index, count)
+        x = DEPLOY_PAD + place * (col + DEPLOY_GAP)
+        _deploy_tile(draw, catalog, brief.seat, slug, n,
+                     (x, y + row * (DEPLOY_TILE_H + DEPLOY_TILE_GAP), x + col, y + row * (DEPLOY_TILE_H + DEPLOY_TILE_GAP) + DEPLOY_TILE_H))
+    if brief.queued:
+        words = ", ".join(f"{n} {catalog.name(slug)}" for slug, n in brief.queued.items())
+        draw.text((DEPLOY_PAD, height - DEPLOY_PAD - 20),
+                  _fit(f"Queued this turn, deployable next turn: {words}", font(24, bold=False), DEPLOY_WIDTH - 2 * DEPLOY_PAD),
+                  font=font(24, bold=False), fill=SOFT_INK, anchor="lm")
+    return _png(image)
+
+
+def render_spots(catalog: Catalog, brief: SpotsBrief) -> bytes:
+    """
+    **Both seats' deployment boards** as everybody sees them in March
+    (TNP 5.4), as PNG bytes: a row a seat, a box a spot -- a face-down
+    pile its seat's colour, with nothing of what is in it or where it is
+    going; a pile March has shown, with its territory and its units; an
+    empty spot dashed.
+    """
+    image = Image.new("RGB", (DEPLOY_WIDTH, 2000), WHITE)
+    draw = ImageDraw.Draw(image)
+    draw.text((DEPLOY_PAD, 60), "Deployment boards", font=font(42), fill=INK, anchor="ls")
+    if brief.caption:
+        draw.text((DEPLOY_WIDTH - DEPLOY_PAD, 60), brief.caption, font=font(26, bold=False), fill=SOFT_INK, anchor="rs")
+    y = 96
+    for seat, spots in brief.seats:
+        draw.text((DEPLOY_PAD, y + 22), _seat_word(seat), font=font(32), fill=SEAT_COLOURS[seat]["ink"], anchor="lm")
+        y = _spot_row(draw, catalog, seat, spots, y + 52, own=False) + 30
+    return _png(image.crop((0, 0, DEPLOY_WIDTH, round(y - 30 + DEPLOY_PAD))))
 
 
 # ============================================================================

@@ -226,12 +226,15 @@ def _cost_words(cost: Mapping[str, int]) -> str:
     return cost_text(Cost(int(cost.get("materials", 0)), int(cost.get("gold", 0))))
 
 
-def plan_offer_lines(options) -> list[str]:
-    """What a plan's options offer, as its seat reads them: the units to
-    build, with their cost and the most of each; the facilities and
-    upgrades to place; the units at the base; the attack spots, and
-    where a ground unit has a path now (TNP 5.2, 5.3)."""
+def plan_offer_lines(options, step: str = "infrastructure") -> list[str]:
+    """What a plan's options offer, as its seat reads them, for the step
+    shown: in Infrastructure the units to build, with their cost and the
+    most of each, and the facilities and upgrades to place (TNP 5.2); in
+    Deployment the units at the base, the attack spots and where a
+    ground unit has a path now, and the defense spots (TNP 2.5, 5.3)."""
     lines = []
+    if step != "infrastructure":
+        return _deployment_offer_lines(options)
     if options.build:
         lines.append("Build: " + "; ".join(
             f"{tokens.unit(one.unit)} ({cost_text(Cost(one.materials, one.gold))}, up to {one.most})"
@@ -242,6 +245,11 @@ def plan_offer_lines(options) -> list[str]:
             f"{tokens.thing(one.structure)} ({cost_text(Cost(one.materials, one.gold))})"
             for one in options.structures
         ) + ".")
+    return lines
+
+
+def _deployment_offer_lines(options) -> list[str]:
+    lines = []
     available = {slug: count for slug, count in options.available.items() if count}
     if available:
         lines.append(f"At your base, to deploy: {units_text(available)}.")
@@ -251,6 +259,10 @@ def plan_offer_lines(options) -> list[str]:
         if reached:
             line += "; a ground unit has a path now to " + ", ".join(tokens.area(area) for area in reached)
         lines.append(line + ".")
+    lines.append(
+        f"Defense spots: {options.defense_spots} for your territories, and your base's. "
+        "A territory goes into one spot a turn."
+    )
     return lines
 
 

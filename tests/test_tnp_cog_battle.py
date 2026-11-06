@@ -61,13 +61,10 @@ async def open_battle(turn: Turn, blue: int = 3, green: int = 2):
     match.seat("green").available["mercenary"] -= green
     turn.cog.service.persist(turn.game, match)
     view, _ = await turn.my_board("blue")
-    view, _ = await turn.choose(view, "What to change", "attack:A")
-    view, _ = await turn.choose(view, "Attack A's target", "14")
-    view, _ = await turn.choose(view, "Unit for attack A", "mercenary")
-    view, _ = await turn.choose(view, "How many Mercenary in attack A", str(blue))
-    await turn.press(view, "Lock in")
+    view, _ = await turn.deploy(view, "A", {"mercenary": blue}, target="14")
+    await turn.lock(view)
     view, _ = await turn.my_board("green")
-    await turn.press(view, "Lock in")
+    await turn.lock(view)
 
 
 def battle_message(turn: Turn) -> int:
@@ -235,15 +232,10 @@ class TnpBattleTests(unittest.IsolatedAsyncioTestCase):
         match.seat("green").available["worker"] -= 1
         turn.cog.service.persist(turn.game, match)
         view, _ = await turn.my_board("blue")
-        view, _ = await turn.choose(view, "What to change", "attack:A")
-        view, _ = await turn.choose(view, "Attack A's target", "14")
-        view, _ = await turn.choose(view, "Unit for attack A", "mercenary")
-        view, _ = await turn.choose(view, "How many Mercenary in attack A", "3")
-        view, _ = await turn.choose(view, "Unit for attack A", "worker")
-        view, _ = await turn.choose(view, "How many Worker in attack A", "2")
-        await turn.press(view, "Lock in")
+        view, _ = await turn.deploy(view, "A", {"mercenary": 3, "worker": 2}, target="14")
+        await turn.lock(view)
         view, _ = await turn.my_board("green")
-        await turn.press(view, "Lock in")
+        await turn.lock(view)
         call, handovers, pings, most = None, 0, [], 0
         with dice(turn, 2):
             for _ in range(200):

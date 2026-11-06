@@ -31,13 +31,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from tnp.battle import DAMAGE  # noqa: E402
-from tnp.briefs import BoardBrief, MapBrief, Pile, opening_board, opening_map  # noqa: E402
+from tnp.briefs import (  # noqa: E402
+    FACE_DOWN, SHOWN, BoardBrief, DeploySpot, DeploymentBrief, MapBrief, Pile, SpotsBrief,
+    opening_board, opening_map,
+)
 from tnp.components import MatchState  # noqa: E402
 from tnp.engine import RulesEngine  # noqa: E402
 from tnp.flow import battle as fight  # noqa: E402
 from tnp.flow import driver  # noqa: E402
 from tnp.prompts import Action, PendingPrompt, PromptKind, pending  # noqa: E402
-from tnp.render import render_attack, render_battle, render_board, render_map  # noqa: E402
+from tnp.render import (  # noqa: E402
+    render_attack, render_battle, render_board, render_deployment, render_map, render_spots,
+)
 
 
 def midgame_map(engine: RulesEngine) -> MapBrief:
@@ -78,6 +83,45 @@ def midgame_board(engine: RulesEngine) -> BoardBrief:
         },
         caption="Turn 5 · Infrastructure",
     )
+
+
+def midgame_deployment() -> DeploymentBrief:
+    """Blue's attack board mid-plan: both attacks aimed, one defense, the
+    base empty, attack A being changed."""
+    return DeploymentBrief(
+        seat="blue",
+        attacks=(
+            DeploySpot("A", "3", None, True, {"worker": 2}, FACE_DOWN),
+            DeploySpot("B", "5", "green", False, {"mercenary": 2, "jeep": 1}, FACE_DOWN),
+        ),
+        defenses=(
+            DeploySpot("1", "14", "blue", None, {"mercenary": 1}, FACE_DOWN),
+            DeploySpot("2"), DeploySpot("3"),
+        ),
+        base=DeploySpot("base"),
+        at_base={"worker": 1, "mercenary": 1},
+        queued={"worker": 2},
+        picked="A",
+        caption="Turn 2 · Infrastructure and Deployment",
+    )
+
+
+def march_spots() -> SpotsBrief:
+    """Both deployment boards after Blue's attack A: it shown, everything
+    else face down or empty."""
+    return SpotsBrief(seats=(
+        ("blue", (
+            DeploySpot("A", "3", "blue", None, {"worker": 1}, SHOWN),
+            DeploySpot("B", state=FACE_DOWN),
+            DeploySpot("1", state=FACE_DOWN), DeploySpot("2"), DeploySpot("3"),
+            DeploySpot("base"),
+        )),
+        ("green", (
+            DeploySpot("A", state=FACE_DOWN), DeploySpot("B", state=FACE_DOWN),
+            DeploySpot("1", state=FACE_DOWN), DeploySpot("2", state=FACE_DOWN), DeploySpot("3"),
+            DeploySpot("base", "green_base", "green", None, {}, FACE_DOWN),
+        )),
+    ), caption="Turn 2 · March")
 
 
 def answer(prompt: PendingPrompt, chooser: random.Random) -> Action:
@@ -152,6 +196,8 @@ def main() -> None:
         "board-blue-opening.png": render_board(catalog, opening_board(catalog, "blue")),
         "board-green-opening.png": render_board(catalog, opening_board(catalog, "green")),
         "board-green-midgame.png": render_board(catalog, midgame_board(engine)),
+        "deployment-blue-midplan.png": render_deployment(catalog, midgame_deployment()),
+        "spots-march.png": render_spots(catalog, march_spots()),
     }
 
     territory = battle_to_round_three(
