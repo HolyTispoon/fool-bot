@@ -19,7 +19,7 @@ from gamekit.tokens import Resolver
 if TYPE_CHECKING:
     from tnp.catalog import Catalog
 
-KINDS = ("seat", "unit", "area", "thing")
+KINDS = ("seat", "unit", "area", "thing", "card")
 
 TOKEN_PATTERN = re.compile(r"\{(" + "|".join(KINDS) + r")((?::[a-z0-9_]+)*)\}")
 
@@ -38,8 +38,27 @@ def area(slug: str) -> str:
 
 
 def thing(slug: str) -> str:
-    """A facility or an upgrade of a base."""
+    """A facility or an upgrade of a base -- or, in the advanced game, a
+    tech facility, or a building tech on its facility, named
+    `"<card>:<facility>"` (TNP 6.9, 8)."""
     return f"{{thing:{slug}}}"
+
+
+def card(slug: str) -> str:
+    """A technology card (TNP 8), by its name."""
+    return f"{{card:{slug}}}"
+
+
+def words(kind: str, arguments: tuple[str, ...], catalog: "Catalog") -> str:
+    """Every token but a seat, in words: a unit, a thing or a card by
+    its name, a territory as "area 8" and a base by its name, a building
+    tech as "Grenades on the Factory"."""
+    if kind == "area":
+        found = catalog.areas[arguments[0]]
+        return found.name if found.is_base else f"area {found.number}"
+    if kind == "thing" and len(arguments) == 2:
+        return f"{catalog.name(arguments[0])} on the {catalog.name(arguments[1])}"
+    return catalog.name(arguments[0])
 
 
 def _arguments(found: re.Match) -> tuple[str, ...]:
@@ -65,12 +84,8 @@ def plain(text: str, catalog: "Catalog") -> str:
     """The text in words: "Blue", "Tank", "area 8", "Blue's base"."""
 
     def resolve(kind: str, arguments: tuple[str, ...]):
-        (slug,) = arguments
         if kind == "seat":
-            return slug.title()
-        if kind == "area":
-            found = catalog.areas[slug]
-            return found.name if found.is_base else f"area {found.number}"
-        return catalog.name(slug)
+            return arguments[0].title()
+        return words(kind, arguments, catalog)
 
     return render(text, resolve)

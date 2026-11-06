@@ -33,6 +33,7 @@ from cogs.tnp_views.base import SafeView, send_ephemeral
 from tnp.formatting import (
     battle_force_text, cost_text, slot_text, target_reason, target_text,
 )
+from tnp import tokens
 from tnp.catalog import Cost
 from tnp.prompts import Action, PendingPrompt, PromptKind
 
@@ -219,7 +220,11 @@ class EmergencyView(BattleView):
 
     def build(self) -> None:
         options = self.options
-        if self.held.section == "trade":
+        if self.held.section == "trade" and getattr(options, "advanced", False):
+            self.card_menus()
+            self.button("emergency:section", "Back to the units", discord.ButtonStyle.secondary,
+                        self.on_section)
+        elif self.held.section == "trade":
             for row, kind in enumerate(options.trades[:4]):
                 most = int(options.pool.get(TRADE_POOL.get(kind, kind), 0))
                 key = f"trade:{kind}"
@@ -238,6 +243,36 @@ class EmergencyView(BattleView):
         self.button("emergency:build", "Produce these", discord.ButtonStyle.success, self.on_build)
         self.button("emergency:none", "Produce none", discord.ButtonStyle.secondary, self.on_none)
 
+    def card_menus(self) -> None:
+        """The advanced game's trade (TNP 6.2, 8.1): the defender's cards,
+        each one chosen for materials or -- a gem card only -- for gold."""
+        for row, into in enumerate(("materials", "gold")):
+            offered = []
+            for one in self.options.cards:
+                if into == "gold" and one.deck != "gems":
+                    continue
+                chosen = self.held.count(f"{into}:{one.card}")
+                for index in range(min(one.count, 10)):
+                    offered.append(discord.SelectOption(
+                        label=_label(self.cog.catalog.name(one.card) + (f" (#{index + 1})" if one.count > 1 else "")),
+                        value=f"{one.card}#{index}", default=index < chosen,
+                    ))
+            word = "Cards for materials" if into == "materials" else "Gem cards for gold"
+            select = self.menu(f"emergency:cards:{into}", word, offered, self.card_counter(into),
+                               row=row, high=len(offered))
+            select.min_values = 0
+
+    def card_counter(self, into: str):
+        async def chosen(interaction, values) -> None:
+            counts = {key: count for key, count in self.held.counts if not key.startswith(f"{into}:")}
+            for value in values:
+                if value == "-":
+                    continue
+                card = value.partition("#")[0]
+                counts[f"{into}:{card}"] = counts.get(f"{into}:{card}", 0) + 1
+            await self.redraw(interaction, replace(self.held, counts=tuple(sorted(counts.items())), notice=None))
+        return chosen
+
     async def on_section(self, interaction) -> None:
         section = "units" if self.held.section == "trade" else "trade"
         await self.redraw(interaction, replace(self.held, section=section, notice=None))
@@ -245,7 +280,14 @@ class EmergencyView(BattleView):
     async def on_build(self, interaction) -> None:
         held = dict(self.held.counts)
         units = {key.split(":", 1)[1]: count for key, count in held.items() if key.startswith("unit:") and count}
-        trade = {key.split(":", 1)[1]: count for key, count in held.items() if key.startswith("trade:") and count}
+        if getattr(self.options, "advanced", False):
+            trade = {
+                into: {key.split(":", 1)[1]: count for key, count in held.items()
+                       if key.startswith(f"{into}:") and count}
+                for into in ("materials", "gold")
+            }
+        else:
+            trade = {key.split(":", 1)[1]: count for key, count in held.items() if key.startswith("trade:") and count}
         await self.held_answer(interaction, self.act("build", units=units, trade=trade))
 
     async def on_none(self, interaction) -> None:
@@ -411,12 +453,56 @@ class DestroyView(BattleView):
 
     def build(self) -> None:
         self.menu("destroy:thing", "What is destroyed", [
-            discord.SelectOption(label=_label(self.cog.catalog.name(thing)), value=thing)
+            discord.SelectOption(label=_label(self.words(tokens.thing(thing))), value=thing)
             for thing in self.options.things
         ], self.on_destroy, row=0)
 
     async def on_destroy(self, interaction, values) -> None:
         await self.answer(interaction, self.act(thing=values[0]))
+
+
+class RerollView(BattleView):
+    """Ammo Depos (TNP 8.4): how many of a roll's missed dice to roll
+    again, or keep the roll."""
+
+    def build(self) -> None:
+        options = self.options
+        self.menu("reroll:count", f"Roll again (up to {options.most} of {options.missed} missed)", [
+            discord.SelectOption(label=f"Roll {count} again", value=str(count))
+            for count in range(1, options.most + 1)
+        ], self.on_reroll, row=0)
+        self.button("reroll:keep", "Keep the roll", discord.ButtonStyle.secondary, self.on_keep)
+
+    async def on_reroll(self, interaction, values) -> None:
+        await self.answer(interaction, self.act("reroll", count=int(values[0])))
+
+    async def on_keep(self, interaction) -> None:
+        await self.answer(interaction, self.act("decline"))
+
+
+class TacticalCommandView(BattleView):
+    """
+    Tactical Command (TNP 6.3) on the battle message: the cards are
+    secret until both seats have chosen, so each is chosen on its seat's
+    own panel -- **My tactic card** opens it, privately, for whichever
+    seat the clicker holds that is still choosing.
+    """
+
+    def build(self) -> None:
+        self.button("tactic:open", "My tactic card", discord.ButtonStyle.primary, self.on_open)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if not await SafeView.interaction_check(self, interaction):
+            return False
+        game = self.game()
+        if game is None or not self.cog.tactic_seats(game, interaction.user.id):
+            await send_ephemeral(interaction, "Only a seat still choosing a tactic card may open this.")
+            return False
+        return True
+
+    async def on_open(self, interaction) -> None:
+        game = self.game()
+        await self.cog.send_panels(interaction, game, self.cog.tactic_seats(game, interaction.user.id))
 
 
 #: Each battle prompt kind to its view.
@@ -430,6 +516,8 @@ BATTLE_VIEWS = {
     PromptKind.REPAIR: RepairView,
     PromptKind.SPLASH: SplashView,
     PromptKind.DESTROY: DestroyView,
+    PromptKind.REROLL: RerollView,
+    PromptKind.TACTIC: TacticalCommandView,
 }
 
 
@@ -444,6 +532,7 @@ def battle_view(cog, game_id: str, prompt: Optional[PendingPrompt], battle,
 
 __all__ = [
     "BATTLE_VIEWS", "BattleHeld", "BattleView", "DestroyView", "EmergencyView", "PlaceView",
-    "RepairView", "RepositionView", "RetreatView", "RoleView", "SplashView", "TargetView",
+    "RepairView", "RepositionView", "RerollView", "RetreatView", "RoleView", "SplashView",
+    "TacticalCommandView", "TargetView",
     "battle_view",
 ]

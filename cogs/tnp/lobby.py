@@ -33,7 +33,8 @@ class LobbyMixin:
     def lobby_text(self, game: TnpGame) -> str:
         """The lobby's text: the game, who sits where, and what Start
         waits on."""
-        head = f"**TNP game {game.game_number}**: the basic game, Humans against Humans."
+        which = "the advanced game, with the technology cards" if game.advanced else "the basic game"
+        head = f"**TNP game {game.game_number}**: {which}, Humans against Humans."
         if game.test_game:
             head += " A **test game**: one person may take both seats and play both sides."
         rows = []

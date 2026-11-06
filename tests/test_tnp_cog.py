@@ -50,7 +50,7 @@ class TnpCogLoadsTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(group)
             self.assertLessEqual(len(group.description), 100)
             self.assertEqual({command.name for command in group.commands},
-                             {"create_game", "resume", "unit", "rules", "concede", "abandon"})
+                             {"create_game", "resume", "unit", "card", "rules", "concede", "abandon"})
             for command in group.commands:
                 self.assertLessEqual(len(command.description), 100)
             self.assertIsNotNone(bot.get_cog("Tnp").catalog)
@@ -108,6 +108,29 @@ class TnpReferenceTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_autocomplete_offers_units_by_name(self) -> None:
         choices = await self.cog.unit_autocomplete(interaction(), "ta")
         self.assertIn(("Tank", "tank"), [(c.name, c.value) for c in choices])
+
+    async def test_card_grenades_answers(self) -> None:
+        """Step 9's stop: `/tnp card grenades` answers, with the author's d12 value."""
+        fake = interaction()
+        await self.cog.card.callback(self.cog, fake, "grenades")
+        text = fake.response.send_message.call_args.args[0]
+        self.assertTrue(fake.response.send_message.call_args.kwargs["ephemeral"])
+        self.assertIn("**Grenades** -- building tech, gems deck, 3 in the deck.", text)
+        self.assertIn("+3 against infantry", text)
+        self.assertNotIn("{", text)
+
+    async def test_every_card_reads_in_one_message(self) -> None:
+        for slug in self.cog.catalog.techs:
+            fake = interaction()
+            await self.cog.card.callback(self.cog, fake, slug)
+            self.assertLessEqual(len(fake.response.send_message.call_args.args[0]), 2000, slug)
+
+    async def test_the_card_autocomplete_and_an_unknown_card(self) -> None:
+        choices = await self.cog.card_autocomplete(interaction(), "gren")
+        self.assertEqual([(c.name, c.value) for c in choices], [("Grenades", "grenades")])
+        fake = interaction()
+        await self.cog.card.callback(self.cog, fake, "dragon fire")
+        self.assertIn("No technology card is called", fake.response.send_message.call_args.args[0])
 
     async def test_rules_answers_a_section_by_number(self) -> None:
         fake = interaction()

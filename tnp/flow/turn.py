@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, Optional
 
-from tnp import tokens
+from tnp import effects, tokens
 from tnp.battle import SEATS, other
 from tnp.components import (
     ATTACK_SPOTS,
@@ -56,6 +56,7 @@ from tnp.turn import (
     reaches,
     supply_room,
     trade_gains,
+    unit_cost,
 )
 
 if TYPE_CHECKING:
@@ -158,11 +159,12 @@ def reveal(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") ->
     for seat in SEATS:
         state = match.seat(seat)
         plan = normal_plan(state.plan)
-        cost = plan_cost(engine, plan)
+        cost = plan_cost(engine, plan, state)
         state.pool["materials"] = state.pool.get("materials", 0) - cost.materials
         state.pool["gold"] = state.pool.get("gold", 0) - cost.gold
         state.queued_units = dict(plan["build"])
         state.queued = list(plan["structures"])
+        _queue_techs(state, plan.get("techs"))
         for slug, count in deployed(plan).items():
             state.available[slug] -= count
             if not state.available[slug]:
@@ -180,6 +182,40 @@ def reveal(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") ->
     match.phase = MARCH
     result.narration.append("March begins.")
     return _waiting(engine, game, match, result)
+
+
+def _queue_techs(state, techs) -> None:
+    """The cards a plan puts into play leave the hand at the reveal, paid
+    for with the rest of Infrastructure, and go into play at Production
+    (TNP 5.2, 8.3, 8.4)."""
+    if not techs or not any(techs.values()):
+        state.queued_techs = {}
+        return
+    for slug in (*techs["attach"].values(), *techs["build"]):
+        state.take_card(slug)
+    state.queued_techs = {
+        "attach": dict(techs["attach"]), "build": list(techs["build"]),
+        "discard": list(techs["discard"]),
+    }
+
+
+def discard(engine: "RulesEngine", match: MatchState, slug: str, count: int = 1) -> None:
+    """A card onto its deck's discard pile (TNP 8)."""
+    pile = match.discards.setdefault(effects.deck_of(engine, slug), [])
+    pile.extend([slug] * count)
+
+
+def draw(match: MatchState, seat: str, deck: str, count: int) -> int:
+    """`count` cards off the top of a deck into the seat's hand (TNP
+    8.1); how many there were. The decks hold a card for every token on
+    the map, so a harvest never finds one empty."""
+    cards = match.decks.setdefault(deck, [])
+    drawn = cards[:count]
+    del cards[:len(drawn)]
+    state = match.seat(seat)
+    for slug in drawn:
+        state.give_card(slug)
+    return len(drawn)
 
 
 # -- March -------------------------------------------------------------------------
@@ -391,15 +427,32 @@ def _open_battle(engine: "RulesEngine", match: MatchState, result: StepResult, *
             "facilities": [slug for slug in state.built if slug in engine.catalog.facilities],
             "upgrades": [slug for slug in state.built if slug in engine.catalog.upgrades],
         }
+        if match.advanced:
+            # The base card may destroy a tech facility or a building tech
+            # too (TNP 6.9, 8).
+            structures["tech"] = list(state.tech)
+            structures["attached"] = dict(state.attached)
         room = supply_room(engine, match, defender)
+        if match.advanced:
+            # The card is the mineral (TNP 8.1): the hand, counted by
+            # kind for what it can pay, and the cards themselves.
+            held = {kind: 0 for kind in RESOURCES}
+            for slug, count in state.hand.items():
+                held[effects.deck_of(engine, slug)] += count
+            minerals = {BATTLE_POOL[kind]: held[kind] for kind in RESOURCES}
+        else:
+            minerals = {BATTLE_POOL[kind]: state.pool.get(kind, 0) for kind in RESOURCES}
         emergency = {
             "pool": {"materials": state.pool.get("materials", 0), "gold": state.pool.get("gold", 0),
-                     **{BATTLE_POOL[kind]: state.pool.get(kind, 0) for kind in RESOURCES}},
+                     **minerals},
             "supply_room": {
                 slug: room[slug] for slug in engine.catalog.facilities["base_defenses"].units
             },
         }
+        if match.advanced:
+            emergency["hand"] = dict(state.hand)
     resolving["stage"] = "battle"
+    rows, record = effects.battle_effects(engine, match)
     opened = fight.begin_battle(
         engine, match, area, forces,
         attacker=None if contested else attacker,
@@ -408,6 +461,9 @@ def _open_battle(engine: "RulesEngine", match: MatchState, result: StepResult, *
         paths_home={seat: has_path(engine, match, seat, area) for seat in SEATS},
         structures=structures,
         emergency=emergency,
+        modifiers=tuple(rows),
+        effects=record,
+        tactics=tuple(seat for seat in SEATS if match.advanced and fight.tactic_cards(engine, match, seat)),
         damaged=damaged,
     )
     result.narration.extend(opened.narration)
@@ -448,10 +504,22 @@ def settle_battle(engine: "RulesEngine", game, match: MatchState, lead_in: str =
         if pool is not None:
             state.pool["materials"] = int(pool.get("materials", 0))
             state.pool["gold"] = int(pool.get("gold", 0))
-            for kind in RESOURCES:
-                state.pool[kind] = int(pool.get(BATTLE_POOL[kind], 0))
+            if "hand" in battle.emergency:
+                for slug, count in battle.emergency.get("spent", {}).items():
+                    state.take_card(slug, count)
+                    discard(engine, match, slug, count)
+            else:
+                for kind in RESOURCES:
+                    state.pool[kind] = int(pool.get(BATTLE_POOL[kind], 0))
         if outcome["destroyed"] is not None:
-            state.built.remove(outcome["destroyed"])
+            _destroyed(engine, match, state, outcome["destroyed"])
+    # What a seat salvaged in the battle (TNP 8), after a base's pool is
+    # written back from the emergency defense's.
+    for seat, gained in sorted((outcome.get("gains") or {}).items()):
+        if gained:
+            gainer = match.seat(seat)
+            gainer.pool["materials"] = gainer.pool.get("materials", 0) + int(gained)
+    if is_base:
         if outcome["base_fallen"]:
             match.battle, match.resolving = None, None
             _win(match, winner, WON_BY_BASE, result)
@@ -468,6 +536,25 @@ def settle_battle(engine: "RulesEngine", game, match: MatchState, lead_in: str =
     match.battle = None
     _done_unless_harvesting(match)
     return _waiting(engine, game, match, result)
+
+
+def _destroyed(engine: "RulesEngine", match: MatchState, state, thing: str) -> None:
+    """What a base card's hits destroyed comes off the base (TNP 6.9): a
+    facility or an upgrade, or in the advanced game a tech facility or a
+    building tech (`"<card>:<facility>"`), which go to the discard pile."""
+    card, _, facility = thing.partition(":")
+    if facility:
+        if state.attached.get(facility) == card:
+            del state.attached[facility]
+            discard(engine, match, card)
+        return
+    if thing in engine.catalog.techs:
+        if thing in state.tech:
+            state.tech.remove(thing)
+            discard(engine, match, thing)
+        return
+    if thing in state.built:
+        state.built.remove(thing)
 
 
 def _set_control(engine: "RulesEngine", match: MatchState, area: str, seat: Optional[str],
@@ -505,11 +592,18 @@ def _set_control(engine: "RulesEngine", match: MatchState, area: str, seat: Opti
     result.board_changed = True
 
 
-def harvest_choice(match: MatchState, area: str, workers: int) -> tuple[int, dict[str, int]]:
-    """How many tokens a harvest takes -- one a Worker, as many as are
-    left (TNP 5.8) -- and the tokens left by kind."""
+def harvest_choice(match: MatchState, area: str, workers: int,
+                   seat: Optional[str] = None) -> tuple[int, dict[str, int]]:
+    """How many tokens a harvest takes -- one a Worker, two with
+    Harvesters in play (TNP 5.8, 8.4), as many as are left -- and the
+    tokens left by kind."""
     left = {kind: int(count) for kind, count in match.areas[area].resources.items() if count}
-    return min(int(workers), sum(left.values())), left
+    per = effects.harvest_per_worker(match.seat(seat)) if seat is not None and match.advanced else 1
+    return min(int(workers) * per, sum(left.values())), left
+
+
+def harvest_per_worker(match: MatchState, seat: str) -> int:
+    return effects.harvest_per_worker(match.seat(seat)) if match.advanced else 1
 
 
 def _harvest(engine: "RulesEngine", match: MatchState, seat: str, area: str, workers: int,
@@ -522,7 +616,7 @@ def _harvest(engine: "RulesEngine", match: MatchState, seat: str, area: str, wor
     `HARVEST`, the attack still resolving. Otherwise the tokens are
     taken at once.
     """
-    count, left = harvest_choice(match, area, workers)
+    count, left = harvest_choice(match, area, workers, seat)
     if count <= 0:
         return
     if len(left) > 1 and count < sum(left.values()):
@@ -538,18 +632,28 @@ def _harvest(engine: "RulesEngine", match: MatchState, seat: str, area: str, wor
 
 def _take(match: MatchState, seat: str, area: str, workers: int, taken: Mapping[str, int],
           result: StepResult) -> None:
+    """The tokens off the territory: into the seat's pool, or in the
+    advanced game a card drawn from that resource's deck for each, in
+    place of the token (TNP 5.8, 8.1). Either way they count toward the
+    51% (TNP 1.3)."""
     left = match.areas[area].resources
     state = match.seat(seat)
     for kind, count in taken.items():
         if count:
             left[kind] -= count
-            state.pool[kind] = state.pool.get(kind, 0) + count
+            if match.advanced:
+                drawn = draw(match, seat, kind, count)
+                if drawn < count:
+                    state.pool[kind] = state.pool.get(kind, 0) + count - drawn
+            else:
+                state.pool[kind] = state.pool.get(kind, 0) + count
     state.harvested += sum(taken.values())
     spot = (match.resolving or {}).get("spot", "")
     _reveal(match, seat, area, spot, {"worker": workers})
+    drawn_words = ", drawn as cards" if match.advanced else ""
     result.narration.append(
         f"{tokens.seat(seat)}'s {workers} {tokens.unit('worker')} harvest {tokens.area(area)}: "
-        f"{_tokens_words(taken)}, {state.harvested} harvested in all."
+        f"{_tokens_words(taken)}{drawn_words}, {state.harvested} harvested in all."
     )
     result.board_changed = True
 
@@ -567,7 +671,7 @@ def answer_harvest(engine: "RulesEngine", game, match: MatchState, seat: str,
     resolving = match.resolving
     area = resolving["area"]
     workers = int(resolving["harvest"]["workers"])
-    count, left = harvest_choice(match, area, workers)
+    count, left = harvest_choice(match, area, workers, seat)
     if not isinstance(taken, Mapping):
         raise RuleRefusal("Name the tokens taken, by kind.", cite="TNP 5.8")
     chosen = {}
@@ -584,6 +688,12 @@ def answer_harvest(engine: "RulesEngine", game, match: MatchState, seat: str,
         raise RuleRefusal("That is more than the territory holds.", cite="TNP 5.8")
     if sum(chosen.values()) != count:
         raise RuleRefusal(f"The Workers take {count} tokens, one a Worker.", cite="TNP 5.8")
+    per = harvest_per_worker(match, seat)
+    if per > 1 and any(number % per and number != left.get(kind, 0) for kind, number in chosen.items()):
+        raise RuleRefusal(
+            f"With Harvesters each Worker takes {per} of one kind: take each kind {per} at a time, "
+            "or all of it that is left.", cite="TNP 8.4",
+        )
     result = StepResult(part=resolving["spot"], area=area)
     _take(match, seat, area, workers, chosen, result)
     match.resolving = None
@@ -643,22 +753,50 @@ def produce(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") -
     for seat in SEATS:
         state = match.seat(seat)
         lost = False
+        producing = set()
         for slug, count in state.queued_units.items():
             if engine.unit(slug).facility not in state.built:
                 lost = True
                 continue
             state.available[slug] = state.available.get(slug, 0) + count
+            producing.add(engine.unit(slug).facility)
+        gold = effects.production_gold(state, producing) if match.advanced else 0
         for slug in state.queued:
             if slug not in state.built:
                 state.built.append(slug)
+        _techs_into_play(engine, match, state)
         state.queued_units, state.queued = {}, []
         state.plan, state.locked = None, False
         if lost:
             result.narration.append(
                 f"{tokens.seat(seat)} loses what was queued at a facility destroyed this turn."
             )
+        if gold:
+            state.pool["gold"] = state.pool.get("gold", 0) + gold
+            result.narration.append(f"{tokens.seat(seat)} gains {_amount(gold, 'gold')} from its production.")
     match.phase = TRADE
     return _waiting(engine, game, match, result)
+
+
+def _techs_into_play(engine: "RulesEngine", match: MatchState, state) -> None:
+    """The cards this turn's Infrastructure put into play are finished
+    (TNP 5.9, 8.3, 8.4): the tech facilities discarded to make room go to
+    the discard pile, the new ones and the building techs into play. A
+    building tech whose facility a base card destroyed this turn is lost
+    with it."""
+    queued = state.queued_techs or {}
+    for slug in queued.get("discard", []):
+        if slug in state.tech:
+            state.tech.remove(slug)
+            discard(engine, match, slug)
+    for slug in queued.get("build", []):
+        state.tech.append(slug)
+    for facility, slug in queued.get("attach", {}).items():
+        if facility in state.built and facility not in state.attached:
+            state.attached[facility] = slug
+        else:
+            discard(engine, match, slug)
+    state.queued_techs = {}
 
 
 def answer_trade(engine: "RulesEngine", game, match: MatchState, seat: str, choice: str,
@@ -667,8 +805,8 @@ def answer_trade(engine: "RulesEngine", game, match: MatchState, seat: str, choi
     state = match.seat(seat)
     if trade is None and choice == "save":
         raise RuleRefusal("Saving a trade needs the trade.", cite="TNP 5.9")
-    normal = normal_trade(trade if trade is not None else state.plan)
-    check_trade(match, seat, normal)
+    normal = normal_trade(trade if trade is not None else state.plan, match.advanced)
+    check_trade(match, seat, normal, engine)
     state.plan = normal
     result = StepResult()
     if choice == "lock":
@@ -684,18 +822,27 @@ def settle_trades(engine: "RulesEngine", game, match: MatchState, lead_in: str =
     result = StepResult(narration=[lead_in] if lead_in else [])
     for seat in SEATS:
         state = match.seat(seat)
-        trade = normal_trade(state.plan) if state.locked and state.plan else None
+        trade = normal_trade(state.plan, match.advanced) if state.locked and state.plan else None
         state.plan, state.locked = None, False
         if trade is None or not (trade["materials"] or trade["gold"]):
             continue
-        gains = trade_gains(engine, trade)
+        gains = trade_gains(engine, trade, state, match.advanced)
+        spent = {kind: 0 for kind in RESOURCES}
         for into in ("materials", "gold"):
             for kind, count in trade[into].items():
-                state.pool[kind] -= count
+                if match.advanced:
+                    # The card is the mineral (TNP 8.1): said by its kind,
+                    # and discarded.
+                    state.take_card(kind, count)
+                    discard(engine, match, kind, count)
+                    spent[effects.deck_of(engine, kind)] += count
+                else:
+                    state.pool[kind] -= count
+                    spent[kind] += count
             state.pool[into] = state.pool.get(into, 0) + gains[into]
-        spent = {kind: trade["materials"].get(kind, 0) + trade["gold"].get(kind, 0) for kind in RESOURCES}
+        cards = " as cards" if match.advanced else ""
         result.narration.append(
-            f"{tokens.seat(seat)} trades {_tokens_words(spent)} for "
+            f"{tokens.seat(seat)} trades {_tokens_words(spent)}{cards} for "
             f"{_spent(gains['materials'], gains['gold'])}."
         )
         result.board_changed = True

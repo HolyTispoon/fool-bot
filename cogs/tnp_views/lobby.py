@@ -2,7 +2,9 @@
 `LobbyView`: the lobby `/tnp create_game` -- or the hub's **TNP** button
 -- posts, rebuilt from the record on every change (docs/design/tnp.md,
 "The lobby, the channel and the table"): **Sit as Blue**, **Sit as
-Green**, **Leave** and **Start**. Both seats are people's; there is no
+Green**, **Leave**, **Start**, and the game's one setting, **Advanced
+game** or **Basic game** -- the technology cards (TNP 8), a seated
+player's or a helper's to change. Both seats are people's; there is no
 AI (TNP 1.2).
 
 Persistent, its custom ids fixed and carrying the game id, so a restart
@@ -29,7 +31,7 @@ class LobbyView(SafeView):
     here asks for a confirmation, as in D12 Ball's and Codex's.
     """
 
-    def __init__(self, cog, game_id: str) -> None:
+    def __init__(self, cog, game_id: str, advanced: bool = False) -> None:
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
@@ -38,6 +40,9 @@ class LobbyView(SafeView):
               for seat in SEAT_NAMES),
             ("Leave", "leave", discord.ButtonStyle.secondary),
             ("Start", "start", discord.ButtonStyle.success),
+            # The setting's button names the game it switches to; its
+            # custom id is one whichever it says, so a restart re-arms it.
+            ("Basic game" if advanced else "Advanced game", "advanced", discord.ButtonStyle.secondary),
         ]
         for label, action, style in buttons:
             button = discord.ui.Button(
@@ -63,8 +68,13 @@ class LobbyView(SafeView):
             await interaction.response.defer()
             await self.cog.start_game(interaction, game)
             return
+        if action == "advanced" and not self.may_act_in_game(interaction, game):
+            await send_ephemeral(interaction, "Only a seated player may choose the game.")
+            return
         try:
-            if action == "leave":
+            if action == "advanced":
+                game = self.cog.service.set_advanced(game.game_id, not game.advanced)
+            elif action == "leave":
                 self.cog.service.leave(game.game_id, interaction.user.id)
             else:
                 seat = action.removeprefix("seat_")
@@ -74,7 +84,8 @@ class LobbyView(SafeView):
         except RuleRefusal as refused:
             await send_ephemeral(interaction, str(refused))
             return
+        game = self.game() or game
         await interaction.response.edit_message(
-            content=self.cog.lobby_text(game), view=LobbyView(self.cog, game.game_id),
+            content=self.cog.lobby_text(game), view=LobbyView(self.cog, game.game_id, game.advanced),
             allowed_mentions=discord.AllowedMentions.none(),
         )

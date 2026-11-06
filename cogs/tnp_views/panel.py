@@ -3,7 +3,9 @@ A seat's panel: the controls under its board, ephemeral, to its player
 alone (docs/design/tnp.md, "The turn on Discord"). One view a prompt
 kind of the turn's -- `PlanPanelView` (Infrastructure and Deployment),
 `TradePanelView` (Production and Trade's trade), `ConquerPanelView` and
-`HarvestPanelView` (March's two questions) -- each built from
+`HarvestPanelView` (March's two questions), and the advanced game's
+`TacticPanelView` (Tactical Command's card, chosen in secret) -- each
+built from
 `PendingPrompt.options` and nothing else, and `panel_view` the one
 mapping from a prompt to its view.
 
@@ -169,6 +171,11 @@ class PlanPanelView(PanelView):
             discord.SelectOption(label=_label(f"Defend {self.area_name(area)}"), value=f"defense:{area}")
             for area in options.defenses
         ]
+        if getattr(options, "advanced", False):
+            # The advanced game's cards (TNP 8.3, 8.4): from the hand
+            # into play, finished at Production.
+            sections.append(discord.SelectOption(label="Building techs", value="attach"))
+            sections.append(discord.SelectOption(label="Tech facilities", value="tech"))
         section = self.state.section
         if section not in {one.value for one in sections}:
             section = "build"
@@ -182,6 +189,10 @@ class PlanPanelView(PanelView):
             self.structure_menu()
         elif section.startswith("attack:"):
             self.attack_menus(section.split(":", 1)[1])
+        elif section == "attach":
+            self.attach_menu()
+        elif section == "tech":
+            self.tech_menus()
         else:
             self.defense_menus(section.split(":", 1)[1])
         self.button("Lock in", discord.ButtonStyle.success, self.on_lock)
@@ -261,7 +272,87 @@ class PlanPanelView(PanelView):
         self.menu(f"How many {self.name(unit)} defend {self.area_name(area)}",
                   _counts(self.options.available.get(unit, 0), current), self.on_defense_count, row=2)
 
+    def techs(self) -> dict:
+        techs = copy.deepcopy(dict(self.plan.get("techs") or {}))
+        techs.setdefault("attach", {})
+        techs.setdefault("build", [])
+        techs.setdefault("discard", [])
+        return techs
+
+    def held(self, kind: str) -> list:
+        """The cards of a kind in the hand whose effect is built -- what
+        may be put into play (TNP 8)."""
+        return [one for one in self.options.cards if one.kind == kind and one.built]
+
+    def attach_menu(self) -> None:
+        """Each building tech in the hand on each facility it may go on,
+        one a facility: "Lasers on the Factory" (TNP 8.3)."""
+        attach = self.techs()["attach"]
+        facilities = list(self.options.attach_to) + [one for one in attach if one not in self.options.attach_to]
+        offered = [
+            discord.SelectOption(
+                label=_label(f"{self.name(one.card)} on the {self.name(facility)}"),
+                value=f"{one.card}@{facility}", default=attach.get(facility) == one.card,
+            )
+            for one in self.held("building_tech") for facility in facilities
+        ]
+        self.menu("Building techs to attach", offered, self.on_attach, row=1, low=0, high=len(offered))
+
+    def tech_menus(self) -> None:
+        """The tech facilities in the hand to build, each at its cost, and
+        those in play to discard to make room (TNP 8.4)."""
+        techs = self.techs()
+        building = list(techs["build"])
+        offered = []
+        for one in self.held("tech_facility"):
+            for index in range(one.count):
+                offered.append(discord.SelectOption(
+                    label=_label(f"{self.name(one.card)} -- {self.cog.cost_words(one.materials, 0)}"
+                                 + (f" (#{index + 1})" if one.count > 1 else "")),
+                    value=f"{one.card}#{index}", default=building.count(one.card) > index,
+                ))
+        self.menu("Tech facilities to build", offered, self.on_tech_build, row=1, low=0, high=len(offered))
+        discarding = list(techs["discard"])
+        standing = []
+        for index, card in enumerate(self.options.tech):
+            standing.append(discord.SelectOption(
+                label=_label(f"Discard {self.name(card)}"), value=f"{card}#{index}",
+                default=card in discarding and self.options.tech[:index].count(card) < discarding.count(card),
+            ))
+        self.menu("Tech facilities in play to discard", standing, self.on_tech_discard, row=2,
+                  low=0, high=len(standing))
+
     # -- The callbacks -------------------------------------------------
+
+    def with_techs(self, techs: dict) -> dict:
+        plan = copy.deepcopy(self.plan)
+        plan["techs"] = techs
+        return plan
+
+    async def on_attach(self, interaction, values) -> None:
+        techs = self.techs()
+        techs["attach"] = {}
+        for value in values:
+            if value == "-":
+                continue
+            card, _, facility = value.partition("@")
+            if facility in techs["attach"]:
+                await self.answer(interaction, None, replace(
+                    self.state, notice="One building tech a production facility (TNP 8.3).",
+                ))
+                return
+            techs["attach"][facility] = card
+        await self.answer(interaction, self.save(self.with_techs(techs)))
+
+    async def on_tech_build(self, interaction, values) -> None:
+        techs = self.techs()
+        techs["build"] = [value.partition("#")[0] for value in values if value != "-"]
+        await self.answer(interaction, self.save(self.with_techs(techs)))
+
+    async def on_tech_discard(self, interaction, values) -> None:
+        techs = self.techs()
+        techs["discard"] = [value.partition("#")[0] for value in values if value != "-"]
+        await self.answer(interaction, self.save(self.with_techs(techs)))
 
     def save(self, plan: dict) -> Action:
         return Action(PromptKind.PLAN, "save", {"plan": plan}, seat=self.seat)
@@ -345,20 +436,32 @@ class TradePanelView(PanelView):
 
     def __init__(self, *args) -> None:
         super().__init__(*args)
-        held = [kind for kind, count in self.options.tokens.items() if count]
+        if getattr(self.options, "advanced", False):
+            # The card is the mineral (TNP 8.1): a trade names cards.
+            counts = {one.card: one.count for one in self.options.cards}
+            labels = {
+                one.card: f"{self.name(one.card)} -- {one.count} held, a "
+                          f"{'gem' if one.deck == 'gems' else 'mineral'}"
+                for one in self.options.cards
+            }
+            placeholder = "Card to trade"
+        else:
+            counts = {kind: count for kind, count in self.options.tokens.items() if count}
+            labels = {kind: self.cog.token_words(kind, count) for kind, count in counts.items()}
+            placeholder = "Token to trade"
+        held = [kind for kind, count in counts.items() if count]
         trade = copy.deepcopy(dict(self.options.trade or {}))
         trade.setdefault("materials", {})
         trade.setdefault("gold", {})
         self.trade = trade
         kind = self.state.kind if self.state.kind in held else (held[0] if held else None)
         self.state = replace(self.state, kind=kind)
-        self.menu("Token to trade", [
-            discord.SelectOption(label=self.cog.token_words(one, self.options.tokens[one]),
-                                 value=one, default=one == kind)
+        self.menu(placeholder, [
+            discord.SelectOption(label=_label(labels[one]), value=one, default=one == kind)
             for one in held
         ], self.on_kind, row=0)
         if kind is not None:
-            most = int(self.options.tokens[kind])
+            most = int(counts[kind])
             for row, into in ((1, "materials"), (2, "gold")):
                 self.menu(f"How many for {into}", _counts(most, trade[into].get(kind, 0)),
                           self.counter(into), row=row)
@@ -426,12 +529,44 @@ class HarvestPanelView(PanelView):
         ))
 
 
-#: The turn's prompt kinds, each to its panel. A battle's are step 7's.
+# -- Tactical Command ---------------------------------------------------------------
+
+
+class TacticPanelView(PanelView):
+    """
+    Tactical Command (TNP 6.3): a tactic card from the hand, face down,
+    or none -- on the seat's own panel, since the card is secret until
+    both seats have chosen. A card whose units are not in the battle is
+    offered too, and said to do nothing (TNP 8.2).
+    """
+
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        applies = set(self.options.applies)
+        self.menu("Tactic card to play", [
+            discord.SelectOption(
+                label=_label(self.name(one.card) + ("" if one.card in applies else " -- does nothing here")),
+                value=one.card,
+            )
+            for one in self.options.cards
+        ], self.on_card, row=0)
+        self.button("Play none", discord.ButtonStyle.secondary, self.on_none, row=1)
+
+    async def on_card(self, interaction, values) -> None:
+        await self.answer(interaction, Action(PromptKind.TACTIC, "play", {"card": values[0]}, seat=self.seat))
+
+    async def on_none(self, interaction) -> None:
+        await self.answer(interaction, Action(PromptKind.TACTIC, "none", seat=self.seat))
+
+
+#: The prompt kinds a seat answers on its own panel, each to its view.
+#: A battle's public questions are on the battle's message (step 7).
 PANELS = {
     PromptKind.PLAN: PlanPanelView,
     PromptKind.TRADE: TradePanelView,
     PromptKind.CONQUER: ConquerPanelView,
     PromptKind.HARVEST: HarvestPanelView,
+    PromptKind.TACTIC: TacticPanelView,
 }
 
 
@@ -447,5 +582,5 @@ def panel_view(cog, game_id: str, seat: str, prompt: Optional[PendingPrompt],
 
 __all__ = [
     "ConquerPanelView", "HarvestPanelView", "PANELS", "PANEL_TIMEOUT", "PanelState", "PanelView",
-    "PlanPanelView", "TradePanelView", "panel_view",
+    "PlanPanelView", "TacticPanelView", "TradePanelView", "panel_view",
 ]

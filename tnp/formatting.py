@@ -259,12 +259,19 @@ def plan_lines(options) -> list[str]:
     structures = plan.get("structures") or []
     attacks = plan.get("attacks") or {}
     defense = plan.get("defense") or {}
-    if not (build or structures or attacks or defense):
+    techs = plan.get("techs") or {}
+    if not (build or structures or attacks or defense or any(techs.values())):
         return ["Your plan: nothing yet."]
     lines = ["Your plan:"]
     lines.append(f"- Build: {units_text(build)}.")
     if structures:
         lines.append("- Place: " + ", ".join(tokens.thing(slug) for slug in structures) + ".")
+    for facility, card in (techs.get("attach") or {}).items():
+        lines.append(f"- Attach {tokens.card(card)} to the {tokens.thing(facility)}.")
+    for card in techs.get("build") or []:
+        lines.append(f"- Build the tech facility {tokens.card(card)}.")
+    for card in techs.get("discard") or []:
+        lines.append(f"- Discard the tech facility {tokens.card(card)}.")
     for spot in options.spots:
         attack = attacks.get(spot)
         if attack:
@@ -279,6 +286,117 @@ def plan_lines(options) -> list[str]:
         f"{cost_text(Cost(int(pool.get('materials', 0)), int(pool.get('gold', 0))))}."
     )
     return lines
+
+
+# -- The advanced game's cards (step 9) ------------------------------------------
+
+#: A card's kind and deck as the rules name them (TNP 8).
+CARD_KINDS = {"tactic": "tactic card", "building_tech": "building tech", "tech_facility": "tech facility"}
+DECK_WORDS = {"blue_minerals": "blue minerals", "orange_minerals": "orange minerals", "gems": "gems"}
+
+
+def card_kind_text(kind: str) -> str:
+    return CARD_KINDS.get(kind, kind)
+
+
+def hand_text(cards) -> str:
+    """A hand in words, off `CardOption`s: "2 {card:grenades}, 1
+    {card:jeweler}", or "no cards"."""
+    found = [f"{one.count} {tokens.card(one.card)}" for one in cards if one.count]
+    return ", ".join(found) if found else "no cards"
+
+
+def cards_lines(options) -> list[str]:
+    """
+    A seat's cards in its panel (TNP 8), off a plan prompt's options:
+    its hand by kind, what it has in play, and what may be put into play
+    -- a card whose effect is not built yet is said to be held and
+    traded, never played. **Its own alone.**
+    """
+    if not getattr(options, "advanced", False):
+        return []
+    lines = []
+    if options.cards:
+        for kind in ("tactic", "building_tech", "tech_facility"):
+            held = [one for one in options.cards if one.kind == kind]
+            if held:
+                lines.append(f"Your {card_kind_text(kind)}s: {hand_text(held)}.")
+        waiting = [one for one in options.cards if not one.built]
+        if waiting:
+            lines.append(
+                "Not built yet, so held and traded but not played: "
+                + ", ".join(tokens.card(one.card) for one in waiting) + "."
+            )
+    else:
+        lines.append("Your hand: no cards. A harvest draws one a token (TNP 8.1).")
+    in_play = [tokens.card(slug) for slug in options.tech]
+    in_play += [f"{tokens.card(card)} on the {tokens.thing(facility)}" for facility, card in options.attached.items()]
+    lines.append(
+        f"In play: {', '.join(in_play) if in_play else 'nothing'} "
+        f"(at most {options.tech_facilities} tech facilities, one building tech a facility)."
+    )
+    return lines
+
+
+def card_trade_lines(options) -> list[str]:
+    """An advanced trade (TNP 8.1): the cards held, each a mineral or a
+    gem at the seat's rates, and what is saved so far."""
+    rates = options.rates
+    lines = [f"Your hand: {hand_text(options.cards)}."]
+    lines.append(
+        f"Rates: a mineral card for {rates['mineral']['materials']} materials or "
+        f"{rates['mineral']['gold']} gold; a gem card for {rates['gem']['materials']} materials or "
+        f"{rates['gem']['gold']} gold."
+    )
+    trade = options.trade or {}
+    parts = []
+    for into in ("materials", "gold"):
+        for card, count in (trade.get(into) or {}).items():
+            if count:
+                parts.append(f"{count} {tokens.card(card)} for {into}")
+    if parts:
+        lines.append(f"Your trade: {', '.join(parts)} -- gaining {_cost_words(options.gains)}.")
+    else:
+        lines.append("Your trade: nothing yet. Cards not traded stay in your hand.")
+    return lines
+
+
+def card_lines(catalog: Catalog, slug: str) -> list[str]:
+    """
+    What `/tnp card` answers (TNP 8): the card's name, its kind and deck,
+    how many are in the deck, what a tech facility costs, its text as the
+    sheet has it, and what the bot does with it -- its d12 value where it
+    changes a roll, or the question its text waits on.
+    """
+    from tnp.effects import EFFECTS, UNIMPLEMENTED
+
+    tech = catalog.techs[slug]
+    lines = [f"**{tech.name}** -- {card_kind_text(tech.type)}, {DECK_WORDS.get(tech.deck, tech.deck)} deck, {tech.count} in the deck."]
+    if tech.type == "tech_facility":
+        lines.append(f"Costs {plural(int(tech.materials or 0), 'material')}; at most two tech facilities in play.")
+    elif tech.type == "building_tech":
+        lines.append("Attached to a production facility, one a facility, for the units it builds.")
+    else:
+        lines.append("Played face down at Tactical Command, for one battle.")
+    lines.append(f"*{tech.ability}*")
+    effect = EFFECTS.get(slug)
+    if effect is not None and effect.modifier:
+        against = {"air": "against air", "armored": "against armored", "infantry": "against infantry",
+                   "base": "against the base and Base Defense units"}.get(effect.against, "on every roll")
+        lines.append(f"On the d12: {_signed(effect.modifier)} {against} (the author's value, TNP 8.5).")
+    if slug in UNIMPLEMENTED:
+        lines.append(f"Not built yet -- a question to the author: {UNIMPLEMENTED[slug]}")
+    lines.append("Any card is also a mineral or a gem, traded at the conversion rates (TNP 8.1).")
+    return lines
+
+
+def find_card(catalog: Catalog, name: str) -> Optional[str]:
+    """A card by its slug or its name, any case; `None` where none is."""
+    wanted = name.strip().lower().replace("-", " ")
+    for slug, tech in catalog.techs.items():
+        if wanted in (slug, slug.replace("_", " "), tech.name.lower().replace("-", " ")):
+            return slug
+    return None
 
 
 def _rate_words(rates: Mapping[str, Mapping[str, Optional[int]]], kind: str) -> str:
@@ -316,7 +434,8 @@ def modifier_words(parts) -> str:
     """
     Each modifier a roll takes, said with its reason (TNP 4.2): "−1, a
     column across", "−2, 2 columns across", "+1 flanking", "+2 from the
-    cards"; "no modifier" where there is none. `parts` are
+    cards", "+3 {card:grenades}" for a card by its name; "no modifier"
+    where there is none. `parts` are
     `tnp.battle.modifier_parts`' rows, `(kind, value, columns)`.
     """
     from tnp.battle import ACROSS, FLANKING
@@ -327,6 +446,8 @@ def modifier_words(parts) -> str:
             said.append(f"{_signed(value)}, " + ("a column across" if columns == 1 else f"{columns} columns across"))
         elif kind == FLANKING:
             said.append(f"{_signed(value)} flanking")
+        elif ":" in kind:
+            said.append(f"{_signed(value)} {tokens.card(kind.partition(':')[2])}")
         else:
             said.append(f"{_signed(value)} from the cards")
     return "; ".join(said) if said else "no modifier"
@@ -456,4 +577,10 @@ def battle_offer_lines(prompt) -> list[str]:
     if prompt.kind is PromptKind.CHOOSE_TARGET:
         return ["Each target in the menu shows its dice, what a die must show and why. "
                 "Choosing one rolls at once."]
+    if prompt.kind is PromptKind.TACTIC:
+        return ["Each seat with a tactic card chooses in secret; the cards are revealed together "
+                "and last this battle."]
+    if prompt.kind is PromptKind.REROLL:
+        return [f"{seat} may roll up to {options.most} of the {options.missed} missed dice again; "
+                f"{options.left} reroll{'' if options.left == 1 else 's'} left this battle."]
     return []

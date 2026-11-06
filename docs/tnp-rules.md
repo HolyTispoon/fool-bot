@@ -16,10 +16,10 @@ section it holds the code to ("TNP 6.7"). A question this document does
 not answer goes to the author; it is never settled in the code by a
 guess.
 
-Two things are left out for now: the XzzzX and Space Dragons factions,
-whose rules and traits come in with them, and **the advanced game**,
-whose sections are marked *step 9's* -- they are transcribed so the
-whole game is in one place, but nothing before step 9 builds them.
+One thing is left out for now: the XzzzX and Space Dragons factions,
+whose rules and traits come in with them. **The advanced game**, the
+technology cards, is section 8, and the sentences elsewhere that are
+its alone are marked *the advanced game's*.
 
 ## 1. The game
 
@@ -198,7 +198,7 @@ Vassal module give them; `tnp/data/human_board.json` keeps them.
 - **At most 8 Smart Mines and Rocket Launchers may be deployed
   together** -- the board's "can only deploy 8 total unupgraded base
   defense units (Rocket + Mines)".
-- *Step 9's:* at most **one building tech per production facility**,
+- *The advanced game's:* at most **one building tech per production facility**,
   and at most **two tech facilities** at any time (the author,
   2026-11-05, as board v4 and the Vassal module say; the rulebook's
   three is older text).
@@ -228,7 +228,7 @@ defends; the base has its own spot.
   and no gold (the author, 2026-11-05). Its Barracks and Base Defenses
   are built; its Factory and Airport are not (2.4).
 - Every territory starts neutral.
-- *Step 9's:* the three technology decks -- blue minerals, orange
+- *The advanced game's:* the three technology decks -- blue minerals, orange
   minerals and gems -- shuffled (8.1).
 
 ## 4. The dice
@@ -311,7 +311,7 @@ the next turn. A facility is used only once it has finished building in
 an earlier turn: a seat cannot place units on a facility it is building
 this turn.
 
-*Step 9's:* a seat may also put building techs and tech facilities from
+*The advanced game's:* a seat may also put building techs and tech facilities from
 its hand into play (8.3, 8.4).
 
 ### 5.3 Deployment
@@ -397,7 +397,7 @@ If the territory has resource tokens left and the winning attacker has
 token is taken off the territory**, and where the territory holds more
 than one kind the seat chooses which (the author, 2026-11-06). In the
 basic game the token goes
-into the seat's pool (the author, 2026-11-05); *step 9's:* in the
+into the seat's pool (the author, 2026-11-05); *the advanced game's:* in the
 advanced game the seat draws a card from that resource's deck instead
 (8.1).
 
@@ -497,7 +497,7 @@ This comes before Tactical Command (the newest rulebook's order).
 
 ### 6.3 Tactical Command
 
-*Step 9's.* Each seat may play one tactic card from its hand, face
+*The advanced game's.* Each seat may play one tactic card from its hand, face
 down; the cards are revealed together and last for this battle alone
 (8.2). The basic game has no cards, and goes on to the rounds.
 
@@ -650,7 +650,7 @@ its line, one at either end (the author, 2026-11-05).
   of one of the defender's facilities, or, once a facility has no
   upgrades left, the Factory or the Airport itself. An upgrade must be
   destroyed before its facility, and the **Barracks and Base Defenses
-  cannot be destroyed**. *Step 9's:* the rulebook also lets it destroy
+  cannot be destroyed**. *The advanced game's:* the rulebook also lets it destroy
   a tech facility or a building tech.
 - **One thing an attack.** However many forces hit the base cards, an
   attack on a base destroys at most one thing.
@@ -706,14 +706,14 @@ are the icons on its card, which the unit sheet lists.
 - **Tough**: takes two hits to remove (6.8).
 - **Splash damage**: when this force hits, an infantry unit may also be
   removed from an adjacent force, Tough or not (6.8).
-- **Transformation**: *step 9's.* With the tech *Advanced Robotics*,
+- **Transformation**: *the advanced game's.* With the tech *Advanced Robotics*,
   The Transformer can become an air unit: after the tactic cards are
   revealed, its seat chooses whether its Transformers are armored or
   air for this battle. Without it, The Transformer is armored.
 - **Transport**: Chopper Carriers carry ground troops, and the whole
   stack moves like air units. Regular capacity is any one of: 3
   Mercenaries or Workers, 2 Stealth Snipers or Cyborg Soldiers, 2
-  Jeeps, or 1 Tank or Transformer, without mixing. *Step 9's:* with the
+  Jeeps, or 1 Tank or Transformer, without mixing. *The advanced game's:* with the
   tech *Improved Carrier Capacity*, 4 infantry, 3 Jeeps or 2 Tanks or
   Transformers. In the basic game too (the author, 2026-11-05):
   - a carried stack is deployed in one attack spot with its Chopper
@@ -728,8 +728,8 @@ are the icons on its card, which the unit sheet lists.
 
 ## 8. The advanced game
 
-*All of section 8 is step 9's.* The advanced game is chosen in the
-lobby; the basic game plays until step 9.
+The advanced game is chosen in the lobby, before the game starts; the
+basic game is the one with no cards.
 
 ### 8.1 The technology decks
 

@@ -233,5 +233,17 @@
       "tank": 1,
       "the_transformer": 1
     }
+  },
+  "transport_improved": {
+    "_comment": "Each Chopper Carrier's capacity with the tech Improved Carrier Capacity, the advanced game's: 4 infantry, 3 Jeeps, or 2 Tanks or Transformers (docs/tnp-rules.md, 7: Transport).",
+    "chopper_carrier": {
+      "mercenary": 4,
+      "worker": 4,
+      "stealth_sniper": 4,
+      "cyborg_soldier": 4,
+      "jeep": 3,
+      "tank": 2,
+      "the_transformer": 2
+    }
   }
 }

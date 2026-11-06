@@ -39,7 +39,7 @@ from tnp import tokens
 from tnp.battle import ROUND, BattleState
 from tnp.formatting import battle_heading, battle_offer_lines
 from tnp.game import GameStatus, RuleRefusal, TnpGame
-from tnp.prompts import PendingPrompt
+from tnp.prompts import PendingPrompt, PromptKind
 from tnp.render import render_battle
 
 LOGGER = logging.getLogger(__name__)
@@ -128,6 +128,17 @@ class BattleMixin:
                 return prompt
         return None
 
+    def tactic_choosers(self, game: TnpGame) -> list[str]:
+        """The seats still choosing a tactic card (TNP 6.3), off the one
+        reading."""
+        match = self.service.load(game)
+        return [one.asked_seat for one in self.service.prompts(game, match) if one.kind is PromptKind.TACTIC]
+
+    def tactic_seats(self, game: TnpGame, user_id: int) -> list[str]:
+        """The seats a person holds that are still choosing a tactic card."""
+        held = game.seats_of(user_id)
+        return [seat for seat in self.tactic_choosers(game) if seat in held]
+
     def battle_lines(self, game: TnpGame, match) -> list[str]:
         """What the battle's round has said so far, as kept on the record,
         where it is this battle's."""
@@ -147,7 +158,18 @@ class BattleMixin:
         head = [f"**Not done:** {notice}"] if notice else []
         head.append(self.render_text(battle_heading(battle), game))
         foot: list[str] = []
-        if prompt is not None:
+        if prompt is not None and prompt.kind is PromptKind.TACTIC:
+            # Both seats choose at once and in secret (TNP 6.3): named
+            # here, answered on each seat's own panel.
+            seats = " and ".join(
+                tokens.seat(one) for one in self.tactic_choosers(game)
+            ) or tokens.seat(prompt.asked_seat)
+            foot.append(self.render_text(
+                f"**Now:** Tactical Command: {seats} may play a tactic card, face down -- "
+                "**My tactic card** opens your choice privately. The cards are revealed together.",
+                game,
+            ))
+        elif prompt is not None:
             foot.append(f"**Now:** {self.render_text(prompt.ask, game)}")
             foot += [self.render_text(line, game) for line in battle_offer_lines(prompt)]
         elif battle.outcome is not None:

@@ -26,7 +26,9 @@ each seat's controls, March posted attack spot by attack spot, the
 trade, Cleanup -- everything but a battle. Step 7 put the battle on
 Discord, on a message of its own, round by round. Step 8 finished a
 game: the win, a concession, an abandon, the rematch, the archive, and
-the golden.
+the golden. Step 9 built the advanced game: the three decks, the hand,
+the cards put into play, Tactical Command, and every card whose text the
+author's answers settle.
 
 ## A cog in fool-bot, not a bot of its own
 
@@ -241,8 +243,8 @@ state, and plays it to the same bytes.
 rest of the game is handed to `begin_battle` as it opens and kept on
 the state: each seat's path home (TNP 6.6), the defending base's built
 facilities and upgrades (TNP 6.9), the defender's pool and supply room
-for an emergency defense (TNP 6.2), and the outside modifiers step 9's
-cards will supply (TNP 4.2, as rows of seat, unit, target type and
+for an emergency defense (TNP 6.2), and the outside modifiers the
+advanced game's cards supply (TNP 4.2, as rows of seat, unit, target type and
 value). What it decides goes back the same way: `outcome` (the winner,
 how, who controls the territory, whether a base fell, the survivors
 with their damage, whose survivors go home), the structures after the
@@ -623,8 +625,9 @@ rollover match -- and from the Codex bot's.
   player's or a game helper's, with no confirmation, as in D12 Ball's
   and Codex's lobbies. A **test game** (`/tnp create_game
   test_game:True`) lets one person sit in both seats, the record's rule
-  since step 4. There is no setting for the advanced game: `set_advanced`
-  refuses it until step 9, so a button would only say no.
+  since step 4. Since step 9 the lobby has one setting, **Advanced
+  game** (or **Basic game**, once chosen), a seated player's or a
+  helper's (below, "The advanced game").
 - **Start** deals the opening position through `GameService.start` (one
   save), renames the channel `tnp-<n>-<blue>-vs-<green>` (each player's
   name slugged, capped at 100 characters), closes the lobby through the
@@ -1092,3 +1095,101 @@ open and their asks) and the final save beside it, in
   (`tests/test_tnp_cog_ending.py`), a win at 51% (the full-game test's
   harvest game), and anything the cog renders.
 
+
+
+## The advanced game
+
+Step 9 of the worksheet (TNP 8): the technology cards, chosen in the
+lobby. The basic game is unchanged by it, byte for byte: the golden's
+transcript did not move, and its final save gained only the new fields,
+empty (`hand`, `tech`, `attached`, `queued_techs` on a seat; `decks`,
+`discards` on the match), re-recorded with `FOOLBOT_UPDATE_GOLDEN=1`.
+
+**The cards are data, and what they do is a table** (`tnp/effects.py`,
+Codex's `codex/effects.py` copied): `EFFECTS`, one `Effect` a card --
+which units, a modifier and against what, initiative, traits gained,
+units a hit kills, cloaking, scouting, rerolls, salvage, an attack spot,
+trade rates, the harvest, discounts, production gold, carrier capacity
+-- and `UNIMPLEMENTED`, the cards whose text leaves a question the
+author has not answered, each with its question. **A card in
+`UNIMPLEMENTED` is still the mineral it is**: drawn, held and traded
+(TNP 8.1), never put into play, the refusal saying why (`check_plan`,
+`tactic_cards`). `tests/test_tnp_effects.py` holds the two tables to
+the catalog exactly, every modifier to the d12 column of the rules'
+table 8.5 read from the rules file itself, and a test to every card in
+`EFFECTS` (`CARD_TESTS`).
+
+**The decks, the hand and the card as the mineral.** `opening` shuffles
+each deck from `engine.rng` -- each card as many times as its count --
+and `TnpGame.start` hands it the engine's rng. The decks hold 41, 40
+and 22 cards against the map's 40, 40 and 16 tokens, so a harvest never
+finds one empty (`test_the_decks_cover_the_map`); `draw` takes the token
+into the pool instead should a later map outgrow a deck. A harvest
+takes the tokens off the map -- they count toward the 51% as ever --
+and draws a card for each into the hand (`SeatState.hand`, by slug), the
+lines saying the kind and never the card. **A trade names cards** in
+the advanced game (`normal_trade(advanced=True)`), each at its deck's
+rate, and traded cards go to their deck's discard pile; the emergency
+defense's trade does the same with the defender's hand snapshot on the
+battle (`emergency["hand"]`, `["spent"]`, written back by
+`settle_battle`).
+
+**Cards into play are a plan's part** (`"techs"`: `attach`, `build`,
+`discard`), checked with the rest of the plan and finished at
+Production with everything placed in Infrastructure (TNP 5.2): they
+leave the hand at the reveal, paid for with the rest (a tech facility's
+printed materials), sit in `queued_techs`, and go into play at
+`produce` (`_techs_into_play`). A building tech goes on a production
+facility finished in an earlier turn with none attached; a tech
+facility within two in play, counting those the plan discards. **A
+building tech's "attached units" are every unit its facility builds** --
+the Human units of a kind are identical tokens, so nothing could tell
+which tank a facility made; a code reading, asked in the PR.
+
+**A battle is handed the cards' effects as it opens**, as step 2
+designed it: `battle_effects` turns both seats' cards in play into the
+modifier rows (`BattleState.modifiers`, each naming its card) and the
+`BattleState.effects` record, a new saved field the battle's readings
+consult -- `initiative`, `has_trait`, `hit_kills`, `cloaked`, the
+scouting totals, `capacity` for the carriers, `rerolls_left`. A roll's
+reasons name each card ("+3 Grenades") as a part `"outside:<card>"`.
+Jet Engines' Mechanical is added before Radars reads which units are
+Mechanical, so a jeep with both is both.
+
+**Tactical Command is both seats at once, in secret** (TNP 6.3): a new
+phase, `TACTICS`, after the emergency defense and before round 1, only
+where a seat holds a tactic card it may play; `TACTIC` joins
+`SIMULTANEOUS`, so a battle can now ask both seats at once, and
+`tnp.flow.battle._waiting` reads `pending_all` as the turn's does. A
+choice says only that the seat has chosen; the second reveals both,
+each card leaving its hand for the discard pile, and adds its effect --
+or says it does nothing where its units are not in the battle on its
+side (TNP 8.2). **On Discord the choice is on the seat's own panel**,
+not the public battle message: the battle message says who is choosing
+and carries **My tactic card**, which opens the clicker's panel
+(`TacticalCommandView`, `TacticPanelView`), so nothing of a card is in
+the channel until both have chosen
+(`test_tactical_command_is_chosen_in_secret_and_revealed_together`).
+A panel's answer edits the battle message through the channel, one
+request a choice.
+
+**Rerolls are a question owed after a roll** (`REROLL`, Ammo Depos):
+where a roll missed and its seat has rerolls left, its hits wait while
+the seat rolls some of the missed dice again or keeps the roll; then
+they land (`_land`: the target's hits, Splash, the base card). Asked on
+the battle message, as a public roll is.
+
+**The base card destroys a tech** (TNP 6.9): a tech facility, or a
+building tech named `"<card>:<facility>"` -- `{thing:lasers:factory}`,
+"Lasers on the Factory" -- and a facility only once nothing is attached
+to it, as an upgrade goes before its facility; a code reading, asked.
+
+**Salvage** counts every Mechanical unit destroyed in the battle,
+whoever's -- the cards say "a mechanical unit" -- each card to its most
+a battle or a round, and the materials reach the pool in
+`settle_battle`, after a base's emergency pool is written back
+(`outcome["gains"]`).
+
+**`/tnp card`** answers a card in words (`tnp.formatting.card_lines`):
+its kind, deck and count, a tech facility's cost, its text, its d12
+value where it changes a roll, and the question where it waits on one.

@@ -37,8 +37,8 @@ from tnp import tokens
 from tnp.briefs import board_brief, map_brief
 from tnp.catalog import Cost
 from tnp.formatting import (
-    battle_heading, board_caption, cost_text, map_caption, phase_heading, plan_lines,
-    plan_offer_lines, pool_text, token_text, trade_lines,
+    battle_heading, board_caption, card_trade_lines, cards_lines, cost_text, map_caption,
+    phase_heading, plan_lines, plan_offer_lines, pool_text, token_text, trade_lines,
 )
 from tnp.flow.result import FollowOnStep
 from tnp.game import GameStatus, RuleRefusal, TnpGame
@@ -200,9 +200,18 @@ class TurnMixin:
         lines.append(self.render_text(prompt.ask, game))
         said: list[str] = []
         if prompt.kind is PromptKind.PLAN:
-            said = plan_lines(prompt.options) + plan_offer_lines(prompt.options) + [PLAN_HINT]
+            said = (plan_lines(prompt.options) + plan_offer_lines(prompt.options)
+                    + cards_lines(prompt.options) + [PLAN_HINT])
         elif prompt.kind is PromptKind.TRADE:
-            said = trade_lines(prompt.options)
+            said = card_trade_lines(prompt.options) if prompt.options.advanced else trade_lines(prompt.options)
+        elif prompt.kind is PromptKind.TACTIC:
+            said = [
+                "Your tactic cards: " + ", ".join(
+                    tokens.card(one.card) + ("" if one.card in prompt.options.applies else " (its units are not here)")
+                    for one in prompt.options.cards
+                ) + ".",
+                "Nothing of your choice is shown until both seats have chosen.",
+            ]
         elif prompt.kind in BATTLE_VIEWS:
             link = self.battle_link(game)
             said = [f"{BATTLE_ELSEWHERE}" + (f": {link}" if link else ".")]
