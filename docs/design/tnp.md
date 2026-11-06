@@ -274,14 +274,14 @@ behind", so adjacency is by column alone: two forces of one seat are
 adjacent in the same column or neighbouring ones (TNP 6.5, 6.8).
 Repair takes a Worker from a force adjacent to the hit one; Splash an
 infantry unit from a force adjacent to the one hit, of the hit force's
-seat, once a roll, a damaged unit first. **A flanker's modifier is its
-own** (`flank_modifier`, the author, 2026-11-06): +1 at the opposing
-force in its own column, none one column away, −1 a column from two
-away; against a base card −1 a column like any force, its +1 being its
-own column's force's alone. Every other force, engaged or alone in its
-column, takes −1 a column to whatever it attacks (`position_modifier`,
-the author, 2026-11-06: "any force can attack forces in other columns
-with −1 penalty per column").
+seat, once a roll, a damaged unit first. **Every force takes −1 a
+column** to whatever it attacks, a force or a base card
+(`position_modifier`, the author, 2026-11-06: "any force can attack
+forces in other columns with −1 penalty per column"), **and a flanker
+adds +1** (`flank_modifier`): +1 at the opposing force in its own
+column, none one column away, −1 two away, the same against a base card
+-- one rule with a bonus on top, rather than a flanker's table of its
+own.
 
 **Placing is by turns** (TNP 6.5, the author, 2026-11-06). The
 advantage's opening placements are a run (`run_left`); then a seat's
@@ -328,6 +328,6 @@ docs/tnp-rules.md and its log: flankers kept where they stand or repositioned ea
 undefended base is offered its emergency defense before it falls; both
 sides destroyed together is nobody's battle, the territory as it was;
 the retreat and the placing turns above; one flanker a force, in its
-force's column, its modifier its own; a split force's hits on those
+force's column, +1 on top of the −1 a column; a split force's hits on those
 staying first; Splash once a roll, from the side hit, a damaged unit
 first.

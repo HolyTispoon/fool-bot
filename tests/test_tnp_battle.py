@@ -476,7 +476,7 @@ class DamageTests(unittest.TestCase):
         self.assertEqual(target_option(prompt, "blue:worker", "green:worker").modifier, 0)
 
     def test_a_flanker_two_columns_away(self) -> None:
-        """TNP 6.5: a flanking force attacks two columns away at −2."""
+        """TNP 6.5, 6.7: a flanking force adds +1 to −1 a column, so two columns away is −1."""
         engine, match = self._line(
             {"mercenary": 1, "worker": 1, "jeep": 1, "tank": 1},
             {"mercenary": 1, "worker": 1, "jeep": 1},
@@ -489,7 +489,7 @@ class DamageTests(unittest.TestCase):
             shoot(engine, match, shooter.force, shooter.targets[0].target, rolls=[2])
         self.assertEqual(target_option(prompt, "blue:tank", "green:mercenary").modifier, 1)
         self.assertEqual(target_option(prompt, "blue:tank", "green:worker").modifier, 0)
-        self.assertEqual(target_option(prompt, "blue:tank", "green:jeep").modifier, -2)
+        self.assertEqual(target_option(prompt, "blue:tank", "green:jeep").modifier, -1)
 
     def test_outside_modifiers_add(self) -> None:
         """TNP 4.2: modifiers handed in from outside (step 9's cards) add to the roll."""
@@ -626,9 +626,9 @@ class BaseTests(unittest.TestCase):
         self.assertEqual((right.type, right.needed, right.modifier), ("armored", 3, -1))
 
     def test_every_force_is_minus_one_a_column(self) -> None:
-        """TNP 6.7, 6.9: any force takes −1 a column, engaged, alone or flanking, to a force
-        or to a base card's place beyond the end of the line; a flanker's +1 is its own
-        column's force's alone."""
+        """TNP 6.5, 6.7, 6.9: any force takes −1 a column, engaged, alone or flanking, to a
+        force or to a base card's place beyond the end of the line, and a flanker adds +1,
+        against a base card too."""
         engine, match = stage(
             {"mercenary": 1, "jeep": 1, "cyborg_soldier": 1}, {"mercenary": 1},
             territory="green_base", structures=self.STRUCTURES,
@@ -649,8 +649,8 @@ class BaseTests(unittest.TestCase):
         shoot(engine, match, "green:mercenary", "blue:mercenary", rolls=[2])
         prompt = asked(engine, match)
         self.assertEqual(target_option(prompt, "blue:cyborg_soldier", "green:mercenary").modifier, 1)
-        self.assertEqual(target_option(prompt, "blue:cyborg_soldier", "base_left").modifier, -1)
-        self.assertEqual(target_option(prompt, "blue:cyborg_soldier", "base_right").modifier, -2)
+        self.assertEqual(target_option(prompt, "blue:cyborg_soldier", "base_left").modifier, 0)
+        self.assertEqual(target_option(prompt, "blue:cyborg_soldier", "base_right").modifier, -1)
 
     def test_two_hits_destroy_one_thing_an_attack(self) -> None:
         """TNP 6.9: 2 hits destroy one thing, the attacker's choice -- an upgrade before its facility,
