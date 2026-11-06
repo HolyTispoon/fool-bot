@@ -95,6 +95,14 @@ class TnpGame:
     #: optional like the channel's.
     message_id: Optional[int] = None
     table_message_id: Optional[int] = None
+    #: The battle being fought's own message, while there is one (step 7
+    #: of docs/tnp-bot.md): `{"id", "key", "lines"}` -- the message's id,
+    #: which battle it is (`key`, the turn, the attack spot and the
+    #: area), and the lines its round has said so far, tokens unrendered,
+    #: which the message shows and the round's record is posted from.
+    #: The frontend's, like the message ids above, and `None` between
+    #: battles.
+    battle_post: Optional[dict] = None
     #: One of `VENUES`: what `channel_id` is.
     venue: str = "channel"
     status: GameStatus = GameStatus.LOBBY
@@ -208,6 +216,7 @@ GAME_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("channel_id"),
     SavedField("message_id"),
     SavedField("table_message_id"),
+    SavedField("battle_post"),
     SavedField("venue", default="channel", read=_venue_in),
     SavedField("status", default=GameStatus.LOBBY, write=lambda status: status.value, read=_status_in),
     SavedField("seats", factory=lambda: _seats_in(None), write=_seats_out, read=_seats_in),

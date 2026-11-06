@@ -907,3 +907,29 @@ class AnyTwoForcesTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OnlyChoiceTests(unittest.TestCase):
+    """A battle question with one answer is answered for its seat and
+    reported (the author, 2026-11-06, on PR #713): a placing with one
+    force and one place for it, a target where the seat has one force
+    and it one target. A question with a "no" in it is still asked."""
+
+    def test_a_placing_and_a_target_with_one_answer_are_made_and_said(self) -> None:
+        engine, match = stage({"mercenary": 3}, {"mercenary": 2}, answers_the_only_choice=True)
+        prompt = asked(engine, match)
+        self.assertEqual((prompt.kind, prompt.asked_seat), (PromptKind.DECLARE_RETREAT, "blue"))
+        self.assertEqual(len(match.battle.line), 1)
+        runs = []
+        while match.battle.round == 1:
+            self.assertEqual(asked(engine, match).kind, PromptKind.DECLARE_RETREAT)
+            runs.append(play(engine, match, Action(PromptKind.DECLARE_RETREAT, "fight"), rolls=[2] * 5))
+        said = " ".join(words(engine, runs))
+        self.assertIn("Blue's 3 Mercenary, the only force to roll, at its only target, fire at", said)
+        self.assertIn("Green's 2 Mercenary, the only force to roll, at its only target, fire at", said)
+        self.assertEqual(asked(engine, match).kind, PromptKind.DECLARE_RETREAT)
+
+    def test_a_choice_of_place_is_still_asked(self) -> None:
+        engine, match = stage({"mercenary": 3}, {"mercenary": 2, "worker": 1}, answers_the_only_choice=True)
+        self.assertEqual(asked(engine, match).kind, PromptKind.PLACE_FORCE)
+

@@ -82,7 +82,8 @@ class Roll:
     """
     One force's dice against one target (TNP 6.7): who rolled, at what,
     each die as rolled, the modifier added to every die, the number a
-    die had to reach, and the hits.
+    die had to reach, and the hits; and since step 7 the rating and each
+    modifier the roll was made at.
     """
 
     seat: str
@@ -92,12 +93,20 @@ class Roll:
     modifier: int
     needed: int
     hits: int
+    #: The rating rolled at (`Rating.value`), each modifier by its kind
+    #: (`tnp.battle.modifier_parts`' rows), and the number a die had to
+    #: show (`tnp.battle.needs`) -- why the roll needed what it did.
+    rating: str = ""
+    parts: tuple = ()
+    needs: int = 0
 
     def to_dict(self) -> dict:
         return {
             "seat": self.seat, "force": self.force, "target": self.target,
             "dice": list(self.dice), "modifier": self.modifier,
             "needed": self.needed, "hits": self.hits,
+            "rating": self.rating, "parts": [list(part) for part in self.parts],
+            "needs": self.needs,
         }
 
 

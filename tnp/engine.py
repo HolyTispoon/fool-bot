@@ -19,9 +19,14 @@ from tnp.catalog import Catalog, Rating, Unit, UnitType, catalog as committed_ca
 
 
 class RulesEngine:
-    def __init__(self, catalog: Optional[Catalog] = None, rng: Optional[random.Random] = None) -> None:
+    def __init__(self, catalog: Optional[Catalog] = None, rng: Optional[random.Random] = None,
+                 answers_the_only_choice: bool = True) -> None:
         self.catalog = catalog if catalog is not None else committed_catalog()
         self.rng = rng if rng is not None else random.Random()
+        #: A battle question with one answer is answered for its seat and
+        #: reported (the author, 2026-11-06, on PR #713). Step 2's tests,
+        #: which walk each placing and roll by hand, turn it off.
+        self.answers_the_only_choice = answers_the_only_choice
 
     def d12(self) -> int:
         """One die (TNP 4.1)."""

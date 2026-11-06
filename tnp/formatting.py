@@ -296,3 +296,156 @@ def trade_lines(options) -> list[str]:
     else:
         lines.append("Your trade: nothing yet. Tokens not traded stay in the pool.")
     return lines
+
+
+# -- A battle's words (step 7) ----------------------------------------------------------
+
+def _signed(value: int) -> str:
+    return f"+{value}" if value >= 0 else f"−{-value}"
+
+
+def modifier_words(parts) -> str:
+    """
+    Each modifier a roll takes, said with its reason (TNP 4.2): "−1, a
+    column across", "−2, 2 columns across", "+1 flanking", "+2 from the
+    cards"; "no modifier" where there is none. `parts` are
+    `tnp.battle.modifier_parts`' rows, `(kind, value, columns)`.
+    """
+    from tnp.battle import ACROSS, FLANKING
+
+    said = []
+    for kind, value, columns in parts:
+        if kind == ACROSS:
+            said.append(f"{_signed(value)}, " + ("a column across" if columns == 1 else f"{columns} columns across"))
+        elif kind == FLANKING:
+            said.append(f"{_signed(value)} flanking")
+        else:
+            said.append(f"{_signed(value)} from the cards")
+    return "; ".join(said) if said else "no modifier"
+
+
+def hits_on(target: int, bonus: int) -> str:
+    """What a die must show (TNP 4.1, 4.2): "hits on 5+", or "hits only
+    on a 12" where nothing less can -- `tnp.battle.needs`."""
+    from tnp.battle import needs
+
+    found = needs(target, bonus)
+    return "hits only on a 12" if found >= 12 else f"hits on {found}+"
+
+
+def roll_reason(rating: Rating, against: UnitType, bonus: int, parts) -> str:
+    """
+    Why a roll needs what it needs, before or after it is made: the
+    rating against the target's type with its number, each modifier, and
+    what a die must show -- "Fair against infantry, 6+; −1, a column
+    across; +1 flanking: each die hits on 6+".
+    """
+    words = f"{rating.value.title()} against {TYPE_NAMES[against]}, {rating.shown}"
+    if parts:
+        words += "; " + modifier_words(parts)
+    return f"{words}: each die {hits_on(rating.target, bonus)}"
+
+
+def plural(count: int, one: str, many: Optional[str] = None) -> str:
+    return f"{count} {one if count == 1 else (many or one + 's')}"
+
+
+def battle_heading(battle) -> str:
+    """
+    A battle's heading on its message (TNP 6): where, which round of the
+    six, and who attacks whom -- "**Battle at {area:14}**, round 2 of 6:
+    {seat:blue} attacks, {seat:green} defends." -- or, before the sides
+    are chosen, that both seats attacked it (TNP 6.1).
+    """
+    from tnp.battle import ROUNDS
+
+    if battle.outcome is not None:
+        when = "over"
+    elif battle.round:
+        when = f"round {battle.round} of {ROUNDS}"
+    else:
+        when = "before the first round"
+    if battle.attacker and battle.defender:
+        sides = f"{tokens.seat(battle.attacker)} attacks, {tokens.seat(battle.defender)} defends."
+    else:
+        sides = "Both seats attacked it."
+    return f"**Battle at {tokens.area(battle.territory)}**, {when}: {sides}"
+
+
+def battle_force_text(battle, ident: str) -> str:
+    """A force or a base card as a battle names it: "{seat:green}'s 4
+    {unit:mercenary}", "{seat:green}'s left base card"."""
+    from tnp.flow.battle import _target_words
+
+    return _target_words(battle, ident)
+
+
+def slot_text(battle, seat: str, slot: str) -> str:
+    """
+    Where a force may be placed (`tnp.battle.slots`), in words: engaging
+    the enemy force in a column, a new column at a gap of the line, or
+    flanking behind the seat's own force (TNP 6.5). Columns are counted
+    from 1 at the left.
+    """
+    from tnp.battle import COLUMN, ENGAGE, FLANK, other
+
+    kind, _, where = slot.partition(":")
+    index = int(where)
+    if kind == ENGAGE:
+        enemy = battle.line[index].front[other(seat)]
+        return f"engage {battle_force_text(battle, enemy)} (column {index + 1})"
+    if kind == FLANK:
+        own = battle.line[index].front[seat]
+        return f"flank behind {battle_force_text(battle, own)} (column {index + 1})"
+    if kind == COLUMN:
+        columns = len(battle.line)
+        if columns == 0:
+            return "the first column of the line"
+        if index == 0:
+            return "a new column at the left end"
+        if index >= columns:
+            return "a new column at the right end"
+        return f"a new column between columns {index} and {index + 1}"
+    return slot
+
+
+def target_text(battle, option) -> str:
+    """A target a force may roll at (`tnp.prompts.TargetOption`): what it
+    is, the dice and what each must show -- "{seat:green}'s 4
+    {unit:mercenary}: 3 dice, each hits on 7+"."""
+    words = f"{battle_force_text(battle, option.target)}: {plural(option.dice, 'die', 'dice')}, "
+    return words + f"each {hits_on(option.needed, option.modifier)}"
+
+
+def target_reason(option) -> str:
+    """Why a target needs what it does, before the roll (`roll_reason`,
+    off the option)."""
+    return roll_reason(Rating(option.rating), UnitType(option.type), option.modifier, option.parts)
+
+
+def battle_offer_lines(prompt) -> list[str]:
+    """
+    What a battle question offers that its controls cannot say alone,
+    off the prompt's options: a placing run -- how many forces the seat
+    places before the other places one (TNP 6.5) -- and a retreat with
+    no path home, which takes the air units and what the Chopper
+    Carriers carry (TNP 6.6, 7).
+    """
+    from tnp.prompts import PromptKind
+
+    options = prompt.options
+    seat = tokens.seat(prompt.asked_seat) if prompt.asked_seat else "This seat"
+    if prompt.kind is PromptKind.PLACE_FORCE and options.run > 1:
+        return [f"{seat} places {options.run} forces before the other seat places one."]
+    if prompt.kind is PromptKind.DECLARE_RETREAT and not options.path_home:
+        said = f"{seat} has no path home: a retreat takes its air units"
+        if options.carriers:
+            said += (
+                f", and its {plural(options.carriers, 'Chopper Carrier')} carry what the menus say, "
+                "one kind of unit a carrier"
+            )
+        return [said + "; the rest stay and fight."]
+    if prompt.kind is PromptKind.CHOOSE_TARGET:
+        return ["Each target in the menu shows its dice, what a die must show and why. "
+                "Choosing one rolls at once."]
+    return []
