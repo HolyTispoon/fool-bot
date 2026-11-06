@@ -27,6 +27,9 @@ if TYPE_CHECKING:
 UNAVAILABLE = "TNP isn't available right now: its data didn't load. The bot's log says why."
 
 TNP_GAMES_CATEGORY_NAME = "TNP Games"
+#: Where a finished or abandoned game's channel goes (step 8): out of
+#: the way, its messages the game's record.
+TNP_ARCHIVE_CATEGORY_NAME = "TNP Archive"
 #: `tnp-<n>`, then the players: the number is what identifies the game.
 CHANNEL_NAME_PATTERN = re.compile(r"^tnp-(\d+)(?:-|$)")
 
@@ -50,6 +53,12 @@ def channel_name(game: "TnpGame") -> str:
 async def tnp_games_category(guild):
     return await get_or_create_category(
         guild, TNP_GAMES_CATEGORY_NAME, "Create the category for TNP games.",
+    )
+
+
+async def tnp_archive_category(guild):
+    return await get_or_create_category(
+        guild, TNP_ARCHIVE_CATEGORY_NAME, "Create the category for finished TNP games.",
     )
 
 

@@ -28,6 +28,7 @@ from discord.ext import commands
 
 from cogs.tnp.battles import BattleMixin
 from cogs.tnp.core import CoreMixin
+from cogs.tnp.ending import EndingMixin
 from cogs.tnp.lobby import LobbyMixin
 from cogs.tnp.reference import ReferenceMixin
 from cogs.tnp.table import TableMixin
@@ -43,6 +44,7 @@ class Tnp(
     TableMixin,
     TurnMixin,
     BattleMixin,
+    EndingMixin,
     ReferenceMixin,
     commands.GroupCog,
     group_name="tnp",

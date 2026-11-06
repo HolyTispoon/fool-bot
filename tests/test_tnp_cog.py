@@ -49,7 +49,8 @@ class TnpCogLoadsTests(unittest.IsolatedAsyncioTestCase):
             group = bot.tree.get_command("tnp")
             self.assertIsNotNone(group)
             self.assertLessEqual(len(group.description), 100)
-            self.assertEqual({command.name for command in group.commands}, {"create_game", "resume", "unit", "rules"})
+            self.assertEqual({command.name for command in group.commands},
+                             {"create_game", "resume", "unit", "rules", "concede", "abandon"})
             for command in group.commands:
                 self.assertLessEqual(len(command.description), 100)
             self.assertIsNotNone(bot.get_cog("Tnp").catalog)

@@ -1,0 +1,245 @@
+{
+  "advanced": false,
+  "areas": {
+    "1": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "10": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "11": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "12": {
+      "controller": "green",
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "13": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 7
+      },
+      "stranded": []
+    },
+    "14": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 7,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "15": {
+      "controller": "green",
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "2": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "3": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "4": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 7,
+        "gems": 0,
+        "orange_minerals": 7
+      },
+      "stranded": []
+    },
+    "5": {
+      "controller": "blue",
+      "resources": {
+        "blue_minerals": 7,
+        "gems": 0,
+        "orange_minerals": 7
+      },
+      "stranded": []
+    },
+    "6": {
+      "controller": null,
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 8,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "7": {
+      "controller": null,
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 8,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "8": {
+      "controller": null,
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "9": {
+      "controller": null,
+      "resources": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "orange_minerals": 0
+      },
+      "stranded": []
+    },
+    "blue_base": {
+      "controller": "blue",
+      "resources": {},
+      "stranded": []
+    },
+    "green_base": {
+      "controller": "green",
+      "resources": {},
+      "stranded": []
+    }
+  },
+  "attacks": {},
+  "battle": null,
+  "phase": "over",
+  "resolving": null,
+  "revealed": [
+    {
+      "area": "5",
+      "seat": "blue",
+      "spot": "A",
+      "units": {
+        "worker": 3
+      }
+    },
+    {
+      "area": "green_base",
+      "seat": "blue",
+      "spot": "B",
+      "units": {
+        "mercenary": 8
+      }
+    },
+    {
+      "area": "green_base",
+      "seat": "green",
+      "spot": "defense",
+      "units": {
+        "mercenary": 3
+      }
+    }
+  ],
+  "seats": {
+    "blue": {
+      "available": {},
+      "built": [
+        "barracks",
+        "base_defenses"
+      ],
+      "faction": "humans",
+      "harvested": 18,
+      "locked": false,
+      "plan": null,
+      "pool": {
+        "blue_minerals": 2,
+        "gems": 0,
+        "gold": 0,
+        "materials": 30,
+        "orange_minerals": 1
+      },
+      "queued": [],
+      "queued_units": {}
+    },
+    "green": {
+      "available": {
+        "worker": 8
+      },
+      "built": [
+        "barracks",
+        "base_defenses"
+      ],
+      "faction": "humans",
+      "harvested": 20,
+      "locked": false,
+      "plan": null,
+      "pool": {
+        "blue_minerals": 0,
+        "gems": 0,
+        "gold": 0,
+        "materials": 40,
+        "orange_minerals": 0
+      },
+      "queued": [],
+      "queued_units": {}
+    }
+  },
+  "spots": {
+    "5": {
+      "blue": {
+        "damaged": {},
+        "units": {
+          "worker": 3
+        }
+      }
+    },
+    "green_base": {
+      "blue": {
+        "damaged": {},
+        "units": {
+          "mercenary": 6
+        }
+      }
+    }
+  },
+  "turn": 6,
+  "winner": "blue",
+  "won_by": "base"
+}
