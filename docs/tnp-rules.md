@@ -519,8 +519,8 @@ are **engaged**.
 - **A flanking force attacks** the opposing force in its own column at
   **+1**, a force one column away with no modifier, and a force two or
   more columns away at −1 a column: −2 two away, −3 three away (4.2)
-  (the author, 2026-11-06). Against a base card its +1 still stands
-  (6.9).
+  (the author, 2026-11-06). Against a base card it takes −1 a column
+  like any force (6.9).
 - **A flanking force is in the same column as the force it stands
   behind**, and adjacent to it and to every force adjacent to it (the
   author, 2026-11-06).
@@ -571,13 +571,14 @@ rolls the dice at once (the author, 2026-11-05). Each die is the
 number rolled plus every modifier (4.2), against the rating's number
 for the target's type (4.1).
 
-**The position modifier** is an engaged force's alone: attacking a
-force in another column, it takes **−1 for each column** it reaches
-across -- −1 for the next column, −2 for the one after -- and attacking
-within its own column, none. **An unengaged force alone in its column
-takes no position modifier** (the author, 2026-11-05). A flanking
-force's is its own (6.5). The base cards are the exception: every
-force attacking one takes at least −1 (6.9).
+**The position modifier**: any force attacking a force in another
+column takes **−1 for each column** it reaches across -- −1 for the
+next column, −2 for the one after -- and attacking within its own
+column, none (the author, 2026-11-06: "any force can attack forces in
+other columns with −1 penalty per column", replacing 2026-11-05's "an
+unengaged force takes no position modifier"). A flanking force's is
+its own (6.5). Every force attacking a base card takes at least −1
+(6.9).
 
 ### 6.8 Hits
 
@@ -608,11 +609,12 @@ its line, one at either end (the author, 2026-11-05).
 - A force may attack a base card instead of a force. A base card is a
   building, attacked with the force's **armored** rating (the author,
   2026-11-05). **No force can engage a base card, so every force
-  attacking one is at least −1 for position** (4.2): an engaged force
-  takes −1 for each column from its own to the base card's place beyond
-  the end of the line, and an unengaged force -- alone in its column,
-  or flanking -- takes −1. A flanking force still gains its +1 (6.5)
-  (the author, 2026-11-05).
+  attacking one is at least −1 for position** (4.2): the base cards
+  stand on either side of the defender's battle line, and every force
+  -- engaged, alone in its column or flanking -- takes −1 for each
+  column from its own to the base card's place beyond the end of the
+  line (the author, 2026-11-06). A flanking force's +1 is against the
+  force in its own column alone (6.5), so it gains none here.
 - **A force that scores 2 or more hits on a base card destroys one
   thing**, the attacker's choice (the author, 2026-11-05): one upgrade
   of one of the defender's facilities, or, once a facility has no
@@ -898,6 +900,11 @@ One line per change, dated, with where it came from.
   modifier one column away, and at −1 a column from two away, replacing
   +1 everywhere and no position modifier -- 4.2, 6.5, 6.7. (The author,
   answering PR #708.)
+- 2026-11-06: Any force attacking another column takes −1 a column,
+  not only an engaged one; the base cards are columns beyond the ends
+  of the line, so every force is −1 a column to one, flankers too,
+  replacing a flat −1 for an unengaged force and a flanker's +1 there --
+  6.7, 6.9. (The author, answering PR #708.)
 - 2026-11-06: A force split by a carry takes its hits on the units
   staying first, the retreating ones only once those are destroyed --
   6.6. (The author, answering PR #708.)
