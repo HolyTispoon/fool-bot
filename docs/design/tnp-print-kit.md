@@ -115,7 +115,10 @@ second copy of the rules**: the kit carries docs/tnp-rules.md itself as
 `rules.pdf`, and a reader with a question goes there. That is the same
 line D12 Ball's reference cards hold. The rules PDF is set by
 `d12ball.rulebooks.book_bytes` over a `Book` of its own, unnumbered,
-since TNP's sections are numbered by hand.
+since TNP's sections are numbered by hand. **The preamble is left out**
+(the author, 2026-11-06: "definitely don't need this preamble"):
+`kit.player_rules` keeps the title and everything from section 1 on, so
+the PDF opens on the rules and is still built from the one file.
 
 The screen is printed on one side and folded so the print faces its
 seat; the back is plain paper, and the pool stands in front of it,
@@ -158,6 +161,7 @@ into the margin to line the first one up.
 
 The token counts in `TOKEN_COUNTS` are the author's (2026-11-06). Open:
 
-- the rules PDF opens with the bot's own preamble (which version, how
-  the bot plays it), since it is docs/tnp-rules.md unedited;
+- the rules PDF still carries the author's dated attributions
+  ("the author, 2026-11-05"), the bot's notes ("The bot plays two
+  seats"), the *step 9's* markers and the change log;
 - the advanced game's cards, and the third attack spot, are not in it.

@@ -13,6 +13,7 @@ the rules the bot plays.
 
 from __future__ import annotations
 
+import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -29,7 +30,26 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RULES = PROJECT_ROOT / "docs" / "tnp-rules.md"
 DEFAULT_OUT = PROJECT_ROOT / "tnpkit" / "print"
 
-RULES_BOOK = Book(name="tnp-rules", title="The New Project: the rules", sources=(RULES,))
+RULES_TITLE = "The New Project: the rules"
+
+
+def player_rules(text: str) -> str:
+    """docs/tnp-rules.md for players: the title, then the rules from
+    section 1 on. The preamble between them is for the bot's developers
+    -- which documents it was transcribed from, how the code is checked
+    against it -- and the kit leaves it out (the author, 2026-11-06)."""
+    lines = text.splitlines(keepends=True)
+    title = next(index for index, line in enumerate(lines) if line.startswith("# "))
+    first = next(index for index, line in enumerate(lines) if index > title and line.startswith("## "))
+    return "".join(lines[:title + 1]) + "\n" + "".join(lines[first:])
+
+
+def rules_pdf() -> bytes:
+    """The player rules as a PDF, set by D12 Ball's rulebook builder."""
+    with tempfile.TemporaryDirectory() as scratch:
+        source = Path(scratch) / "tnp-rules.md"
+        source.write_text(player_rules(RULES.read_text(encoding="utf-8")), encoding="utf-8")
+        return book_bytes(Book(name="tnp-rules", title=RULES_TITLE, sources=(source,)))
 
 
 @dataclass(frozen=True)
@@ -189,7 +209,7 @@ def write_kit(out: Path, catalog: Catalog | None = None) -> list[Path]:
         written.append(path)
 
     rules = out / "rules.pdf"
-    rules.write_bytes(book_bytes(RULES_BOOK))
+    rules.write_bytes(rules_pdf())
     written.append(rules)
 
     readme = out / "README.md"
