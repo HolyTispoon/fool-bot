@@ -371,7 +371,19 @@ Stranded token per seat, the revealed piles' discs -- are stacked on its
 widest part, found by eroding the filled outline until the last pixels
 standing (the pole of inaccessibility), so a number sits clear of its
 borders whatever shape a later map gives it, and no position is kept by
-hand. A territory is tinted by who holds it, a base in its seat's
+hand. **The marks never cross the area's border** (the author,
+2026-11-06): `_placement` measures the box the marks fill, with 8
+pixels' clearance, against the filled outline, and moves them to the
+nearest place it fits whole; where no place does, it tries the number
+over the rest side by side, then everything in one line, then each of
+those smaller, down to 65% (`MARK_SCALES`), which still keeps every
+word at 16 pixels or more. Only territory 12, a sliver, ever needs it:
+80% for its number and token, 65% with every mark at once.
+`crossing_areas` is the same measure as a reading, and
+`tests/test_tnp_render.py` holds it empty for the opening map and for
+every mark on every territory at once. The Stranded token reads
+"Stranded" in its seat's colour, which says whose -- a seat's name in
+it made it the widest mark. A territory is tinted by who holds it, a base in its seat's
 stronger tint with its shield. A revealed pile is a disc on the map --
 its spot's letter, or a white shield for a defense spot, a disc so it
 never reads as a control token -- and a card under the map with its
@@ -412,10 +424,10 @@ white). Discord shows a picture at a third of its width or less until
 it is opened, so no word is drawn smaller than `render.SMALLEST`
 (16 pixels) on a picture 1,600 to 1,700 wide, and the map's marks --
 its numbers, tokens, Stranded tokens and pile discs -- are larger
-still: a resource token is a 66-pixel pill, one a row, since two side by
+still: a resource token is a 56-pixel pill, one a row, since two side by
 side do not fit territories 4 and 5 at that size (the author,
-2026-11-06, a second time: "mineral and gem tokens are also too
-small"). Every fill is white or a colour that means something: a chip is
+2026-11-06: too small at 46 pixels, too big at 66, where it crossed
+the territory lines). Every fill is white or a colour that means something: a chip is
 white with an outline, a rating's cell green, amber, red or grey, a
 held territory its seat's tint. No beige or cream is left.
 

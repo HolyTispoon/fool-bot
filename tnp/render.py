@@ -115,8 +115,12 @@ HEXAGON = ((10, 1.5), (17.5, 5.75), (17.5, 14.25), (10, 18.5), (2.5, 14.25), (2.
 SHIELD = ((12, 1), (22.5, 4.5), (22.5, 13), (20.5, 19), (16.5, 23.5), (12, 27), (7.5, 23.5), (3.5, 19), (1.5, 13), (1.5, 4.5))
 
 
+def font(size: float, bold: bool = True) -> ImageFont.FreeTypeFont:
+    return _face(round(size), bold)
+
+
 @lru_cache(maxsize=None)
-def font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
+def _face(size: int, bold: bool) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(BOLD if bold else REGULAR), size)
 
 
@@ -191,7 +195,7 @@ def _pill(draw: ImageDraw.ImageDraw, x: float, y: float, text: str, face, *, fil
     gap = height * 0.18 if icon else 0
     width = pad * 2 + icon_size + gap + face.getlength(text)
     draw.rounded_rectangle((x, y, x + width, y + height), radius=height / 2, fill=fill,
-                           outline=outline, width=border if outline else 0)
+                           outline=outline, width=max(1, round(border)) if outline else 0)
     cursor = x + pad
     if icon:
         _icon(draw, icon, (cursor, y + (height - icon_size) / 2), icon_size)
@@ -240,6 +244,21 @@ def _ordered_areas(catalog: Catalog) -> tuple[Area, ...]:
     return tuple(catalog.areas[slug] for slug in sorted(catalog.areas))
 
 
+def _area_mask(outline: tuple[tuple[int, int], ...], quarter: int):
+    """The filled outline at 1/`quarter` of map3.3-1.png's size, with a
+    pixel's margin all round; and its left and top in map pixels."""
+    xs = [x for x, _ in outline]
+    ys = [y for _, y in outline]
+    left, top = min(xs), min(ys)
+    width = (max(xs) - left) // quarter + 3
+    height = (max(ys) - top) // quarter + 3
+    mask = Image.new("L", (width, height), 0)
+    ImageDraw.Draw(mask).polygon(
+        [((x - left) / quarter + 1, (y - top) / quarter + 1) for x, y in outline], fill=255,
+    )
+    return np.array(mask) > 0, left, top
+
+
 @lru_cache(maxsize=None)
 def _anchor(outline: tuple[tuple[int, int], ...]) -> tuple[float, float]:
     """
@@ -250,16 +269,7 @@ def _anchor(outline: tuple[tuple[int, int], ...]) -> tuple[float, float]:
     sits clear of every border whatever the outline's shape.
     """
     quarter = 4
-    xs = [x for x, _ in outline]
-    ys = [y for _, y in outline]
-    left, top = min(xs), min(ys)
-    width = (max(xs) - left) // quarter + 3
-    height = (max(ys) - top) // quarter + 3
-    mask = Image.new("L", (width, height), 0)
-    ImageDraw.Draw(mask).polygon(
-        [((x - left) / quarter + 1, (y - top) / quarter + 1) for x, y in outline], fill=255,
-    )
-    alive = np.array(mask) > 0
+    alive, left, top = _area_mask(outline, quarter)
     depth = np.zeros(alive.shape, dtype=np.int32)
     while alive.any():
         depth += alive
@@ -275,6 +285,40 @@ def _anchor(outline: tuple[tuple[int, int], ...]) -> tuple[float, float]:
     return (
         left + (cols[nearest] - 1) * quarter,
         top + (rows[nearest] - 1) * quarter,
+    )
+
+
+#: How far, in output pixels, an area's marks keep from its border.
+MARK_CLEARANCE = 8
+
+
+@lru_cache(maxsize=None)
+def _fit_centre(outline: tuple[tuple[int, int], ...], box_w: int, box_h: int) -> Optional[tuple[float, float]]:
+    """
+    The centre, in map pixels, of a `box_w` x `box_h` box that lies
+    wholly inside the area, nearest its widest part (`_anchor`): the
+    anchor itself where the box fits there. `None` where it fits
+    nowhere.
+    """
+    quarter = 4
+    inside, left, top = _area_mask(outline, quarter)
+    bw, bh = -(-box_w // quarter), -(-box_h // quarter)
+    rows, cols = inside.shape
+    if bw > cols or bh > rows:
+        return None
+    # A summed-area table: a box fits where every pixel under it is in.
+    table = np.zeros((rows + 1, cols + 1), dtype=np.int64)
+    table[1:, 1:] = inside.cumsum(0).cumsum(1)
+    under = table[bh:, bw:] - table[:-bh, bw:] - table[bh:, :-bw] + table[:-bh, :-bw]
+    fits = np.argwhere(under == bw * bh)
+    if not len(fits):
+        return None
+    ax, ay = _anchor(outline)
+    target_col, target_row = (ax - left) / quarter + 1 - bw / 2, (ay - top) / quarter + 1 - bh / 2
+    best = fits[np.argmin((fits[:, 0] - target_row) ** 2 + (fits[:, 1] - target_col) ** 2)]
+    return (
+        left + (best[1] + bw / 2 - 1) * quarter,
+        top + (best[0] + bh / 2 - 1) * quarter,
     )
 
 
@@ -398,11 +442,13 @@ def _spot_badge(draw: ImageDraw.ImageDraw, pile: Pile, at: tuple[float, float], 
     draw.text((x + size / 2, y + size / 2), pile.spot, font=font(round(size * 0.6)), fill=WHITE, anchor="mm")
 
 
-def _draw_area_marks(draw, catalog: Catalog, brief: MapBrief, area: Area, at, s: int) -> None:
-    """An area's number, control token, tokens left, Stranded tokens and
-    revealed piles, stacked on its widest part."""
-    cx, cy = at(_anchor(area.outline))
-    rows: list[tuple[float, float, object]] = []  # (width, height, painter)
+def _area_rows(draw, brief: MapBrief, area: Area, s: float) -> list[tuple[float, float, object]]:
+    """An area's marks, each `(width, height, painter)` in drawn pixels:
+    its number and control token (or a base's shield), the tokens left,
+    the Stranded tokens and the revealed piles. A painter draws its mark
+    with its top left where it is told; nothing is drawn until it is
+    called."""
+    rows: list[tuple[float, float, object]] = []
 
     if area.is_base:
         colours = SEAT_COLOURS[area.seat]
@@ -438,8 +484,9 @@ def _draw_area_marks(draw, catalog: Catalog, brief: MapBrief, area: Area, at, s:
     tokens = [(kind, int(left.get(kind, 0))) for kind in RESOURCES if int(left.get(kind, 0)) > 0]
     if tokens:
         # One token a row: two side by side would not fit territories 4
-        # and 5 at this size (the author, 2026-11-06: the tokens too small).
-        pill_h, pill_face = 66 * s, font(42 * s)
+        # and 5 at this size (the author, 2026-11-06: too small at 46
+        # pixels, too big at 66).
+        pill_h, pill_face = 56 * s, font(35 * s)
         for kind, count in tokens:
             pill_w = _pill_width(str(count), pill_face, pill_h, icon=True)
 
@@ -452,7 +499,7 @@ def _draw_area_marks(draw, catalog: Catalog, brief: MapBrief, area: Area, at, s:
 
     for seat in brief.stranded.get(area.slug, ()):
         pill_h, pill_face = 44 * s, font(25 * s)
-        words = f"{_seat_word(seat)} stranded"
+        words = "Stranded"  # in its seat's colour, which says whose
         pill_w = _pill_width(words, pill_face, pill_h)
 
         def stranded_mark(x, y, seat=seat, words=words, pill_h=pill_h, pill_face=pill_face):
@@ -472,12 +519,90 @@ def _draw_area_marks(draw, catalog: Catalog, brief: MapBrief, area: Area, at, s:
 
         rows.append((len(piles) * (size + gap) - gap, size, pile_mark))
 
-    spacing = 10 * s
-    total = sum(h for _, h, _ in rows) + spacing * (len(rows) - 1)
-    y = cy - total / 2
-    for row_w, row_h, painter in rows:
-        painter(cx - row_w / 2, y)
-        y += row_h + spacing
+    return rows
+
+
+#: The ways an area's marks are laid out, in the order tried: a stack,
+#: one mark under the other; the number over the rest side by side; and
+#: a line, all side by side -- for a sliver such as territory 12, where
+#: a stack crosses the border.
+STACK, UNDER, LINE = "stack", "under", "line"
+LAYOUTS = (STACK, UNDER, LINE)
+
+
+def _layout_rows(rows, layout: str) -> list[list]:
+    """The marks as lines of marks, each line drawn side by side and the
+    lines one under the other."""
+    if layout == STACK:
+        return [[row] for row in rows]
+    if layout == UNDER and len(rows) > 1:
+        return [[rows[0]], list(rows[1:])]
+    return [list(rows)]
+
+
+def _layout_size(rows, layout: str, s: float) -> tuple[float, float]:
+    gap = 10 * s
+    lines_ = _layout_rows(rows, layout)
+    widths = [sum(w for w, _, _ in line) + 2 * gap * (len(line) - 1) for line in lines_]
+    heights = [max(h for _, h, _ in line) for line in lines_]
+    return max(widths), sum(heights) + gap * (len(lines_) - 1)
+
+
+#: The sizes an area's marks are tried at, largest first, until they
+#: fit: territory 12, a sliver, takes its number and tokens at 80% and
+#: every mark at once at 65%. The smallest keeps every word on the map
+#: at `SMALLEST` or above (the Stranded token's 25 pixels at 65%).
+MARK_SCALES = (1.0, 0.9, 0.8, 0.7, 0.65)
+
+
+def _placement(draw, brief: MapBrief, area: Area, s: int):
+    """How an area's marks are drawn: the rows at the largest of
+    `MARK_SCALES` for which a layout's box, with `MARK_CLEARANCE` all
+    round, fits wholly inside the area -- in `LAYOUTS`' order -- with
+    the layout and its centre in map pixels, nearest the area's widest
+    part. Where nothing fits, the full-size stack and `None`: the marks
+    then cross the border, which `crossing_areas` reports."""
+    to_map = 1 / (MAP_SCALE * s)
+    for scale in MARK_SCALES:
+        size = s * scale
+        rows = _area_rows(draw, brief, area, size)
+        for layout in LAYOUTS:
+            width, height = _layout_size(rows, layout, size)
+            centre = _fit_centre(
+                area.outline, round((width + 2 * MARK_CLEARANCE * s) * to_map),
+                round((height + 2 * MARK_CLEARANCE * s) * to_map),
+            )
+            if centre is not None:
+                return rows, size, layout, centre
+    return _area_rows(draw, brief, area, s), s, STACK, None
+
+
+def crossing_areas(catalog: Catalog, brief: MapBrief) -> list[str]:
+    """The areas whose marks would cross their border, as `render_map`
+    would draw `brief`: none, for any position the tests stage."""
+    return [
+        area.slug for area in _ordered_areas(catalog)
+        if _placement(None, brief, area, SUPERSAMPLE)[3] is None
+    ]
+
+
+def _draw_area_marks(draw, catalog: Catalog, brief: MapBrief, area: Area, at, s: int) -> None:
+    """An area's marks, stacked on its widest part -- moved, where the
+    stack would cross the area's border there, to the nearest place it
+    fits whole, laid out another way, or made smaller (`_placement`)."""
+    rows, size, layout, centre = _placement(draw, brief, area, s)
+    cx, cy = at(centre if centre is not None else _anchor(area.outline))
+    width, height = _layout_size(rows, layout, size)
+    gap = 10 * size
+    y = cy - height / 2
+    for line in _layout_rows(rows, layout):
+        line_w = sum(w for w, _, _ in line) + 2 * gap * (len(line) - 1)
+        line_h = max(h for _, h, _ in line)
+        x = cx - line_w / 2
+        for row_w, row_h, painter in line:
+            painter(x, y + (line_h - row_h) / 2)
+            x += row_w + 2 * gap
+        y += line_h + gap
 
 
 # ============================================================================
@@ -1078,4 +1203,4 @@ def _battle_footer_rows(catalog: Catalog, battle: BattleState) -> list[tuple[str
     return rows
 
 
-__all__ = ["render_battle", "render_board", "render_map"]
+__all__ = ["crossing_areas", "render_battle", "render_board", "render_map"]

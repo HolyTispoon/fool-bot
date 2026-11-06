@@ -13,7 +13,8 @@ from PIL import Image
 from tnp.briefs import DEFENSE, BoardBrief, MapBrief, Pile, opening_board, opening_map
 from tnp.catalog import catalog
 from tnp.render import (
-    BATTLE_WIDTH, BOARD_WIDTH, PILE_HEADING, PILE_PITCH, render_battle, render_board, render_map,
+    BATTLE_WIDTH, BOARD_WIDTH, PILE_HEADING, PILE_PITCH, crossing_areas, render_battle, render_board,
+    render_map,
 )
 from tnp_battles import fight, stage
 
@@ -38,6 +39,30 @@ class TnpMapPictureTests(unittest.TestCase):
             caption="Turn 2 · March",
         )
         self.assertEqual(picture(render_map(catalog(), brief)).size, (1627, 1282 + PILE_HEADING + 2 * PILE_PITCH))
+
+
+class TnpMapMarksFitTests(unittest.TestCase):
+    """An area's marks never cross its border (the author, 2026-11-06):
+    `crossing_areas` measures it as `render_map` places them."""
+
+    def test_the_opening_map(self) -> None:
+        self.assertEqual(crossing_areas(catalog(), opening_map(catalog())), [])
+
+    def test_every_mark_on_every_territory_at_once(self) -> None:
+        territories = [slug for slug, area in catalog().areas.items() if not area.is_base]
+        piles = []
+        for slug in territories:
+            piles.append(Pile("green", slug, "A", {"worker": 1}))
+            piles.append(Pile("blue", slug, DEFENSE, {"worker": 1}))
+        for seat in ("blue", "green"):
+            with self.subTest(seat=seat):
+                brief = MapBrief(
+                    controllers={slug: seat for slug in territories},
+                    resources=opening_map(catalog()).resources,
+                    stranded={slug: (seat,) for slug in territories},
+                    revealed=tuple(piles),
+                )
+                self.assertEqual(crossing_areas(catalog(), brief), [])
 
 
 class TnpBoardPictureTests(unittest.TestCase):
