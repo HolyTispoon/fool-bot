@@ -51,7 +51,7 @@ from tnp.tokens import plain
 from tnp.turn import has_path, joined
 
 from tnp_battles import first
-from tnp_games import opening, reload
+from tnp_games import Strategy, opening, reload
 
 PLAN_KIND = PromptKind.PLAN
 TRADE_KIND = PromptKind.TRADE
@@ -82,6 +82,9 @@ def answered(engine, game, match, run, limit=500):
         prompt = prompts[0]
         if prompt.kind is PromptKind.CONQUER:
             action = Action(PromptKind.CONQUER, "", {"unit": prompt.options.units[0]}, seat=prompt.asked_seat)
+        elif prompt.kind is PromptKind.HARVEST:
+            action = Action(PromptKind.HARVEST, "", {"tokens": Strategy().harvest(prompt.options)},
+                            seat=prompt.asked_seat)
         else:
             action = first(prompt)
         run = driver.apply(engine, game, match, action)
@@ -241,6 +244,9 @@ class PlanCheckTests(unittest.TestCase):
         self.refused({"attacks": {"C": {"target": "14", "units": {"worker": 1}}}}, "TNP 2.5")
         self.refused({"attacks": {"A": {"target": "blue_base", "units": {"worker": 1}}}}, "TNP 5.3")
         self.refused({"defense": {"14": {"worker": 1}}}, "TNP 2.5")
+        # Held, but not joined to the base: only stranded units are there.
+        hold(self.match, "blue", "2")
+        self.refused({"defense": {"2": {"worker": 1}}}, "TNP 2.5")
         self.refused({"attacks": {"A": {"target": "14", "units": {"worker": 4}}}}, "TNP 5.3")
         self.refused({"attacks": {"A": {"target": "14", "units": {"worker": 2}}},
                       "defense": {"blue_base": {"worker": 2}}}, "TNP 5.3")
@@ -309,6 +315,19 @@ class MarchTests(unittest.TestCase):
         self.assertIn("Blue reveals a Mercenary in attack B and takes area 2.", said)
         self.assertEqual((self.match.controller("10"), self.match.controller("2")), ("blue", "blue"))
 
+    def test_no_path_sends_the_ground_units_home_and_the_air_units_on(self) -> None:
+        """TNP 5.3: the ground units of a pile with no path go home
+        unrevealed, and its air units attack alone, as they must."""
+        hold(self.match, "green", "1")
+        self.match.seat("blue").available["viper_spy_plane"] = 2
+        said = both_lock(self.engine, self.game, self.match, blue={
+            "attacks": {"A": {"target": "1", "units": {"viper_spy_plane": 2, "mercenary": 2}}},
+        })
+        self.assertIn("what cannot fly goes back to its base unrevealed, and its air units attack alone", said)
+        self.assertIn("Blue attacks area 1 with 2 Viper Spy Plane.", said)
+        self.assertNotIn("Mercenary", said.split("March is over.")[0])
+        self.assertIsNone(self.match.controller("1"))
+
     def test_no_path_sends_the_pile_home_unrevealed(self) -> None:
         said = both_lock(self.engine, self.game, self.match, blue={
             "attacks": {"A": {"target": "1", "units": {"mercenary": 2}}},
@@ -356,6 +375,24 @@ class MarchTests(unittest.TestCase):
         self.assertIn("Blue's 3 Worker harvest area 14: 3 blue minerals, 3 harvested in all.", said)
         self.assertEqual(self.match.revealed[0], {"seat": "blue", "area": "14", "spot": "A", "units": {"mercenary": 1}})
 
+    def test_the_seat_chooses_which_tokens(self) -> None:
+        """TNP 5.8: from a territory of two kinds, the seat chooses."""
+        hold(self.match, "blue", "14", "8", "5")
+        self.match.areas["5"].resources = {"blue_minerals": 2, "orange_minerals": 5, "gems": 0}
+        lock(self.engine, self.game, self.match, "blue", {"attacks": {"A": {"target": "5", "units": {"worker": 3}}}})
+        lock(self.engine, self.game, self.match, "green")
+        (prompt,) = pending_prompts(self.engine, self.game, self.match)
+        self.assertIs(prompt.kind, PromptKind.HARVEST)
+        self.assertEqual((prompt.options.count, prompt.options.left), (3, {"blue_minerals": 2, "orange_minerals": 5}))
+        for wrong in ({"blue_minerals": 3}, {"orange_minerals": 2}, {"gems": 3}, {"orange_minerals": 4}):
+            refused = driver.apply(self.engine, self.game, self.match,
+                                   Action(PromptKind.HARVEST, "", {"tokens": wrong}, seat="blue"))
+            self.assertEqual(refused.cite, "TNP 5.8", wrong)
+        run = driver.apply(self.engine, self.game, self.match,
+                           Action(PromptKind.HARVEST, "", {"tokens": {"blue_minerals": 2, "orange_minerals": 1}}, seat="blue"))
+        self.assertIn("Blue's 3 Worker harvest area 5: 2 blue minerals, 1 orange mineral", words(self.engine, run))
+        self.assertEqual(self.match.areas["5"].resources["orange_minerals"], 4)
+
     def test_harvest(self) -> None:
         """TNP 5.8: a token a Worker, into the pool; attacking a territory
         the seat holds is the way to harvest it again; in the basic game
@@ -367,6 +404,7 @@ class MarchTests(unittest.TestCase):
         })
         self.assertIn("Blue's attack A reaches area 14, which it holds.", said)
         self.assertIn("2 blue minerals, 2 harvested in all", said)
+        self.assertNotEqual(pending_prompts(self.engine, self.game, self.match)[0].kind, PromptKind.HARVEST)
         self.assertEqual(self.match.seat("blue").pool["blue_minerals"], 2)
         self.assertEqual(self.match.areas["14"].tokens_left(), 0)
 
@@ -386,16 +424,17 @@ class MarchTests(unittest.TestCase):
         """TNP 5.6, 5.7, 6.11: the winner's survivors stay in the
         territory's defense spot for the rest of March, the loser's go
         home, control is the outcome's, and the winner's Workers harvest."""
-        hold(self.match, "green", "13")
+        hold(self.match, "blue", "10", "2", "1", "3", "9")
+        hold(self.match, "green", "15")
         lock(self.engine, self.game, self.match, "blue", {
-            "attacks": {"A": {"target": "13", "units": {"mercenary": 3, "worker": 3}}},
+            "attacks": {"A": {"target": "15", "units": {"mercenary": 3, "worker": 3}}},
         })
-        run = lock(self.engine, self.game, self.match, "green", {"defense": {"13": {"worker": 1}}})
+        run = lock(self.engine, self.game, self.match, "green", {"defense": {"15": {"worker": 1}}})
         self.assertIsNotNone(self.match.battle)
         said = answered(self.engine, self.game, self.match, run)
-        self.assertIn("Blue attacks area 13 with 3 Worker, 3 Mercenary.", said)
-        self.assertIn("Blue wins the battle for area 13.", said)
-        self.assertEqual(self.match.controller("13"), "blue")
+        self.assertIn("Blue attacks area 15 with 3 Worker, 3 Mercenary.", said)
+        self.assertIn("Blue wins the battle for area 15.", said)
+        self.assertEqual(self.match.controller("15"), "blue")
         self.assertIsNone(self.match.battle)
         self.assertGreater(self.match.seat("blue").harvested, 0)
         self.assertEqual(self.match.phase, TRADE)
@@ -437,8 +476,17 @@ class MarchTests(unittest.TestCase):
         self.assertNotIn("mercenary", match.seat("blue").available)
         refused = save(engine, game, match, "blue", {"attacks": {"A": {"target": "8", "units": {"mercenary": 1}}}})
         self.assertEqual(refused.cite, "TNP 5.3")
-        # Blue takes 8, beside 2: the token is lifted, and Cleanup sends
-        # its units home.
+        refused = save(engine, game, match, "blue", {"defense": {"2": {"worker": 1}}})
+        self.assertEqual(refused.cite, "TNP 2.5")
+        # Blue takes 1, beside 2, by air: no path home, so the token stays.
+        match.seat("blue").available["chopper_carrier"] = 1
+        lock(engine, game, match, "blue", {"attacks": {"A": {"target": "1", "units": {"chopper_carrier": 1, "worker": 1}}}})
+        said = answered(engine, game, match, lock(engine, game, match, "green"))
+        self.assertEqual(match.controller("1"), "blue")
+        self.assertNotIn("no longer stranded", said)
+        self.assertEqual(match.areas["2"].stranded, ["blue"])
+        # Blue takes 8, beside 2 and joined to the base by 14: the path is
+        # made, the token is lifted, and Cleanup sends its units home.
         lock(engine, game, match, "blue", {"attacks": {"A": {"target": "8", "units": {"worker": 1}}}})
         said = answered(engine, game, match, lock(engine, game, match, "green"))
         self.assertIn("Blue's units in area 2 are no longer stranded.", said)
@@ -464,14 +512,17 @@ class BaseBattleTests(unittest.TestCase):
             outcome={"winner": "green", "by": "held", "control": None, "base_fallen": False,
                      "destroyed": "factory", "home": ["blue"], "withdrawn": {},
                      "survivors": {"blue": {"mercenary": {"count": 1, "damaged": 0}},
-                                   "green": {"smart_mines": {"count": 2, "damaged": 0}}}},
+                                   "green": {"smart_mines": {"count": 2, "damaged": 0},
+                                             "laser_cannon": {"count": 1, "damaged": 1}}}},
         )
         self.assertEqual(pending_all(engine, game, match), (FollowOn(FollowOnStep.SETTLE_BATTLE),))
         run = driver.resume(engine, game, match)
         self.assertEqual(run.steps[:3], (FollowOnStep.SETTLE_BATTLE, FollowOnStep.MARCH, FollowOnStep.PRODUCE))
         self.assertNotIn("factory", green.built)
         self.assertEqual((green.pool["materials"], green.pool["blue_minerals"]), (0, 1))
-        self.assertEqual(match.spots["green_base"]["green"].units, {"smart_mines": 2})
+        self.assertEqual(match.spots["green_base"]["green"].units, {"smart_mines": 2, "laser_cannon": 1})
+        # A damage token lasts the battle alone (TNP 6.8).
+        self.assertEqual(match.spots["green_base"]["green"].damaged, {})
         self.assertEqual(match.seat("blue").available["mercenary"], 4)
         self.assertIsNone(match.battle)
         self.assertNotIn("tank", green.available)

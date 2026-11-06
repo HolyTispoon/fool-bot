@@ -78,6 +78,9 @@ class PromptKind(Enum):
     PLAN = "plan"
     #: Which ground unit is revealed to take a neutral territory (TNP 5.5).
     CONQUER = "conquer"
+    #: Which kinds of token a harvest takes, where the territory holds
+    #: more than one (TNP 5.8).
+    HARVEST = "harvest"
     #: Production and Trade's trade, both seats at once (TNP 5.9).
     TRADE = "trade"
 
@@ -184,6 +187,15 @@ class ConquerOptions(_Wire):
     spot: str
     #: The ground units in the attacking pile, one of which is revealed.
     units: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class HarvestOptions(_Wire):
+    area: str
+    #: How many tokens the Workers take: one a Worker (TNP 5.8).
+    count: int
+    #: The tokens left on the territory, by kind.
+    left: Mapping[str, int]
 
 
 @dataclass(frozen=True)
@@ -348,7 +360,7 @@ class DestroyOptions(_Wire):
 
 
 PromptOptions = Union[
-    PlanOptions, ConquerOptions, TradeOptions, RoleOptions, EmergencyOptions, RepositionOptions, PlaceOptions, RetreatOptions, TargetOptions,
+    PlanOptions, ConquerOptions, HarvestOptions, TradeOptions, RoleOptions, EmergencyOptions, RepositionOptions, PlaceOptions, RetreatOptions, TargetOptions,
     RepairOptions, SplashOptions, DestroyOptions,
 ]
 
@@ -413,6 +425,7 @@ SIMULTANEOUS = frozenset({PromptKind.PLAN, PromptKind.TRADE})
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.PLAN: ("save", "lock"),
     PromptKind.CONQUER: ("",),
+    PromptKind.HARVEST: ("",),
     PromptKind.TRADE: ("save", "lock"),
     PromptKind.CHOOSE_ROLE: ("attack", "defend"),
     PromptKind.EMERGENCY_DEFENSE: ("build", "none"),
@@ -568,7 +581,7 @@ def _plan_options(engine, match, prompt) -> PlanOptions:
             AttackTarget(area, match.controller(area), turn.has_path(engine, match, seat, area))
             for area in sorted(turn.attack_targets(engine, seat), key=turn.area_order)
         ),
-        defenses=turn.defense_areas(match, seat),
+        defenses=turn.defense_areas(engine, match, seat),
         base_only=tuple(slug for slug in catalog.units if engine.has_trait(slug, "base_defense")),
         together=tuple(
             TogetherLimit(tuple(limit["units"]), int(limit["max"]))
@@ -588,6 +601,14 @@ def _conquer_options(engine, match, prompt) -> ConquerOptions:
     )
 
 
+def _harvest_options(engine, match, prompt) -> HarvestOptions:
+    from tnp.flow.turn import harvest_choice
+
+    resolving = match.resolving
+    count, left = harvest_choice(match, resolving["area"], resolving["harvest"]["workers"])
+    return HarvestOptions(resolving["area"], count, left)
+
+
 def _trade_options(engine, match, prompt) -> TradeOptions:
     from tnp.components import RESOURCES
 
@@ -603,6 +624,7 @@ def _trade_options(engine, match, prompt) -> TradeOptions:
 OPTIONS = {
     PromptKind.PLAN: _plan_options,
     PromptKind.CONQUER: _conquer_options,
+    PromptKind.HARVEST: _harvest_options,
     PromptKind.TRADE: _trade_options,
     PromptKind.CHOOSE_ROLE: _role_options,
     PromptKind.EMERGENCY_DEFENSE: _emergency_options,
@@ -751,6 +773,13 @@ def _turn_pending(engine: "RulesEngine", game, match: MatchState) -> list[Union[
         return asked or [FollowOn(FollowOnStep.REVEAL)]
     if phase == MARCH:
         resolving = match.resolving
+        if resolving is not None and resolving.get("stage") == "harvest":
+            seat = resolving["harvest"]["seat"]
+            return [PendingPrompt(
+                PromptKind.HARVEST,
+                f"{tokens.seat(seat)}, your Workers harvest {tokens.area(resolving['area'])}: "
+                "choose which tokens they take.", seat,
+            )]
         if resolving is not None and resolving.get("stage") == "conquer":
             (seat,) = resolving["piles"]
             return [PendingPrompt(

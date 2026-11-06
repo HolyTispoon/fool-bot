@@ -216,7 +216,9 @@ def march(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") -> 
     Resolve the next attack (TNP 5.4 to 5.8), or, with none left, end
     March and open Production and Trade. A pile that cannot reach the
     area it attacks -- no path of held territories, and ground units its
-    Chopper Carriers cannot carry -- goes back to its base unrevealed.
+    Chopper Carriers cannot carry -- sends its ground units back to its
+    base unrevealed, and its air units, where it has any, attack alone,
+    as they must (TNP 5.3, the author, 2026-11-06).
     """
     result = StepResult(narration=[lead_in] if lead_in else [])
     found = next_attack(match)
@@ -234,12 +236,23 @@ def march(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") -> 
             del match.attacks[seat][spot]
             piles[seat] = dict(attack["units"])
     for seat in list(piles):
-        if not reaches(engine, match, seat, area, piles[seat]):
+        if reaches(engine, match, seat, area, piles[seat]):
+            continue
+        ground = ground_units(engine, piles[seat])
+        air = {slug: count for slug, count in piles[seat].items() if count and slug not in ground}
+        _home(match, seat, ground)
+        if air:
+            piles[seat] = air
+            result.narration.append(
+                f"{tokens.seat(seat)}'s attack {spot} has no path to {tokens.area(area)}: what "
+                "cannot fly goes back to its base unrevealed, and its air units attack alone."
+            )
+        else:
+            del piles[seat]
             result.narration.append(
                 f"{tokens.seat(seat)}'s attack {spot} cannot reach {tokens.area(area)}: it has no "
                 "path of held territories there, and its units go back to its base."
             )
-            _home(match, seat, piles.pop(seat))
     if not piles:
         return _waiting(engine, game, match, result)
     match.resolving = {"spot": spot, "area": area, "piles": piles}
@@ -248,8 +261,7 @@ def march(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") -> 
 
 
 def _home(match: MatchState, seat: str, units: Mapping[str, int]) -> None:
-    """Units back at their base, available; a damage token does not
-    outlast March (`docs/design/tnp.md`, "The turn")."""
+    """Units back at their base, available."""
     available = match.seat(seat).available
     for slug, count in units.items():
         if count:
@@ -282,7 +294,7 @@ def _resolve(engine: "RulesEngine", game, match: MatchState, result: StepResult)
             f"{tokens.seat(seat)}'s attack {spot} reaches {tokens.area(area)}, which it holds."
         )
         _harvest(engine, match, seat, area, piles[seat].get("worker", 0), result)
-        match.resolving = None
+        _done_unless_harvesting(match)
         return
     ground = ground_units(engine, piles[seat])
     if not ground:
@@ -311,7 +323,7 @@ def _conquer(engine: "RulesEngine", match: MatchState, seat: str, unit: str,
     _reveal(match, seat, area, spot, {unit: 1})
     _set_control(engine, match, area, seat, result)
     _harvest(engine, match, seat, area, resolving["piles"][seat].get("worker", 0), result)
-    match.resolving = None
+    _done_unless_harvesting(match)
     result.board_changed = True
 
 
@@ -394,8 +406,9 @@ def settle_battle(engine: "RulesEngine", game, match: MatchState, lead_in: str =
     """
     A battle in March is over: its outcome goes on the map (TNP 5.7,
     6.11). The winner's survivors stay in the area's defense spot for
-    the rest of March, the loser's go back to their base, and so do the
-    units that retreated; the territory's control is the outcome's, with
+    the rest of March, their damage tokens off, since a damage token
+    lasts the battle alone (TNP 6.8); the loser's go back to their base,
+    and so do the units that retreated; the territory's control is the outcome's, with
     the Stranded tokens it moves; a fallen base wins the game (TNP 1.3);
     and a winner who attacked with Workers harvests (TNP 5.8). A base's
     emergency spend and what its base card destroyed are the base's.
@@ -413,7 +426,7 @@ def settle_battle(engine: "RulesEngine", game, match: MatchState, lead_in: str =
         if seat in outcome["home"] or seat != winner:
             _home(match, seat, units)
         else:
-            match.pile(area, seat).add(units, {slug: row["damaged"] for slug, row in survivors.items()})
+            match.pile(area, seat).add(units)
         _home(match, seat, {slug: row["count"] for slug, row in outcome["withdrawn"].get(seat, {}).items()})
     if is_base:
         defender = battle.defender
@@ -437,8 +450,10 @@ def settle_battle(engine: "RulesEngine", game, match: MatchState, lead_in: str =
             int(outcome["survivors"].get(winner, {}).get("worker", {}).get("count", 0)),
             int(resolving["piles"][winner].get("worker", 0)),
         )
+        match.battle = None
         _harvest(engine, match, winner, area, workers, result)
-    match.battle, match.resolving = None, None
+    match.battle = None
+    _done_unless_harvesting(match)
     return _waiting(engine, game, match, result)
 
 
@@ -447,9 +462,11 @@ def _set_control(engine: "RulesEngine", match: MatchState, area: str, seat: Opti
     """
     `area` is held by `seat` now, or neutral (TNP 5.7): a seat's held
     territory the change leaves no longer joined to its base, with its
-    units in it, takes a Stranded token; the seat taking `area` lifts its
-    own Stranded tokens beside it; and a seat that no longer holds a
-    territory has no Stranded token left there.
+    units in it, takes a Stranded token; a Stranded token on a territory
+    joined to its seat's base again comes off -- taking a territory beside
+    it lifts the token only where that makes the path (the author,
+    2026-11-06); and a seat that no longer holds a territory has no
+    Stranded token left there.
     """
     before = {one: joined(engine, match, one) for one in SEATS}
     match.areas[area].controller = seat
@@ -463,50 +480,101 @@ def _set_control(engine: "RulesEngine", match: MatchState, area: str, seat: Opti
                 result.narration.append(
                     f"{tokens.seat(one)}'s units in {tokens.area(lost)} are stranded."
                 )
-    if seat is not None:
-        for beside in engine.catalog.areas[area].adjacent:
-            stranded = match.areas[beside].stranded
-            if seat in stranded:
-                stranded.remove(seat)
+        for slug in sorted(after, key=area_order):
+            stranded = match.areas[slug].stranded
+            if one in stranded and match.controller(slug) == one:
+                stranded.remove(one)
                 result.narration.append(
-                    f"{tokens.seat(seat)}'s units in {tokens.area(beside)} are no longer stranded."
+                    f"{tokens.seat(one)}'s units in {tokens.area(slug)} are no longer stranded."
                 )
     for slug, state in match.areas.items():
         state.stranded = [one for one in state.stranded if state.controller == one]
     result.board_changed = True
 
 
+def harvest_choice(match: MatchState, area: str, workers: int) -> tuple[int, dict[str, int]]:
+    """How many tokens a harvest takes -- one a Worker, as many as are
+    left (TNP 5.8) -- and the tokens left by kind."""
+    left = {kind: int(count) for kind, count in match.areas[area].resources.items() if count}
+    return min(int(workers), sum(left.values())), left
+
+
 def _harvest(engine: "RulesEngine", match: MatchState, seat: str, area: str, workers: int,
              result: StepResult) -> None:
     """
     For each Worker in the winning attacking pile, one token off the
-    territory into the seat's pool (TNP 5.8). In the basic game blue and
-    orange minerals do the same, so the seat is not asked which: each
-    token is taken from the kind with most left, blue first on a tie.
+    territory into the seat's pool (TNP 5.8). Where the territory holds
+    more than one kind and the Workers take less than all of it, the
+    seat chooses which (the author, 2026-11-06): March waits on
+    `HARVEST`, the attack still resolving. Otherwise the tokens are
+    taken at once.
     """
-    left = match.areas[area].resources
-    taken: dict[str, int] = {}
-    for _ in range(int(workers)):
-        kinds = [kind for kind in RESOURCES if left.get(kind, 0) > 0]
-        if not kinds:
-            break
-        kind = max(kinds, key=lambda one: (left[one], -RESOURCES.index(one)))
-        left[kind] -= 1
-        taken[kind] = taken.get(kind, 0) + 1
-    if not taken:
+    count, left = harvest_choice(match, area, workers)
+    if count <= 0:
         return
+    if len(left) > 1 and count < sum(left.values()):
+        match.resolving["stage"] = "harvest"
+        match.resolving["harvest"] = {"seat": seat, "workers": int(workers)}
+        return
+    if len(left) == 1:
+        taken = {next(iter(left)): count}
+    else:
+        taken = dict(left)
+    _take(match, seat, area, int(workers), taken, result)
+
+
+def _take(match: MatchState, seat: str, area: str, workers: int, taken: Mapping[str, int],
+          result: StepResult) -> None:
+    left = match.areas[area].resources
     state = match.seat(seat)
     for kind, count in taken.items():
-        state.pool[kind] = state.pool.get(kind, 0) + count
-    gathered = sum(taken.values())
-    state.harvested += gathered
+        if count:
+            left[kind] -= count
+            state.pool[kind] = state.pool.get(kind, 0) + count
+    state.harvested += sum(taken.values())
     spot = (match.resolving or {}).get("spot", "")
-    _reveal(match, seat, area, spot, {"worker": int(workers)})
+    _reveal(match, seat, area, spot, {"worker": workers})
     result.narration.append(
         f"{tokens.seat(seat)}'s {workers} {tokens.unit('worker')} harvest {tokens.area(area)}: "
         f"{_tokens_words(taken)}, {state.harvested} harvested in all."
     )
     result.board_changed = True
+
+
+def _done_unless_harvesting(match: MatchState) -> None:
+    """The attack is resolved, unless its harvest waits on the seat."""
+    if match.resolving is not None and match.resolving.get("stage") != "harvest":
+        match.resolving = None
+
+
+def answer_harvest(engine: "RulesEngine", game, match: MatchState, seat: str,
+                   taken: Optional[Mapping]) -> StepResult:
+    """Which tokens the seat's Workers take (TNP 5.8): one a Worker, of
+    the kinds the territory holds."""
+    resolving = match.resolving
+    area = resolving["area"]
+    workers = int(resolving["harvest"]["workers"])
+    count, left = harvest_choice(match, area, workers)
+    if not isinstance(taken, Mapping):
+        raise RuleRefusal("Name the tokens taken, by kind.", cite="TNP 5.8")
+    chosen = {}
+    for kind, number in taken.items():
+        try:
+            number = int(number)
+        except (TypeError, ValueError):
+            raise RuleRefusal(f"{number!r} is not a count.", cite="TNP 5.8") from None
+        if number < 0 or kind not in RESOURCES:
+            raise RuleRefusal("Take minerals or gems, none below none.", cite="TNP 5.8")
+        if number:
+            chosen[kind] = number
+    if any(number > left.get(kind, 0) for kind, number in chosen.items()):
+        raise RuleRefusal("That is more than the territory holds.", cite="TNP 5.8")
+    if sum(chosen.values()) != count:
+        raise RuleRefusal(f"The Workers take {count} tokens, one a Worker.", cite="TNP 5.8")
+    result = StepResult()
+    _take(match, seat, area, workers, chosen, result)
+    match.resolving = None
+    return _waiting(engine, game, match, result)
 
 
 def _win(match: MatchState, seat: str, by: str, result: StepResult) -> None:
@@ -635,6 +703,6 @@ def cleanup(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") -
 
 
 __all__ = [
-    "answer_conquer", "answer_plan", "answer_trade", "cleanup", "march", "next_attack",
+    "answer_conquer", "answer_harvest", "harvest_choice", "answer_plan", "answer_trade", "cleanup", "march", "next_attack",
     "produce", "reveal", "settle_battle", "settle_trades",
 ]

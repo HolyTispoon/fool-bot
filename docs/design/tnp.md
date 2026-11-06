@@ -405,15 +405,19 @@ attack -- A for both seats, then B, within a spot in ascending
 territory number, a base after every territory -- so step 6 can post
 each as its own lines. A pile that no longer reaches its target as its
 attack resolves (no path of held territories, and ground units its
-Chopper Carriers cannot carry, TNP 5.3, 7) goes back to its base
-unrevealed. Otherwise: two seats at one area, or a held territory, or
+Chopper Carriers cannot carry, TNP 5.3, 7) sends its ground units back
+to its base unrevealed, and its air units, where it has any, attack
+alone -- they must (the author, 2026-11-06). Otherwise: two seats at one area, or a held territory, or
 the other seat's units already standing there, or a base, is a battle
 through `begin_battle`, with each seat's attacking pile and its units
 in the area's defense spot as its forces and the base's structures,
 pool and supply room handed in; a neutral territory nobody contests is
-taken by revealing a ground unit -- `CONQUER` asks which only where the
-pile has more than one kind -- and a territory the seat holds is
-harvested. `SETTLE_BATTLE` is the owed step that puts a battle's
+always taken by revealing a ground unit -- `CONQUER` asks which only
+where the pile has more than one kind -- and a territory the seat holds
+is harvested. **A harvest from a territory of two kinds is the seat's
+choice** (the author, 2026-11-06): `HARVEST` asks it, with the attack
+still resolving, only where the Workers take less than all that is
+left; otherwise the tokens are taken at once. `SETTLE_BATTLE` is the owed step that puts a battle's
 `outcome` on the map: survivors, control, the Stranded tokens, the
 emergency spend and the base card's destruction, the harvest, and a
 fallen base's win. Battles are fought through the battle's own prompts
@@ -423,23 +427,33 @@ at a time.
 **The Stranded tokens** (TNP 5.7) are placed where a change of control
 cuts a held territory off from its seat's base with its units in it --
 comparing what each seat's held territories joined before and after --
-and lifted where the seat takes a territory beside one, as the rule
-says, whether or not that rejoins it. A seat that loses a territory
+and lifted only once the territory is joined to the base again: taking
+a territory beside it lifts the token where that makes the path, and
+not otherwise (the author, 2026-11-06, reading TNP 5.7's "takes a
+territory adjacent" as needing a path). A seat that loses a territory
 loses its token there. Cleanup leaves stranded piles where they are,
-and their units, not being at the base, cannot be deployed.
+their units, not being at the base, cannot be deployed, and nobody
+deploys into a cut-off territory: defenders go only where the base
+joins (TNP 2.5, the author, 2026-11-06).
 
 **The winning checks.** A fallen base wins at once, in
 `SETTLE_BATTLE`; 49 tokens harvested is counted at Cleanup (TNP 1.3,
 5.10), after the trade. The service finishes the record in the same
 save as the match that has a winner.
 
-**What the code settled that the rules do not**, each put to the author
-on the step's PR: a pile that cannot reach goes home; the basic game's
-harvest takes from the kind with more left, since blue and orange do
-the same there; units queued at a facility destroyed that March are
-lost; damage tokens last the March and are gone once the units are home;
-a base resolves after the territories of its spot; and an air-only
-pile at a neutral territory waits in its spot for the rest of March.
+**What the author settled on PR #710** (2026-11-06), all in
+docs/tnp-rules.md and its log: a neutral territory reached with a
+ground unit is always taken, and the rest of the pile stays face down;
+the seat chooses the kind its Workers harvest; a pile with no path
+sends its ground units home and its air units on; air units and a
+carried stack attack a base with no path; units queued at a facility
+destroyed that turn are lost with their cost; **a damage token lasts
+the battle alone**, so `settle_battle` puts the survivors in the spot
+with none (`Pile.damaged` stays in the save format, written empty);
+a base resolves last in its spot; defenders go only where the base
+joins; both seats at a held territory fight with the holder's pile
+beside its defenders; the Stranded token as above; and an air-only
+pile at an uncontested neutral territory waits in its spot.
 
 **The whole game through the driver.** `tests/tnp_games.py` plays a
 game with simple strategies that read each prompt's options as a view

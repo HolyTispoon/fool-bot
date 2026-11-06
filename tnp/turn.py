@@ -242,10 +242,12 @@ def attack_targets(engine: "RulesEngine", seat: str) -> tuple[str, ...]:
     )
 
 
-def defense_areas(match: MatchState, seat: str) -> tuple[str, ...]:
-    """Where a seat may deploy defenders: any territory it holds, and
-    its base (TNP 2.5)."""
-    return tuple(sorted(held(match, seat), key=_area_order)) + (base_of(seat),)
+def defense_areas(engine: "RulesEngine", match: MatchState, seat: str) -> tuple[str, ...]:
+    """Where a seat may deploy defenders: a territory it holds that its
+    held territories join to its base, and the base (TNP 2.5) -- a
+    territory cut off holds only the stranded units already there."""
+    reach = joined(engine, match, seat)
+    return tuple(sorted(held(match, seat) & reach, key=_area_order)) + (base_of(seat),)
 
 
 def _area_order(slug: str) -> tuple[int, str]:
@@ -413,11 +415,12 @@ def check_plan(engine: "RulesEngine", match: MatchState, seat: str, plan: Mappin
                 raise RuleRefusal(
                     "Base Defense units go only into the base defense spot.", cite="TNP 7",
                 )
-    allowed = set(defense_areas(match, seat))
+    allowed = set(defense_areas(engine, match, seat))
     for area, units in plan["defense"].items():
         if area not in allowed:
             raise RuleRefusal(
-                "Defenders go into a territory the seat holds, or its base.", cite="TNP 2.5",
+                "Defenders go into a territory the seat holds and its held territories join to "
+                "its base, or into the base.", cite="TNP 2.5",
             )
         for slug in units:
             if slug not in catalog.units:

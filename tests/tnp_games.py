@@ -7,7 +7,8 @@ view would.
     engine, game, match = opening(seed=3)
     match, runs = play(engine, game, match, {"blue": Harvester(), "green": Turtle()})
 
-A strategy answers the turn's three kinds (`plan`, `trade`, `conquer`)
+A strategy answers the turn's four kinds (`plan`, `trade`, `conquer`,
+`harvest`)
 and the battle's (`battle`, `tnp_battles.first` unless overridden). The
 units are fixed data, so a strategy names units by slug.
 """
@@ -27,7 +28,7 @@ from tnp.turn import base_of, has_path
 
 from tnp_battles import first as first_battle_answer
 
-TURN_KINDS = (PromptKind.PLAN, PromptKind.TRADE, PromptKind.CONQUER)
+TURN_KINDS = (PromptKind.PLAN, PromptKind.TRADE, PromptKind.CONQUER, PromptKind.HARVEST)
 
 
 def opening(seed: int = 0) -> tuple[RulesEngine, TnpGame, MatchState]:
@@ -52,6 +53,16 @@ class Strategy:
 
     def conquer(self, options) -> str:
         return options.units[0]
+
+    def harvest(self, options) -> dict:
+        """The tokens taken, the kind with most left first."""
+        left = dict(options.left)
+        taken: dict[str, int] = {}
+        for _ in range(options.count):
+            kind = max(left, key=lambda one: (left[one], one))
+            left[kind] -= 1
+            taken[kind] = taken.get(kind, 0) + 1
+        return taken
 
     def battle(self, prompt: PendingPrompt) -> Action:
         return first_battle_answer(prompt)
@@ -179,6 +190,8 @@ def answer(engine: RulesEngine, match: MatchState, strategy: Strategy, prompt: P
         return Action(PromptKind.TRADE, "lock", {"trade": strategy.trade(engine, match, seat, prompt.options)}, seat=seat)
     if prompt.kind is PromptKind.CONQUER:
         return Action(PromptKind.CONQUER, "", {"unit": strategy.conquer(prompt.options)}, seat=seat)
+    if prompt.kind is PromptKind.HARVEST:
+        return Action(PromptKind.HARVEST, "", {"tokens": strategy.harvest(prompt.options)}, seat=seat)
     return strategy.battle(prompt)
 
 

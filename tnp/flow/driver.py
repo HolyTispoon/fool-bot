@@ -179,6 +179,7 @@ class Refusal:
 STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.PLAN: "That seat has locked in, or Infrastructure and Deployment is over.",
     PromptKind.CONQUER: "That territory has already been taken or not.",
+    PromptKind.HARVEST: "That harvest has already been taken.",
     PromptKind.TRADE: "That seat has locked in, or the trade is over.",
     PromptKind.CHOOSE_ROLE: "The sides have already been chosen.",
     PromptKind.EMERGENCY_DEFENSE: "The emergency defense has already been decided.",
@@ -204,6 +205,10 @@ def _answer_plan(engine, game, match, prompt, choice, *, plan=None) -> StepResul
 
 def _answer_conquer(engine, game, match, prompt, choice, *, unit=None) -> StepResult:
     return turn.answer_conquer(engine, game, match, prompt.asked_seat, _required(unit, "unit"))
+
+
+def _answer_harvest(engine, game, match, prompt, choice, *, tokens=None) -> StepResult:
+    return turn.answer_harvest(engine, game, match, prompt.asked_seat, tokens)
 
 
 def _answer_trade(engine, game, match, prompt, choice, *, trade=None) -> StepResult:
@@ -250,6 +255,7 @@ def _answer_destroy(engine, game, match, prompt, choice, *, thing=None) -> StepR
 ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.PLAN: _answer_plan,
     PromptKind.CONQUER: _answer_conquer,
+    PromptKind.HARVEST: _answer_harvest,
     PromptKind.TRADE: _answer_trade,
     PromptKind.CHOOSE_ROLE: _answer_role,
     PromptKind.EMERGENCY_DEFENSE: _answer_emergency,
@@ -266,6 +272,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
 ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.PLAN: frozenset({"plan"}),
     PromptKind.CONQUER: frozenset({"unit"}),
+    PromptKind.HARVEST: frozenset({"tokens"}),
     PromptKind.TRADE: frozenset({"trade"}),
     PromptKind.CHOOSE_ROLE: frozenset(),
     PromptKind.EMERGENCY_DEFENSE: frozenset({"units", "trade"}),
