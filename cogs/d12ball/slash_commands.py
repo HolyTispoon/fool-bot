@@ -49,6 +49,7 @@ from cogs.d12ball_helpers import (
     hub_role_by_key,
     load_d12_emoji,
     CODEX_HUB_EMOJI_NAME,
+    TNP_HUB_EMOJI_NAME,
     load_d12_button_emoji,
     destination_display_name,
     filter_choices,
@@ -1140,7 +1141,8 @@ class CommandsMixin:
         self.d12_emoji = await load_d12_emoji(self.bot)
         self.d12_button_emoji = await load_d12_button_emoji(self.bot)
         self.codex_emoji = await load_d12_emoji(self.bot, name=CODEX_HUB_EMOJI_NAME)
-        hub_message = build_hub_message(self.d12_emoji, self.codex_emoji)
+        self.tnp_emoji = await load_d12_emoji(self.bot, name=TNP_HUB_EMOJI_NAME)
+        hub_message = build_hub_message(self.d12_emoji, self.codex_emoji, self.tnp_emoji)
 
         existing = get_hub(guild.id)
         if existing is None or existing["channel_id"] != channel.id:

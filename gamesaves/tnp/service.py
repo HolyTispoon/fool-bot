@@ -260,6 +260,12 @@ class GameService:
         self.save()
         return game
 
+    def set_test_game(self, game_id: str, test_game: bool) -> TnpGame:
+        game = self.game(game_id)
+        game.set_test_game(test_game)
+        self.save()
+        return game
+
     def set_advanced(self, game_id: str, advanced: bool) -> TnpGame:
         game = self.game(game_id)
         game.set_advanced(advanced)

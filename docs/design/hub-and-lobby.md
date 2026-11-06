@@ -84,9 +84,16 @@ does bar naming specific opponents up front). Two pieces:
     channel at Start. The view imports nothing from `cogs/tnp*`, so a
     TNP that failed to load leaves the hub working: the click is
     answered privately with "TNP isn't available right now" and logged
-    at ERROR. TNP's block in the message is drafted from the rulebook's
-    Overview (docs/tnp-rules.md, 1.2) and awaits the author's copy, as
-    D12 Ball's is the author's. A hub posted before the button gains it
+    at ERROR. TNP's block in the message is the author's own copy
+    (2026-11-06), kept verbatim as D12 Ball's is. Its emoji, on the
+    heading and the button, is `tnp/images/emoji/tnp.png` uploaded to
+    fool-bot's application as `tnp` (`TNP_HUB_EMOJI_NAME`) -- the
+    letters TNP, in Racing Sans One, with the planet's three resources
+    in the map's colours (`tnp/render.py`): blue mineral shards,
+    a cut purple gem and orange mineral shards rising from behind the T,
+    the N and the P -- behind, so the picture is only as wide as the
+    letters and they are drawn as large as an emoji allows;
+    the hub goes without it until it is uploaded, as with Codex's. A hub posted before the button gains it
     at the next `/d12ball setup_hub`, which edits the message.
   `data/d12ball_hubs.json` is untracked runtime state like the saved games, and
   local to each machine -- the message lives in Discord, this is only a pointer.
