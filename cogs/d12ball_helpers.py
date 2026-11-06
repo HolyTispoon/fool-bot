@@ -1094,7 +1094,9 @@ def build_hub_message(
     about which decks the bot plays, and no command, since the hub's
     **Codex** button answers with that (`codex_lobby_prompt`).
     `codex_emoji` is fool-bot's own upload of the medallion
-    (`CODEX_HUB_EMOJI_NAME`).
+    (`CODEX_HUB_EMOJI_NAME`). The TNP description is drafted from the
+    rulebook's Overview (docs/tnp-rules.md, 1.2) for the author to approve
+    or rewrite; TNP's button opens a lobby itself.
     """
     d12 = f"{d12_emoji} " if d12_emoji else ""
     codex = f"{codex_emoji} " if codex_emoji else ""
@@ -1114,7 +1116,14 @@ def build_hub_message(
         "strategy game: hire workers for gold, build tech buildings to "
         "unlock stronger units and spells, and add cards from your codex "
         "to your deck as you play. Send your heroes and units at the other "
-        "base, patrol to defend your own, and win by destroying theirs."
+        "base, patrol to defend your own, and win by destroying theirs.\n\n"
+        "### The New Project\n\n"
+        "The New Project is a strategy game of rival harvesting operations "
+        "on one planet with finite resources, where both players play every "
+        "phase at the same time. Build your base, produce units in secret "
+        "and deploy them face down, then reveal them as the attacks launch: "
+        "outsmart and bluff your opponent to harvest 51% of the planet, or "
+        "take their base."
     )
 
 

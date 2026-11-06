@@ -12,7 +12,7 @@ action and everything it starts through `tnp.flow.driver.apply`,
 formats nothing.
 
 **The lobby is service methods, not prompt kinds**: `create_game`,
-`take_seat`, `leave`, `set_advanced`, `start` and `abandon`, each
+`discard_game`, `take_seat`, `leave`, `set_advanced`, `start` and `abandon`, each
 loading the record, applying one change the record itself rules on
 (`TnpGame`, which refuses with `RuleRefusal`), and saving once.
 
@@ -215,6 +215,17 @@ class GameService:
         self.games[game.game_id] = game
         self.save()
         return game
+
+    def discard_game(self, game_id: str) -> None:
+        """Forget a lobby whose channel or message could not be put up
+        (`gamesaves.codex.service.GameService.discard_game`). Only a game
+        that never started may be discarded; anything played is
+        abandoned."""
+        game = self.game(game_id)
+        if game.status is not GameStatus.LOBBY or game.match_state is not None:
+            raise ValueError("Only a game that never started may be discarded.")
+        del self.games[game_id]
+        self.save()
 
     def take_seat(self, game_id: str, user_id: int, user_name: Optional[str],
                   seat: Optional[str] = None) -> TnpGame:

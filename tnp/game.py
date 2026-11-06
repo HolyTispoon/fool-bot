@@ -7,8 +7,9 @@ is no AI), the lobby's rules as methods refusing with `RuleRefusal`,
 the advanced game a setting from the start, and the match once it has
 started, held as its saved dict as Codex's record holds it.
 
-The record's three Discord ids are optional, since a game is not a
-Discord thing; step 5 opens a game's lobby and channel on Discord.
+The record's Discord ids -- the guild, the channel, the lobby's message
+and the table's -- are optional, since a game is not a Discord thing;
+step 5 opens a game's lobby and channel on Discord.
 Nothing here imports the components at import time: they import
 `RuleRefusal` from this module.
 """
@@ -46,6 +47,16 @@ class GameStatus(str, Enum):
     ABANDONED = "abandoned"
 
 
+#: What a game's `channel_id` is: a channel of its own under TNP Games,
+#: or, where the bot may not make one, a public thread in the channel
+#: the lobby was asked for in (the author, 2026-11-06).
+VENUES = ("channel", "thread")
+
+
+def _venue_in(value: Optional[str]) -> str:
+    return value if value in VENUES else VENUES[0]
+
+
 #: The two seats, in the order the lobby shows them (TNP 1.2).
 SEAT_NAMES = ("blue", "green")
 
@@ -78,6 +89,14 @@ class TnpGame:
     game_number: int = 0
     guild_id: Optional[int] = None
     channel_id: Optional[int] = None
+    #: The lobby's message, and once the game has started the table's --
+    #: the one public message, the map, the turn and the phase and who
+    #: has locked in (step 5 of docs/tnp-bot.md). Discord's ids, so
+    #: optional like the channel's.
+    message_id: Optional[int] = None
+    table_message_id: Optional[int] = None
+    #: One of `VENUES`: what `channel_id` is.
+    venue: str = "channel"
     status: GameStatus = GameStatus.LOBBY
     #: Each seat's person, `{"id", "name"}`, or nobody yet.
     seats: dict[str, dict] = field(default_factory=lambda: _seats_in(None))
@@ -187,6 +206,9 @@ GAME_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("game_number", default=0),
     SavedField("guild_id"),
     SavedField("channel_id"),
+    SavedField("message_id"),
+    SavedField("table_message_id"),
+    SavedField("venue", default="channel", read=_venue_in),
     SavedField("status", default=GameStatus.LOBBY, write=lambda status: status.value, read=_status_in),
     SavedField("seats", factory=lambda: _seats_in(None), write=_seats_out, read=_seats_in),
     SavedField("test_game", default=False),

@@ -390,7 +390,7 @@ class HubCodexButtonTests(unittest.IsolatedAsyncioTestCase):
         cog = mock.MagicMock()
         cog.d12_button_emoji, cog.codex_emoji = None, None
         view = NewGameHubView(cog)
-        self.assertEqual([item.label for item in view.children], ["D12 Ball", "Codex"])
+        self.assertEqual([item.label for item in view.children], ["D12 Ball", "Codex", "TNP"])
         codex = view.children[1]
         self.assertEqual(codex.custom_id, "d12ball:hub:codex")
         interaction = mock.Mock()

@@ -1,12 +1,21 @@
 """
 Plain-text wording over TNP's data, with no Discord in it: what
-`/tnp unit` answers. The words are the model's (CLAUDE.md, "The model
-and the Discord layer", principle 5); the cog only posts them.
+`/tnp unit` answers, and since step 5 the table's lines -- the turn, the
+phase and who has locked in -- and a pool in words. The words are the
+model's (CLAUDE.md, "The model and the Discord layer", principle 5); the
+cog only posts them, rendering the seat tokens at its door.
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Mapping
+
+from tnp import tokens
 from tnp.catalog import Catalog, Cost, Rating, UnitType
+
+if TYPE_CHECKING:
+    from tnp.components import MatchState
+    from tnp.engine import RulesEngine
 
 #: A trait's name, as the glossary has it (docs/tnp-rules.md, 7).
 TRAIT_NAMES = {
@@ -82,3 +91,89 @@ def unit_lines(catalog: Catalog, slug: str) -> list[str]:
     if unit.ability:
         lines.append(f"> {unit.ability}")
     return lines
+
+
+# -- The table (step 5) ----------------------------------------------------------
+
+#: Each phase by its name in the rules (TNP 5.1). Production and Trade
+#: is one phase; its production, which the bot runs, is saved apart from
+#: the trade the seats answer.
+PHASE_NAMES = {
+    "plan": "Infrastructure and Deployment",
+    "march": "March",
+    "production": "Production and Trade",
+    "trade": "Production and Trade",
+    "cleanup": "Cleanup",
+    "over": "The game is over",
+}
+
+#: What a seat is doing in a phase that asks both at once, while it has
+#: not locked in.
+ANSWERING = {"plan": "planning", "trade": "trading"}
+
+#: A pool's parts, in the order the board shows them (TNP 2.2), each
+#: with its one and its many.
+POOL_WORDS = (
+    ("materials", "material", "materials"),
+    ("gold", "gold", "gold"),
+    ("blue_minerals", "blue mineral", "blue minerals"),
+    ("orange_minerals", "orange mineral", "orange minerals"),
+    ("gems", "gem", "gems"),
+)
+
+
+def phase_heading(match: "MatchState") -> str:
+    """"**Turn 1**: Infrastructure and Deployment" -- the table's first
+    line, and the map's caption without the bold."""
+    return f"**Turn {match.turn}**: {PHASE_NAMES.get(match.phase, match.phase)}"
+
+
+def map_caption(match: "MatchState") -> str:
+    """"Turn 1 · Infrastructure and Deployment", under the map."""
+    return f"Turn {match.turn} · {PHASE_NAMES.get(match.phase, match.phase)}"
+
+
+def board_caption(match: "MatchState") -> str:
+    """"Turn 1", over a player board: the board's header has room for
+    the turn, not the phase's name beside the pool."""
+    return f"Turn {match.turn}"
+
+
+def table_lines(engine: "RulesEngine", game, match: "MatchState") -> list[str]:
+    """
+    The table's lines, public: the turn and the phase, and in a phase
+    both seats answer at once (TNP 5.2, 5.3, 5.9) where each seat stands
+    -- answering, locked in, or, in the trade, with nothing to trade.
+    **Nothing of a plan is in them**: the seat's `locked` is all that is
+    read, and which seats are asked, off `pending_prompts`, the one
+    reading.
+    """
+    from tnp.battle import SEATS
+    from tnp.prompts import pending_prompts
+
+    lines = [phase_heading(match)]
+    if match.winner is not None:
+        lines.append(f"{tokens.seat(match.winner)} has won.")
+        return lines
+    doing = ANSWERING.get(match.phase)
+    if doing is None:
+        return lines
+    asked = {prompt.asked_seat for prompt in pending_prompts(engine, game, match)}
+    for seat in SEATS:
+        if seat in asked:
+            lines.append(f"{tokens.seat(seat)} is {doing}.")
+        elif match.seat(seat).locked:
+            lines.append(f"{tokens.seat(seat)} has locked in.")
+        else:
+            lines.append(f"{tokens.seat(seat)} has nothing to trade.")
+    return lines
+
+
+def pool_text(pool: Mapping[str, int]) -> str:
+    """"5 materials, 0 gold, 1 blue mineral, 0 orange minerals, 0 gems"
+    -- every part, a 0 included, since the pool is the seat's to spend."""
+    parts = []
+    for key, one, many in POOL_WORDS:
+        count = int(pool.get(key, 0))
+        parts.append(f"{count} {one if count == 1 else many}")
+    return ", ".join(parts)

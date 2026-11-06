@@ -18,6 +18,8 @@ Imports from `base` only, which is what keeps `cogs/d12ball_views` a DAG
 (see `tests/test_d12ball_package_shape.py`).
 """
 
+import logging
+
 import discord
 from typing import TYPE_CHECKING
 
@@ -44,6 +46,16 @@ from cogs.d12ball_views.base import SafeView
 if TYPE_CHECKING:
     from cogs.d12ball import D12Ball
 
+LOGGER = logging.getLogger(__name__)
+
+#: The TNP cog, as fool-bot holds it: found by name, so this module
+#: imports nothing from `cogs/tnp*` and a TNP that failed to load leaves
+#: the hub working (docs/design/hub-and-lobby.md).
+TNP_COG_NAME = "Tnp"
+
+#: What the hub's TNP button answers where the TNP cog is not loaded.
+TNP_HUB_UNAVAILABLE = "TNP isn't available right now."
+
 
 def hub_button_emoji(cog: "D12Ball"):
     """
@@ -60,7 +72,7 @@ def hub_button_emoji(cog: "D12Ball"):
 class NewGameHubView(SafeView):
     """
     The persistent view on the hub channel's games message: a button per
-    game -- "D12 Ball", and "Codex" beside it -- whose custom_ids name no
+    game -- "D12 Ball", "Codex" and "TNP" -- whose custom_ids name no
     game and no guild: the interaction carries the guild, and a lobby
     does not exist yet. The roles live on a message of their own
     (`HubRolesView`), so a game added here never reflows the roles.
@@ -71,6 +83,10 @@ class NewGameHubView(SafeView):
     mention, `</codex create_game:ID>`, which puts the command in the clicker's
     message box when clicked (docs/design/codex.md, "fool-bot's hub points
     at the lobby").
+
+    **TNP's button opens a TNP lobby itself**, since TNP is a cog in
+    fool-bot's own application (docs/design/tnp.md): the click is handed
+    to the TNP cog's `open_lobby`, found on the bot by name.
     """
 
     def __init__(self, cog: "D12Ball"):
@@ -95,11 +111,33 @@ class NewGameHubView(SafeView):
         codex.callback = self.codex_lobby
         self.add_item(codex)
 
+        tnp = discord.ui.Button(
+            label="TNP",
+            style=discord.ButtonStyle.success,
+            custom_id="d12ball:hub:tnp",
+        )
+        tnp.callback = self.tnp_lobby
+        self.add_item(tnp)
+
     async def open_lobby(self, interaction: discord.Interaction) -> None:
         await self.cog.open_lobby(interaction)
 
     async def codex_lobby(self, interaction: discord.Interaction) -> None:
         await interaction.response.send_message(codex_lobby_prompt(), ephemeral=True)
+
+    async def tnp_lobby(self, interaction: discord.Interaction) -> None:
+        """
+        The TNP cog's `open_lobby`: a lobby channel in TNP Games with the
+        clicker in the Blue seat, as `/tnp create_game` makes. Where the
+        cog is not loaded, the clicker is told privately and it is logged
+        at ERROR, since somebody has to fix the cog.
+        """
+        open_lobby = getattr(self.cog.bot.get_cog(TNP_COG_NAME), "open_lobby", None)
+        if open_lobby is None:
+            LOGGER.error("The hub's TNP button was pressed, but the TNP cog is not loaded.")
+            await interaction.response.send_message(TNP_HUB_UNAVAILABLE, ephemeral=True)
+            return
+        await open_lobby(interaction)
 
 
 class HubRolesView(SafeView):

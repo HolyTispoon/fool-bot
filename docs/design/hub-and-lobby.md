@@ -9,11 +9,12 @@ stays, for anyone who prefers the command; the lobby now covers everything it
 does bar naming specific opponents up front). Two pieces:
 
 - **The hub** is one locked channel per server carrying two persistent
-  messages: the **games message**, with a **D12 Ball** button and a
-  **Codex** button beside it (`NewGameHubView`, in
+  messages: the **games message**, with a **D12 Ball** button, a
+  **Codex** button and a **TNP** button beside it (`NewGameHubView`, in
   `cogs/d12ball_views/lobby.py`; the Codex one answers privately with
   the `/codex create_game` command mention, since the Codex bot is another
-  application -- see "The lobby and the channel" in [codex.md](codex.md)),
+  application -- see "The lobby and the channel" in [codex.md](codex.md);
+  the TNP one opens a lobby itself, below),
   and under it the
   **roles message**, with a toggle button per role (`HubRolesView`, same
   module). An admin registers both by running `/d12ball setup_hub` **in the
@@ -69,6 +70,24 @@ does bar naming specific opponents up front). Two pieces:
   **re-fetched by `/d12ball setup_hub`** so a fresh upload takes without a
   restart. Never a 🎲/🏈/🎮 -- a d6, a gridiron or a video-game pad, none of
   which this is.
+  - **The TNP button opens a TNP lobby itself, where Codex's cannot**
+    (the author, 2026-11-05). Discord delivers a click only to the
+    application that posted the button; the Codex bot is another
+    application, but TNP is a cog in fool-bot ([tnp.md](tnp.md), "A cog
+    in fool-bot"), so its click arrives here. Its custom id,
+    `d12ball:hub:tnp`, names no game and no guild, like the other two.
+    The callback finds the TNP cog **by name on the bot**
+    (`bot.get_cog("Tnp")`) and hands the click to its `open_lobby` --
+    the one `/tnp create_game` calls: a channel `tnp-<n>` under **TNP
+    Games** with the clicker sat as Blue -- where the bot may not make
+    one, a public thread in the hub's channel -- which becomes the game's
+    channel at Start. The view imports nothing from `cogs/tnp*`, so a
+    TNP that failed to load leaves the hub working: the click is
+    answered privately with "TNP isn't available right now" and logged
+    at ERROR. TNP's block in the message is drafted from the rulebook's
+    Overview (docs/tnp-rules.md, 1.2) and awaits the author's copy, as
+    D12 Ball's is the author's. A hub posted before the button gains it
+    at the next `/d12ball setup_hub`, which edits the message.
   `data/d12ball_hubs.json` is untracked runtime state like the saved games, and
   local to each machine -- the message lives in Discord, this is only a pointer.
 

@@ -13,14 +13,11 @@ import logging
 import discord
 from discord import app_commands
 
+from cogs.tnp_helpers import UNAVAILABLE
 from tnp import rules_doc
 from tnp.formatting import unit_lines
 
 LOGGER = logging.getLogger(__name__)
-
-
-#: What every command says while the data has not loaded.
-UNAVAILABLE = "TNP isn't available right now: its data didn't load. The bot's log says why."
 
 
 class ReferenceMixin:

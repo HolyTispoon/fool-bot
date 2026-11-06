@@ -19,7 +19,9 @@ them, and the `/tnp` group in fool-bot with `/tnp unit` and
 model's own driver. Step 3 drew the map, the player board and the
 battle by code. Step 4 built the whole basic game around the battle --
 the turn, the record, the service and the games file -- and played it
-to both wins through the driver alone.
+to both wins through the driver alone. Step 5 put it on Discord as far
+as turn 1: the lobby, the game's channel, the table and each seat's
+panel, and the hub's **TNP** button.
 
 ## A cog in fool-bot, not a bot of its own
 
@@ -572,3 +574,115 @@ marked as the advanced game's, because board v4 prints them.
 `d12ball/fonts/` and never copied. The pictures name a seat "Blue" or
 "Green" and no player: a mention cannot be drawn, and the message the
 picture rides on names the players.
+
+## The lobby, the channel and the table
+
+Step 5 of the worksheet. **`/tnp create_game` and the hub's TNP button
+are one method**, `Tnp.open_lobby` (`cogs/tnp/lobby.py`): a channel
+`tnp-<n>` under **TNP Games** (else a thread, below), the lobby posted in it, and the person
+who asked already sat as Blue. The number is the guild's next
+(`GameService.next_game_number`). The category is TNP's own, apart from
+D12 Ball's PBD categories -- whose names `/debug`'s reset and the pin
+rollover match -- and from the Codex bot's.
+
+- **A channel, else a thread** (the author, 2026-11-06, answering PR #711's question:
+  "should fall back on a thread"). `open_game_place` tries a channel of
+  its own first; where the bot may not make one (no Manage Channels), a
+  public thread named `tnp-<n>` in the channel the lobby was asked for
+  in -- the hub's channel, for the hub's button -- with a week's
+  auto-archive, the longest. The record says which, `TnpGame.venue`
+  ("channel" or "thread"; "channel" in a save from before it). A thread
+  is renamed at Start as a channel is, and **any click or `/tnp`
+  command on an open game in an archived thread first takes it out of
+  the archive** (`wake_thread`, from `SafeView.interaction_check` and
+  the cog's own) -- one request, only while archived -- since a message
+  in an archived thread cannot be edited. Codex's third place, the
+  channel the command was typed in, is not offered. A place whose lobby
+  cannot be posted is deleted and the next tried; where neither can be
+  made, `GameService.discard_game` forgets the lobby and the asker is
+  told what each needs.
+- **The channel is open to the whole server** (and a thread is public),
+  from the lobby to the end, as Codex's is: anyone may read it, talk in it and take the free
+  seat. D12 Ball hides a started game from `@everyone`; TNP need not,
+  since nothing hidden is ever in the channel (below).
+- **The lobby** (`cogs/tnp_views/lobby.py`, `LobbyView`, persistent) is
+  **Sit as Blue**, **Sit as Green**, **Leave** and **Start**. Every move
+  is a service method over the record's own rule (`TnpGame.take_seat`,
+  `leave`, `start`, each refusing with `RuleRefusal`), and a seat taken
+  or given up edits the lobby through the click's own response, which
+  spends nothing from the channel's bucket. Start is either seated
+  player's or a game helper's, with no confirmation, as in D12 Ball's
+  and Codex's lobbies. A **test game** (`/tnp create_game
+  test_game:True`) lets one person sit in both seats, the record's rule
+  since step 4. There is no setting for the advanced game: `set_advanced`
+  refuses it until step 9, so a button would only say no.
+- **Start** deals the opening position through `GameService.start` (one
+  save), renames the channel `tnp-<n>-<blue>-vs-<green>` (each player's
+  name slugged, capped at 100 characters), closes the lobby through the
+  click's own response -- its buttons gone -- and posts **the table**
+  under it. Three requests on the channel's bucket: the lobby's send
+  when it opened, the rename, the table's send
+  (`tests/test_tnp_cog_lobby.py` counts them).
+- **The table** is the game's one public message: the map
+  (`map_brief`, public by construction, captioned "Turn 1 · Infrastructure
+  and Deployment"), and the model's lines (`tnp.formatting.table_lines`):
+  the turn and the phase, and in a phase both seats answer at once,
+  each seat "is planning", "has locked in", or, in the trade, "has
+  nothing to trade". Who is asked is read off `pending_prompts`, the one
+  reading, and nothing of a plan is read at all. **My board**
+  (`TableView`, persistent) is its one button. Step 6 edits the table
+  through `BoardRefresher`'s gate as seats lock in; step 5 posts it once.
+- **The seat tokens are rendered at the door** (`cogs/tnp_helpers.py`,
+  `TnpTokens`): `{seat:blue}` is "**Blue** (Alice)", the seat and its
+  player's name -- never a mention, so the table pings nobody and an
+  edit cannot either. A unit, a facility, an upgrade and an area are
+  `tnp.tokens.plain`'s words.
+- **The startup sweep** (`CoreMixin.restore_saved_views`, run by
+  `cog_load`) re-arms each open lobby's `LobbyView` and each playing
+  game's `TableView` by message id. A game whose match no longer loads is
+  logged with its traceback and skipped, the others re-armed; a playing
+  game with no table message is logged at ERROR, since somebody has to
+  run **`/tnp resume`**, which runs any step the bot owes
+  (`GameService.resume`) and posts a fresh table. `load_games` already
+  skips a game it cannot read, and a games file that is not JSON leaves
+  TNP with no games and **D12 Ball loaded and answering**
+  (`tests/test_tnp_isolation.py`, decision 2). A click on any TNP view
+  while the data has not loaded is told TNP is unavailable
+  (`SafeView.interaction_check`).
+
+**The hub's TNP button** is in [hub-and-lobby.md](hub-and-lobby.md): it
+finds this cog by name and calls `open_lobby`, so it opens a lobby where
+Codex's button can only name a command.
+
+## Hidden information on Discord
+
+A seat's queue and deployment are its own until the phase reveals them
+(TNP 5.2, 5.3). On Discord that is Codex's shape ([codex.md](codex.md),
+"Hidden information on Discord"): **the public message says nothing
+hidden, and what is hidden is ephemeral, to its seat's player alone.**
+
+- **My board** answers the clicker privately, deferred first (a board
+  drawn and uploaded can outlast Discord's three seconds), with **one
+  ephemeral message a seat they hold** -- both, in a test game, where
+  nothing is hidden from one person playing both. Each is the seat's
+  player board (`render_board` over `board_brief`, captioned "Turn 1":
+  the phase's name collided with the pool in the board's header), and
+  the panel's words: whose board, the pool, the prompt's ask and what
+  its options offer -- the units to build with their cost and the most
+  of each, the facilities and upgrades, the units at the base, the
+  attack spots and the territories a ground unit has a path to now. All
+  of it is read off `PendingPrompt.options`; the cog computes none of
+  it. A watcher is told the boards are the players'. Step 6 puts the
+  controls on the panel; until then it says planning on Discord is not
+  built yet.
+- **Where it was checked**: the table's text is `table_lines`, which
+  reads `locked` and the asked seats and no plan
+  (`test_nothing_of_a_plan_reaches_the_channel` saves a plan and reads
+  the table); the map is `map_brief`, which holds no pile March has not
+  revealed; the boards are sent with `ephemeral=True` and drawn for the
+  asked seat alone (`test_my_board_answers_each_player_alone_with_their_own_board`);
+  and the log lines `cogs/tnp*` writes name a game and nothing of a
+  seat's -- `SafeView.on_error` logs the view's class and the item's
+  kind, never the item, whose label will name a seat's units. A
+  refusal is shown to the clicker alone and never logged.
+
