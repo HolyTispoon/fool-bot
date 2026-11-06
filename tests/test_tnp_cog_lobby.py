@@ -431,7 +431,7 @@ class TnpHubButtonTests(unittest.IsolatedAsyncioTestCase):
     def hub(self, tnp_cog):
         d12 = mock.MagicMock()
         d12.d12_button_emoji = None
-        d12.codex_emoji = None
+        d12.codex_emoji = d12.tnp_emoji = None
         d12.bot.get_cog.side_effect = {"Tnp": tnp_cog}.get
         return NewGameHubView(d12)
 
