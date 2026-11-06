@@ -400,7 +400,11 @@ neutral conquest the one ground unit revealed to take the territory
 (TNP 5.5), and a harvest the Workers that did it. The rest of a pile
 that took a neutral territory stays face down in its spot.
 `MatchState.revealed` is the public record of what March showed, which
-`tnp.briefs.map_brief` builds the map from; `board_brief` is the
+`tnp.briefs.map_brief` builds the map from -- **one entry a pile** (a
+seat's units from one spot at one area), a pile shown twice, as a
+conquest's unit and then its harvesting Workers, keeping the most of
+each unit ever shown rather than the two showings added (PR #712: the
+map had drawn "1 Worker" and "3 Worker" as two piles); `board_brief` is the
 seat's own. `tests/test_tnp_driver_full_game.py` holds that the plan
 phase and its reveal name no unit.
 
