@@ -251,6 +251,45 @@ class TnpLobbyTests(unittest.IsolatedAsyncioTestCase):
         # The channel's own bucket is never spent on the lobby's edits.
         table.channel.get_partial_message.assert_not_called()
 
+    async def test_the_lobby_offers_the_factions_with_only_the_humans_playable(self) -> None:
+        table = self.table
+        await table.create_game()
+        view = LobbyView(table.cog, table.game.game_id)
+        self.assertEqual(button(view, "seat_blue").label, "Join as Blue")
+        humans, xzzzx, dragons = (button(view, f"join_{one}") for one in ("humans", "xzzzx", "space_dragons"))
+        self.assertEqual([humans.label, xzzzx.label, dragons.label],
+                         ["Join as Humans", "Join as XzzzX", "Join as Space Dragons"])
+        self.assertEqual([humans.disabled, xzzzx.disabled, dragons.disabled], [False, True, True])
+        self.assertNotIn("Take a seat", table.cog.lobby_text(table.game))
+        # Join as Humans takes the first free seat.
+        await table.click(view, "join_humans", table.green)
+        self.assertEqual(table.game.seats["green"]["id"], 202)
+
+    async def test_the_test_game_button_toggles_and_is_a_seated_players(self) -> None:
+        table = self.table
+        await table.create_game()
+        view = LobbyView(table.cog, table.game.game_id)
+        refused = await table.click(view, "test_game", table.watcher)
+        self.assertIn("seated player", refused.response.send_message.await_args.args[0])
+        self.assertFalse(table.game.test_game)
+        # The basic game is the one to play; the advanced is greyed out.
+        self.assertFalse(button(view, "basic").disabled)
+        self.assertTrue(button(view, "advanced").disabled)
+        refused = await table.click(view, "advanced", table.blue)
+        self.assertIn("not built yet", refused.response.send_message.await_args.args[0])
+        self.assertFalse(table.game.advanced)
+        call = await table.click(view, "test_game", table.blue)
+        self.assertTrue(table.game.test_game)
+        self.assertIn("test game", call.response.edit_message.await_args.kwargs["content"])
+        self.assertEqual(button(call.response.edit_message.await_args.kwargs["view"], "test_game").label,
+                         "Test game: on")
+        # Both seats one person's; turning it off opens Green again.
+        await table.click(view, "seat_green", table.blue)
+        await table.click(view, "test_game", table.blue)
+        self.assertFalse(table.game.test_game)
+        self.assertIsNone(table.game.seats["green"]["id"])
+        self.assertEqual(table.game.seats["blue"]["id"], table.blue.id)
+
     async def test_start_is_refused_until_both_seats_are_taken(self) -> None:
         table = self.table
         await table.create_game()

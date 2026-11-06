@@ -615,16 +615,26 @@ rollover match -- and from the Codex bot's.
   seat. D12 Ball hides a started game from `@everyone`; TNP need not,
   since nothing hidden is ever in the channel (below).
 - **The lobby** (`cogs/tnp_views/lobby.py`, `LobbyView`, persistent) is
-  **Sit as Blue**, **Sit as Green**, **Leave** and **Start**. Every move
+  **Join as Blue**, **Join as Green**, **Leave**, **Start** and **Test
+  game**, and under them **Join as Humans**, **Join as XzzzX** and **Join
+  as Space Dragons** -- the first takes the first free seat, the other two
+  greyed out until those factions' rules come in, so the lobby shows the
+  game has three (`components.FACTIONS`, `PLAYABLE_FACTIONS`; the
+  author, 2026-11-06). The lobby says who sits where and nothing about
+  what to press. Every move
   is a service method over the record's own rule (`TnpGame.take_seat`,
   `leave`, `start`, each refusing with `RuleRefusal`), and a seat taken
   or given up edits the lobby through the click's own response, which
   spends nothing from the channel's bucket. Start is either seated
   player's or a game helper's, with no confirmation, as in D12 Ball's
   and Codex's lobbies. A **test game** (`/tnp create_game
-  test_game:True`) lets one person sit in both seats, the record's rule
-  since step 4. There is no setting for the advanced game: `set_advanced`
-  refuses it until step 9, so a button would only say no.
+  test_game:True`, or the lobby's **Test game** button, a seated
+  player's or a helper's) lets one person sit in both seats, the
+  record's rule since step 4; turned off with one person in both, they
+  keep Blue and Green opens (`TnpGame.set_test_game`). **Basic game** and
+  **Advanced game** are on the lobby, the advanced greyed out:
+  `set_advanced` refuses it until step 9, and the author wanted the
+  lobby to show the game has two (2026-11-06).
 - **Start** deals the opening position through `GameService.start` (one
   save), renames the channel `tnp-<n>-<blue>-vs-<green>` (each player's
   name slugged, capped at 100 characters), closes the lobby through the

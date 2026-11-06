@@ -996,6 +996,9 @@ D12_EMOJI_NAME = "d12dice"
 # upload of `codex/images/emoji/codex.png`, since an application emoji
 # belongs to one application and the Codex bot's is not fool-bot's.
 CODEX_HUB_EMOJI_NAME = "codex"
+#: TNP's hub emoji, uploaded to fool-bot's application from
+#: `tnp/images/emoji/tnp.png`; the hub goes without it until then.
+TNP_HUB_EMOJI_NAME = "tnp"
 D12_BUTTON_EMOJI_NAME = "d12dicecream"
 
 
@@ -1083,6 +1086,7 @@ def codex_lobby_prompt(path: Optional[Path] = None) -> str:
 def build_hub_message(
     d12_emoji: Optional[str] = None,
     codex_emoji: Optional[str] = None,
+    tnp_emoji: Optional[str] = None,
 ) -> str:
     """
     The single message the game-creation hub channel carries. `/d12ball
@@ -1094,12 +1098,14 @@ def build_hub_message(
     about which decks the bot plays, and no command, since the hub's
     **Codex** button answers with that (`codex_lobby_prompt`).
     `codex_emoji` is fool-bot's own upload of the medallion
-    (`CODEX_HUB_EMOJI_NAME`). The TNP description is drafted from the
-    rulebook's Overview (docs/tnp-rules.md, 1.2) for the author to approve
-    or rewrite; TNP's button opens a lobby itself.
+    (`CODEX_HUB_EMOJI_NAME`). The TNP description is the author's own
+    copy (2026-11-06); keep it verbatim. `tnp_emoji` is fool-bot's
+    upload of `tnp/images/emoji/tnp.png` (`TNP_HUB_EMOJI_NAME`); TNP's
+    button opens a lobby itself.
     """
     d12 = f"{d12_emoji} " if d12_emoji else ""
     codex = f"{codex_emoji} " if codex_emoji else ""
+    tnp = f"{tnp_emoji} " if tnp_emoji else ""
     return (
         "## Prophetic Fools Games\n\n"
         "Hello! This is the game-creation channel of the Prophetic Fools "
@@ -1117,13 +1123,14 @@ def build_hub_message(
         "unlock stronger units and spells, and add cards from your codex "
         "to your deck as you play. Send your heroes and units at the other "
         "base, patrol to defend your own, and win by destroying theirs.\n\n"
-        "### The New Project\n\n"
-        "The New Project is a strategy game of rival harvesting operations "
-        "on one planet with finite resources, where both players play every "
-        "phase at the same time. Build your base, produce units in secret "
-        "and deploy them face down, then reveal them as the attacks launch: "
-        "outsmart and bluff your opponent to harvest 51% of the planet, or "
-        "take their base."
+        f"### {tnp}The New Project\n\n"
+        "The New Project is a strategy game inspired by real-time strategy "
+        "video games like starcraft. It pits two players head to head in a "
+        "race to harvest a planet while building their base, investing in "
+        "military technology, and battling each other. Producing units and "
+        "deploying is done by simultaneous action in secret, introducing a "
+        "bluffing and guessing element to the game. Harvest 51% of the "
+        "planet, or take their base to win the game!"
     )
 
 
