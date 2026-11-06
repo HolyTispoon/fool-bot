@@ -49,7 +49,7 @@ class TnpCogLoadsTests(unittest.IsolatedAsyncioTestCase):
             group = bot.tree.get_command("tnp")
             self.assertIsNotNone(group)
             self.assertLessEqual(len(group.description), 100)
-            self.assertEqual({command.name for command in group.commands}, {"unit", "rules"})
+            self.assertEqual({command.name for command in group.commands}, {"create_game", "resume", "unit", "rules"})
             for command in group.commands:
                 self.assertLessEqual(len(command.description), 100)
             self.assertIsNotNone(bot.get_cog("Tnp").catalog)
@@ -59,8 +59,8 @@ class TnpCogLoadsTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_data_is_logged_and_never_raised(self) -> None:
         bot = tnp_bot()
         cog = Tnp(bot)
-        with mock.patch("cogs.tnp.load", side_effect=CatalogError("humans.json: gone")), \
-                self.assertLogs("cogs.tnp", "ERROR"):
+        with mock.patch("cogs.tnp.core.load", side_effect=CatalogError("humans.json: gone")), \
+                self.assertLogs("cogs.tnp.core", "ERROR"):
             await cog.cog_load()
         self.assertIsNone(cog.catalog)
         fake = interaction()
