@@ -625,6 +625,33 @@ class BaseTests(unittest.TestCase):
         self.assertEqual((left.type, left.needed, left.modifier), ("armored", 3, -1))
         self.assertEqual((right.type, right.needed, right.modifier), ("armored", 3, -1))
 
+    def test_every_force_is_minus_one_a_column(self) -> None:
+        """TNP 6.7, 6.9: any force takes −1 a column, engaged, alone or flanking, to a force
+        or to a base card's place beyond the end of the line; a flanker's +1 is its own
+        column's force's alone."""
+        engine, match = stage(
+            {"mercenary": 1, "jeep": 1, "cyborg_soldier": 1}, {"mercenary": 1},
+            territory="green_base", structures=self.STRUCTURES,
+        )
+        place(engine, match, "green:mercenary", "column:0")
+        place(engine, match, "blue:mercenary", "engage:0")
+        place(engine, match, "blue:jeep", "column:1")
+        place(engine, match, "blue:cyborg_soldier", "flank:0")
+        while (prompt := asked(engine, match)).kind is RETREAT:
+            fight_on(engine, match)
+        # The line: column 0 the Mercenaries, Blue's Cyborgs behind; column 1 Blue's Jeep alone.
+        self.assertEqual(target_option(prompt, "blue:jeep", "green:mercenary").modifier, -1)
+        self.assertEqual(target_option(prompt, "blue:jeep", "base_left").modifier, -2)
+        self.assertEqual(target_option(prompt, "blue:jeep", "base_right").modifier, -1)
+        self.assertEqual(target_option(prompt, "blue:mercenary", "base_right").modifier, -2)
+        shoot(engine, match, "blue:mercenary", "green:mercenary", rolls=[2])
+        shoot(engine, match, "blue:jeep", "green:mercenary", rolls=[2])
+        shoot(engine, match, "green:mercenary", "blue:mercenary", rolls=[2])
+        prompt = asked(engine, match)
+        self.assertEqual(target_option(prompt, "blue:cyborg_soldier", "green:mercenary").modifier, 1)
+        self.assertEqual(target_option(prompt, "blue:cyborg_soldier", "base_left").modifier, -1)
+        self.assertEqual(target_option(prompt, "blue:cyborg_soldier", "base_right").modifier, -2)
+
     def test_two_hits_destroy_one_thing_an_attack(self) -> None:
         """TNP 6.9: 2 hits destroy one thing, the attacker's choice -- an upgrade before its facility,
         never the Barracks or Base Defenses -- and one thing an attack."""
