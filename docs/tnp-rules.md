@@ -491,11 +491,15 @@ placed opposite an opposing force forms a **column** with it, and both
 are **engaged**.
 
 - **Each round, only unengaged forces are placed** (the author,
-  2026-11-05). In round 1 that is every force; later, every force not
-  in an engaged pair -- a force whose opponent was destroyed or
-  retreated, a force alone in its column, and every flanking force,
-  which is placed again (the author, 2026-11-06). A round in which
-  neither seat has an unengaged force places nothing.
+  2026-11-05). In round 1 that is every force; later, a force whose
+  opponent was destroyed or retreated, or that is alone in its column.
+  A round in which neither seat has a force to place places nothing.
+- **Flanking forces stay where they stand, or are repositioned**: at
+  the start of each round after the first, a seat with flanking forces
+  in the line keeps each where it is or takes it out to be placed again
+  with the others -- its choice, the attacker's first (the author,
+  2026-11-06). A flanking force behind a force that is placed again is
+  placed again with it.
 - **Who places first.** With an advantage of N, the seat without it
   places N forces first. With no advantage, the defender places first
   (the author, 2026-11-05).
@@ -863,8 +867,9 @@ One line per change, dated, with where it came from.
   PR #704.)
 - 2026-11-05: An air force always retreats, with no path home -- 6.6.
   (The author, answering PR #704.)
-- 2026-11-06: Flanking forces are placed again each round, like every
-  force not in an engaged pair -- 6.5. (The author, answering PR #708.)
+- 2026-11-06: Flanking forces may be repositioned each round, or kept
+  where they stand -- 6.5. (The author, answering PR #708; at first
+  read as "placed again" every round, corrected the same day.)
 - 2026-11-06: The placing order: after the advantage's placements, a
   seat's turn engages every unengaged force of the other seat it can,
   then places one new force, and ends; flanking only once every force
