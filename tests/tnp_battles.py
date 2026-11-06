@@ -42,11 +42,14 @@ def stage(
     modifiers: tuple = (),
     damaged: Optional[Mapping[str, Mapping[str, int]]] = None,
     rolls: Optional[Iterable[int]] = None,
+    answers_the_only_choice: bool = False,
 ):
     """A battle opened and run to its first question: `attacker`'s units
     for `attacking`, `defender`'s for the other seat. The territory is
-    held by the defender unless `held` is false (or it is contested)."""
-    engine = RulesEngine(rng=random.Random(seed))
+    held by the defender unless `held` is false (or it is contested).
+    Every question is asked, one answer or not, unless
+    `answers_the_only_choice` -- the game's own setting -- is on."""
+    engine = RulesEngine(rng=random.Random(seed), answers_the_only_choice=answers_the_only_choice)
     match = MatchState()
     defending = "green" if attacking == "blue" else "blue"
     area = engine.catalog.areas[territory]

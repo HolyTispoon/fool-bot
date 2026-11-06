@@ -106,7 +106,7 @@ def _waiting(engine: "RulesEngine", match: "MatchState", result: StepResult) -> 
     is needed, and `next` is the one reading's."""
     from tnp.prompts import pending
 
-    _settle(engine, match.battle)
+    _settle(engine, match, result)
     result.next = pending(engine, None, match)
     return result
 
@@ -501,7 +501,8 @@ def answer_reposition(engine: "RulesEngine", match: "MatchState", choice: str,
 # -- Placing a force -------------------------------------------------------------
 
 
-def answer_place(engine: "RulesEngine", match: "MatchState", force: str, slot: str) -> StepResult:
+def answer_place(engine: "RulesEngine", match: "MatchState", force: str, slot: str,
+                 forced: bool = False) -> StepResult:
     """
     One force into the line (TNP 6.5), where `slots` allows it, and who
     places next. The advantage's opening placements (`run_left`) are made
@@ -534,6 +535,9 @@ def answer_place(engine: "RulesEngine", match: "MatchState", force: str, slot: s
         column.flank.setdefault(seat, []).append(chosen.id)
         behind = battle.force(column.front[seat])
         result.narration.append(f"{force_words(chosen)} flank behind {force_words(behind)}.")
+    if forced:
+        # Placed for the seat, there being nowhere else (`_only_answer`).
+        result.narration[-1] = result.narration[-1][:-1] + ", the only place they could go."
     mine, theirs = bool(unplaced(battle, seat)), bool(unplaced(battle, other(seat)))
     if battle.run_left > 0:
         battle.run_left -= 1
@@ -610,7 +614,8 @@ def answer_retreat(engine: "RulesEngine", match: "MatchState", choice: str,
 # -- Damage ----------------------------------------------------------------------
 
 
-def answer_target(engine: "RulesEngine", match: "MatchState", force: str, target: str) -> StepResult:
+def answer_target(engine: "RulesEngine", match: "MatchState", force: str, target: str,
+                  forced: bool = False) -> StepResult:
     """
     A force's seat chooses its target, and the force rolls at once
     (TNP 6.7, decision 8): a die a unit, or one for every two if Poor,
@@ -644,8 +649,11 @@ def answer_target(engine: "RulesEngine", match: "MatchState", force: str, target
     # what it did -- the rating against the target's type and each
     # modifier by its reason (TNP 4.1, 4.2).
     shown = ", ".join(str(die) for die in rolled) if rolled else "no dice"
+    # Rolled for the seat where it had one force and one target
+    # (`_only_answer`), and said so.
+    only = ", the only force to roll, at its only target," if forced else ""
     result.narration.append(
-        f"{force_words(shooter)} fire at {_target_words(battle, target)}: rolled {shown} "
+        f"{force_words(shooter)}{only} fire at {_target_words(battle, target)}: rolled {shown} "
         f"({roll_reason(rating, against, bonus, parts)}) — {hit} hit{'' if hit == 1 else 's'}."
     )
     if target in BASE_CARDS:
@@ -945,13 +953,57 @@ def finish(engine: "RulesEngine", battle: BattleState, result: StepResult,
 # -- Moving on where nobody is asked ---------------------------------------------
 
 
-def _settle(engine: "RulesEngine", battle: Optional[BattleState]) -> None:
+def _only_answer(engine: "RulesEngine", battle: BattleState) -> Optional[tuple[str, str, str]]:
+    """
+    A question with one answer, which is answered for its seat rather
+    than asked (the author, 2026-11-06, on PR #713): a placing with one
+    force left and one place for it (TNP 6.5), and a target where the
+    seat has one force to roll and it one target (TNP 6.7). `("place",
+    force, slot)` or `("target", force, target)`, or `None`. A question
+    with a "no" in it -- a retreat, a repair, a splash -- always has a
+    choice, and is asked.
+    """
+    if not engine.answers_the_only_choice:
+        return None
+    if battle.phase == PLACE and battle.to_place is not None:
+        forces = unplaced(battle, battle.to_place)
+        if len(forces) == 1:
+            found = slots(engine, battle, battle.to_place, forces[0])
+            if len(found) == 1:
+                return ("place", forces[0].id, found[0])
+    if battle.phase == DAMAGE:
+        seat = roller(engine, battle)
+        if seat is not None:
+            shooters = rollers(engine, battle, seat)
+            if len(shooters) == 1:
+                found = aimed(engine, battle, shooters[0])
+                if len(found) == 1:
+                    return ("target", shooters[0], found[0])
+    return None
+
+
+def _settle(engine: "RulesEngine", match: "MatchState", result: StepResult) -> None:
     """
     Move the battle past every point that asks nobody: the placing done,
-    the retreats asked, the group's rollers done. It stops at a question
-    or at a step the bot owes (`tnp.prompts.pending` reads which).
+    the retreats asked, the group's rollers done, and a question with one
+    answer answered for its seat (`_only_answer`) -- its lines and rolls
+    joined to `result`, so it is reported where it happened. It stops at
+    a question or at a step the bot owes (`tnp.prompts.pending` reads
+    which).
     """
+    battle = match.battle
     while battle is not None and battle.outcome is None and not battle.owed:
+        only = _only_answer(engine, battle)
+        if only is not None:
+            kind, force, where = only
+            if kind == "place":
+                ran = answer_place(engine, match, force, where, forced=True)
+            else:
+                ran = answer_target(engine, match, force, where, forced=True)
+            result.narration.extend(ran.narration)
+            result.rolls.extend(ran.rolls)
+            result.board_changed = result.board_changed or ran.board_changed
+            return
         if battle.phase == PLACE:
             if battle.to_place is not None:
                 return
