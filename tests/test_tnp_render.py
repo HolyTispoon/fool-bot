@@ -51,7 +51,8 @@ class TnpAttackPictureTests(unittest.TestCase):
         for area in catalog().areas:
             image = picture(render_attack(catalog(), brief, area, "A"))
             self.assertEqual(image.format, "PNG")
-            self.assertEqual(image.width, 1064, area)
+            # The map alone, no wider than its square and the padding.
+            self.assertLessEqual(image.width, 900 + 64, area)
 
     def test_revealed_piles_add_their_tiles(self) -> None:
         bare = picture(render_attack(catalog(), opening_map(catalog()), "14", "A"))
@@ -61,7 +62,8 @@ class TnpAttackPictureTests(unittest.TestCase):
                       Pile("green", "9", "A", {"worker": 2})),
         )
         shown = picture(render_attack(catalog(), brief, "14", "A"))
-        self.assertGreater(shown.height, bare.height)
+        # The piles stand in a column right of the map.
+        self.assertGreater(shown.width, bare.width)
 
 
 class TnpMapMarksFitTests(unittest.TestCase):

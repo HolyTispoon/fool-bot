@@ -798,16 +798,19 @@ taken the revealed piles off it.
   PR #712: "show the piles of units", "only part of the map, the
   target territory with a bit of its surrounding"). `render_attack`
   draws the whole map's brief -- so it holds nothing the map does not
-  -- over a window around the territory: the territory whole and ringed
-  in gold, and the widest part of every area beside it, where its
-  number stands, with a margin, at least 900 map pixels a side and no
-  narrower than tall, slid to stay inside the map, and drawn up to
-  twice as near as the whole map at about 1,000 pixels wide. A
-  neighbour's marks are drawn only where they fit inside the window
-  whole: half a token at the edge says nothing. Under the map, each
-  pile revealed at that area -- an attack's, or in a battle the
-  defense's too -- is its seat's name and spot and a tile a unit: the
-  count, the name, the unit type's stripe. `scripts/render_tnp_sample.py`
+  -- over a square around the territory: the territory whole, ringed in
+  red, a colour no token, seat or unit type is drawn in (the author,
+  2026-11-06: "a color other than gold"), with 60 map pixels round it
+  -- the edges of its neighbours -- at least 480 a side, slid to stay
+  inside the map, and drawn on a side of 900 pixels, at most two and a
+  half times as near as the whole map ("zoom in more on the
+  territory"). A neighbour's marks are drawn only where they fit inside
+  the window whole: half a token at the edge says nothing. The map is
+  on the left ("move it to the left") and the piles in a column on its
+  right: each pile revealed at that area -- an attack's, or in a battle
+  the defense's too -- is its seat's name and spot and a tile a unit,
+  two a row, large enough to read where Discord shows the picture
+  small: the count, the name, the unit type's stripe. `scripts/render_tnp_sample.py`
   draws two (`attack-A-2.png`, one pile; `attack-B-9.png`, a defense
   and an attack).
 - **A battle met in March** posts its opening lines and "battles arrive
