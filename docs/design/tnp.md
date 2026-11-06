@@ -393,9 +393,10 @@ finished, is faded rather than hidden, as the printed board shows every
 unit. The footer is the d12's numbers, the limits and the conversion
 rates, normal and emergency, each read from `human_board.json`.
 
-**The battle** is the line as columns: the defender's row above the
-middle line and the attacker's below, each seat's flanking forces on
-the outside of its front row, the rows named at the left. A force tile
+**The battle** is the line as columns: the attacker's row above the
+middle line and the defender's below (the author, 2026-11-06), each
+seat's flanking forces on the outside of its front row, the rows named
+at the left. A force tile
 is its unit, its count, its type's stripe, and chips for its damage
 tokens, this group's hits and removals not yet taken off (TNP 6.7), the
 units retreating and whether it has rolled. A base battle has its two
@@ -404,6 +405,24 @@ armored, with the base's structures and what the base card destroyed
 under the field. The round track, the scouting advantage and the group
 rolling are in the heading, and the forces not yet placed in a tray at
 each seat's edge.
+
+**Sized for Discord, and white** (the author, 2026-11-06, on the first
+renders: "a lot of the writing is too small", and an off-white is made
+white). Discord shows a picture at a third of its width or less until
+it is opened, so no word is drawn smaller than `render.SMALLEST`
+(16 pixels) on a picture 1,600 to 1,700 wide, and the map's marks --
+its numbers, tokens, Stranded tokens and pile discs -- are larger
+still. Every fill is white or a colour that means something: a chip is
+white with an outline, a rating's cell green, amber, red or grey, a
+held territory its seat's tint. No beige or cream is left.
+
+**No unit art** (the author, 2026-11-06, answering decision 6's open
+offer): the board and the battle name a unit and colour it by its type,
+and the Drive's unit pictures are not imported.
+
+**The board's footer keeps the advanced game's limits** (the author,
+2026-11-06) -- one building tech a facility, two tech facilities --
+marked as the advanced game's, because board v4 prints them.
 
 **Fonts** are D12 Ball's Roboto Slab, read by absolute path from
 `d12ball/fonts/` and never copied. The pictures name a seat "Blue" or

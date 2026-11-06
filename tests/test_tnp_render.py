@@ -12,7 +12,9 @@ from PIL import Image
 
 from tnp.briefs import DEFENSE, BoardBrief, MapBrief, Pile, opening_board, opening_map
 from tnp.catalog import catalog
-from tnp.render import BATTLE_WIDTH, BOARD_WIDTH, render_battle, render_board, render_map
+from tnp.render import (
+    BATTLE_WIDTH, BOARD_WIDTH, PILE_HEADING, PILE_PITCH, render_battle, render_board, render_map,
+)
 from tnp_battles import fight, stage
 
 
@@ -26,7 +28,7 @@ class TnpMapPictureTests(unittest.TestCase):
     def test_the_opening_map(self) -> None:
         image = picture(render_map(catalog(), opening_map(catalog())))
         self.assertEqual(image.format, "PNG")
-        self.assertEqual(image.size, (1627, 1242))
+        self.assertEqual(image.size, (1627, 1282))
 
     def test_revealed_piles_add_a_row_of_cards_a_three(self) -> None:
         piles = tuple(Pile("blue", "8", "A", {"mercenary": 2}) for _ in range(4))
@@ -35,7 +37,7 @@ class TnpMapPictureTests(unittest.TestCase):
             stranded={"8": ("blue",)}, revealed=piles + (Pile("green", "9", DEFENSE, {"worker": 1}),),
             caption="Turn 2 · March",
         )
-        self.assertEqual(picture(render_map(catalog(), brief)).size, (1627, 1242 + 40 + 2 * 100))
+        self.assertEqual(picture(render_map(catalog(), brief)).size, (1627, 1282 + PILE_HEADING + 2 * PILE_PITCH))
 
 
 class TnpBoardPictureTests(unittest.TestCase):
