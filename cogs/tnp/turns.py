@@ -456,7 +456,11 @@ class TurnMixin:
         table_moved = quiet or plan.settled or any(post.kind != "round" for post in posts) or (
             result.board_changed and plan.battle is None and plan.ended is None
         )
-        if table_moved:
+        if match is not None and match.winner is not None:
+            # The win was announced in the lines above, once: the table
+            # becomes the final message, and the channel is archived.
+            await self.finish_game(channel, game)
+        elif table_moved:
             await self.boards.refresh(channel, game)
 
     async def attack_file(self, spot: str, area: str, brief) -> discord.File:

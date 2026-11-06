@@ -457,7 +457,7 @@ step's prompt is below, after the preamble every prompt begins with.
 | ~~5~~ | ~~The lobby, the channel and the opening position -- landed; what it settled is in docs/design/tnp.md~~ | medium | two people reach turn 1 on Discord, one of them from a **TNP** button on the hub, each with a player board the other cannot see |
 | ~~6~~ | ~~The simultaneous turn on Discord -- landed; what it settled is in docs/design/tnp.md~~ | large | two people play Infrastructure to Cleanup, with neutral conquests, a harvest and a trade; a restart mid-phase keeps both plans |
 | ~~7~~ | ~~Battles on Discord -- landed; what it settled is in docs/design/tnp.md~~ | large | two people fight a battle on Discord round by round, and the request count per round is measured and within the gate |
-| 8 | Finishing a game | small | a game is won, ends, offers a rematch and is archived; a seeded whole basic game is pinned byte for byte as the golden |
+| ~~8~~ | ~~Finishing a game -- landed; what it settled is in docs/design/tnp.md~~ | small | a game is won, ends, offers a rematch and is archived; a seeded whole basic game is pinned byte for byte as the golden |
 | 9 | The advanced game: the technology cards | large | the advanced game chosen in the lobby; harvests draw from the three decks, and tactic cards, building techs and tech facilities all play on Discord; every Human tech row does what it says, with the author's d12 values; `/tnp card grenades` answers |
 | -- | Later, and not now | -- | XzzzX and Space Dragons; an AI; undo; a web page like the Codex site |
 

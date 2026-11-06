@@ -24,7 +24,9 @@ as turn 1: the lobby, the game's channel, the table and each seat's
 panel, and the hub's **TNP** button. Step 6 put the turn on Discord:
 each seat's controls, March posted attack spot by attack spot, the
 trade, Cleanup -- everything but a battle. Step 7 put the battle on
-Discord, on a message of its own, round by round.
+Discord, on a message of its own, round by round. Step 8 finished a
+game: the win, a concession, an abandon, the rematch, the archive, and
+the golden.
 
 ## A cog in fool-bot, not a bot of its own
 
@@ -998,4 +1000,95 @@ window, made minutes apart.
 battle has revealed and nothing else: the heading, the battle's own
 lines and its picture, all from `BattleState`, which is public (TNP 6.1).
 Nothing of either seat's plan beyond the battle's own units is read.
+
+
+## The end of a game
+
+Step 8 of the worksheet, Codex's shape ([codex.md](codex.md), "The end
+of a game"): a game is won, ends, offers a rematch and is archived.
+
+- **A game is won one of three ways**: a fallen base (TNP 1.3, in
+  `settle_battle`), 51% of the planet's tokens harvested (counted at
+  Cleanup), or a concession -- `tnp.flow.turn.concede`, the other seat
+  winning, `MatchState.won_by` `"concession"` beside `"base"` and
+  `"harvest"`. A concession is a door of the service's own
+  (`GameService.concede`), not a prompt kind: it answers no question and
+  is open to either seat at any moment. It drops a battle being fought
+  or an attack being resolved where it stands -- the game is over, so
+  nothing of it is put on the map -- and is refused once the game is
+  over. No new `MatchState` field: who conceded is the loser, and
+  `won_by` says how.
+- **The win is announced once**, in the lines that won it ("Blue wins
+  the game: Green base has fallen.", "Blue concedes. Green wins the
+  game."), posted as any turn's lines are. **The table becomes the final
+  message**: the final map, the model's line saying who won and how
+  (`table_lines`, `WON_HOW`: "Blue has won: the other seat's base has
+  fallen."), and **Rematch** in place of **My board** (`Tnp.table_view`,
+  the gate's `keep_view` too). That edit is made outside the gate
+  (`stand_table`), once the gate's pending write is dropped
+  (`BoardRefresher.forget`): the gate's text-only edit keeps whatever
+  view it finds, and a trailing write would put **My board** back. A
+  battle being fought when the game ends -- a concession mid-battle --
+  has its message closed, its controls taken off. The record follows
+  the match in the same save, as since step 4.
+- **The channel is moved to TNP Archive** (`archive_channel`), its name
+  and permissions left as they are; a game's thread is archived
+  instead. The move is the channel's own route, not the messages' edit
+  bucket, so a concession's end spends two from the bucket -- the line
+  and the table's edit (`test_a_concession_ends_the_game_with_rematch_on_the_table`).
+- **`/tnp concede`** is the clicker's own seat, behind a second click:
+  it answers privately with **Concede as Blue** (and **as Green**, in a
+  test game) and **Cancel** (`ConcedeConfirmView`). Nobody concedes for
+  anybody else, a helper included. A command only: no Concede button sits
+  beside the controls, where a slip could press it.
+- **`/tnp abandon`** is either player's own game, or any game for a
+  helper (Manage Channels); a watcher is refused privately. The game, or
+  the lobby open in the channel, ends with no winner
+  (`GameService.abandon`): the table stands without its button (the
+  lobby without its own), a battle's message without its controls, one
+  public line says who abandoned it, and the channel is archived. An
+  abandoned game offers no rematch. No second click: a command typed in
+  the game's channel, as Codex's.
+- **Rematch** is either player's or a helper's, as the lobby's **Start**:
+  `GameService.rematch` over `TnpGame.rematch` -- a new lobby with the
+  same seats (the one person of a test game), in the same place, the
+  basic game, started from its lobby's **Start** as any game is. The
+  finished record remembers it (`rematch_game_id`; the lobby its
+  `rematch_of`), so a second press finds the lobby rather than opening
+  another. **Rematch** comes off the table in the click's own response,
+  the channel moves back under TNP Games (a thread out of the archive
+  first, since a message in an archived thread cannot be edited), and
+  the lobby is posted there. Refused for a game that is not finished.
+- **The startup sweep** re-arms **Rematch** on a finished game's table
+  until a rematch is opened from it; an abandoned game's messages stand
+  as they are.
+
+### The golden
+
+`tests/test_tnp_golden.py` is TNP's safety net, Codex's
+`test_codex_golden.py` copied: **a seeded whole basic game through
+TNP's `GameService`** -- `create_game`, the two seats, `start`,
+`apply_action` for every answer and `resume` for every step the bot
+owes, with the default `Batching()` -- every `GameResult` written down
+(its groups with their steps and parts, what was carried, the questions
+open and their asks) and the final save beside it, in
+`tests/golden/tnp_service_transcript.txt` and
+`tnp_service_final_match.json`, byte for byte.
+
+- **The game is `test_tnp_driver_full_game`'s base game**: its seed
+  (`SEED = 20261106`), Blue's Raider against Green's Turtle
+  (`tests/tnp_games.py`, which reads the prompts' options and nothing
+  else). On it Blue's Mercenaries take Green's base on turn 6, 29
+  answers in.
+- **It pins the model's voice with its tokens intact**, before any
+  frontend draws one: a faithful change to rendering leaves it alone, a
+  change to the model's wording or to what the game does re-records it
+  -- `FOOLBOT_UPDATE_GOLDEN=1` -- and the pull request that re-records
+  it says so and shows the diff.
+- **Nothing hidden is written into it**: no prompt's options (a plan
+  prompt carries its seat's saved plan), and the test's own action lines
+  leave out a plan's and a trade's contents (`test_no_plan_or_trade_is_written`).
+- What it does not cover: a concession, an abandon or a rematch
+  (`tests/test_tnp_cog_ending.py`), a win at 51% (the full-game test's
+  harvest game), and anything the cog renders.
 

@@ -36,6 +36,7 @@ from gamesaves.tnp.storage import save_games
 from tnp.components import MatchState
 from tnp.engine import RulesEngine
 from tnp.flow import driver
+from tnp.flow import turn
 from tnp.flow.result import FollowOn, FollowOnStep, StepResult
 from tnp.game import GameStatus, RuleRefusal, TnpGame
 from tnp.prompts import PendingPrompt, pending_all, pending_prompts
@@ -270,6 +271,38 @@ class GameService:
         game.abandon()
         self.save()
         return game
+
+    # -- The end ------------------------------------------------------------
+
+    def concede(self, game_id: str, seat: str) -> GameResult:
+        """
+        `seat` gives the game up (`tnp.flow.turn.concede`): the other
+        seat wins, and the match and its record are finished in one save.
+        Who may concede for which seat is the frontend's: the clicker's
+        own seat alone. Refused with `RuleRefusal` once the game is over.
+        """
+        game = self.game(game_id)
+        if game.status is not GameStatus.PLAYING:
+            raise RuleRefusal("This game is not being played.")
+        match = self.load(game)
+        conceded = turn.concede(self.engine, game, match, seat)
+        return self.run(game, match, conceded)
+
+    def rematch(self, game_id: str) -> TnpGame:
+        """
+        A finished game played again: a new lobby with the same seats
+        (`TnpGame.rematch`), remembered on the finished game so a second
+        press finds it rather than opening another. Saved once.
+        """
+        game = self.game(game_id)
+        existing = self.games.get(game.rematch_game_id) if game.rematch_game_id else None
+        if existing is not None:
+            return existing
+        rematch = game.rematch(uuid.uuid4().hex, self.next_game_number(game.guild_id))
+        self.games[rematch.game_id] = rematch
+        game.rematch_game_id = rematch.game_id
+        self.save()
+        return rematch
 
     def start(self, game_id: str) -> GameResult:
         """Start the game: the opening position dealt (`TnpGame.start`,

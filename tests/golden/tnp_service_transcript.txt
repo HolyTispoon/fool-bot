@@ -1,0 +1,224 @@
+=== start
+--- prompt PLAN (blue)
+{seat:blue}, turn 1: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- prompt PLAN (green)
+{seat:green}, turn 1: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 1: PLAN 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt PLAN (green)
+{seat:green}, turn 1: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 2: PLAN 'lock' green (hidden)
+--- narration
+{seat:green} locks in. Both seats have locked in. {seat:blue} spends 4 materials. {seat:green} spends 1 material. March begins. {seat:green} reveals a {unit:worker} in attack A and takes {area:12}. {seat:green}'s 3 {unit:worker} harvest {area:12}: 3 orange minerals, 3 harvested in all. {seat:blue} reveals a {unit:worker} in attack A and takes {area:13}. {seat:blue}'s 3 {unit:worker} harvest {area:13}: 3 orange minerals, 3 harvested in all. {seat:blue} reveals a {unit:mercenary} in attack B and takes {area:10}. March is over.
+Production: everything placed in Infrastructure is finished.
+--- prompt TRADE (blue)
+{seat:blue}, Production and Trade: trade your minerals and gems, then lock in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 3: TRADE 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 4: TRADE 'lock' green (hidden)
+--- narration
+{seat:green} locks in. {seat:blue} trades 3 orange minerals for 6 materials. {seat:green} trades 3 orange minerals for 6 materials.
+Turn 2: Infrastructure and Deployment.
+--- prompt PLAN (blue)
+{seat:blue}, turn 2: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- prompt PLAN (green)
+{seat:green}, turn 2: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 5: PLAN 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt PLAN (green)
+{seat:green}, turn 2: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 6: PLAN 'lock' green (hidden)
+--- narration
+{seat:green} locks in. Both seats have locked in. {seat:blue} spends 1 material. {seat:green} spends 1 material. March begins. {seat:blue} reveals a {unit:worker} in attack A and takes {area:14}. {seat:blue}'s 3 {unit:worker} harvest {area:14}: 3 blue minerals, 6 harvested in all. {seat:green} reveals a {unit:worker} in attack A and takes {area:15}. {seat:green}'s 4 {unit:worker} harvest {area:15}: 4 blue minerals, 7 harvested in all. {seat:blue} reveals a {unit:mercenary} in attack B and takes {area:2}. March is over.
+Production: everything placed in Infrastructure is finished.
+--- prompt TRADE (blue)
+{seat:blue}, Production and Trade: trade your minerals and gems, then lock in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 7: TRADE 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 8: TRADE 'lock' green (hidden)
+--- narration
+{seat:green} locks in. {seat:blue} trades 3 blue minerals for 6 materials. {seat:green} trades 4 blue minerals for 8 materials.
+Turn 3: Infrastructure and Deployment.
+--- prompt PLAN (blue)
+{seat:blue}, turn 3: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- prompt PLAN (green)
+{seat:green}, turn 3: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 9: PLAN 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt PLAN (green)
+{seat:green}, turn 3: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 10: PLAN 'lock' green (hidden)
+--- narration
+{seat:green} locks in. Both seats have locked in. {seat:green} spends 1 material. March begins.
+{seat:blue} reveals a {unit:worker} in attack A and takes {area:5}.
+--- prompt HARVEST (blue)
+{seat:blue}, your Workers harvest {area:5}: choose which tokens they take.
+--- board changed
+=== action 11: HARVEST '' blue {"tokens": {"blue_minerals": 1, "orange_minerals": 2}}
+--- group caller part A
+{seat:blue}'s 3 {unit:worker} harvest {area:5}: 1 blue mineral, 2 orange minerals, 9 harvested in all.
+--- narration
+{seat:green}'s attack A reaches {area:12}, which it holds. {seat:green}'s 5 {unit:worker} harvest {area:12}: 5 orange minerals, 12 harvested in all. {seat:blue} reveals a {unit:mercenary} in attack B and takes {area:1}. March is over.
+Production: everything placed in Infrastructure is finished.
+--- prompt TRADE (blue)
+{seat:blue}, Production and Trade: trade your minerals and gems, then lock in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 12: TRADE 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 13: TRADE 'lock' green (hidden)
+--- narration
+{seat:green} locks in. {seat:blue} trades 1 blue mineral, 2 orange minerals for 6 materials. {seat:green} trades 5 orange minerals for 10 materials.
+Turn 4: Infrastructure and Deployment.
+--- prompt PLAN (blue)
+{seat:blue}, turn 4: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- prompt PLAN (green)
+{seat:green}, turn 4: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 14: PLAN 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt PLAN (green)
+{seat:green}, turn 4: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 15: PLAN 'lock' green (hidden)
+--- narration
+{seat:green} locks in. Both seats have locked in. {seat:green} spends 1 material. March begins.
+{seat:blue} reveals a {unit:worker} in attack A and takes {area:4}.
+--- prompt HARVEST (blue)
+{seat:blue}, your Workers harvest {area:4}: choose which tokens they take.
+--- board changed
+=== action 16: HARVEST '' blue {"tokens": {"blue_minerals": 1, "orange_minerals": 2}}
+--- group caller part A
+{seat:blue}'s 3 {unit:worker} harvest {area:4}: 1 blue mineral, 2 orange minerals, 12 harvested in all.
+--- narration
+{seat:green}'s attack A reaches {area:15}, which it holds. {seat:green}'s 6 {unit:worker} harvest {area:15}: 6 blue minerals, 18 harvested in all. {seat:blue} reveals a {unit:mercenary} in attack B and takes {area:3}. March is over.
+Production: everything placed in Infrastructure is finished.
+--- prompt TRADE (blue)
+{seat:blue}, Production and Trade: trade your minerals and gems, then lock in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 17: TRADE 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 18: TRADE 'lock' green (hidden)
+--- narration
+{seat:green} locks in. {seat:blue} trades 1 blue mineral, 2 orange minerals for 6 materials. {seat:green} trades 6 blue minerals for 12 materials.
+Turn 5: Infrastructure and Deployment.
+--- prompt PLAN (blue)
+{seat:blue}, turn 5: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- prompt PLAN (green)
+{seat:green}, turn 5: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 19: PLAN 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt PLAN (green)
+{seat:green}, turn 5: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 20: PLAN 'lock' green (hidden)
+--- narration
+{seat:green} locks in. Both seats have locked in. {seat:green} spends 1 material. March begins.
+{seat:blue}'s attack A reaches {area:4}, which it holds.
+--- prompt HARVEST (blue)
+{seat:blue}, your Workers harvest {area:4}: choose which tokens they take.
+--- board changed
+=== action 21: HARVEST '' blue {"tokens": {"blue_minerals": 2, "orange_minerals": 1}}
+--- group caller part A
+{seat:blue}'s 3 {unit:worker} harvest {area:4}: 2 blue minerals, 1 orange mineral, 15 harvested in all.
+--- narration
+{seat:green}'s attack A reaches {area:12}, which it holds. {seat:green}'s 7 {unit:worker} harvest {area:12}: 2 orange minerals, 20 harvested in all. {seat:blue} reveals a {unit:mercenary} in attack B and takes {area:11}. March is over.
+Production: everything placed in Infrastructure is finished.
+--- prompt TRADE (blue)
+{seat:blue}, Production and Trade: trade your minerals and gems, then lock in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 22: TRADE 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt TRADE (green)
+{seat:green}, Production and Trade: trade your minerals and gems, then lock in.
+--- board changed
+=== action 23: TRADE 'lock' green (hidden)
+--- narration
+{seat:green} locks in. {seat:blue} trades 2 blue minerals, 1 orange mineral for 6 materials. {seat:green} trades 2 orange minerals for 4 materials.
+Turn 6: Infrastructure and Deployment.
+--- prompt PLAN (blue)
+{seat:blue}, turn 6: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- prompt PLAN (green)
+{seat:green}, turn 6: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 24: PLAN 'lock' blue (hidden)
+--- narration
+{seat:blue} locks in.
+--- prompt PLAN (green)
+{seat:green}, turn 6: Infrastructure and Deployment. Plan what to build and where your units go, then lock in.
+--- board changed
+=== action 25: PLAN 'lock' green (hidden)
+--- narration
+{seat:green} locks in. Both seats have locked in. March begins.
+{seat:blue}'s attack A reaches {area:5}, which it holds.
+--- prompt HARVEST (blue)
+{seat:blue}, your Workers harvest {area:5}: choose which tokens they take.
+--- board changed
+=== action 26: HARVEST '' blue {"tokens": {"blue_minerals": 2, "orange_minerals": 1}}
+--- group caller part A
+{seat:blue}'s 3 {unit:worker} harvest {area:5}: 2 blue minerals, 1 orange mineral, 18 harvested in all.
+--- narration
+{seat:blue} attacks {area:green_base} with 8 {unit:mercenary}.
+{seat:green} defends with 3 {unit:mercenary}.
+--- prompt EMERGENCY_DEFENSE (green)
+{seat:green}, your base is attacked: produce emergency defenses?
+--- board changed
+=== action 27: EMERGENCY_DEFENSE 'none' None {}
+--- narration
+{seat:green} produces no emergency defenses.
+Round 1.
+{seat:green}'s 3 {unit:mercenary} take their place in the line, the only place they could go.
+{seat:blue}'s 8 {unit:mercenary} engage {seat:green}'s 3 {unit:mercenary}, the only place they could go.
+--- prompt DECLARE_RETREAT (blue)
+{seat:blue}, round 1: retreat, or fight on?
+--- board changed
+=== action 28: DECLARE_RETREAT 'fight' None {}
+--- narration
+{seat:blue} fights on.
+--- prompt CHOOSE_TARGET (blue)
+{seat:blue}, initiative 2: choose a force's target.
+=== action 29: CHOOSE_TARGET '' None {"force": "blue:mercenary", "target": "green:mercenary"}
+--- narration
+{seat:blue}'s 8 {unit:mercenary} fire at {seat:green}'s 3 {unit:mercenary}: rolled 11, 1, 2, 3, 4, 1, 10, 6 (Fair against infantry, 6+: each die hits on 6+) — 3 hits. {seat:green}'s 3 {unit:mercenary}, the only force to roll, at its only target, fire at {seat:blue}'s 8 {unit:mercenary}: rolled 7, 5, 11 (Fair against infantry, 6+: each die hits on 6+) — 2 hits. {seat:blue} loses 2 {unit:mercenary}. {seat:green} loses 3 {unit:mercenary}. {seat:blue} wins the battle, and {area:green_base} falls.
+{seat:blue} wins the game: {area:green_base} has fallen.
+--- board changed

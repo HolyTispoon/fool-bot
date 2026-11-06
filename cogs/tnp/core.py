@@ -18,7 +18,7 @@ from typing import Optional
 
 from cogs.d12ball_boards import BoardRefresher
 from cogs.tnp_helpers import TnpTokens
-from cogs.tnp_views import LobbyView, TableView
+from cogs.tnp_views import LobbyView, RematchView, TableView
 from gamelocks import GameLocks
 from gamesaves.tnp.service import Batching, GameService
 from gamesaves.tnp.storage import load_games
@@ -58,7 +58,7 @@ class CoreMixin:
         # a link is a second request after every upload.
         self.boards = BoardRefresher(
             self,
-            keep_view=lambda game: TableView(self, game.game_id),
+            keep_view=lambda game: self.table_view(game),
             links=lambda game: False,
             message_of=lambda game: game.table_message_id,
             text_for=self.table_text_or_none,
@@ -151,6 +151,11 @@ class CoreMixin:
         if game.status is GameStatus.LOBBY:
             if game.message_id is not None:
                 self.bot.add_view(LobbyView(self, game.game_id), message_id=game.message_id)
+            return
+        if game.status is GameStatus.FINISHED:
+            # **Rematch** on its table, until a rematch is opened from it.
+            if game.table_message_id is not None and game.rematch_game_id is None:
+                self.bot.add_view(RematchView(self, game.game_id), message_id=game.table_message_id)
             return
         if game.status is not GameStatus.PLAYING:
             return
