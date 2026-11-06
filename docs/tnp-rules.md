@@ -257,7 +257,7 @@ The rules' own modifiers, in both games:
 
 | Modifier | Section | d12 |
 | --- | --- | --- |
-| Flanking | 6.5 | +1 |
+| Flanking | 6.5 | +1, on top of the position modifier: +1 in its own column, 0 one column away, −1 two away |
 | Position | 6.7 | −1 a column |
 | Attacking a base card | 6.9 | −1 at least |
 
@@ -438,7 +438,10 @@ attacks the territory later in March it fights them.
 
 A seat with no units in the battle has lost it: an attack on a held
 territory with nobody defending it wins at once, and so does an attack
-on an undefended base (1.3).
+on an undefended base (1.3) -- **once its emergency base defense
+(6.2) has been offered**: a base with nobody in its defense spot may
+still produce defenders, and falls only if it has none after (the
+author, 2026-11-06).
 
 ### 6.2 Emergency base defense
 
@@ -488,26 +491,40 @@ placed opposite an opposing force forms a **column** with it, and both
 are **engaged**.
 
 - **Each round, only unengaged forces are placed** (the author,
-  2026-11-05). In round 1 that is every force; later, only the forces
-  whose opponent was destroyed or retreated. A round in which neither
-  seat has an unengaged force places nothing.
+  2026-11-05). In round 1 that is every force; later, a force whose
+  opponent was destroyed or retreated, or that is alone in its column.
+  A round in which neither seat has a force to place places nothing.
+- **Flanking forces stay where they stand, or are repositioned**: at
+  the start of each round after the first, a seat with flanking forces
+  in the line keeps each where it is or takes it out to be placed again
+  with the others -- its choice, the attacker's first (the author,
+  2026-11-06). A flanking force behind a force that is placed again is
+  placed again with it.
 - **Who places first.** With an advantage of N, the seat without it
-  places N forces before the seat with it places one, and the seats
-  then alternate one force at a time. With no advantage, the defender
-  places first, and the seats alternate (the author, 2026-11-05).
-- **The first placement.** The defender's first force starts the line,
-  and the attacker must engage it, by placing a force of its own in
-  front of it. Then the attacker must place another force next to an
-  existing force.
-- **An unengaged force must be engaged.** While the other seat has an
-  unengaged force in the line, the force a seat places must engage one
-  of them, in front of it (the author, 2026-11-05).
-- **When one seat has no forces left to place**, the other places its
-  forces at either end of the line, between any two columns, or
-  **behind** a force of its own already in the line, as **flanking**:
-  a flanking force gains **+1** on its rolls (4.2). A flanking force is
-  adjacent to the force it stands behind, and to that force's
-  neighbours (the author, 2026-11-05).
+  places N forces first. With no advantage, the defender places first
+  (the author, 2026-11-05).
+- **Then the seats take turns** (the author, 2026-11-06). On its turn
+  a seat first **engages**: while the other seat has an unengaged force
+  in the line, every force it places goes in front of one of them.
+  Then it places **one new force**, in a new column at either end of
+  the line or between two columns, for the other seat to engage, and
+  its turn ends. So with no advantage the defender places one force,
+  the attacker engages it and places one, the defender engages that
+  and places one, and so on.
+- **Once every force of the other seat is placed and engaged**, a seat
+  with forces left places them, one after another, either **flanking**
+  -- behind a force of its own in front, where that force has no
+  flanking force yet -- or as a new column (the author, 2026-11-06).
+  Each force has at most one flanking force behind it.
+- **A flanking force attacks at +1** on top of the position modifier
+  every force takes (6.7): the opposing force in its own column at
+  **+1**, a force or base card one column away with no modifier, two
+  away at −1, three away at −2 (4.2) (the author, 2026-11-06: "since
+  flankers get +1, they have no penalty for adjacent columns, −1 for 2
+  away and so forth").
+- **A flanking force is in the same column as the force it stands
+  behind**, and adjacent to it and to every force adjacent to it (the
+  author, 2026-11-06).
 - A **Base Defense** unit cannot flank (7).
 
 ### 6.6 Declaring a retreat
@@ -516,18 +533,28 @@ The attacker may declare a retreat. Only if it does not is the
 defender asked (the author, 2026-11-05).
 
 - The defender of a **base** cannot retreat.
-- **A force retreats only if it has a path home**: a path of
-  territories its seat holds from the territory of the battle to its
-  base, so that it would not be stranded (5.7). A force with no such
-  path cannot retreat (the author, 2026-11-05: "so long as there's a
-  path to the base, units can retreat"). This is the rulebook's
-  "would-be stranded units cannot retreat". **An air force always
-  retreats**, path or none (the author, 2026-11-05); ground units a
-  Chopper Carrier carried still need the path (7).
-- If either seat retreats, the battle ends after this round, and the
-  retreating seat does not attack this round.
-- **A retreat is a defeat.** A force always retreats to its seat's
-  base.
+- **A seat with a path home retreats everything**: a path of
+  territories it holds from the territory of the battle to its base,
+  so that its units would not be stranded (5.7) (the author,
+  2026-11-05: "so long as there's a path to the base, units can
+  retreat"). This is the rulebook's "would-be stranded units cannot
+  retreat".
+- **With no path home, only air units retreat** -- an air force always
+  can (the author, 2026-11-05) -- and the retreating **Chopper
+  Carriers may carry ground units out with them**, up to their
+  capacity, one kind of unit a carrier (7) (the author, 2026-11-06).
+  The ground units they do not carry are left behind, stranded, and
+  **stay and fight**: the battle goes on with them (the author,
+  2026-11-06). A seat with no air unit and no path cannot retreat.
+- **The retreating units do not attack this round**; they may still be
+  hit, and leave at the round's end. Units of the same force that stay
+  roll. **Where a carry splits a force, its hits come off the units
+  staying first**: the retreating units are hit only once every unit
+  they were leaving behind is destroyed (the author, 2026-11-06). Its
+  damaged units count among those staying.
+- **A retreat that takes every unit is a defeat**: the battle ends
+  after this round, and the other seat wins it. A unit always retreats
+  to its seat's base.
 
 ### 6.7 Damage
 
@@ -545,13 +572,14 @@ rolls the dice at once (the author, 2026-11-05). Each die is the
 number rolled plus every modifier (4.2), against the rating's number
 for the target's type (4.1).
 
-**The position modifier** is an engaged force's alone: attacking a
-force in another column, it takes **−1 for each column** it reaches
-across -- −1 for the next column, −2 for the one after -- and attacking
-within its own column, none. **An unengaged force takes no position
-modifier** -- an unengaged force is usually a flanking one (the author,
-2026-11-05). The base cards are the exception: every force attacking
-one takes at least −1 (6.9).
+**The position modifier**: any force attacking a force in another
+column takes **−1 for each column** it reaches across -- −1 for the
+next column, −2 for the one after -- and attacking within its own
+column, none (the author, 2026-11-06: "any force can attack forces in
+other columns with −1 penalty per column", replacing 2026-11-05's "an
+unengaged force takes no position modifier"). A flanking force adds
+its +1 to it (6.5). Every force in front attacking a base card takes
+at least −1 (6.9).
 
 ### 6.8 Hits
 
@@ -566,10 +594,13 @@ Each hit removes one unit from the force attacked, except:
   hit (the author, 2026-11-05).
 - **Splash** (7): when a force with Splash damage hits, its seat may
   also remove one infantry unit, Tough or not, from a force adjacent to
-  the one it hit (the author, 2026-11-05).
+  the one it hit (the author, 2026-11-05) -- **once for each roll that
+  hits**, from a force of the side that was hit, a damaged unit first
+  (the author, 2026-11-06).
 
-**Adjacent** means a force in a neighbouring column, or a force
-flanking it (the author, 2026-11-05).
+**Adjacent** means two forces of one side in the same column -- a
+force and the force flanking it -- or in neighbouring columns (the
+author, 2026-11-05, 2026-11-06).
 
 ### 6.9 The base cards
 
@@ -578,12 +609,14 @@ its line, one at either end (the author, 2026-11-05).
 
 - A force may attack a base card instead of a force. A base card is a
   building, attacked with the force's **armored** rating (the author,
-  2026-11-05). **No force can engage a base card, so every force
-  attacking one is at least −1 for position** (4.2): an engaged force
-  takes −1 for each column from its own to the base card's place beyond
-  the end of the line, and an unengaged force -- alone in its column,
-  or flanking -- takes −1. A flanking force still gains its +1 (6.5)
-  (the author, 2026-11-05).
+  2026-11-05). **No force can engage a base card, so a force attacking
+  one is at least −1 for position** (4.2): the base cards stand on
+  either side of the defender's battle line, as columns of their own
+  just beyond its ends, and a force takes −1 for each column from its
+  own to the base card's, like attacking any force not in its column
+  (the author, 2026-11-06). A flanking force adds its +1 here too
+  (6.5): no modifier against a base card beside its column, −1 one
+  column further.
 - **A force that scores 2 or more hits on a base card destroys one
   thing**, the attacker's choice (the author, 2026-11-05): one upgrade
   of one of the defender's facilities, or, once a facility has no
@@ -600,8 +633,11 @@ its line, one at either end (the author, 2026-11-05).
 
 At the end of each round:
 
-- If a seat retreated, the battle is over, and the other seat wins it.
+- If a seat retreated every unit it had, the battle is over, and the
+  other seat wins it.
 - If a seat has no units left, it has lost, and the other seat wins.
+  **If neither has any left**, nobody wins the battle, and the
+  territory stays as it was (the author, 2026-11-06).
 - Otherwise, the round track moves up one and the next round begins,
   until the sixth round; **after six rounds, the defender wins if it
   still has units**, whatever the base cards have taken (the author,
@@ -656,8 +692,11 @@ are the icons on its card, which the unit sheet lists.
     Carriers, and needs no path (5.3), as air units do;
   - its ground units fight as their own forces, and can take the
     territory (5.5, 6.11);
-  - a unit carried cannot retreat by an air route: it retreats as any
-    force does, only with a path home (6.6).
+  - **on a retreat with no path home, the retreating Chopper Carriers
+    may carry ground units out**, each up to its regular capacity, one
+    kind a carrier; what they do not carry stays and fights (6.6) (the
+    author, 2026-11-06, replacing "a unit carried cannot retreat by an
+    air route" of 2026-11-05).
 
 ## 8. The advanced game
 
@@ -838,3 +877,41 @@ One line per change, dated, with where it came from.
   PR #704.)
 - 2026-11-05: An air force always retreats, with no path home -- 6.6.
   (The author, answering PR #704.)
+- 2026-11-06: Flanking forces may be repositioned each round, or kept
+  where they stand -- 6.5. (The author, answering PR #708; at first
+  read as "placed again" every round, corrected the same day.)
+- 2026-11-06: The placing order: after the advantage's placements, a
+  seat's turn engages every unengaged force of the other seat it can,
+  then places one new force, and ends; flanking only once every force
+  of the other seat is placed and engaged -- replacing the one-at-a-time
+  alternation of 2026-11-05 -- 6.5. (The author, answering PR #708.)
+- 2026-11-06: One flanking force behind a force; a flanking force is in
+  its force's column, and adjacent to what that force is adjacent to --
+  6.5, 6.8. (The author, answering PR #708.)
+- 2026-11-06: With no path home, air units retreat alone and Chopper
+  Carriers may carry ground units out up to capacity; the rest stay and
+  fight, and the battle goes on; a retreat is a defeat only where it
+  takes every unit -- 6.6, 6.10, 7. (The author, answering PR #708.)
+- 2026-11-06: An undefended base may still make its emergency defense
+  before it falls -- 6.1, 6.2. (The author, answering PR #708.)
+- 2026-11-06: Both sides destroyed together: nobody wins, and the
+  territory stays as it was -- 6.10. (The author, answering PR #708.)
+- 2026-11-06: Splash once for each roll that hits, from the side hit, a
+  damaged unit first -- 6.8. (The author, answering PR #708.)
+- 2026-11-06: A flanking force attacks at +1 in its own column, with no
+  modifier one column away, and at −1 a column from two away, replacing
+  +1 everywhere and no position modifier -- 4.2, 6.5, 6.7. (The author,
+  answering PR #708.)
+- 2026-11-06: Any force attacking another column takes −1 a column,
+  not only an engaged one; the base cards are columns beyond the ends
+  of the line, so every force is −1 a column to one, flankers too,
+  replacing a flat −1 for an unengaged force and a flanker's +1 there --
+  6.7, 6.9. (The author, answering PR #708.)
+- 2026-11-06: A force split by a carry takes its hits on the units
+  staying first, the retreating ones only once those are destroyed --
+  6.6. (The author, answering PR #708.)
+- 2026-11-06: A flanking force's +1 is added to the position modifier
+  every force takes, against a base card too: +1 in its own column, 0
+  one column away, −1 two away -- replacing −1 a column from two away
+  and no +1 against a base card -- 6.5, 6.7, 6.9. (The author,
+  answering PR #708.)

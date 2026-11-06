@@ -451,7 +451,7 @@ step's prompt is below, after the preamble every prompt begins with.
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
 | ~~1~~ | ~~The rules, the data and the bot standing up -- landed; what it settled is in docs/design/tnp.md~~ | medium | `docs/tnp-rules.md` read and approved by the author; `/tnp unit tank` answers in the test server |
-| 2 | The battle, with no frontend | large | a test fights any two Human forces to a result with the seeded `engine.rng` and a d12, covering scouting, flanking, the position modifiers, tough, repair, splash, retreat and the base cards |
+| ~~2~~ | ~~The battle, with no frontend -- landed; what it settled is in docs/design/tnp.md~~ | large | a test fights any two Human forces to a result with the seeded `engine.rng` and a d12, covering scouting, flanking, the position modifiers, tough, repair, splash, retreat and the base cards |
 | 3 | The map and the player board, drawn by code | medium | the author compares the drawn map and boards to map 3.3 and board v4, with the d12 hit values, and approves them |
 | 4 | A whole basic game through the driver | large | a test plays Blue against Green from setup to a win -- a fallen base, or 51% harvested -- through `driver.apply` with nothing from `cogs/` or `discord` imported, harvesting tokens and trading them |
 | 5 | The lobby, the channel and the opening position | medium | two people reach turn 1 on Discord, one of them from a **TNP** button on the hub, each with a player board the other cannot see |

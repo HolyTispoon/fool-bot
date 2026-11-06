@@ -107,6 +107,20 @@ class UnitDataTests(unittest.TestCase):
         self.assertEqual(rates["emergency"]["mineral"], {"materials": 1, "gold": None})
         self.assertEqual(rates["emergency"]["gem"], {"materials": 1, "gold": 1})
 
+    def test_the_carriers_capacity(self) -> None:
+        """TNP 7: a Chopper Carrier carries 3 Mercenaries or Workers, 2 Stealth Snipers or
+        Cyborg Soldiers, 2 Jeeps, or 1 Tank or Transformer -- ground units alone."""
+        transport = self.catalog.board["transport"]
+        self.assertEqual(set(transport), {"chopper_carrier"})
+        for carrier, capacity in transport.items():
+            self.assertIn("transport", self.catalog.units[carrier].traits)
+            for unit in capacity:
+                self.assertIsNot(self.catalog.units[unit].type, UnitType.AIR, unit)
+        self.assertEqual(transport["chopper_carrier"], {
+            "mercenary": 3, "worker": 3, "stealth_sniper": 2, "cyborg_soldier": 2,
+            "jeep": 2, "tank": 1, "the_transformer": 1,
+        })
+
     def test_the_technology_rows_with_no_count_are_left_out(self) -> None:
         techs = self.catalog.techs
         for slug in ("shields", "positioning", "air_cover"):

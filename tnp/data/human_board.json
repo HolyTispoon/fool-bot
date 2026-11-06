@@ -221,5 +221,17 @@
         "max": 8
       }
     ]
+  },
+  "transport": {
+    "_comment": "Each Chopper Carrier's regular capacity, one kind of unit a carrier, without mixing (docs/tnp-rules.md, 7: Transport). Step 9's Improved Carrier Capacity raises it.",
+    "chopper_carrier": {
+      "mercenary": 3,
+      "worker": 3,
+      "stealth_sniper": 2,
+      "cyborg_soldier": 2,
+      "jeep": 2,
+      "tank": 1,
+      "the_transformer": 1
+    }
   }
 }

@@ -158,7 +158,8 @@ class Catalog:
     techs: Mapping[str, Tech]
     areas: Mapping[str, Area]
     #: human_board.json's numbers that are not a facility or an upgrade:
-    #: max_supply, conversion, starting, limits.
+    #: max_supply, conversion, starting, limits, and transport -- each
+    #: carrier's capacity by the unit carried (TNP 7).
     board: Mapping[str, object] = field(compare=False)
 
     def name(self, slug: str) -> str:
@@ -295,6 +296,10 @@ def load(data_dir: Path = DATA_DIR) -> Catalog:
         }
         extras = {
             key: board[key] for key in ("max_supply", "conversion", "starting", "limits")
+        }
+        extras["transport"] = {
+            carrier: dict(capacity) for carrier, capacity in board.get("transport", {}).items()
+            if not carrier.startswith("_")
         }
     except (KeyError, TypeError, ValueError) as error:
         if isinstance(error, CatalogError):
