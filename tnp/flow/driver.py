@@ -153,6 +153,7 @@ def advance(
             # about (`StepResult.part`): the stop is where a frontend
             # tells one part from the next.
             part=last.part if stopped_on is not None else None,
+            area=last.area if stopped_on is not None else None,
         ),
         steps=tuple(steps),
         groups=tuple(groups),

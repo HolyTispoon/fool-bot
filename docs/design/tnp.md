@@ -759,18 +759,19 @@ taken the revealed piles off it.
 
 - **`StepResult.part`** is the model's report of where: a March
   attack's spot, "A" or "B", on the lines that attack said, and on a
-  conquest's or a harvest's answer. It says where one thing ends, never
-  how lines are put together.
+  conquest's or a harvest's answer -- and **`StepResult.area`** the
+  territory or base the attack resolved at. They say where one thing
+  ends and what it was about, never how lines are put together.
 - **The cog's batching stops the run after each March attack**
   (`Batching.stop_after`, `cogs/tnp/core.py`'s `STOPS`), and the service
-  closes a group at each stop with its part and **the frontend's
+  closes a group at each stop with its part, its area and **the frontend's
   picture of the position there** (`Batching.picture`: the cog hands
   back the map's brief, public by construction), then runs on. An
   answer whose lines name a part is a group of its own, never the
   lead-in to the next part's.
 - **The cog posts one message an attack spot** (`messages_for`): the
-  groups of one part together, with the map as that spot's last attack
-  left it, then one message for the rest -- March's end, Production,
+  groups of one part together, with **a picture for each attack in it**
+  (`tnp.render.render_attack`, below), then one message for the rest -- March's end, Production,
   the trades, Cleanup -- without a picture, the table carrying the map.
   The reveal's lines lead into the first spot's. A message ends on what
   is asked now: a seat's March question with its ask, or both seats'
@@ -782,15 +783,33 @@ taken the revealed piles off it.
   `allowed_mentions` naming them alone; nothing else TNP posts pings
   anyone, the table and the seat tokens included. A battle that waits
   for step 7 pings nobody: nothing on Discord can answer it yet.
-- **The map is drawn per spot on that spot's message, not on the
-  table.** The worksheet asked for the table's map redrawn once a slot
-  through the gate; but the gate coalesces writes inside its window and
-  a trailing write draws the position as it is when it runs, so the
+- **An attack is pictured on its spot's message, not on the table.**
+  The worksheet asked for the table's map redrawn once a slot through
+  the gate; but the gate coalesces writes inside its window and a
+  trailing write draws the position as it is when it runs, so the
   per-spot maps of one call would never be on the table -- and by then
   Cleanup has cleared what March revealed. On its own message each
-  spot's map stays in the channel's history, for the same send it
-  would have cost anyway; the table goes to the position at the end of
-  the call, through the gate, once.
+  attack's picture stays in the channel's history, uploaded with the
+  send the lines cost anyway (a message carries up to ten files); the
+  table goes to the position at the end of the call, through the gate,
+  once.
+- **An attack's picture is the map around its territory, with the
+  piles revealed there as their units** (the author, 2026-11-06, on
+  PR #712: "show the piles of units", "only part of the map, the
+  target territory with a bit of its surrounding"). `render_attack`
+  draws the whole map's brief -- so it holds nothing the map does not
+  -- over a window around the territory: the territory whole and ringed
+  in gold, and the widest part of every area beside it, where its
+  number stands, with a margin, at least 900 map pixels a side and no
+  narrower than tall, slid to stay inside the map, and drawn up to
+  twice as near as the whole map at about 1,000 pixels wide. A
+  neighbour's marks are drawn only where they fit inside the window
+  whole: half a token at the edge says nothing. Under the map, each
+  pile revealed at that area -- an attack's, or in a battle the
+  defense's too -- is its seat's name and spot and a tile a unit: the
+  count, the name, the unit type's stripe. `scripts/render_tnp_sample.py`
+  draws two (`attack-A-2.png`, one pile; `attack-B-9.png`, a defense
+  and an attack).
 - **A battle met in March** posts its opening lines and "battles arrive
   in step 7"; the panel of a seat asked a battle's question says the
   same, and the game waits there.
@@ -814,7 +833,7 @@ trailing write, so the count is at most this.
 and their words are the seat's own options; the table's text is
 `table_lines`, read before and after each lock-in; what is posted is the
 model's narration, which says only what the rules reveal (above, "The
-turn"); and the per-spot maps are `map_brief`'s.
+turn"); and the attacks' pictures are drawn from `map_brief`.
 `test_a_whole_turn_from_infrastructure_to_cleanup` holds that no unit
 and no target of either plan is in anything the channel was sent or
 edited to before the reveal, and `test_a_lone_lock_in_edits_the_table_and_posts_nothing`

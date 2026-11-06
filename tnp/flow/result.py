@@ -119,6 +119,9 @@ class StepResult:
     #: "A" or "B" (TNP 5.4). Where one thing ends and the next begins,
     #: never how the lines are put together, which is the frontend's.
     part: Optional[str] = None
+    #: The area of the map those lines are about, where they are about
+    #: one: the territory or base a March attack resolved at.
+    area: Optional[str] = None
 
     def to_dict(self) -> dict:
         from tnp.wire import jsonable
@@ -129,4 +132,5 @@ class StepResult:
             "next": jsonable(self.next),
             "rolls": [roll.to_dict() for roll in self.rolls],
             "part": self.part,
+            "area": self.area,
         }

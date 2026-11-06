@@ -35,10 +35,11 @@ from tnp.game import TnpGame
 GUILD, HUB_CHANNEL, GAME_CHANNEL = 1, 5, 20
 
 
-def picture(catalog, brief) -> bytes:
-    """A map or a board as bytes that change exactly when its brief
-    does, so the gate's skip of an unchanged map counts as it would."""
-    return hashlib.sha256(repr(brief).encode()).digest()
+def picture(catalog, brief, *where) -> bytes:
+    """A map, a board or an attack as bytes that change exactly when what
+    it draws does, so the gate's skip of an unchanged map counts as it
+    would."""
+    return hashlib.sha256(repr((brief, where)).encode()).digest()
 
 
 class Turn:
@@ -49,7 +50,10 @@ class Turn:
         self.stack = ExitStack()
         self.stack.enter_context(suppressed_cog_saves())
         self.stack.enter_context(mock.patch.object(d12ball_boards, "BOARD_REFRESH_INTERVAL", 0))
-        for module, name in ((tnp_table, "render_map"), (tnp_turns, "render_map"), (tnp_turns, "render_board")):
+        for module, name in (
+            (tnp_table, "render_map"), (tnp_turns, "render_map"), (tnp_turns, "render_board"),
+            (tnp_turns, "render_attack"),
+        ):
             self.stack.enter_context(mock.patch.object(module, name, side_effect=picture))
         self.bot = mock.MagicMock()
         self.hub = FakeChannel(HUB_CHANNEL)
@@ -245,7 +249,8 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Both seats have locked in.", first["content"])
         self.assertIn("reveal a ground unit from attack A to take area 14", first["content"])
         self.assertIn(f"/{turn.game.table_message_id})", first["content"])
-        self.assertIsNotNone(first.get("file"))
+        # Attack A's one picture so far: area 14, where March stopped.
+        self.assertEqual([one.filename for one in first["files"]], ["tnp-attack-A-14.png"])
         # The one asked is pinged, and nobody else may be.
         self.assertIn("<@101> Answer from **My board**", first["content"])
         self.assertEqual([one.id for one in first["allowed_mentions"].users], [101])
@@ -255,6 +260,10 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         answered = len(turn.channel.requests)
         await turn.choose(conquer, "Ground unit to reveal", "worker")
         sends = [one[2]["content"] for one in turn.channel.since(answered) if one[0] == "send"]
+        files = [[one.filename for one in kwargs.get("files", [])]
+                 for kind, _, kwargs in turn.channel.since(answered) if kind == "send"]
+        # A picture an attack: A's two, B's one, and none after March.
+        self.assertEqual(files, [["tnp-attack-A-14.png", "tnp-attack-A-15.png"], ["tnp-attack-B-13.png"], []])
         # The rest of A, then B, then March's end with Production.
         self.assertEqual(len(sends), 3)
         self.assertIn("**Blue** (Alice) reveals a Worker in attack A and takes area 14.", sends[0])

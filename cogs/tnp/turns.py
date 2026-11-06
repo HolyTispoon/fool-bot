@@ -41,7 +41,7 @@ from tnp.formatting import (
 )
 from tnp.game import GameStatus, RuleRefusal, TnpGame
 from tnp.prompts import SIMULTANEOUS, Action, PendingPrompt, PromptKind, prompt_for
-from tnp.render import render_board, render_map
+from tnp.render import render_attack, render_board, render_map
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,8 +50,11 @@ LOGGER = logging.getLogger(__name__)
 MAP_FILENAME = "tnp-map.png"
 BOARD_FILENAME = "tnp-board-{seat}.png"
 
-#: Discord's limit on a message's text.
+#: Discord's limits on a message: its text, and the files it carries.
 MESSAGE_LENGTH = 2000
+MESSAGE_FILES = 10
+#: An attack's picture's name (`render_attack`).
+ATTACK_FILENAME = "tnp-attack-{spot}-{area}.png"
 
 #: What a panel and the channel say of a battle until step 7.
 BATTLES_NOT_YET = (
@@ -225,35 +228,39 @@ class TurnMixin:
 
     # -- What a turn posts ----------------------------------------------------
 
-    def messages_for(self, result) -> list[tuple[list[str], Any]]:
+    def messages_for(self, result) -> list[tuple[list[str], list]]:
         """
         A result's lines as the messages they are posted in, each with
-        the picture it carries: the groups a March attack spot closed
-        (`Narration.part`, "A" then "B") one message a spot, with the map
-        as the spot's last attack left it, and everything else -- March's
-        end, Production, the trades, Cleanup -- one message after them
-        with no picture, the table carrying the map.
+        the pictures it carries: the groups a March attack spot closed
+        (`Narration.part`, "A" then "B") one message a spot, with a
+        picture for each attack in it -- the map around the area it
+        resolved at (`Narration.area`), as the spot left it, with the
+        piles revealed there -- and everything else -- March's end,
+        Production, the trades, Cleanup -- one message after them with
+        no picture, the table carrying the map.
         """
         messages: list[dict] = []
         for group in result.groups:
             lines = [line for line in group.lines if line]
             last = messages[-1] if messages else None
-            if last is not None and last["part"] == group.part:
-                last["lines"] += lines
-                if group.part is not None and group.picture is not None:
-                    last["picture"] = group.picture
-                continue
-            messages.append({
-                "part": group.part, "lines": lines,
-                "picture": group.picture if group.part is not None else None,
-            })
+            if last is None or last["part"] != group.part:
+                last = {"part": group.part, "lines": [], "pictures": {}}
+                messages.append(last)
+            last["lines"] += lines
+            if group.part is not None and group.area is not None and group.picture is not None:
+                # The latest picture of each area the spot resolved at,
+                # in the order the spot first reached it.
+                last["pictures"][group.area] = (group.part, group.area, group.picture)
         tail = [line for line in result.narration if line]
         if tail:
             if messages and messages[-1]["part"] is None:
                 messages[-1]["lines"] += tail
             else:
-                messages.append({"part": None, "lines": tail, "picture": None})
-        return [(one["lines"], one["picture"]) for one in messages if one["lines"]]
+                messages.append({"part": None, "lines": tail, "pictures": {}})
+        return [
+            (one["lines"], list(one["pictures"].values())[:MESSAGE_FILES])
+            for one in messages if one["lines"]
+        ]
 
     def lone_lock(self, result, action: Optional[Action]) -> bool:
         """A seat locking in while the other is still asked the same: the
@@ -312,34 +319,37 @@ class TurnMixin:
                 if not (result.match is not None and result.match.battle is not None
                         and result.match.battle.outcome is None):
                     pinged = self.asked_players(game, result)
-        for index, (lines, picture) in enumerate(messages):
+        for index, (lines, pictures) in enumerate(messages):
             text = "\n".join(self.render_text(line, game) for line in lines)
             last = index == len(messages) - 1
-            await self.post(channel, game, text, picture, pinged if last else ())
+            await self.post(channel, game, text, pictures, pinged if last else ())
         if messages or quiet or result.board_changed:
             await self.boards.refresh(channel, game)
 
-    async def post(self, channel, game: TnpGame, text: str, picture=None, pinged=()) -> None:
-        """One message, with its map where it has one -- and where the
-        text is longer than Discord takes, the rest in the messages after
-        it, the map on the last. `pinged` are the users its mentions may
-        ping; every other mention is inert."""
+    async def attack_file(self, spot: str, area: str, brief) -> discord.File:
+        """One attack's picture: the map around `area`, with the piles
+        revealed there (`render_attack`), drawn off the event loop."""
+        png = await asyncio.to_thread(render_attack, self.catalog, brief, area, spot)
+        return discord.File(io.BytesIO(png), filename=ATTACK_FILENAME.format(spot=spot, area=area))
+
+    async def post(self, channel, game: TnpGame, text: str, pictures=(), pinged=()) -> None:
+        """One message, with its attacks' pictures where it has any -- and
+        where the text is longer than Discord takes, the rest in the
+        messages after it, the pictures on the last. `pinged` are the
+        users its mentions may ping; every other mention is inert."""
         chunks = split_text(text)
         for index, chunk in enumerate(chunks):
-            file = None
-            if picture is not None and index == len(chunks) - 1:
-                file = self.match_file_from_png(game, await self.draw_map(picture))
-            try:
-                mentions = discord.AllowedMentions.none()
-                if pinged:
-                    mentions = discord.AllowedMentions(
-                        everyone=False, roles=False,
-                        users=[discord.Object(id=user_id) for user_id in pinged],
-                    )
-                await channel.send(
-                    chunk, allowed_mentions=mentions,
-                    **({} if file is None else {"file": file}),
+            files = []
+            if index == len(chunks) - 1:
+                files = [await self.attack_file(*picture) for picture in pictures]
+            mentions = discord.AllowedMentions.none()
+            if pinged:
+                mentions = discord.AllowedMentions(
+                    everyone=False, roles=False,
+                    users=[discord.Object(id=user_id) for user_id in pinged],
                 )
+            try:
+                await channel.send(chunk, allowed_mentions=mentions, **({"files": files} if files else {}))
             except discord.HTTPException as error:
                 LOGGER.error("Could not post a turn's lines in TNP game %s: %s", game.game_id, error)
                 return

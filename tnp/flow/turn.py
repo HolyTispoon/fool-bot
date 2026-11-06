@@ -240,7 +240,7 @@ def march(engine: "RulesEngine", game, match: MatchState, lead_in: str = "") -> 
         result.board_changed = True
         return _waiting(engine, game, match, result)
     spot, area = found
-    result.part = spot
+    result.part, result.area = spot, area
     piles: dict[str, dict[str, int]] = {}
     for seat in SEATS:
         attack = match.attacks.get(seat, {}).get(spot)
@@ -345,7 +345,7 @@ def answer_conquer(engine: "RulesEngine", game, match: MatchState, seat: str,
     ground = ground_units(engine, match.resolving["piles"][seat])
     if unit not in ground:
         raise RuleRefusal("Reveal a ground unit from the attacking pile.", cite="TNP 5.5")
-    result = StepResult(part=match.resolving["spot"])
+    result = StepResult(part=match.resolving["spot"], area=match.resolving["area"])
     _conquer(engine, match, seat, unit, result)
     return _waiting(engine, game, match, result)
 
@@ -583,7 +583,7 @@ def answer_harvest(engine: "RulesEngine", game, match: MatchState, seat: str,
         raise RuleRefusal("That is more than the territory holds.", cite="TNP 5.8")
     if sum(chosen.values()) != count:
         raise RuleRefusal(f"The Workers take {count} tokens, one a Worker.", cite="TNP 5.8")
-    result = StepResult(part=resolving["spot"])
+    result = StepResult(part=resolving["spot"], area=area)
     _take(match, seat, area, workers, chosen, result)
     match.resolving = None
     return _waiting(engine, game, match, result)

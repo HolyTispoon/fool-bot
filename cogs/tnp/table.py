@@ -251,8 +251,8 @@ class TableMixin:
         if result.groups or result.narration:
             # The step the bot owed said something: posted as a turn's
             # lines are, before the fresh table.
-            for lines, picture in self.messages_for(result):
-                await self.post(channel, game, "\n".join(self.render_text(line, game) for line in lines), picture)
+            for lines, pictures in self.messages_for(result):
+                await self.post(channel, game, "\n".join(self.render_text(line, game) for line in lines), pictures)
         message = await self.post_table(channel, game)
         said = "The table is back up." if message is not None else "I could not post the table."
         await interaction.followup.send(f"Found {found}. {said}", ephemeral=True)

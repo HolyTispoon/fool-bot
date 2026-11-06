@@ -67,19 +67,22 @@ class Batching:
 class Narration:
     """Lines that belong together, and the step that said them (`None`
     for the action's own); `part`, which part of the phase they are
-    about (`StepResult.part`: a March attack's spot), and `picture`, the
+    about (`StepResult.part`: a March attack's spot), `area`, the area of
+    the map they are about (`StepResult.area`), and `picture`, the
     frontend's own picture of the position where the group closed."""
 
     lines: tuple[str, ...]
     step: Optional[FollowOnStep] = None
     part: Optional[str] = None
     picture: Any = None
+    area: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
             "lines": list(self.lines),
             "step": None if self.step is None else self.step.name,
             "part": self.part,
+            "area": self.area,
         }
 
 
@@ -302,7 +305,10 @@ class GameService:
             # The answer's own lines name a part of the phase -- a
             # conquest in attack A -- so they are a group of their own,
             # never the lead-in to the next part's.
-            groups.append(Narration(tuple(answered.narration), None, answered.part))
+            picture = None if self.batching.picture is None else self.batching.picture(match)
+            groups.append(Narration(
+                tuple(answered.narration), None, answered.part, picture, answered.area,
+            ))
             answered = StepResult(
                 board_changed=answered.board_changed, next=answered.next, rolls=answered.rolls,
             )
@@ -358,6 +364,7 @@ class GameService:
             picture = None if self.batching.picture is None else self.batching.picture(match)
             groups.append(Narration(
                 tuple(ran.result.narration), ran.stopped_on.step, ran.result.part, picture,
+                ran.result.area,
             ))
             result = StepResult(next=ran.result.next)
         self.persist(game, match)
