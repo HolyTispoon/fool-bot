@@ -563,15 +563,50 @@ def flank_modifier(battle: BattleState, ident: str, target: str) -> int:
     return position_modifier(battle, ident, target) + 1
 
 
+#: The kinds of modifier `modifier_parts` names (TNP 4.2): the columns
+#: a force reaches across (6.7, 6.9), a flanking force's bonus (6.5),
+#: and one handed in from outside -- step 9's cards (8.5).
+ACROSS = "across"
+FLANKING = "flanking"
+OUTSIDE = "outside"
+
+
+def modifier_parts(engine: "RulesEngine", battle: BattleState, ident: str,
+                   target: str) -> tuple[tuple[str, int, int], ...]:
+    """
+    **Every modifier one force's dice take against one target, one by
+    one** (TNP 4.2), as `(kind, value, columns)`: the position modifier
+    every force takes, −1 a column it reaches across, where it reaches
+    across any (`ACROSS`, `columns` how many); a flanking force's +1 on
+    top (`FLANKING`); and each row handed in from outside that applies
+    (`OUTSIDE`). A modifier of 0 is not one. `modifier` is their sum, so
+    the number a roll is made at and the reasons it is said with are one
+    reading.
+    """
+    parts: list[tuple[str, int, int]] = []
+    across = position_modifier(battle, ident, target)
+    if across:
+        parts.append((ACROSS, across, -across))
+    if flanking(battle, ident):
+        parts.append((FLANKING, 1, 0))
+    outside = outside_modifier(engine, battle, ident, target)
+    if outside:
+        parts.append((OUTSIDE, outside, 0))
+    return tuple(parts)
+
+
 def modifier(engine: "RulesEngine", battle: BattleState, ident: str, target: str) -> int:
     """Every modifier one force's dice take against one target (TNP
-    4.2): a flanking force's for where it stands, or anybody else's
-    position modifier, and the outside ones."""
-    if flanking(battle, ident):
-        total = flank_modifier(battle, ident, target)
-    else:
-        total = position_modifier(battle, ident, target)
-    return total + outside_modifier(engine, battle, ident, target)
+    4.2): the position modifier, a flanking force's +1 on top of it, and
+    the outside ones -- `modifier_parts`, added up."""
+    return sum(value for _, value, _ in modifier_parts(engine, battle, ident, target))
+
+
+def needs(target: int, bonus: int) -> int:
+    """The number a die must show to hit (TNP 4.1, 4.2): the rating's
+    number less the modifier, but never below 2, since a rolled 1 always
+    misses, nor above 12, since a rolled 12 always hits."""
+    return min(max(target - bonus, 2), 12)
 
 
 def dice(engine: "RulesEngine", battle: BattleState, ident: str, target: str) -> int:

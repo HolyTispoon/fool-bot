@@ -50,7 +50,8 @@ from tnp.battle import (
     dice,
     emergency_cap,
     emergency_limits,
-    modifier,
+    modifier_parts,
+    needs,
     repair_workers,
     reposition_asker,
     retreat_asker,
@@ -323,6 +324,12 @@ class TargetOption(_Wire):
     modifier: int
     #: The number a die must reach before its modifier (TNP 4.1).
     needed: int
+    #: Each modifier by its kind (`tnp.battle.modifier_parts`), the
+    #: rating it is rolled at, and what a die must show
+    #: (`tnp.battle.needs`), so a frontend says why before the roll.
+    parts: tuple = ()
+    rating: str = ""
+    needs: int = 0
 
 
 @dataclass(frozen=True)
@@ -525,10 +532,12 @@ def _target_options(engine, match, prompt) -> TargetOptions:
         offered = []
         for target in aimed(engine, battle, ident):
             against = target_type(engine, battle, target)
+            rating = engine.rating(found.unit, against)
+            parts = modifier_parts(engine, battle, ident, target)
+            bonus = sum(value for _, value, _ in parts)
             offered.append(TargetOption(
                 target, against.value, dice(engine, battle, ident, target),
-                modifier(engine, battle, ident, target),
-                engine.rating(found.unit, against).target,
+                bonus, rating.target, parts, rating.value, needs(rating.target, bonus),
             ))
         shooters.append(ShooterOption(ident, found.unit, found.count, tuple(offered)))
     return TargetOptions(seat, battle.group, tuple(shooters))

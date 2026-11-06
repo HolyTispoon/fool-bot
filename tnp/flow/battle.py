@@ -50,7 +50,8 @@ from tnp.battle import (
     groups,
     initiative_totals,
     is_base,
-    modifier,
+    modifier_parts,
+    needs,
     other,
     repair_workers,
     reposition_asker,
@@ -65,6 +66,7 @@ from tnp.battle import (
 )
 from tnp.catalog import UnitType
 from tnp.flow.result import Roll, StepResult
+from tnp.formatting import roll_reason
 from tnp.game import RuleRefusal
 
 if TYPE_CHECKING:
@@ -92,10 +94,6 @@ def _target_words(battle: BattleState, target: str) -> str:
         side = "left" if target == BASE_CARDS[0] else "right"
         return f"{tokens.seat(battle.defender)}'s {side} base card"
     return force_words(battle.force(target))
-
-
-def _signed(value: int) -> str:
-    return f"+{value}" if value >= 0 else f"−{-value}"
 
 
 def _seat_forces(battle: BattleState, seat: str) -> str:
@@ -632,21 +630,24 @@ def answer_target(engine: "RulesEngine", match: "MatchState", force: str, target
     against = target_type(engine, battle, target)
     rating = engine.rating(shooter.unit, against)
     count = dice(engine, battle, force, target)
-    bonus = modifier(engine, battle, force, target)
+    parts = modifier_parts(engine, battle, force, target)
+    bonus = sum(value for _, value, _ in parts)
     rolled = tuple(engine.d12() for _ in range(count))
     hit = sum(1 for die in rolled if engine.hits(die, bonus, rating))
     battle.rolled.append(force)
     result = StepResult(board_changed=bool(hit))
-    result.rolls.append(Roll(seat, force, target, rolled, bonus, rating.target, hit))
+    result.rolls.append(Roll(
+        seat, force, target, rolled, bonus, rating.target, hit,
+        rating=rating.value, parts=parts, needs=needs(rating.target, bonus),
+    ))
+    # Every roll is shown whole (step 7): the dice, and why each needed
+    # what it did -- the rating against the target's type and each
+    # modifier by its reason (TNP 4.1, 4.2).
     shown = ", ".join(str(die) for die in rolled) if rolled else "no dice"
-    words = (
-        f"{force_words(shooter)} fire at {_target_words(battle, target)}: {shown}, "
-        f"needing {rating.shown}"
+    result.narration.append(
+        f"{force_words(shooter)} fire at {_target_words(battle, target)}: rolled {shown} "
+        f"({roll_reason(rating, against, bonus, parts)}) — {hit} hit{'' if hit == 1 else 's'}."
     )
-    if bonus:
-        words += f" at {_signed(bonus)}"
-    words += f" — {hit} hit{'' if hit == 1 else 's'}."
-    result.narration.append(words)
     if target in BASE_CARDS:
         if hit >= BASE_CARD_HITS:
             things = destroyable(engine, battle)
