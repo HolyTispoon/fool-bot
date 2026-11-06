@@ -89,9 +89,10 @@ does bar naming specific opponents up front). Two pieces:
     heading and the button, is `tnp/images/emoji/tnp.png` uploaded to
     fool-bot's application as `tnp` (`TNP_HUB_EMOJI_NAME`) -- the
     letters TNP, in Racing Sans One, with the planet's three resources
-    in the map's colours (`tnp/render.py`): a cut purple gem rising
-    behind the letters, blue mineral shards in front of the T's corner
-    and orange ones in front of the P's;
+    in the map's colours (`tnp/render.py`): blue mineral shards,
+    a cut purple gem and orange mineral shards rising from behind the T,
+    the N and the P -- behind, so the picture is only as wide as the
+    letters and they are drawn as large as an emoji allows;
     the hub goes without it until it is uploaded, as with Codex's. A hub posted before the button gains it
     at the next `/d12ball setup_hub`, which edits the message.
   `data/d12ball_hubs.json` is untracked runtime state like the saved games, and
