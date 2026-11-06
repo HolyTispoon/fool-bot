@@ -257,7 +257,7 @@ The rules' own modifiers, in both games:
 
 | Modifier | Section | d12 |
 | --- | --- | --- |
-| Flanking | 6.5 | +1 |
+| Flanking | 6.5 | +1 in its own column; 0 one column away; −1 a column from two away |
 | Position | 6.7 | −1 a column |
 | Attacking a base card | 6.9 | −1 at least |
 
@@ -515,8 +515,12 @@ are **engaged**.
   with forces left places them, one after another, either **flanking**
   -- behind a force of its own in front, where that force has no
   flanking force yet -- or as a new column (the author, 2026-11-06).
-  Each force has at most one flanking force behind it. A flanking force
-  gains **+1** on its rolls (4.2).
+  Each force has at most one flanking force behind it.
+- **A flanking force attacks** the opposing force in its own column at
+  **+1**, a force one column away with no modifier, and a force two or
+  more columns away at −1 a column: −2 two away, −3 three away (4.2)
+  (the author, 2026-11-06). Against a base card its +1 still stands
+  (6.9).
 - **A flanking force is in the same column as the force it stands
   behind**, and adjacent to it and to every force adjacent to it (the
   author, 2026-11-06).
@@ -543,8 +547,10 @@ defender asked (the author, 2026-11-05).
   2026-11-06). A seat with no air unit and no path cannot retreat.
 - **The retreating units do not attack this round**; they may still be
   hit, and leave at the round's end. Units of the same force that stay
-  roll; where a carry splits a force, its losses come off the units
-  staying, and its damaged units stay first.
+  roll. **Where a carry splits a force, its hits come off the units
+  staying first**: the retreating units are hit only once every unit
+  they were leaving behind is destroyed (the author, 2026-11-06). Its
+  damaged units count among those staying.
 - **A retreat that takes every unit is a defeat**: the battle ends
   after this round, and the other seat wins it. A unit always retreats
   to its seat's base.
@@ -568,10 +574,10 @@ for the target's type (4.1).
 **The position modifier** is an engaged force's alone: attacking a
 force in another column, it takes **−1 for each column** it reaches
 across -- −1 for the next column, −2 for the one after -- and attacking
-within its own column, none. **An unengaged force takes no position
-modifier** -- an unengaged force is usually a flanking one (the author,
-2026-11-05). The base cards are the exception: every force attacking
-one takes at least −1 (6.9).
+within its own column, none. **An unengaged force alone in its column
+takes no position modifier** (the author, 2026-11-05). A flanking
+force's is its own (6.5). The base cards are the exception: every
+force attacking one takes at least −1 (6.9).
 
 ### 6.8 Hits
 
@@ -888,3 +894,10 @@ One line per change, dated, with where it came from.
   territory stays as it was -- 6.10. (The author, answering PR #708.)
 - 2026-11-06: Splash once for each roll that hits, from the side hit, a
   damaged unit first -- 6.8. (The author, answering PR #708.)
+- 2026-11-06: A flanking force attacks at +1 in its own column, with no
+  modifier one column away, and at −1 a column from two away, replacing
+  +1 everywhere and no position modifier -- 4.2, 6.5, 6.7. (The author,
+  answering PR #708.)
+- 2026-11-06: A force split by a carry takes its hits on the units
+  staying first, the retreating ones only once those are destroyed --
+  6.6. (The author, answering PR #708.)
