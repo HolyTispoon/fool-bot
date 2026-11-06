@@ -16,7 +16,8 @@ Step 1 stood it up: the rules as one document, the data and its import,
 the map's outlines traced from the map's own picture, the catalog over
 them, and the `/tnp` group in fool-bot with `/tnp unit` and
 `/tnp rules`. Step 2 built the battle, with no frontend, through the
-model's own driver.
+model's own driver. Step 3 drew the map, the player board and the
+battle by code.
 
 ## A cog in fool-bot, not a bot of its own
 
@@ -52,7 +53,7 @@ deploy that adds or changes a `/tnp` command (`FOOLBOT_COMMAND_SYNC`,
 ## The split from the first commit
 
 `tnp/` is the model, held to the model's rules from its first commit:
-no `discord`, no `async def`, Pillow only in `tnp/render.py` (step 3).
+no `discord`, no `async def`, Pillow only in `tnp/render.py`.
 Step 1's modules are already words and readings over data, so the
 `/tnp unit` answer is the model's (`tnp.formatting.unit_lines`) and the
 cog only posts it -- including the d12 numbers, which are
@@ -331,3 +332,80 @@ the retreat and the placing turns above; one flanker a force, in its
 force's column, +1 on top of the −1 a column; a split force's hits on those
 staying first; Splash once a roll, from the side hit, a damaged unit
 first.
+
+## The pictures
+
+Step 3 drew the map, a seat's player board and the battle by code
+(decision 6), in `tnp/render.py`, the one TNP module that imports
+Pillow. `scripts/render_tnp_sample.py --out <dir>` renders the opening
+map, a mid-game map in March, both seats' opening boards, a mid-game
+board and two battles in round 3 -- one for a territory, one for a
+base -- fought through `driver.apply` with a seeded `engine.rng`.
+`tests/test_tnp_render.py` checks each is a PNG of its layout's size and
+nothing more: a picture is checked by looking at it
+([board-image.md](board-image.md), "Look at the image").
+
+**A brief, filtered before it is drawn.** The map and the board are
+drawn from `tnp/briefs.py`'s `MapBrief` and `BoardBrief`, plain
+dataclasses with no Pillow in them, so the model can build one and the
+purity ratchet still holds. A brief is already what its viewer may see:
+`MapBrief` carries who holds each territory, the tokens left, the
+Stranded tokens and the piles March has revealed -- there is no field a
+deployment could be put in before its reveal (TNP 5.3, question 12) --
+and `BoardBrief` is one seat's own board, queue included, which the
+frontend shows to that seat alone (TNP 5.2). The renderer decides
+nothing about who sees what, so a picture cannot leak by a branch
+someone forgot. The battle needs no brief: `BattleState` is public and
+already one picture's worth. Step 3 builds only the opening briefs
+(`opening_map`, `opening_board`, from TNP 3); step 4, which puts the map
+and the seats on `MatchState`, adds the readings that build a brief from
+a match, which is why the mid-game samples are staged by hand.
+
+**The map** is `map.json`'s traced outlines filled over a dark ground,
+so the gaps between them are map 3.3's own lines, thick and thin where
+the original has them, rather than a stroke of one width drawn over
+every border. It is drawn at twice its size and reduced, for smooth
+edges. Each area's marks -- its number, a held territory's control
+shield, the tokens left (a resource with none left is not drawn), a
+Stranded token per seat, the revealed piles' discs -- are stacked on its
+widest part, found by eroding the filled outline until the last pixels
+standing (the pole of inaccessibility), so a number sits clear of its
+borders whatever shape a later map gives it, and no position is kept by
+hand. A territory is tinted by who holds it, a base in its seat's
+stronger tint with its shield. A revealed pile is a disc on the map --
+its spot's letter, or a white shield for a defense spot, a disc so it
+never reads as a control token -- and a card under the map with its
+units, in the order March revealed them.
+
+**The board** follows the canvas the author saw (the Human base board):
+the seat's colour as the header with the available pool beside it,
+which is open information (TNP 2.2); the four facilities as columns,
+each with its current production cap (the upgraded one once its
+infrastructure upgrade is built), what it is producing, and whether it
+is built, being built or what it costs; its units, then each unit
+upgrade with the units it unlocks; and its infrastructure upgrade in a
+dashed box with the sheet's own text. A unit card carries board v4's
+type colour (infantry green, armored red, air blue), its cost, its three
+ratings as `Rating.shown` -- 3+, 6+, 12, X -- over the rating's name,
+initiative, traits as `formatting.TRAIT_NAMES` spells them, and supply
+left. A unit its seat cannot build yet, its facility or upgrade not
+finished, is faded rather than hidden, as the printed board shows every
+unit. The footer is the d12's numbers, the limits and the conversion
+rates, normal and emergency, each read from `human_board.json`.
+
+**The battle** is the line as columns: the defender's row above the
+middle line and the attacker's below, each seat's flanking forces on
+the outside of its front row, the rows named at the left. A force tile
+is its unit, its count, its type's stripe, and chips for its damage
+tokens, this group's hits and removals not yet taken off (TNP 6.7), the
+units retreating and whether it has rolled. A base battle has its two
+base cards at the line's two ends in the defender's row, attacked as
+armored, with the base's structures and what the base card destroyed
+under the field. The round track, the scouting advantage and the group
+rolling are in the heading, and the forces not yet placed in a tray at
+each seat's edge.
+
+**Fonts** are D12 Ball's Roboto Slab, read by absolute path from
+`d12ball/fonts/` and never copied. The pictures name a seat "Blue" or
+"Green" and no player: a mention cannot be drawn, and the message the
+picture rides on names the players.
