@@ -5,8 +5,8 @@ sheets, and the tabloid sheets cut into letter halves for a printer
 that takes no tabloid -- the rules as a PDF, and a README saying what
 each sheet is, how many of what it holds and what a table still needs.
 
-It draws nothing of its own: it calls `pieces`, `mapsheet`, `boards`
-and `screen`, and sets docs/tnp-rules.md through D12 Ball's rulebook
+It draws nothing of its own: it calls `pieces`, `mapsheet`, `boards`,
+`screen` and `keywords`, and sets docs/tnp-rules.md through D12 Ball's rulebook
 builder (`d12ball.rulebooks.book_bytes`), so the rules in the kit are
 the rules the bot plays.
 """
@@ -22,7 +22,7 @@ from PIL import Image
 
 from d12ball.rulebooks import Book, book_bytes
 from tnp.catalog import Catalog, load
-from tnpkit import boards, mapsheet, pieces, screen
+from tnpkit import boards, keywords, mapsheet, pieces, screen
 from tnpkit.paper import DPI, cut_sheet, halves, save
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -61,6 +61,9 @@ def build_sheets(catalog: Catalog) -> list[Sheet]:
                   f"{word}. Its inside is the player aid."),
             Sheet(f"{seat}-player-board", tuple(boards.render_player_board(catalog, seat)), "letter",
                   f"{word}'s player board: two sheets, side by side, behind the screen."),
+            Sheet(f"{seat}-keywords", (keywords.render_keywords(catalog, seat),), "letter",
+                  f"{word}'s keyword sheet: every unit trait, with the units that carry it, and every term the "
+                  "rules use, each with its section."),
             Sheet(f"{seat}-deployment-board", (boards.render_deployment_board(catalog, seat),), "letter",
                   f"{word}'s deployment board, behind the screen."),
             Sheet(f"{seat}-unit-counters", tuple(counters), "letter",

@@ -17,6 +17,7 @@ tested for how it looks, by the standing rule that nothing printed is
 | `battle-mat` | tabloid | The round track, the initiative groups, the line's four rows in columns, the modifiers and hits |
 | `track-sheet` | letter | The harvest track, 0 to 49, and four base cards to cut out |
 | `<seat>-screen` | tabloid | Folded in three; its inside is the player aid |
+| `<seat>-keywords` | letter | Every unit trait with the units that carry it, and every term the rules use |
 | `<seat>-player-board` | 2 x letter | The four facilities, two a sheet |
 | `<seat>-deployment-board` | letter | Attack spots A and B, a defense spot a territory and the base's, the available units |
 | `<seat>-unit-counters` | letter | 80 counters, 1 in: every unit as many times as its supply |
@@ -110,6 +111,19 @@ since TNP's sections are numbered by hand.
 The screen is printed on one side and folded so the print faces its
 seat; the back is plain paper, and the pool stands in front of it,
 where both seats see it (TNP 2.2).
+
+## The keyword sheet
+
+A seat's glossary, beside the screen (the author, 2026-11-06: "the
+player aide with all the keywords"): **every trait a unit carries**, and
+under each the units that carry it, and **every term the rules use**,
+alphabetical, each with the section it is from. The traits are read
+from the data -- a unit given a new trait appears under it on the next
+build, and a trait `keywords.TRAITS` has no words for stops the build
+(a `KeyError` naming it) rather than printing a bare name. The terms
+are the kit's own list, `TERMS`, held to docs/tnp-rules.md by reading,
+like the screen. One letter sheet: the entries are tried at falling
+sizes (`SIZES`) and drawn at the largest that fits, about 7 pt today.
 
 ## Paper
 
