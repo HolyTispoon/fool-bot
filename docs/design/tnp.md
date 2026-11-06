@@ -274,9 +274,12 @@ behind", so adjacency is by column alone: two forces of one seat are
 adjacent in the same column or neighbouring ones (TNP 6.5, 6.8).
 Repair takes a Worker from a force adjacent to the hit one; Splash an
 infantry unit from a force adjacent to the one hit, of the hit force's
-seat, once a roll, a damaged unit first. An attacking flanker still
-takes no position modifier (TNP 6.7): "in the same column" settles
-adjacency, and the earlier answer on the position modifier stands.
+seat, once a roll, a damaged unit first. **A flanker's modifier is its
+own** (`flank_modifier`, the author, 2026-11-06): +1 at the opposing
+force in its own column, none one column away, −1 a column from two
+away; against a base card its +1 and the card's −1, as TNP 6.9 has
+it. The engaged force's −1 a column (`position_modifier`) and the lone
+force's none are unchanged.
 
 **Placing is by turns** (TNP 6.5, the author, 2026-11-06). The
 advantage's opening placements are a run (`run_left`); then a seat's
@@ -303,10 +306,12 @@ capacity, one kind a carrier; the ground units left behind stay and
 fight, and the battle goes on. The retreating units are `leaving`: they
 roll no dice (`firing`), may be hit, and leave at `END_ROUND` into
 `withdrawn`, which the outcome carries. Only a retreat that takes every
-unit ends the battle as a defeat. Where a carry splits a force, its
-losses come off the units staying and its damaged units stay first --
-a force is one count, so the code has to pick, and it picks the reading
-that keeps a split force one force.
+unit ends the battle as a defeat. A force a carry splits stays one
+force, and its hits come off the units staying first: the retreating
+units are hit only once every unit they were leaving behind is
+destroyed (the author, 2026-11-06), so `_withdraw` takes home what is
+left of the carried count. Its damaged units count among those
+staying -- the one reading here that is the code's, not the author's.
 
 **The losses come off at the group's end** (TNP 6.7): a roll adds to
 the target's hits; Splash and Repair's Workers are units removed
@@ -321,5 +326,6 @@ docs/tnp-rules.md and its log: flankers kept where they stand or repositioned ea
 undefended base is offered its emergency defense before it falls; both
 sides destroyed together is nobody's battle, the territory as it was;
 the retreat and the placing turns above; one flanker a force, in its
-force's column; Splash once a roll, from the side hit, a damaged unit
+force's column, its modifier its own; a split force's hits on those
+staying first; Splash once a roll, from the side hit, a damaged unit
 first.

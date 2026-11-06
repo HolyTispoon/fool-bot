@@ -330,6 +330,20 @@ class RetreatTests(unittest.TestCase):
         # The stranded Mercenary cannot retreat now: the defender is asked.
         self.assertEqual(asked(engine, match).asked_seat, "green")
 
+    def test_a_split_forces_hits_come_off_those_staying_first(self) -> None:
+        """TNP 6.6: the retreating part of a split force is hit only once every unit it
+        was leaving behind is destroyed."""
+        engine, match = self._placed(
+            {"chopper_carrier": 1, "mercenary": 4}, {"mercenary": 2}, paths_home={"blue": False, "green": True},
+        )
+        play(engine, match, Action(RETREAT, "retreat", {"carried": {"blue:mercenary": 3}}))
+        shoot(engine, match, "blue:mercenary", "green:mercenary", rolls=[2])
+        shoot(engine, match, "green:mercenary", "blue:mercenary", rolls=[9, 9])
+        battle = match.battle
+        # Two hits: the one Mercenary staying, then one of the three carried.
+        self.assertEqual(battle.withdrawn["blue"]["mercenary"], {"count": 2, "damaged": 0})
+        self.assertEqual(battle.outcome["winner"], "green")
+
     def test_one_kind_a_carrier(self) -> None:
         """TNP 7: a carrier carries one kind of unit, without mixing."""
         engine, match = self._placed(
@@ -457,8 +471,25 @@ class DamageTests(unittest.TestCase):
         shoot(engine, match, "blue:mercenary", "green:worker", rolls=[2])
         shoot(engine, match, "green:mercenary", "blue:jeep", rolls=[2])
         prompt = asked(engine, match)
+        # TNP 6.5: a flanking force at +1 in its own column, with none one column away.
         self.assertEqual(target_option(prompt, "blue:worker", "green:mercenary").modifier, 1)
-        self.assertEqual(target_option(prompt, "blue:worker", "green:worker").modifier, 1)
+        self.assertEqual(target_option(prompt, "blue:worker", "green:worker").modifier, 0)
+
+    def test_a_flanker_two_columns_away(self) -> None:
+        """TNP 6.5: a flanking force attacks two columns away at −2."""
+        engine, match = self._line(
+            {"mercenary": 1, "worker": 1, "jeep": 1, "tank": 1},
+            {"mercenary": 1, "worker": 1, "jeep": 1},
+            [("green:mercenary", "column:0"), ("blue:mercenary", "engage:0"),
+             ("blue:worker", "column:1"), ("green:worker", "engage:1"),
+             ("green:jeep", "column:2"), ("blue:jeep", "engage:2"), ("blue:tank", "flank:0")],
+        )
+        while (prompt := asked(engine, match)).asked_seat != "blue" or prompt.options.group != 3:
+            shooter = prompt.options.forces[0]
+            shoot(engine, match, shooter.force, shooter.targets[0].target, rolls=[2])
+        self.assertEqual(target_option(prompt, "blue:tank", "green:mercenary").modifier, 1)
+        self.assertEqual(target_option(prompt, "blue:tank", "green:worker").modifier, 0)
+        self.assertEqual(target_option(prompt, "blue:tank", "green:jeep").modifier, -2)
 
     def test_outside_modifiers_add(self) -> None:
         """TNP 4.2: modifiers handed in from outside (step 9's cards) add to the roll."""

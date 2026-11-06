@@ -528,10 +528,11 @@ def _target_column(battle: BattleState, target: str) -> int:
 
 def position_modifier(battle: BattleState, ident: str, target: str) -> int:
     """
-    The position modifier (TNP 6.7, 6.9): an engaged force takes −1 for
-    each column it reaches across, a base card's place being just beyond
-    the end of the line; an unengaged force takes none, except against a
-    base card, which no force can engage, so −1.
+    The position modifier of a force in front (TNP 6.7, 6.9): an engaged
+    force takes −1 for each column it reaches across, a base card's place
+    being just beyond the end of the line; a force alone in its column
+    takes none, except against a base card, which no force can engage,
+    so −1. A flanking force's is `flank_modifier`.
     """
     if engaged(battle, ident):
         return -abs(locate(battle, ident)[0] - _target_column(battle, target))
@@ -554,11 +555,31 @@ def outside_modifier(engine: "RulesEngine", battle: BattleState, ident: str, tar
     return total
 
 
+def flank_modifier(battle: BattleState, ident: str, target: str) -> int:
+    """
+    A flanking force's modifier for where it stands (TNP 6.5): +1 at the
+    opposing force in its own column, none one column away, −1 a column
+    from two away (−2, −3, ...). Against a base card, which no force
+    engages, its +1 and the base card's −1 (TNP 6.9).
+    """
+    if target in BASE_CARDS:
+        return 1 - 1
+    reach = abs(locate(battle, ident)[0] - _target_column(battle, target))
+    if reach == 0:
+        return 1
+    if reach == 1:
+        return 0
+    return -reach
+
+
 def modifier(engine: "RulesEngine", battle: BattleState, ident: str, target: str) -> int:
     """Every modifier one force's dice take against one target (TNP
-    4.2): flanking +1, the position modifier, and the outside ones."""
-    total = 1 if flanking(battle, ident) else 0
-    total += position_modifier(battle, ident, target)
+    4.2): a flanking force's for where it stands, or anybody else's
+    position modifier, and the outside ones."""
+    if flanking(battle, ident):
+        total = flank_modifier(battle, ident, target)
+    else:
+        total = position_modifier(battle, ident, target)
     return total + outside_modifier(engine, battle, ident, target)
 
 
