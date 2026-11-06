@@ -179,12 +179,19 @@ class BattleState:
     phase: str = ROUND
     #: The round's scouting advantage, `{"seat": ..., "by": n}`, or `None`.
     advantage: Optional[dict] = None
-    #: Who places next this round, and how many more before the other.
+    #: Who places next this round; `run_left` is what is left of the
+    #: advantage's opening placements, 0 once the seats take turns.
     to_place: Optional[str] = None
     run_left: int = 0
     #: The seats that declared a retreat this round, and the seats asked.
     retreats: list[str] = field(default_factory=list)
     retreat_asked: list[str] = field(default_factory=list)
+    #: How many units of each force are retreating this round: they do
+    #: not attack, and leave at the round's end (TNP 6.6).
+    leaving: dict[str, int] = field(default_factory=dict)
+    #: The units that have retreated home, by seat and unit, with their
+    #: damage (TNP 6.6) -- in `outcome` too, once it is over.
+    withdrawn: dict[str, dict] = field(default_factory=dict)
     #: The initiative group rolling, and the forces in it that have rolled.
     group: Optional[int] = None
     rolled: list[str] = field(default_factory=list)
@@ -257,6 +264,8 @@ BATTLE_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("run_left", default=0),
     SavedField("retreats", factory=list, write=list, read=list),
     SavedField("retreat_asked", factory=list, write=list, read=list),
+    SavedField("leaving", factory=dict, write=dict, read=dict),
+    SavedField("withdrawn", factory=dict, write=_copy, read=_copy),
     SavedField("group"),
     SavedField("rolled", factory=list, write=list, read=list),
     SavedField("hits", factory=dict, write=dict, read=dict),
@@ -318,27 +327,19 @@ def flanking(battle: BattleState, ident: str) -> bool:
 
 def adjacent(battle: BattleState, one: str, another: str) -> bool:
     """
-    Two forces of the same seat side by side (TNP 6.8): one in a
-    neighbouring column to the other, or one flanking the other or the
-    force beside it -- "a flanking force is adjacent to the force it
-    stands behind, and to that force's neighbours" (TNP 6.5). Two
-    flanking forces are not adjacent to each other: the rules make
-    nothing of it.
+    Two forces of the same seat side by side (TNP 6.5, 6.8): in the same
+    column -- a force and the force flanking it, which "is in the same
+    column as the force it stands behind" -- or in neighbouring columns,
+    front or flanking.
     """
     if one == another:
         return False
-    first, second = battle.force(one), battle.force(another)
-    if first.seat != second.seat:
+    if battle.force(one).seat != battle.force(another).seat:
         return False
     here, there = locate(battle, one), locate(battle, another)
     if here is None or there is None:
         return False
-    (left, left_flank), (right, right_flank) = here, there
-    if left_flank and right_flank:
-        return False
-    if left_flank or right_flank:
-        return abs(left - right) <= 1
-    return abs(left - right) == 1
+    return abs(here[0] - there[0]) <= 1
 
 
 def adjacent_forces(battle: BattleState, ident: str) -> list[str]:
@@ -391,9 +392,9 @@ def slots(engine: "RulesEngine", battle: BattleState, seat: str, force: Force) -
       only in front of one of them (`engage:<column>`);
     - otherwise in a new column, at either end or between two
       (`column:<gap>`, gap 0 the left end);
-    - and, once the other seat has no forces left to place, also behind a
-      force of its own in front (`flank:<column>`) -- never a Base
-      Defense unit (TNP 7).
+    - and, once every force of the other seat is placed and engaged,
+      also behind a force of its own in front that has no flanking force
+      yet (`flank:<column>`) -- never a Base Defense unit (TNP 7).
     """
     enemy = other(seat)
     open_enemies = [
@@ -406,7 +407,7 @@ def slots(engine: "RulesEngine", battle: BattleState, seat: str, force: Force) -
     if not unplaced(battle, enemy) and not engine.has_trait(force.unit, "base_defense"):
         found.extend(
             f"{FLANK}:{index}" for index, column in enumerate(battle.line)
-            if seat in column.front
+            if seat in column.front and not column.flankers(seat)
         )
     return tuple(found)
 
@@ -417,10 +418,9 @@ def slots(engine: "RulesEngine", battle: BattleState, seat: str, force: Force) -
 def may_retreat(engine: "RulesEngine", battle: BattleState, seat: str) -> bool:
     """
     Whether a seat may declare a retreat (TNP 6.6): never the defender
-    of a base, and only where every force of its can go home -- an air
-    force always, a ground force only along a path of territories its
-    seat holds (`paths_home`), since "would-be stranded units cannot
-    retreat".
+    of a base; with a path home, always; with none, only where it has an
+    air force, which can always go -- the ground units its Chopper
+    Carriers cannot carry stay and fight.
     """
     if seat == battle.defender and is_base(engine, battle):
         return False
@@ -429,7 +429,42 @@ def may_retreat(engine: "RulesEngine", battle: BattleState, seat: str) -> bool:
         return False
     if battle.paths_home.get(seat, False):
         return True
-    return all(engine.unit(found.unit).type is UnitType.AIR for found in forces)
+    return any(engine.unit(found.unit).type is UnitType.AIR for found in forces)
+
+
+def carriers(engine: "RulesEngine", battle: BattleState, seat: str) -> dict[str, int]:
+    """The seat's carrying units in the battle, by unit, with how many
+    (TNP 7: Transport)."""
+    capacity = engine.catalog.board.get("transport", {})
+    return {
+        found.unit: found.count for found in battle.living(seat) if found.unit in capacity
+    }
+
+
+def carriable(engine: "RulesEngine", battle: BattleState, seat: str) -> dict[str, int]:
+    """The seat's ground forces a carrier can take, and how many of each
+    one carrier holds (TNP 7)."""
+    capacity = engine.catalog.board.get("transport", {})
+    found = {}
+    for carrier in carriers(engine, battle, seat):
+        for one in battle.living(seat):
+            held = capacity[carrier].get(one.unit)
+            if held:
+                found[one.id] = max(found.get(one.id, 0), int(held))
+    return found
+
+
+def carriers_needed(engine: "RulesEngine", battle: BattleState, carried: Mapping[str, int]) -> int:
+    """How many carriers it takes to carry `carried` -- one kind of unit
+    a carrier, without mixing (TNP 7)."""
+    per = carriable(engine, battle, battle.force(next(iter(carried))).seat) if carried else {}
+    return sum(-(-count // per[ident]) for ident, count in carried.items() if count)
+
+
+def firing(battle: BattleState, ident: str) -> int:
+    """The units of a force that attack this round: all but those
+    retreating (TNP 6.6)."""
+    return battle.force(ident).count - battle.leaving.get(ident, 0)
 
 
 def retreat_asker(engine: "RulesEngine", battle: BattleState) -> Optional[str]:
@@ -509,7 +544,7 @@ def dice(engine: "RulesEngine", battle: BattleState, ident: str, target: str) ->
     two if its rating against the target's type is Poor (TNP 4.3)."""
     found = battle.force(ident)
     rating = engine.rating(found.unit, target_type(engine, battle, target))
-    return rating.dice(found.count)
+    return rating.dice(max(0, firing(battle, ident)))
 
 
 def targets(engine: "RulesEngine", battle: BattleState, ident: str) -> tuple[str, ...]:
@@ -532,10 +567,10 @@ def rollers(engine: "RulesEngine", battle: BattleState, seat: str) -> list[str]:
     The forces of `seat` still to roll in this initiative group (TNP
     6.7): in the line, of the group's initiative, not yet rolled, and
     with a die to roll at something -- a lone Poor unit rolls none
-    (TNP 4.3), so it is not asked. A seat retreating this round does not
-    attack (TNP 6.6).
+    (TNP 4.3), so it is not asked. Units retreating this round do not
+    attack (TNP 6.6), so a force whose every unit is leaving rolls none.
     """
-    if battle.group is None or seat in battle.retreats:
+    if battle.group is None:
         return []
     placed = set(in_line(battle))
     found = []

@@ -37,6 +37,9 @@ from tnp.battle import (
     BattleState,
     Column,
     aimed,
+    carriable,
+    carriers,
+    carriers_needed,
     Force,
     destroyable,
     dice,
@@ -417,9 +420,10 @@ def begin_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
     """
     A round begins (TNP 6.4, 6.5): after the first, every unengaged force
     is lifted out of the line to be placed again -- only engaged pairs
-    stay -- the scouting advantage is counted, and the placing begins:
-    with an advantage of N the other seat places N forces first, with
-    none the defender first, then the seats alternate.
+    stay, and flanking forces are placed again too -- the scouting
+    advantage is counted, and the placing begins: with an advantage of N
+    the other seat places N forces first, with none the defender has the
+    first turn (`answer_place` says what a turn is).
     """
     battle = match.battle
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
@@ -429,7 +433,7 @@ def begin_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
             if len(column.front) == 2:
                 kept.append(Column(front=dict(column.front)))
         battle.line = kept
-    battle.retreats, battle.retreat_asked = [], []
+    battle.retreats, battle.retreat_asked, battle.leaving = [], [], {}
     battle.group, battle.rolled = None, []
     battle.hits, battle.removals, battle.repairs_asked = {}, {}, False
     battle.advantage = scouting_advantage(engine, battle)
@@ -443,9 +447,9 @@ def begin_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
     if battle.advantage is not None:
         first, run = other(battle.advantage["seat"]), battle.advantage["by"]
     else:
-        first, run = battle.defender, 1
+        first, run = battle.defender, 0
     if not unplaced(battle, first):
-        first, run = other(first), 1
+        first, run = other(first), 0
     battle.to_place = first if unplaced(battle, first) else None
     battle.run_left = run
     battle.phase = PLACE
@@ -456,7 +460,15 @@ def begin_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
 
 
 def answer_place(engine: "RulesEngine", match: "MatchState", force: str, slot: str) -> StepResult:
-    """One force into the line (TNP 6.5), where `slots` allows it."""
+    """
+    One force into the line (TNP 6.5), where `slots` allows it, and who
+    places next. The advantage's opening placements (`run_left`) are made
+    one after another; then the seats take turns. **A turn** engages every
+    unengaged force of the other seat it can, then puts down one new
+    force for the other seat to engage, and ends there -- while the other
+    seat has forces to place. Once it has none, the seat places the rest
+    of its own, one after another.
+    """
     battle = match.battle
     seat = battle.to_place
     choices = [found for found in unplaced(battle, seat) if found.id == force]
@@ -480,34 +492,76 @@ def answer_place(engine: "RulesEngine", match: "MatchState", force: str, slot: s
         column.flank.setdefault(seat, []).append(chosen.id)
         behind = battle.force(column.front[seat])
         result.narration.append(f"{force_words(chosen)} flank behind {force_words(behind)}.")
-    battle.run_left -= 1
     mine, theirs = bool(unplaced(battle, seat)), bool(unplaced(battle, other(seat)))
-    if theirs and (battle.run_left <= 0 or not mine):
-        battle.to_place, battle.run_left = other(seat), 1
-    elif mine:
-        battle.run_left = max(battle.run_left, 1)
+    if battle.run_left > 0:
+        battle.run_left -= 1
+        turn_over = battle.run_left == 0
     else:
-        battle.to_place = None
+        turn_over = kind == COLUMN
+    if not mine:
+        battle.to_place, battle.run_left = (other(seat) if theirs else None), 0
+    elif theirs and turn_over:
+        battle.to_place, battle.run_left = other(seat), 0
     return _waiting(engine, match, result)
 
 
 # -- Retreat ---------------------------------------------------------------------
 
 
-def answer_retreat(engine: "RulesEngine", match: "MatchState", choice: str) -> StepResult:
-    """A seat declares a retreat or fights on (TNP 6.6). A retreat ends
-    the battle after this round, and the retreating seat does not attack
-    in it."""
+def answer_retreat(engine: "RulesEngine", match: "MatchState", choice: str,
+                   carried: Optional[Mapping[str, int]] = None) -> StepResult:
+    """
+    A seat declares a retreat or fights on (TNP 6.6). With a path home
+    every unit of its retreats; with none, its air units do, and its
+    Chopper Carriers take the ground units `carried` names, up to their
+    capacity, one kind a carrier (TNP 7) -- the rest stay and fight. The
+    retreating units do not attack this round, and leave at its end.
+    """
     battle = match.battle
     seat = retreat_asker(engine, battle)
-    battle.retreat_asked.append(seat)
     result = StepResult()
-    if choice == "retreat":
-        battle.retreats.append(seat)
-        result.narration.append(f"{tokens.seat(seat)} declares a retreat.")
-        result.board_changed = True
-    else:
+    if choice != "retreat":
+        battle.retreat_asked.append(seat)
         result.narration.append(f"{tokens.seat(seat)} fights on.")
+        return _waiting(engine, match, result)
+    carried = {ident: int(count) for ident, count in (carried or {}).items() if int(count)}
+    leaving: dict[str, int] = {}
+    if battle.paths_home.get(seat, False):
+        if carried:
+            raise RuleRefusal("With a path home every unit retreats; nothing is carried.",
+                              cite="TNP 6.6")
+        leaving = {found.id: found.count for found in battle.living(seat)}
+    else:
+        room = carriable(engine, battle, seat)
+        for ident, count in carried.items():
+            if ident not in room:
+                raise RuleRefusal("A Chopper Carrier cannot carry that.", cite="TNP 7")
+            if count < 0 or count > battle.force(ident).count:
+                raise RuleRefusal("There are not that many to carry.", cite="TNP 7")
+        if carriers_needed(engine, battle, carried) > sum(carriers(engine, battle, seat).values()):
+            raise RuleRefusal(
+                "That is more than the Chopper Carriers hold, one kind of unit a carrier.",
+                cite="TNP 7",
+            )
+        for found in battle.living(seat):
+            if engine.unit(found.unit).type is UnitType.AIR:
+                leaving[found.id] = found.count
+        leaving.update(carried)
+    battle.retreat_asked.append(seat)
+    battle.retreats.append(seat)
+    battle.leaving = leaving
+    result.board_changed = True
+    staying = [
+        _count(found.count - leaving.get(found.id, 0), found.unit)
+        for found in battle.living(seat) if found.count > leaving.get(found.id, 0)
+    ]
+    if not staying:
+        result.narration.append(f"{tokens.seat(seat)} declares a retreat.")
+    else:
+        going = ", ".join(_count(count, battle.force(ident).unit) for ident, count in leaving.items())
+        result.narration.append(
+            f"{tokens.seat(seat)} retreats {going}; {', '.join(staying)} stay and fight."
+        )
     return _waiting(engine, match, result)
 
 
@@ -690,15 +744,7 @@ def close_group(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
     if lost:
         result.narration.extend(lost)
         result.board_changed = True
-    for column in list(battle.line):
-        for seat, ident in list(column.front.items()):
-            if battle.force(ident).count <= 0:
-                del column.front[seat]
-        for seat in SEATS:
-            if seat in column.flank:
-                column.flank[seat] = [one for one in column.flank[seat] if battle.force(one).count > 0]
-        if not column.everyone():
-            battle.line.remove(column)
+    _clear_the_dead(battle)
     finished = battle.group
     battle.hits, battle.removals, battle.rolled, battle.repairs_asked = {}, {}, [], False
     later = [value for value in groups(engine, battle) if value > finished]
@@ -711,22 +757,62 @@ def close_group(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
     return _waiting(engine, match, result)
 
 
+def _clear_the_dead(battle: BattleState) -> None:
+    """Every force with no units left taken out of the line, and every
+    column with nobody left in it."""
+    for column in list(battle.line):
+        for seat, ident in list(column.front.items()):
+            if battle.force(ident).count <= 0:
+                del column.front[seat]
+        for seat in SEATS:
+            if seat in column.flank:
+                column.flank[seat] = [one for one in column.flank[seat] if battle.force(one).count > 0]
+        if not column.everyone():
+            battle.line.remove(column)
+
+
 # -- The round's end -------------------------------------------------------------
+
+
+def _withdraw(battle: BattleState, result: StepResult) -> None:
+    """
+    The units retreating this round leave for their base (TNP 6.6).
+    Where a carry splits a force, its losses this round came off the
+    units staying, and its damaged units stay first.
+    """
+    for ident, count in battle.leaving.items():
+        force = battle.force(ident)
+        going = min(count, force.count)
+        if going <= 0:
+            continue
+        hurt = max(0, force.damaged - (force.count - going))
+        force.count -= going
+        force.damaged -= hurt
+        home = battle.withdrawn.setdefault(force.seat, {}).setdefault(force.unit, {"count": 0, "damaged": 0})
+        home["count"] += going
+        home["damaged"] += hurt
+    if battle.leaving:
+        result.board_changed = True
+    battle.leaving = {}
+    _clear_the_dead(battle)
 
 
 def end_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str = "") -> StepResult:
     """
-    The round ends (TNP 6.10): a seat that retreated has lost; a seat
-    with no units left has lost; otherwise the round track moves up --
-    and after the sixth the defender wins if it still has units,
-    whatever the base cards took.
+    The round ends (TNP 6.10): the retreating units leave; a seat that
+    retreated every unit it had has lost; a seat with no units left has
+    lost -- and neither having any is nobody's battle; otherwise the
+    round track moves up, and after the sixth the defender wins if it
+    still has units, whatever the base cards took.
     """
     battle = match.battle
     result = StepResult(narration=[lead_in] if lead_in else [])
+    retreated = list(battle.retreats)
+    _withdraw(battle, result)
     attacking, defending = bool(battle.living(battle.attacker)), bool(battle.living(battle.defender))
-    if battle.retreats:
-        retreating = battle.retreats[0]
-        finish(engine, battle, result, other(retreating), "retreat")
+    gone = [seat for seat in retreated if not battle.living(seat)]
+    if gone and battle.living(other(gone[0])):
+        finish(engine, battle, result, other(gone[0]), "retreat")
     elif not attacking and not defending:
         finish(engine, battle, result, None, "destroyed")
     elif not defending:
@@ -755,9 +841,10 @@ def finish(engine: "RulesEngine", battle: BattleState, result: StepResult,
       where nobody won;
     - `base_fallen`, for an attack on a base that won, which wins the
       game (TNP 1.3);
-    - `survivors` by seat and unit, with their damage, and `home`, the
-      seats whose survivors go back to their base (a retreat, or the
-      losing side's units, TNP 6.6, 6.11).
+    - `survivors` by seat and unit, with their damage; `withdrawn`, the
+      units that retreated home during the battle (TNP 6.6); and `home`,
+      the seats whose survivors go back to their base -- the losing
+      side's units left when the defender holds (TNP 6.11).
     """
     survivors = {
         seat: {
@@ -786,6 +873,7 @@ def finish(engine: "RulesEngine", battle: BattleState, result: StepResult,
         "base_fallen": base and winner == battle.attacker,
         "destroyed": battle.destroyed,
         "survivors": survivors,
+        "withdrawn": {seat: dict(units) for seat, units in battle.withdrawn.items()},
         "home": home,
     }
     battle.phase = OVER

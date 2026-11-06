@@ -167,7 +167,7 @@ each; max supply; the conversion rates, normal and emergency, an
 emergency mineral's gold `null` because the Vassal board offers none;
 the starting pool and units; and the limits (two tech facilities, one
 building tech a facility, 8 Smart Mines and Rocket Launchers deployed
-together).
+together); and each Chopper Carrier's capacity by the unit carried (`transport`, TNP 7, the author, 2026-11-06), checked against the units' traits.
 
 **The map** (`map.json`) is the worksheet's table -- seventeen areas,
 their adjacency and resources, confirmed by the author on 2026-11-05 --
@@ -263,16 +263,44 @@ step 7 edits the battle message round by round, and names
 `END_ROUND` as its batching boundary.
 
 **The line** is a list of columns, each with at most one force a seat
-in front and any number flanking behind. A force is `"<seat>:<unit>"`,
-since a seat's units of one kind are one force; the base cards are the
-targets `base_left` and `base_right`, standing just beyond the line's
-two ends, so an engaged force's position modifier against one is the
+in front and at most one flanking behind each front force (TNP 6.5,
+the author, 2026-11-06). A force is `"<seat>:<unit>"`, since a seat's
+units of one kind are one force; the base cards are the targets
+`base_left` and `base_right`, standing just beyond the line's two
+ends, so an engaged force's position modifier against one is the
 columns from its own to there, and an unengaged force's is −1 (TNP
-6.9). Adjacency is between forces of one seat: neighbouring columns'
-front forces, and a flanking force with the front force it stands
-behind and that force's two neighbours (TNP 6.5, 6.8). Repair takes a
-Worker from a force adjacent to the hit one; Splash an infantry unit
-from a force adjacent to the one hit, of the hit force's seat.
+6.9). A flanking force "is in the same column as the force it stands
+behind", so adjacency is by column alone: two forces of one seat are
+adjacent in the same column or neighbouring ones (TNP 6.5, 6.8).
+Repair takes a Worker from a force adjacent to the hit one; Splash an
+infantry unit from a force adjacent to the one hit, of the hit force's
+seat, once a roll, a damaged unit first. An attacking flanker still
+takes no position modifier (TNP 6.7): "in the same column" settles
+adjacency, and the earlier answer on the position modifier stands.
+
+**Placing is by turns** (TNP 6.5, the author, 2026-11-06). The
+advantage's opening placements are a run (`run_left`); then a seat's
+turn engages every unengaged enemy force it can, places one new force
+for the other seat to engage, and ends -- `answer_place` passes the
+turn on a new column while the other seat still has forces to place.
+Once the other seat is all placed and engaged, the seat places the rest
+of its own one after another, flanking where a force has no flanker
+yet, or as new columns. `slots` is the one reading of where; the turn
+is the placement's consequence, so it lives with the answer and leaves
+`slots` as it was. Every unengaged force, flankers included, is lifted
+and placed again at a round's start.
+
+**A retreat with no path home is partial** (TNP 6.6, 7, the author,
+2026-11-06). The air units go, and the Chopper Carriers take what the
+action's `carried` names, up to `human_board.json`'s `transport`
+capacity, one kind a carrier; the ground units left behind stay and
+fight, and the battle goes on. The retreating units are `leaving`: they
+roll no dice (`firing`), may be hit, and leave at `END_ROUND` into
+`withdrawn`, which the outcome carries. Only a retreat that takes every
+unit ends the battle as a defeat. Where a carry splits a force, its
+losses come off the units staying and its damaged units stay first --
+a force is one count, so the code has to pick, and it picks the reading
+that keeps a split force one force.
 
 **The losses come off at the group's end** (TNP 6.7): a roll adds to
 the target's hits; Splash and Repair's Workers are units removed
@@ -282,20 +310,10 @@ beside it is asked first, then each force takes its hits one at a time
 and then its removals. Repair is asked there, not as the hit lands,
 because that is when the unit would come off.
 
-**Provisional readings, asked in step 2's PR ("Questions to the author").**
-Where the rules leave a case open the code takes the narrowest reading
-and the PR asks; each is one branch to change:
-
-- *Who is placed in rounds 2 to 6.* Every unengaged force is lifted
-  and placed again -- flankers and forces alone in a column too --
-  reading TNP 6.5's "each round, only unengaged forces are placed";
-  only engaged pairs stay.
-- *An empty base and the emergency defense.* The defense is offered
-  first (TNP 6.2 says it is for any attack on a base), and the base is
-  judged undefended after it.
-- *Both sides destroyed in one group.* No winner; the territory stays
-  as it was.
-- *A retreat some forces cannot make.* A seat may declare a retreat
-  only where every force of its can go home.
-- *Splash* is once for each roll that hits, not each hit; it removes a
-  damaged unit first; and two flanking forces are not adjacent.
+**What the author settled on PR #708** (2026-11-06), all in
+docs/tnp-rules.md and its log: flankers are placed again each round; an
+undefended base is offered its emergency defense before it falls; both
+sides destroyed together is nobody's battle, the territory as it was;
+the retreat and the placing turns above; one flanker a force, in its
+force's column; Splash once a roll, from the side hit, a damaged unit
+first.

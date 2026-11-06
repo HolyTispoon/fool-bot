@@ -35,6 +35,8 @@ from tnp.battle import (
     ROUND_END,
     BattleState,
     aimed,
+    carriable,
+    carriers,
     destroyable,
     dice,
     emergency_cap,
@@ -50,6 +52,7 @@ from tnp.battle import (
     target_type,
     unplaced,
 )
+from tnp.catalog import UnitType
 from tnp.flow.result import FollowOn, FollowOnStep
 from tnp.wire import jsonable
 
@@ -146,9 +149,29 @@ class PlaceOptions(_Wire):
 
 
 @dataclass(frozen=True)
+class CarryOption(_Wire):
+    """A ground force the Chopper Carriers may take out, and how many of
+    it one carrier holds (TNP 7)."""
+
+    force: str
+    unit: str
+    count: int
+    per_carrier: int
+
+
+@dataclass(frozen=True)
 class RetreatOptions(_Wire):
     seat: str
     round: int
+    #: With a path home every unit retreats (TNP 6.6), and nothing below
+    #: is offered.
+    path_home: bool = True
+    #: With none: the air forces, which go; the carriers, and what they
+    #: may carry -- an action's `carried`, force to count, one kind of
+    #: unit a carrier.
+    air: tuple[str, ...] = ()
+    carriers: int = 0
+    carry: tuple[CarryOption, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -305,7 +328,22 @@ def _place_options(engine, battle: BattleState, prompt) -> PlaceOptions:
 
 
 def _retreat_options(engine, battle: BattleState, prompt) -> RetreatOptions:
-    return RetreatOptions(prompt.asked_seat, battle.round)
+    seat = prompt.asked_seat
+    if battle.paths_home.get(seat, False):
+        return RetreatOptions(seat, battle.round)
+    room = carriable(engine, battle, seat)
+    return RetreatOptions(
+        seat, battle.round, path_home=False,
+        air=tuple(
+            found.id for found in battle.living(seat)
+            if engine.unit(found.unit).type is UnitType.AIR
+        ),
+        carriers=sum(carriers(engine, battle, seat).values()),
+        carry=tuple(
+            CarryOption(ident, battle.force(ident).unit, battle.force(ident).count, per)
+            for ident, per in room.items()
+        ),
+    )
 
 
 def _target_options(engine, battle: BattleState, prompt) -> TargetOptions:

@@ -195,8 +195,8 @@ def _answer_place(engine, game, match, prompt, choice, *, force=None, slot=None)
     return fight.answer_place(engine, match, _required(force, "force"), _required(slot, "slot"))
 
 
-def _answer_retreat(engine, game, match, prompt, choice) -> StepResult:
-    return fight.answer_retreat(engine, match, choice)
+def _answer_retreat(engine, game, match, prompt, choice, *, carried=None) -> StepResult:
+    return fight.answer_retreat(engine, match, choice, carried=carried)
 
 
 def _answer_target(engine, game, match, prompt, choice, *, force=None, target=None) -> StepResult:
@@ -232,7 +232,7 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.CHOOSE_ROLE: frozenset(),
     PromptKind.EMERGENCY_DEFENSE: frozenset({"units", "trade"}),
     PromptKind.PLACE_FORCE: frozenset({"force", "slot"}),
-    PromptKind.DECLARE_RETREAT: frozenset(),
+    PromptKind.DECLARE_RETREAT: frozenset({"carried"}),
     PromptKind.CHOOSE_TARGET: frozenset({"force", "target"}),
     PromptKind.REPAIR: frozenset({"workers"}),
     PromptKind.SPLASH: frozenset({"force"}),

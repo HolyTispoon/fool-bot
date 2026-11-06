@@ -119,14 +119,14 @@ class PlacementTests(unittest.TestCase):
         self.assertEqual(seats, ["green", "green", "blue", "green"])
 
     def test_with_no_advantage_the_defender_places_first(self) -> None:
-        """TNP 6.5: with no advantage the defender places first, and the seats alternate."""
+        """TNP 6.5: with no advantage the defender places first; then a turn engages, places one new force, and ends."""
         engine, match = stage({"mercenary": 1, "worker": 1}, {"mercenary": 1, "worker": 1})
         seats = []
         while asked(engine, match).kind is PLACE:
             prompt = asked(engine, match)
             seats.append(prompt.asked_seat)
             play(engine, match, first(prompt))
-        self.assertEqual(seats, ["green", "blue", "green", "blue"])
+        self.assertEqual(seats, ["green", "blue", "blue", "green"])
 
     def test_an_unengaged_force_must_be_engaged(self) -> None:
         """TNP 6.5: while the other seat has an unengaged force in the line, a placement engages one."""
@@ -139,18 +139,39 @@ class PlacementTests(unittest.TestCase):
         self.assertIsInstance(refused, driver.Refusal)
         self.assertEqual(refused.cite, "TNP 6.5")
 
-    def test_flanking_only_once_the_other_seat_has_none_to_place(self) -> None:
-        """TNP 6.5: behind a force of one's own only when the other seat has no forces left."""
-        engine, match = stage({"mercenary": 1, "worker": 1, "tank": 1}, {"mercenary": 1, "worker": 1})
+    def test_flanking_only_once_the_other_seat_is_all_engaged(self) -> None:
+        """TNP 6.5: a turn engages then places one new force; flanking only once every
+        force of the other seat is placed and engaged, one flanking force behind a force."""
+        engine, match = stage(
+            {"mercenary": 1, "worker": 1, "tank": 1, "jeep": 1}, {"mercenary": 1, "worker": 1, "cyborg_soldier": 1},
+        )
+        # The Jeep's Scouting 1: Green, without the advantage, places one first.
         place(engine, match, "green:mercenary", "column:0")
         place(engine, match, "blue:mercenary", "engage:0")
         prompt = asked(engine, match)
-        self.assertEqual(prompt.asked_seat, "green")
-        self.assertNotIn("flank:0", options_for(prompt, "green:worker").slots)
-        place(engine, match, "green:worker", "column:1")
-        place(engine, match, "blue:worker", "engage:1")
+        self.assertEqual(prompt.asked_seat, "blue")
+        self.assertEqual(options_for(prompt, "blue:worker").slots, ("column:0", "column:1"))
+        place(engine, match, "blue:worker", "column:1")
         prompt = asked(engine, match)
-        self.assertEqual(options_for(prompt, "blue:tank").slots, ("column:0", "column:1", "column:2", "flank:0", "flank:1"))
+        self.assertEqual(prompt.asked_seat, "green")
+        self.assertEqual(options_for(prompt, "green:worker").slots, ("engage:1",))
+        place(engine, match, "green:worker", "engage:1")
+        place(engine, match, "green:cyborg_soldier", "column:2")
+        place(engine, match, "blue:tank", "engage:2")
+        prompt = asked(engine, match)
+        self.assertEqual(options_for(prompt, "blue:jeep").slots,
+                         ("column:0", "column:1", "column:2", "column:3", "flank:0", "flank:1", "flank:2"))
+        place(engine, match, "blue:jeep", "flank:0")
+        self.assertIsNot(asked(engine, match).kind, PLACE)
+
+    def test_one_flanking_force_behind_a_force(self) -> None:
+        """TNP 6.5: each force has at most one flanking force behind it."""
+        engine, match = stage({"mercenary": 1, "worker": 1, "tank": 1}, {"mercenary": 1})
+        place(engine, match, "green:mercenary", "column:0")
+        place(engine, match, "blue:mercenary", "engage:0")
+        place(engine, match, "blue:worker", "flank:0")
+        prompt = asked(engine, match)
+        self.assertEqual(options_for(prompt, "blue:tank").slots, ("column:0", "column:1"))
 
     def test_a_base_defense_unit_cannot_flank(self) -> None:
         """TNP 6.5, 7: a Base Defense unit cannot flank."""
@@ -177,8 +198,8 @@ class PlacementTests(unittest.TestCase):
         engine, match = stage({"mercenary": 2, "worker": 1}, {"mercenary": 1, "worker": 1})
         place(engine, match, "green:mercenary", "column:0")
         place(engine, match, "blue:mercenary", "engage:0")
-        place(engine, match, "green:worker", "column:1")
-        place(engine, match, "blue:worker", "engage:1")
+        place(engine, match, "blue:worker", "column:1")
+        place(engine, match, "green:worker", "engage:1")
         fight_on(engine, match)
         fight_on(engine, match)
         shoot(engine, match, "blue:mercenary", "green:mercenary", rolls=[9, 2])
@@ -215,13 +236,54 @@ class RetreatTests(unittest.TestCase):
         self.assertEqual((prompt.kind, prompt.asked_seat), (TARGET, "green"))
         shoot(engine, match, "green:mercenary", "blue:mercenary", rolls=[2])
         outcome = match.battle.outcome
-        self.assertEqual((outcome["winner"], outcome["by"], outcome["home"]), ("green", "retreat", ["blue"]))
+        self.assertEqual((outcome["winner"], outcome["by"], outcome["home"]), ("green", "retreat", []))
+        self.assertEqual(outcome["withdrawn"], {"blue": {"mercenary": {"count": 1, "damaged": 0}}})
 
     def test_the_defender_of_a_base_cannot_retreat(self) -> None:
         """TNP 6.6: the defender of a base cannot retreat."""
         engine, match = self._placed({"mercenary": 1}, {"mercenary": 1}, territory="green_base")
         fight_on(engine, match)
         self.assertIs(asked(engine, match).kind, TARGET)
+
+    def test_with_no_path_home_the_air_units_retreat_and_carry(self) -> None:
+        """TNP 6.6, 7: with no path home the air units retreat, the Chopper Carriers carrying
+        ground units up to their capacity, and the rest stay and fight; the battle goes on."""
+        engine, match = self._placed(
+            {"chopper_carrier": 1, "mercenary": 4}, {"mercenary": 1}, paths_home={"blue": False, "green": True},
+        )
+        prompt = asked(engine, match)
+        self.assertEqual(prompt.asked_seat, "blue")
+        options = prompt.options
+        self.assertEqual((options.path_home, options.air, options.carriers), (False, ("blue:chopper_carrier",), 1))
+        self.assertEqual([(one.force, one.count, one.per_carrier) for one in options.carry], [("blue:mercenary", 4, 3)])
+        refused = driver.apply(engine, None, match, Action(RETREAT, "retreat", {"carried": {"blue:mercenary": 4}}))
+        self.assertEqual(refused.cite, "TNP 7")
+        play(engine, match, Action(RETREAT, "retreat", {"carried": {"blue:mercenary": 3}}))
+        prompt = asked(engine, match)
+        # Green's Mercenary and Blue's share initiative 2: Blue's staying one rolls first, one die.
+        self.assertEqual(target_option(prompt, "blue:mercenary", "green:mercenary").dice, 1)
+        self.assertNotIn("blue:chopper_carrier", [one.force for one in prompt.options.forces])
+        shoot(engine, match, "blue:mercenary", "green:mercenary", rolls=[2])
+        shoot(engine, match, "green:mercenary", "blue:mercenary", rolls=[2])
+        battle = match.battle
+        self.assertIsNone(battle.outcome)
+        self.assertEqual(battle.round, 2)
+        self.assertEqual(battle.withdrawn, {"blue": {"chopper_carrier": {"count": 1, "damaged": 0},
+                                                     "mercenary": {"count": 3, "damaged": 0}}})
+        self.assertEqual([(one.id, one.count) for one in battle.living("blue")], [("blue:mercenary", 1)])
+        # The stranded Mercenary cannot retreat now: the defender is asked.
+        self.assertEqual(asked(engine, match).asked_seat, "green")
+
+    def test_one_kind_a_carrier(self) -> None:
+        """TNP 7: a carrier carries one kind of unit, without mixing."""
+        engine, match = self._placed(
+            {"chopper_carrier": 1, "mercenary": 1, "tank": 1}, {"mercenary": 1},
+            paths_home={"blue": False, "green": True},
+        )
+        refused = driver.apply(engine, None, match, Action(
+            RETREAT, "retreat", {"carried": {"blue:mercenary": 1, "blue:tank": 1}},
+        ))
+        self.assertEqual(refused.cite, "TNP 7")
 
     def test_no_path_home_no_retreat_but_air_always(self) -> None:
         """TNP 6.6: a ground force retreats only with a path home; an air force always."""
@@ -245,7 +307,7 @@ class DamageTests(unittest.TestCase):
         engine, match = self._line(
             {"mercenary": 1, "stealth_sniper": 1}, {"mercenary": 1, "stealth_sniper": 1},
             [("green:mercenary", "column:0"), ("blue:mercenary", "engage:0"),
-             ("green:stealth_sniper", "column:1"), ("blue:stealth_sniper", "engage:1")],
+             ("blue:stealth_sniper", "column:1"), ("green:stealth_sniper", "engage:1")],
         )
         order = []
         while (prompt := asked(engine, match)) is not None and prompt.kind is TARGET and match.battle.round == 1:
@@ -264,7 +326,9 @@ class DamageTests(unittest.TestCase):
         prompt = asked(engine, match)
         self.assertEqual((prompt.kind, prompt.asked_seat), (TARGET, "green"))
         shoot(engine, match, "green:mercenary", "blue:mercenary", rolls=[9])
+        # TNP 6.10: neither side has a unit left; nobody wins, and the territory stays as it was.
         self.assertEqual(match.battle.outcome["winner"], None)
+        self.assertEqual(match.battle.outcome["control"], "green")
 
     def test_a_unit_destroyed_by_an_earlier_group_does_not(self) -> None:
         """TNP 6.7: a unit destroyed by an earlier group does not shoot."""
@@ -326,7 +390,7 @@ class DamageTests(unittest.TestCase):
         engine, match = self._line(
             {"mercenary": 1, "jeep": 1, "worker": 1}, {"mercenary": 1, "worker": 1},
             [("green:mercenary", "column:0"), ("blue:jeep", "engage:0"),
-             ("green:worker", "column:1"), ("blue:mercenary", "engage:1"),
+             ("blue:mercenary", "column:1"), ("green:worker", "engage:1"),
              ("blue:worker", "flank:0")],
         )
         prompt = asked(engine, match)
@@ -383,16 +447,18 @@ class HitsTests(unittest.TestCase):
         tank, workers = match.battle.force("blue:tank"), match.battle.force("blue:worker")
         self.assertEqual((tank.count, tank.damaged, workers.count), (1, 0, 1))
 
-    def test_adjacent_is_a_neighbouring_column_or_a_flank(self) -> None:
-        """TNP 6.8: adjacent means a force in a neighbouring column, or a force flanking it."""
+    def test_adjacent_is_the_same_or_a_neighbouring_column(self) -> None:
+        """TNP 6.5, 6.8: a flanking force is in its force's column, adjacent to it and to
+        whatever it is adjacent to; adjacent means the same column or a neighbouring one."""
         engine, match = stage(
-            {"mercenary": 1, "worker": 1, "jeep": 1, "tank": 1},
+            {"mercenary": 1, "worker": 1, "jeep": 1, "tank": 1, "cyborg_soldier": 1},
             {"mercenary": 1, "worker": 1, "jeep": 1},
         )
         for force, slot in [
             ("green:mercenary", "column:0"), ("blue:mercenary", "engage:0"),
-            ("green:worker", "column:1"), ("blue:worker", "engage:1"),
-            ("green:jeep", "column:2"), ("blue:jeep", "engage:2"), ("blue:tank", "flank:0"),
+            ("blue:worker", "column:1"), ("green:worker", "engage:1"),
+            ("green:jeep", "column:2"), ("blue:jeep", "engage:2"),
+            ("blue:tank", "flank:0"), ("blue:cyborg_soldier", "flank:1"),
         ]:
             place(engine, match, force, slot)
         battle = match.battle
@@ -401,6 +467,8 @@ class HitsTests(unittest.TestCase):
         self.assertTrue(adjacent(battle, "blue:tank", "blue:mercenary"))
         self.assertTrue(adjacent(battle, "blue:tank", "blue:worker"))
         self.assertFalse(adjacent(battle, "blue:tank", "blue:jeep"))
+        self.assertTrue(adjacent(battle, "blue:tank", "blue:cyborg_soldier"))
+        self.assertTrue(adjacent(battle, "blue:cyborg_soldier", "blue:jeep"))
         self.assertFalse(adjacent(battle, "blue:mercenary", "green:mercenary"))
         self.assertEqual(locate(battle, "blue:tank"), (0, True))
 
@@ -409,8 +477,8 @@ class HitsTests(unittest.TestCase):
         engine, match = stage({"tank": 1, "mercenary": 1}, {"mercenary": 1, "cyborg_soldier": 1})
         place(engine, match, "green:mercenary", "column:0")
         place(engine, match, "blue:tank", "engage:0")
-        place(engine, match, "green:cyborg_soldier", "column:1")
-        place(engine, match, "blue:mercenary", "engage:1")
+        place(engine, match, "blue:mercenary", "column:1")
+        place(engine, match, "green:cyborg_soldier", "engage:1")
         fight_on(engine, match)
         fight_on(engine, match)
         shoot(engine, match, "blue:mercenary", "green:cyborg_soldier", rolls=[2])
@@ -422,6 +490,28 @@ class HitsTests(unittest.TestCase):
         shoot(engine, match, "green:cyborg_soldier", "blue:tank", rolls=[2])
         # Tough or not, the splashed Cyborg is removed.
         self.assertEqual(match.battle.outcome["winner"], "blue")
+
+
+class SplashDamagedFirstTests(unittest.TestCase):
+    def test_splash_takes_a_damaged_unit_first(self) -> None:
+        """TNP 6.8: Splash removes a damaged unit first."""
+        engine, match = stage(
+            {"tank": 1, "mercenary": 1}, {"mercenary": 1, "cyborg_soldier": 2},
+            damaged={"green": {"cyborg_soldier": 1}},
+        )
+        place(engine, match, "green:mercenary", "column:0")
+        place(engine, match, "blue:tank", "engage:0")
+        place(engine, match, "blue:mercenary", "column:1")
+        place(engine, match, "green:cyborg_soldier", "engage:1")
+        fight_on(engine, match)
+        fight_on(engine, match)
+        shoot(engine, match, "blue:mercenary", "green:cyborg_soldier", rolls=[2])
+        shoot(engine, match, "green:mercenary", "blue:tank", rolls=[2])
+        shoot(engine, match, "blue:tank", "green:mercenary", rolls=[6])
+        play(engine, match, Action(PromptKind.SPLASH, "splash", {"force": "green:cyborg_soldier"}))
+        shoot(engine, match, "green:cyborg_soldier", "blue:tank", rolls=[2, 2])
+        cyborgs = match.battle.force("green:cyborg_soldier")
+        self.assertEqual((cyborgs.count, cyborgs.damaged), (1, 0))
 
 
 class BaseTests(unittest.TestCase):
@@ -633,7 +723,14 @@ class AnyTwoForcesTests(unittest.TestCase):
                 shooter = chooser.choice(options.forces)
                 return Action(kind, "", {"force": shooter.force, "target": chooser.choice(shooter.targets).target})
             if kind is PromptKind.DECLARE_RETREAT:
-                return Action(kind, "retreat" if chooser.random() < 0.05 else "fight")
+                if chooser.random() >= 0.05:
+                    return Action(kind, "fight")
+                if options.path_home or not options.carry or not options.carriers:
+                    return Action(kind, "retreat")
+                one = chooser.choice(options.carry)
+                return Action(kind, "retreat", {"carried": {
+                    one.force: min(one.count, one.per_carrier * options.carriers),
+                }})
             if kind is PromptKind.REPAIR:
                 worker = options.workers[0]
                 return Action(kind, "repair", {"workers": {worker.force: min(worker.available, options.hits)}})
@@ -652,7 +749,8 @@ class AnyTwoForcesTests(unittest.TestCase):
         for index, (mine, theirs) in enumerate(itertools.product(units, units)):
             chooser = random.Random(index)
             engine, match = stage(
-                {mine: 3, "worker": 2}, {theirs: 2, "tank": 1}, seed=index,
+                {mine: 3, "worker": 2, "chopper_carrier": 1}, {theirs: 2, "tank": 1}, seed=index,
+                paths_home={"blue": index % 2 == 0, "green": True},
             )
             fight(engine, match, self._random_policy(chooser))
             json.dumps(match.to_dict())
