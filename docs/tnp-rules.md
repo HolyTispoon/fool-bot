@@ -219,8 +219,9 @@ Each seat deploys onto its own **deployment board**, behind its screen:
   stranded ones already there (5.7) (the author, 2026-11-06).
 
 Each stack placed in a spot goes with the **territory card** of the
-territory it attacks or defends, and a seat has **one card for each
-territory** (the author, 2026-11-06): a territory goes into one spot a
+territory it attacks or defends, drawn from the seat's own **deck of
+territory cards**, which holds **one card for each territory** on the
+map (the author, 2026-11-06): a territory goes into one spot a
 turn at most, so a seat neither attacks one territory from two spots
 nor attacks and defends the same territory in one turn. A seat that
 harvests a territory it holds (5.8) leaves it undefended that turn. The base
@@ -229,8 +230,9 @@ has its own spot.
 ## 3. Setup
 
 - The map, with each territory's resource tokens on it (2.1).
-- Each seat takes its player board, its screen, its deployment board
-  and its faction's units.
+- Each seat takes its player board, its screen, its deployment board,
+  its deck of territory cards -- one a territory (2.5) -- and its
+  faction's units.
 - Each seat starts with **3 Workers, 3 Mercenaries and 5 materials**,
   and no gold (the author, 2026-11-05). Its Barracks and Base Defenses
   are built; its Factory and Airport are not (2.4).
