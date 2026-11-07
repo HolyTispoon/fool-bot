@@ -663,8 +663,9 @@ its line, one at either end (the author, 2026-11-05).
   column further.
 - **A force that scores 2 or more hits on a base card destroys one
   thing**, the attacker's choice (the author, 2026-11-05): one upgrade
-  of one of the defender's facilities, or, once a facility has no
-  upgrades left, the Factory or the Airport itself. An upgrade must be
+  of one of the defender's facilities or the base's Command and Control
+  CPU (the author, 2026-11-06), or, once a facility has no upgrades
+  left, the Factory or the Airport itself. An upgrade must be
   destroyed before its facility, and the **Barracks and Base Defenses
   cannot be destroyed**. *Step 9's:* the rulebook also lets it destroy
   a tech facility or a building tech.
@@ -996,3 +997,5 @@ One line per change, dated, with where it came from.
   upgrade of the base, 1 material and 2 gold, in the basic game, and
   opens attack spot C -- 2.4, 2.5, 5.2. (The author, in chat; the unit
   sheet's Humans tab.)
+- 2026-11-06: A base card's hits may destroy the Command and Control
+  CPU, as they may a facility's upgrade -- 6.9. (The author, in chat.)
