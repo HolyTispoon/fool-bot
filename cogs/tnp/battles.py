@@ -63,6 +63,9 @@ class Picture:
     map: Any
     battle: Optional[BattleState] = None
     key: Optional[str] = None
+    #: Both seats' deployment boards as everybody sees them there
+    #: (`tnp.briefs.spots_brief`), drawn under a March message.
+    spots: Any = None
 
 
 def battle_key(match) -> Optional[str]:
@@ -98,7 +101,7 @@ class BattleMixin:
             battle = BattleState.from_dict(match.battle.to_dict())
             if battle.outcome is None and battle.phase == ROUND and battle.round > 1:
                 battle.round -= 1
-        return Picture(self.map_picture(match), battle, battle_key(match))
+        return Picture(self.map_picture(match), battle, battle_key(match), self.spots_picture(match))
 
     def plain_words(self, text: str) -> str:
         """A token string in plain words, for a control's label: "Blue",

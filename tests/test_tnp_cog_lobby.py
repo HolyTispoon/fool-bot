@@ -354,7 +354,8 @@ class TnpLobbyTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("your board, **Blue** (Alice)", boards["blue"])
         self.assertIn("Pool: 5 materials", boards["blue"])
         self.assertIn("Build: Worker (1 material, up to 4)", boards["blue"])
-        self.assertIn("Attack spots: A, B", boards["blue"])
+        self.assertIn("Place: Factory (2 materials)", boards["blue"])
+        self.assertIn("**① Infrastructure**", boards["blue"])
         self.assertIn("**Green** (Bob)", boards["green"])
         self.assertNotIn("Alice", boards["green"])
 

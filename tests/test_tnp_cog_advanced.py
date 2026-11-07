@@ -13,7 +13,7 @@ import unittest
 
 import discord
 
-from codex_cog_fakes import find_button, find_select
+from codex_cog_fakes import find_button
 from cogs.tnp_views import LobbyView
 from cogs.tnp_views.battle import TacticalCommandView
 from cogs.tnp_views.panel import TacticPanelView
@@ -71,19 +71,18 @@ class TnpAdvancedCogTests(unittest.IsolatedAsyncioTestCase):
         mark = len(turn.channel.requests)
         view, call = await turn.my_board("blue")
         self.assertIn("Your building techs: 1 Grenades.", call.text())
-        view, _ = await turn.choose(view, "What to change", "attach")
-        view, _ = await turn.choose(view, "Building techs to attach", "grenades@barracks")
-        view, _ = await turn.choose(view, "What to change", "tech")
-        view, call = await turn.choose(view, "Tech facilities to build", "jeweler#0")
+        view, _ = await turn.click(view, ("step", "techs"))
+        view, _ = await turn.click(view, ("attach", "grenades", "barracks"))
+        view, call = await turn.click(view, ("tech", "jeweler", 0))
         plan = turn.match().seat("blue").plan
         self.assertEqual(plan["techs"]["attach"], {"barracks": "grenades"})
         self.assertEqual(plan["techs"]["build"], ["jeweler"])
-        await turn.press(view, "Lock in")
+        await turn.lock(view)
         public = turn.public(mark)
         self.assertNotIn("Grenades", public)
         self.assertNotIn("Jeweler", public)
         view, _ = await turn.my_board("green")
-        await turn.press(view, "Lock in")
+        await turn.lock(view)
         blue = turn.match().seat("blue")
         self.assertEqual((blue.tech, blue.attached), (["jeweler"], {"barracks": "grenades"}))
         self.assertNotIn("Grenades", turn.public(mark))
@@ -95,8 +94,8 @@ class TnpAdvancedCogTests(unittest.IsolatedAsyncioTestCase):
         match.phase = TRADE
         turn.cog.service.persist(turn.game, match)
         view, call = await turn.my_board("blue")
-        view, _ = await turn.choose(view, "Card to trade", "jeweler")
-        view, _ = await turn.choose(view, "How many for materials", "2")
+        view, _ = await turn.click(view, ("kind", "jeweler"))
+        view, _ = await turn.click(view, ("materials", "All"))
         self.assertEqual(turn.match().seat("blue").plan["materials"], {"jeweler": 2})
         await turn.press(view, "Lock in")
         self.assertEqual(turn.match().seat("blue").pool["materials"], 5 + 4)
@@ -111,22 +110,21 @@ class TnpAdvancedCogTests(unittest.IsolatedAsyncioTestCase):
         match.seat("green").hand = {"arm_workers": 1}
         turn.cog.service.persist(turn.game, match)
         view, _ = await turn.my_board("blue")
-        view, _ = await turn.choose(view, "What to change", "attack:A")
-        view, _ = await turn.choose(view, "Attack A's target", "14")
-        view, _ = await turn.choose(view, "Unit for attack A", "mercenary")
-        view, _ = await turn.choose(view, "How many Mercenary in attack A", "3")
-        await turn.press(view, "Lock in")
+        view, _ = await turn.deploy(view, "A", {"mercenary": 3}, target="14")
+        await turn.lock(view)
         view, _ = await turn.my_board("green")
-        await turn.press(view, "Lock in")
+        await turn.lock(view)
         battle_view = turn.channel.views[battle_message(turn)]
         self.assertIsInstance(battle_view, TacticalCommandView)
         mark = len(turn.channel.requests)
         call = await click(turn, battle_view, find_button(battle_view, "My tactic card"), who=turn.blue)
         panel = call.view()
         self.assertIsInstance(panel, TacticPanelView)
-        menu = find_select(panel, "Tactic card to play")
-        self.assertEqual([option.value for option in menu.options], ["enhancing_drugs"])
-        await turn.choose(panel, "Tactic card to play", "enhancing_drugs")
+        self.assertEqual(
+            [item.choice for item in panel.children if getattr(item, "choice", ())[:1] == ("play",)],
+            [("play", "enhancing_drugs")],
+        )
+        await turn.click(panel, ("play", "enhancing_drugs"))
         self.assertNotIn("Enhancing", turn.public(mark))
         self.assertIn("has chosen", turn.public(mark))
         call = await click(turn, battle_view, find_button(battle_view, "My tactic card"), who=turn.green)

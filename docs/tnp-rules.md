@@ -210,20 +210,33 @@ Each seat deploys onto its own **deployment board**, behind its screen:
 - **Attack spots A and B**: two attacks a turn, one from each. A third,
   **C**, only with the tech *Command and Control CPU* -- the advanced
   game (the author, 2026-11-05).
-- **Defense spots**: one for any territory the seat holds, and its
-  **base defense spot** (the author, 2026-11-05). A seat deploys
+- **Defense spots 1, 2 and 3**, and the **base defense spot** (the
+  author, 2026-11-06, replacing one spot for every territory held): a
+  seat defends at most three of the territories it holds a turn, and
+  the rest go undefended. No tech adds a fourth. A seat deploys
   defenders only into a held territory its held territories join to
   its base: the only units in a territory cut off from the base are the
   stranded ones already there (5.7) (the author, 2026-11-06).
 
-Each stack placed in a spot goes with the territory it attacks or
-defends; the base has its own spot.
+Each stack placed in a spot goes with the **territory card** of the
+territory or base it attacks or defends, drawn from the seat's own
+**deck of territory cards**, which holds **one card for each territory**
+on the map **and one for the other seat's base** (the author,
+2026-11-06): a territory goes into one spot a turn at most, so a seat
+neither attacks one territory, or the other base, from two spots nor
+attacks and defends the same territory in one turn. A seat that
+harvests a territory it holds (5.8) leaves it undefended that turn. The
+seat's own base has its own spot, and no card. A territory where the
+seat's stranded units stand (5.7) keeps one of the three defense spots
+while they are there.
 
 ## 3. Setup
 
 - The map, with each territory's resource tokens on it (2.1).
-- Each seat takes its player board, its screen, its deployment board
-  and its faction's units.
+- Each seat takes its player board, its screen, its deployment board,
+  its deck of territory cards -- one a territory and one for the other
+  seat's base (2.5) -- and its
+  faction's units.
 - Each seat starts with **3 Workers, 3 Mercenaries and 5 materials**,
   and no gold (the author, 2026-11-05). Its Barracks and Base Defenses
   are built; its Factory and Airport are not (2.4).
@@ -970,3 +983,9 @@ One line per change, dated, with where it came from.
 - 2026-11-06: A Stranded token comes off only once a path of held
   territories joins the territory to the base again, not for taking a
   territory beside it -- 5.7. (The author, answering PR #710.)
+- 2026-11-06: Three defense spots and the base's, in place of one for
+  every territory held; one territory card a territory, so a territory
+  goes into one spot a turn at most -- never two attacks, nor an attack
+  and a defense -- and the other base has a card too; a territory with
+  stranded units keeps one of the three spots -- 2.5. (The author, on
+  the plan panel's sketch and PR #717's kit.)

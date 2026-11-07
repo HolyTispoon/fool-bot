@@ -53,7 +53,8 @@ class Turn:
         self.stack.enter_context(mock.patch.object(d12ball_boards, "BOARD_REFRESH_INTERVAL", 0))
         for module, name in (
             (tnp_table, "render_map"), (tnp_turns, "render_map"), (tnp_turns, "render_board"),
-            (tnp_turns, "render_attack"), (tnp_battles, "render_battle"),
+            (tnp_turns, "render_attack"), (tnp_turns, "render_deployment"), (tnp_turns, "render_spots"),
+            (tnp_battles, "render_battle"),
         ):
             self.stack.enter_context(mock.patch.object(module, name, side_effect=picture))
         self.bot = mock.MagicMock()
@@ -115,6 +116,56 @@ class Turn:
         await view._scheduled_task(item, call)
         return call.view(), call
 
+    async def click(self, view, choice: tuple):
+        """A button by the answer it names (`choice`)."""
+        item = find_button(view, choice)
+        call = self.interaction(self.who[view.seat])
+        call.data = {"custom_id": item.custom_id, "component_type": 2}
+        await view._scheduled_task(item, call)
+        return call.view(), call
+
+    def has(self, view, choice: tuple) -> bool:
+        return any(getattr(item, "choice", None) == choice for item in view.children)
+
+    async def count_to(self, view, current: int, wanted: int):
+        """The count row's −1 and +1 pressed until it reads `wanted`."""
+        call = None
+        while current != wanted:
+            view, call = await self.click(view, ("count", "+1" if wanted > current else "−1"))
+            current += 1 if wanted > current else -1
+        return view, call
+
+    async def build(self, view, unit: str, count: int):
+        """① Infrastructure: `count` of `unit` built, by its button and +1."""
+        if not self.has(view, ("build", unit)):
+            view, _ = await self.click(view, ("step", "infrastructure"))
+        view, call = await self.click(view, ("build", unit))
+        plan = self.match().seat(view.seat).plan or {}
+        view, last = await self.count_to(view, (plan.get("build") or {}).get(unit, 0), count)
+        return view, last or call
+
+    async def deploy(self, view, pile: str, units: dict, target=None):
+        """② Deployment: a pile -- an attack spot, "base", or the next
+        defense spot ("defense") -- its territory from the menu, then each
+        unit by its button and +1."""
+        if not self.has(view, ("step", "deployment")) or view.state.step != "deployment":
+            view, _ = await self.click(view, ("step", "deployment"))
+        view, call = await self.click(view, ("pile", "d:new" if pile == "defense" else pile))
+        if target is not None:
+            placeholder = "Attack" if pile not in ("defense", "base") else "Defense"
+            view, call = await self.choose(view, placeholder, target)
+        for unit, count in units.items():
+            view, call = await self.click(view, ("unit", unit))
+            view, call = await self.count_to(view, 0, count)
+        return view, call
+
+    async def lock(self, view):
+        """**Lock in plan**, and **Lock in anyway** where it warns."""
+        view, call = await self.click(view, ("lock",))
+        if view is not None and self.has(view, ("lock", "anyway")):
+            view, call = await self.click(view, ("lock", "anyway"))
+        return view, call
+
     def public(self, since: int = 0) -> str:
         """Every text the game's channel was sent or edited to since a mark."""
         return "\n".join(
@@ -128,16 +179,9 @@ async def plan_blue(turn: Turn):
     and a Mercenary, two kinds of ground unit, so March asks which is
     revealed; attack B at area 13 with a Mercenary."""
     view, _ = await turn.my_board("blue")
-    view, _ = await turn.choose(view, "How many Worker to build", "2")
-    view, _ = await turn.choose(view, "What to change", "attack:A")
-    view, _ = await turn.choose(view, "Attack A's target", "14")
-    view, _ = await turn.choose(view, "How many Worker in attack A", "3")
-    view, _ = await turn.choose(view, "Unit for attack A", "mercenary")
-    view, _ = await turn.choose(view, "How many Mercenary in attack A", "1")
-    view, _ = await turn.choose(view, "What to change", "attack:B")
-    view, _ = await turn.choose(view, "Attack B's target", "13")
-    view, _ = await turn.choose(view, "Unit for attack B", "mercenary")
-    view, call = await turn.choose(view, "How many Mercenary in attack B", "1")
+    view, _ = await turn.build(view, "worker", 2)
+    view, _ = await turn.deploy(view, "A", {"worker": 3, "mercenary": 1}, target="14")
+    view, call = await turn.deploy(view, "B", {"mercenary": 1}, target="13")
     return view, call
 
 
@@ -145,12 +189,8 @@ async def plan_green(turn: Turn):
     """Green: attack A at area 15 with its three Workers, taken and
     harvested at once; its three Mercenaries defending its base."""
     view, _ = await turn.my_board("green")
-    view, _ = await turn.choose(view, "What to change", "attack:A")
-    view, _ = await turn.choose(view, "Attack A's target", "15")
-    view, _ = await turn.choose(view, "How many Worker in attack A", "3")
-    view, _ = await turn.choose(view, "What to change", "defense:green_base")
-    view, _ = await turn.choose(view, "Unit to defend", "mercenary")
-    view, call = await turn.choose(view, "How many Mercenary defend", "3")
+    view, _ = await turn.deploy(view, "A", {"worker": 3}, target="15")
+    view, call = await turn.deploy(view, "base", {"mercenary": 3})
     return view, call
 
 
@@ -174,37 +214,79 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         text = call.text()
         self.assertIn("Attack A: 3 Worker, 1 Mercenary at area 14.", text)
         self.assertIn("It costs 2 materials; the pool holds 5 materials.", text)
-        # Every click was answered by editing the panel in place: the
+        # Every change was answered by the panel redrawn in place, its
+        # picture with it -- in Deployment, the seat's attack board: the
         # channel heard nothing of it.
-        self.assertEqual(call.last()[0], "response.edit")
+        self.assertEqual(call.last()[0], "original.edit")
+        self.assertEqual([one.filename for one in call.last()[2]["attachments"]], ["tnp-deployment-blue.png"])
         self.assertNotIn("Worker", turn.public())
+
+    async def test_each_step_has_its_own_picture_and_a_change_redraws_it(self) -> None:
+        turn = self.turn
+        view, _ = await turn.my_board("blue")
+        view, call = await turn.build(view, "worker", 1)
+        self.assertEqual([one.filename for one in call.last()[2]["attachments"]], ["tnp-board-blue.png"])
+        # A click that changes nothing the picture shows draws nothing.
+        view, call = await turn.click(view, ("build", "mercenary"))
+        self.assertEqual(call.last()[0], "response.edit")
+        view, call = await turn.click(view, ("step", "deployment"))
+        self.assertEqual([one.filename for one in call.last()[2]["attachments"]], ["tnp-deployment-blue.png"])
 
     async def test_the_model_refuses_what_the_rules_do_not_allow_and_keeps_the_plan(self) -> None:
         turn = self.turn
         view, _ = await turn.my_board("blue")
-        view, _ = await turn.choose(view, "How many Worker to build", "4")
-        view, _ = await turn.choose(view, "Unit to build", "mercenary")
-        # Four Workers and two Mercenaries is six from a Barracks of four.
-        view, call = await turn.choose(view, "How many Mercenary to build", "2")
+        view, _ = await turn.build(view, "worker", 4)
+        view, _ = await turn.click(view, ("build", "mercenary"))
+        self.assertEqual(turn.match().seat("blue").plan["build"], {"worker": 4})
+        # Four Workers and a Mercenary is five from a Barracks of four.
+        view, call = await turn.click(view, ("count", "+1"))
         self.assertIn("**Not done:**", call.text())
         self.assertIn("TNP 2.4", call.text())
         self.assertEqual(turn.match().seat("blue").plan["build"], {"worker": 4})
 
-    async def test_an_attack_needs_its_target_first(self) -> None:
+    async def test_an_attack_asks_its_target_first(self) -> None:
         turn = self.turn
         view, _ = await turn.my_board("blue")
-        view, _ = await turn.choose(view, "What to change", "attack:B")
-        view, call = await turn.choose(view, "How many Worker in attack B", "1")
-        self.assertIn("Choose attack B's target first.", call.text())
+        view, _ = await turn.click(view, ("step", "deployment"))
+        view, _ = await turn.click(view, ("pile", "B"))
+        self.assertFalse(turn.has(view, ("unit", "worker")))
+        select = find_select(view, "Attack B's target")
+        # The territories with a path now come first.
+        paths = [option.description is None for option in select.options]
+        self.assertEqual(paths, sorted(paths, reverse=True))
         self.assertIsNone(turn.match().seat("blue").plan)
+
+    async def test_a_territory_goes_into_one_spot(self) -> None:
+        """TNP 2.5: a target whose card is in another spot is not
+        offered."""
+        turn = self.turn
+        view, _ = await turn.my_board("blue")
+        view, _ = await turn.deploy(view, "A", {"worker": 1}, target="14")
+        view, _ = await turn.click(view, ("pile", "B"))
+        offered = {option.value for option in find_select(view, "Attack B's target").options}
+        self.assertNotIn("14", offered)
+        self.assertIn("13", offered)
+
+    async def test_lock_in_with_a_step_empty_warns_first(self) -> None:
+        turn = self.turn
+        view, _ = await turn.my_board("blue")
+        view, _ = await turn.build(view, "worker", 1)
+        view, call = await turn.click(view, ("lock",))
+        self.assertIn("**Before you lock in:** Your plan deploys nothing", call.text())
+        self.assertFalse(turn.match().seat("blue").locked)
+        view, call = await turn.click(view, ("back",))
+        self.assertEqual(view.state.step, "deployment")
+        view, call = await turn.click(view, ("lock",))
+        view, call = await turn.click(view, ("lock", "anyway"))
+        self.assertTrue(turn.match().seat("blue").locked)
 
     async def test_somebody_else_s_panel_answers_nobody_else(self) -> None:
         turn = self.turn
         view, _ = await turn.my_board("blue")
-        select = find_select(view, "How many Worker to build")
+        item = find_button(view, ("count", "+1"))
         call = turn.interaction(turn.green)
-        call.data = {"custom_id": select.custom_id, "component_type": 3, "values": ["2"]}
-        await view._scheduled_task(select, call)
+        call.data = {"custom_id": item.custom_id, "component_type": 2}
+        await view._scheduled_task(item, call)
         self.assertIn("its seat's player's alone", call.text())
         self.assertIsNone(turn.match().seat("blue").plan)
 
@@ -212,7 +294,7 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         turn = self.turn
         view, _ = await plan_blue(turn)
         mark = len(turn.channel.requests)
-        view, call = await turn.press(view, "Lock in")
+        view, call = await turn.lock(view)
         requests = turn.channel.since(mark)
         self.assertEqual([kind for kind, _, _ in requests], ["edit"])
         (_, message_id, kwargs) = requests[0]
@@ -239,9 +321,9 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         blue, _ = await plan_blue(turn)
         green, _ = await plan_green(turn)
         before_reveal = turn.public(mark)
-        await turn.press(blue, "Lock in")
+        await turn.lock(blue)
         reveal = len(turn.channel.requests)
-        _, call = await turn.press(green, "Lock in")
+        _, call = await turn.lock(green)
 
         # March stops at area 14: Blue's pile holds two kinds of ground unit.
         sends = [one for one in turn.channel.since(reveal) if one[0] == "send"]
@@ -250,8 +332,9 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Both seats have locked in.", first["content"])
         self.assertIn("reveal a ground unit from attack A to take area 14", first["content"])
         self.assertIn(f"/{turn.game.table_message_id})", first["content"])
-        # Attack A's one picture so far: area 14, where March stopped.
-        self.assertEqual([one.filename for one in first["files"]], ["tnp-attack-A-14.png"])
+        # Attack A's one picture so far, area 14, where March stopped, and
+        # both deployment boards as everybody sees them there.
+        self.assertEqual([one.filename for one in first["files"]], ["tnp-attack-A-14.png", "tnp-spots.png"])
         # The one asked is pinged, and nobody else may be.
         self.assertIn("<@101> Answer from **My board**", first["content"])
         self.assertEqual([one.id for one in first["allowed_mentions"].users], [101])
@@ -259,12 +342,16 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         conquer, _ = await turn.my_board("blue")
         self.assertIsInstance(conquer, ConquerPanelView)
         answered = len(turn.channel.requests)
-        await turn.choose(conquer, "Ground unit to reveal", "worker")
+        await turn.click(conquer, ("reveal", "worker"))
         sends = [one[2]["content"] for one in turn.channel.since(answered) if one[0] == "send"]
         files = [[one.filename for one in kwargs.get("files", [])]
                  for kind, _, kwargs in turn.channel.since(answered) if kind == "send"]
-        # A picture an attack: A's two, B's one, and none after March.
-        self.assertEqual(files, [["tnp-attack-A-14.png", "tnp-attack-A-15.png"], ["tnp-attack-B-13.png"], []])
+        # A picture an attack -- A's two, B's one -- with the deployment
+        # boards under each spot, and none after March.
+        self.assertEqual(files, [
+            ["tnp-attack-A-14.png", "tnp-attack-A-15.png", "tnp-spots.png"],
+            ["tnp-attack-B-13.png", "tnp-spots.png"], [],
+        ])
         # The rest of A, then B, then March's end with Production.
         self.assertEqual(len(sends), 3)
         self.assertIn("**Blue** (Alice) reveals a Worker in attack A and takes area 14.", sends[0])
@@ -287,13 +374,13 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
 
         blue_trade, _ = await turn.my_board("blue")
         self.assertIsInstance(blue_trade, TradePanelView)
-        blue_trade, call = await turn.choose(blue_trade, "How many for materials", "3")
+        blue_trade, call = await turn.click(blue_trade, ("materials", "All"))
         self.assertIn("Your trade: 3 blue minerals for materials -- gaining 6 materials.", call.text())
-        await turn.press(blue_trade, "Lock in")
+        await turn.click(blue_trade, ("lock",))
         green_trade, _ = await turn.my_board("green")
-        green_trade, _ = await turn.choose(green_trade, "How many for gold", "3")
+        green_trade, _ = await turn.click(green_trade, ("gold", "All"))
         traded = len(turn.channel.requests)
-        _, call = await turn.press(green_trade, "Lock in")
+        _, call = await turn.click(green_trade, ("lock",))
         (last,) = [one[2]["content"] for one in turn.channel.since(traded) if one[0] == "send"]
         self.assertIn("**Blue** (Alice) trades 3 blue minerals for 6 materials.", last)
         self.assertIn("**Green** (Bob) trades 3 blue minerals for 3 gold.", last)
@@ -343,8 +430,8 @@ class TnpTurnRestartTests(unittest.IsolatedAsyncioTestCase):
             green, call = await turn.my_board("green")
             self.assertIn("Defend Green base: 3 Mercenary.", call.answers[-1][1][0])
             # And the plans lock in as saved.
-            await turn.press(blue, "Lock in")
-            await turn.press(green, "Lock in")
+            await turn.lock(blue)
+            await turn.lock(green)
             self.assertEqual(turn.match().phase, "march")
         finally:
             turn.close()
