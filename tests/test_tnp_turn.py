@@ -46,9 +46,12 @@ from tnp.prompts import (
     pending_prompts,
     prompt_for,
 )
-from tnp.briefs import board_brief, map_brief, opening_board, opening_map
+from tnp.briefs import (
+    FACE_DOWN, SHOWN, STRANDED, board_brief, deployment_brief, map_brief, opening_board, opening_map, spots_brief,
+)
 from tnp.tokens import plain
-from tnp.turn import has_path, joined
+from tnp.components import Pile
+from tnp.turn import has_path, joined, stranded_areas
 
 from tnp_battles import first
 from tnp_games import Strategy, opening, reload
@@ -155,6 +158,55 @@ class BriefTests(unittest.TestCase):
         self.assertEqual(board_brief(engine, match, "green").queued_units, {})
 
 
+class DeploymentBriefTests(unittest.TestCase):
+    """The seat's own attack board, and both deployment boards as
+    everybody sees them in March (TNP 2.5, 5.3, 5.4)."""
+
+    def setUp(self) -> None:
+        self.engine, self.game, self.match = opening()
+
+    def test_the_seat_s_own_board_is_its_saved_plan(self) -> None:
+        hold(self.match, "blue", "14", "13")
+        save(self.engine, self.game, self.match, "blue", {
+            "build": {"worker": 2},
+            "attacks": {"A": {"target": "10", "units": {"worker": 2}}},
+            "defense": {"14": {"mercenary": 1}, "13": {"mercenary": 1}, "blue_base": {"mercenary": 1}},
+        })
+        brief = deployment_brief(self.engine, self.match, "blue", picked="A")
+        self.assertEqual([(one.spot, one.area) for one in brief.attacks], [("A", "10"), ("B", None)])
+        self.assertEqual([(one.spot, one.area) for one in brief.defenses], [("1", "13"), ("2", "14"), ("3", None)])
+        self.assertEqual(brief.base.units, {"mercenary": 1})
+        self.assertEqual(brief.at_base, {"worker": 1})
+        self.assertEqual(brief.queued, {"worker": 2})
+        # The pool on the player board goes down as the plan is changed.
+        self.assertEqual(board_brief(self.engine, self.match, "blue").pool["materials"], 5 - 2)
+
+    def test_the_public_boards_show_a_face_down_pile_and_nothing_of_it(self) -> None:
+        lock(self.engine, self.game, self.match, "blue", {
+            "attacks": {"A": {"target": "14", "units": {"worker": 1, "mercenary": 1}},
+                        "B": {"target": "13", "units": {"mercenary": 1}}},
+            "defense": {"blue_base": {"mercenary": 1}},
+        })
+        lock(self.engine, self.game, self.match, "green", {
+            "attacks": {"A": {"target": "15", "units": {"worker": 3}}},
+            "defense": {"green_base": {"mercenary": 3}},
+        })
+        # March waits on Blue's conquest at 14: nothing is shown yet.
+        boards = dict(spots_brief(self.engine, self.match).seats)
+        blue = {one.spot: one for one in boards["blue"]}
+        self.assertEqual([blue[spot].state for spot in ("A", "B", "1", "base")],
+                         [FACE_DOWN, FACE_DOWN, "empty", FACE_DOWN])
+        for one in (*boards["blue"], *boards["green"]):
+            if one.state == FACE_DOWN:
+                # The base's spot is the base's; any other face-down pile
+                # says nothing of where it is.
+                self.assertTrue(one.spot == "base" or one.area is None)
+                self.assertFalse(one.units)
+        answered(self.engine, self.game, self.match,
+                 driver.apply(self.engine, self.game, self.match,
+                              Action(PromptKind.CONQUER, "", {"unit": "worker"}, seat="blue")))
+
+
 class SimultaneousPhaseTests(unittest.TestCase):
     def setUp(self) -> None:
         self.engine, self.game, self.match = opening()
@@ -255,6 +307,82 @@ class PlanCheckTests(unittest.TestCase):
         hold(self.match, "blue", "14")
         self.refused({"defense": {"14": {"smart_mines": 1}}}, "TNP 7")
         self.refused({"defense": {"blue_base": {"smart_mines": 9}}}, "TNP 2.4")
+
+    def test_three_defense_spots_beside_the_base(self) -> None:
+        """At most three territories defended a turn; the base's spot is
+        its own (TNP 2.5, the author, 2026-11-06)."""
+        for area in ("10", "13", "14"):
+            hold(self.match, "blue", area)
+        fourth = next(
+            there for there in sorted(self.engine.catalog.areas["14"].adjacent)
+            if there not in {"10", "13", "14"} and not self.engine.catalog.areas[there].is_base
+        )
+        hold(self.match, "blue", fourth)
+        self.match.seat("blue").available["mercenary"] = 5
+        three = {area: {"mercenary": 1} for area in ("10", "13", "14")}
+        run = save(self.engine, self.game, self.match, "blue",
+                   {"defense": {**three, "blue_base": {"mercenary": 1}}})
+        self.assertNotIsInstance(run, driver.Refusal, getattr(run, "reason", ""))
+        self.refused({"defense": {**three, fourth: {"mercenary": 1}}}, "TNP 2.5")
+
+    def test_one_card_a_territory(self) -> None:
+        """A territory goes into one spot a turn: never two attacks, nor an
+        attack and a defense (TNP 2.5, the author, 2026-11-06)."""
+        hold(self.match, "blue", "14")
+        self.refused({"attacks": {"A": {"target": "8", "units": {"worker": 1}},
+                                  "B": {"target": "8", "units": {"worker": 1}}}}, "TNP 2.5")
+        run = self.refused({"attacks": {"A": {"target": "14", "units": {"worker": 1}}},
+                            "defense": {"14": {"mercenary": 1}}}, "TNP 2.5")
+        self.assertIn("one spot", run.reason)
+        options = prompt_for(self.engine, self.game, self.match, "blue").options
+        self.assertEqual(options.cards, {})
+        save(self.engine, self.game, self.match, "blue", {
+            "attacks": {"A": {"target": "8", "units": {"worker": 1}}},
+            "defense": {"14": {"mercenary": 1}, "blue_base": {"mercenary": 1}},
+        })
+        options = prompt_for(self.engine, self.game, self.match, "blue").options
+        self.assertEqual(options.cards, {"8": "A", "14": "defense"})
+        self.assertEqual(options.defense_spots, 3)
+
+    def test_a_card_for_the_other_base(self) -> None:
+        """The deck has a card for the other seat's base, so two attack
+        spots never go at it (TNP 2.5, the author, 2026-11-06)."""
+        self.refused({"attacks": {"A": {"target": "green_base", "units": {"worker": 1}},
+                                  "B": {"target": "green_base", "units": {"worker": 1}}}}, "TNP 2.5")
+        save(self.engine, self.game, self.match, "blue",
+             {"attacks": {"A": {"target": "green_base", "units": {"worker": 1}}}})
+        options = prompt_for(self.engine, self.game, self.match, "blue").options
+        self.assertEqual(options.cards, {"green_base": "A"})
+
+    def test_stranded_units_keep_a_defense_spot(self) -> None:
+        """A territory where a seat's stranded units stand keeps one of
+        the three defense spots (TNP 2.5, 5.7)."""
+        for area in ("10", "13", "14"):
+            hold(self.match, "blue", area)
+        far = next(
+            slug for slug, area in sorted(self.engine.catalog.areas.items())
+            if not area.is_base and slug not in joined(self.engine, self.match, "blue")
+            and slug not in self.engine.catalog.areas["14"].adjacent
+        )
+        hold(self.match, "blue", far)
+        self.match.areas[far].stranded.append("blue")
+        self.match.spots.setdefault(far, {})["blue"] = Pile({"mercenary": 2})
+        self.assertEqual(stranded_areas(self.match, "blue"), (far,))
+        self.match.seat("blue").available["mercenary"] = 5
+        two = {area: {"mercenary": 1} for area in ("10", "13")}
+        run = save(self.engine, self.game, self.match, "blue", {"defense": two})
+        self.assertNotIsInstance(run, driver.Refusal, getattr(run, "reason", ""))
+        run = self.refused({"defense": {**two, "14": {"mercenary": 1}}}, "TNP 2.5")
+        self.assertIn("stranded units keep 1", run.reason)
+        options = prompt_for(self.engine, self.game, self.match, "blue").options
+        self.assertEqual(options.stranded, (far,))
+        self.assertEqual(options.cards[far], "stranded")
+        board = deployment_brief(self.engine, self.match, "blue")
+        self.assertEqual([(one.area, one.state) for one in board.defenses],
+                         [(far, STRANDED), ("10", FACE_DOWN), ("13", FACE_DOWN)])
+        public = dict(spots_brief(self.engine, self.match).seats)["blue"]
+        kept = [one for one in public if one.state == STRANDED]
+        self.assertEqual([(one.area, dict(one.units)) for one in kept], [(far, {})])
 
     def test_what_is_allowed(self) -> None:
         hold(self.match, "blue", "14")

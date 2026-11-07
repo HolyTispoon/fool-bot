@@ -103,13 +103,10 @@ class TnpEndingTests(unittest.IsolatedAsyncioTestCase):
             match.areas[area].controller = "blue"
         turn.cog.service.persist(turn.game, match)
         view, _ = await turn.my_board("blue")
-        view, _ = await turn.choose(view, "What to change", "attack:A")
-        view, _ = await turn.choose(view, "Attack A's target", "green_base")
-        view, _ = await turn.choose(view, "Unit for attack A", "mercenary")
-        view, _ = await turn.choose(view, "How many Mercenary in attack A", "3")
-        await turn.press(view, "Lock in")
+        view, _ = await turn.deploy(view, "A", {"mercenary": 3}, target="green_base")
+        await turn.lock(view)
         view, _ = await turn.my_board("green")
-        await turn.press(view, "Lock in")
+        await turn.lock(view)
         call = None
         with dice(turn, 7):
             for _ in range(100):

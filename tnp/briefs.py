@@ -27,7 +27,7 @@ seats to `MatchState`, adds the readings that build them from a match
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING, Mapping, Optional
 
 from tnp.catalog import Catalog
 
@@ -149,25 +149,213 @@ def board_brief(engine: "RulesEngine", match: "MatchState", seat: str, caption: 
     """
     A seat's own board -- **that seat's alone** (TNP 5.2): its pool, what
     is built, and its queue -- in Infrastructure and Deployment the queue
-    its saved plan holds, after it what was paid for -- with the supply
-    left.
+    its saved plan holds and the pool less what that costs, after it what
+    was paid for -- with the supply left.
     """
     from tnp.components import PLAN
     from tnp.turn import supply_room
 
+    from tnp.turn import normal_plan, plan_cost
+
     state = match.seat(seat)
     queued_units = dict(state.queued_units)
     queued = set(state.queued)
+    pool = {key: int(state.pool.get(key, 0)) for key in POOL}
     if match.phase == PLAN and state.plan:
         queued_units = dict(state.plan.get("build", {}))
         queued = set(state.plan.get("structures", []))
+        # What the plan's Infrastructure would leave: the pool the board
+        # shows goes down as the plan is changed (the author, 2026-11-06).
+        cost = plan_cost(engine, normal_plan(state.plan))
+        pool["materials"] -= cost.materials
+        pool["gold"] -= cost.gold
     room = supply_room(engine, match, seat)
     return BoardBrief(
         seat=seat,
-        pool={key: int(state.pool.get(key, 0)) for key in POOL},
+        pool=pool,
         built=frozenset(state.built),
         queued=frozenset(queued),
         queued_units=queued_units,
         supply_left={slug: room[slug] - queued_units.get(slug, 0) for slug in room},
         caption=caption,
     )
+
+
+# -- Deployment (TNP 2.5, 5.3) ---------------------------------------------------------
+
+#: A spot's state on the public deployment boards: a pile face down, a
+#: pile March has shown, or nothing in the spot.
+FACE_DOWN, SHOWN, EMPTY = "face_down", "shown", "empty"
+#: A defense spot a territory's stranded units keep (TNP 2.5, 5.7): its
+#: territory is public, as its Stranded token is; its units are not.
+STRANDED = "stranded"
+
+
+@dataclass(frozen=True)
+class DeploySpot:
+    """One spot of a seat's deployment board as one picture draws it."""
+
+    #: "A", "B", "C", "1", "2", "3", or "base".
+    spot: str
+    #: The territory or base its card names -- `None` where the picture
+    #: may not say (a face-down pile on the public boards) or nothing is
+    #: there.
+    area: Optional[str] = None
+    #: Who holds `area` (`None`: neutral), and whether a ground unit has a
+    #: path to it now -- the seat's own board's, for an attack.
+    held_by: Optional[str] = None
+    path: Optional[bool] = None
+    units: Mapping[str, int] = field(default_factory=dict)
+    state: str = EMPTY
+
+
+@dataclass(frozen=True)
+class DeploymentBrief:
+    """
+    **A seat's own attack board** (TNP 2.5), drawn from its saved plan --
+    that seat's alone until March: each attack spot and its target, the
+    three defense spots, the base's, the units still at the base, and
+    what is queued and so not deployable yet. `picked` is the spot the
+    panel is changing, ringed.
+    """
+
+    seat: str
+    attacks: tuple[DeploySpot, ...] = ()
+    defenses: tuple[DeploySpot, ...] = ()
+    base: DeploySpot = DeploySpot("base")
+    at_base: Mapping[str, int] = field(default_factory=dict)
+    queued: Mapping[str, int] = field(default_factory=dict)
+    picked: Optional[str] = None
+    caption: str = ""
+
+
+@dataclass(frozen=True)
+class SpotsBrief:
+    """**Both seats' deployment boards as everybody may see them** in
+    March (TNP 5.4): which spots hold a pile, face down, and what March
+    has shown of each pile it has reached -- never a face-down pile's
+    units or its territory."""
+
+    seats: tuple[tuple[str, tuple[DeploySpot, ...]], ...] = ()
+    caption: str = ""
+
+
+def deployment_brief(engine: "RulesEngine", match: "MatchState", seat: str,
+                     picked: Optional[str] = None, caption: str = "") -> DeploymentBrief:
+    """
+    A seat's attack board from the plan saved on the match -- **that
+    seat's alone** (TNP 5.3): its attack spots with their targets, who
+    holds each and whether a ground unit has a path there now, its
+    defended territories in number order as defense spots 1 to 3, its
+    base's spot, and what is left at the base.
+    """
+    from tnp.components import DEFENSE_SPOTS
+    from tnp.turn import area_order, attack_spots, base_of, deployed, has_path, normal_plan, stranded_areas
+
+    state = match.seat(seat)
+    plan = normal_plan(state.plan)
+    attacks = []
+    for spot in attack_spots(match):
+        attack = plan["attacks"].get(spot)
+        if attack is None:
+            attacks.append(DeploySpot(spot))
+            continue
+        target = attack["target"]
+        attacks.append(DeploySpot(
+            spot, target, match.controller(target), has_path(engine, match, seat, target),
+            dict(attack["units"]), FACE_DOWN,
+        ))
+    defended = sorted((area for area in plan["defense"] if area != base_of(seat)), key=area_order)
+    kept = [area for area in stranded_areas(match, seat) if area not in defended]
+    piles = [(area, dict(match.standing(area, seat).units), STRANDED) for area in kept]
+    piles += [(area, dict(plan["defense"][area]), FACE_DOWN) for area in defended]
+    defenses = [
+        DeploySpot(str(index + 1), area, seat, None, units, state)
+        for index, (area, units, state) in enumerate(piles)
+    ]
+    defenses += [DeploySpot(str(index + 1)) for index in range(len(defenses), DEFENSE_SPOTS)]
+    base_units = plan["defense"].get(base_of(seat), {})
+    base = DeploySpot("base", base_of(seat), seat, None, dict(base_units), FACE_DOWN if base_units else EMPTY)
+    going = deployed(plan)
+    at_base = {
+        slug: count - going.get(slug, 0) for slug, count in state.available.items()
+        if count - going.get(slug, 0) > 0
+    }
+    return DeploymentBrief(
+        seat=seat, attacks=tuple(attacks), defenses=tuple(defenses), base=base,
+        at_base=at_base, queued={slug: count for slug, count in plan["build"].items() if count},
+        picked=picked, caption=caption,
+    )
+
+
+def spots_brief(engine: "RulesEngine", match: "MatchState", caption: str = "") -> SpotsBrief:
+    """
+    Both seats' deployment boards in March, as everybody may see them
+    (TNP 5.3, 5.4). An attack spot is face down while its pile waits,
+    shown once March has revealed it -- what was revealed, at its
+    territory -- and empty otherwise: a pile that resolved unrevealed has
+    left its spot, home or into the territory's defense spot (TNP 5.3,
+    5.5). The defense piles are the piles in territories' defense spots
+    that no revealed attack of the seat's put there, each face down, with
+    no territory, until a battle reveals it -- an air pile waiting where
+    it took nothing among them, as it waits there face down -- and a
+    territory's stranded units, which keep a spot under its name, as its
+    Stranded token is public (TNP 2.5, 5.7); the base's spot the same.
+    """
+    from tnp.components import DEFENSE_SPOTS
+    from tnp.turn import area_order, attack_spots, base_of, stranded_areas
+
+    seats = []
+    for seat in ("blue", "green"):
+        shown: dict[tuple[str, str], dict[str, int]] = {}
+        for one in match.revealed:
+            if one["seat"] != seat:
+                continue
+            key = (one["spot"], one["area"])
+            units = shown.setdefault(key, {})
+            for slug, count in one["units"].items():
+                units[slug] = max(units.get(slug, 0), int(count))
+        attacked_at = {area for (spot, area) in shown if spot != DEFENSE}
+        waiting = match.attacks.get(seat, {})
+        resolving = match.resolving or {}
+        if seat in (resolving.get("piles") or {}):
+            # The pile March is resolving is its attack spot's still.
+            attacked_at.add(resolving.get("area"))
+        spots = []
+        for spot in attack_spots(match):
+            revealed = [(area, units) for (where, area), units in shown.items() if where == spot]
+            if revealed:
+                area, units = revealed[-1]
+                spots.append(DeploySpot(spot, area, match.controller(area), None, units, SHOWN))
+            elif spot in waiting or (resolving.get("spot") == spot and seat in (resolving.get("piles") or {})):
+                spots.append(DeploySpot(spot, state=FACE_DOWN))
+            else:
+                spots.append(DeploySpot(spot))
+        defended = []
+        for area in sorted(match.spots, key=area_order):
+            if area == base_of(seat) or area in attacked_at:
+                continue
+            pile = match.spots[area].get(seat)
+            if pile is None or pile.empty():
+                continue
+            if area in stranded_areas(match, seat):
+                defended.append(DeploySpot("", area, seat, None, {}, STRANDED))
+                continue
+            units = shown.get((DEFENSE, area))
+            defended.append(
+                DeploySpot("", area, seat, None, units, SHOWN) if units else DeploySpot("", state=FACE_DOWN)
+            )
+        # The face-down piles after the shown ones, so their order says
+        # nothing of where they are.
+        defended.sort(key=lambda one: (one.state != SHOWN, one.state != STRANDED))
+        for index, one in enumerate(defended):
+            spots.append(DeploySpot(str(index + 1), one.area, one.held_by, None, one.units, one.state))
+        spots += [DeploySpot(str(index + 1)) for index in range(len(defended), DEFENSE_SPOTS)]
+        base = match.spots.get(base_of(seat), {}).get(seat)
+        if base is not None and not base.empty():
+            units = shown.get((DEFENSE, base_of(seat)))
+            spots.append(DeploySpot("base", base_of(seat), seat, None, units or {}, SHOWN if units else FACE_DOWN))
+        else:
+            spots.append(DeploySpot("base"))
+        seats.append((seat, tuple(spots)))
+    return SpotsBrief(seats=tuple(seats), caption=caption)

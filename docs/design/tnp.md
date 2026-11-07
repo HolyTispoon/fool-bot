@@ -714,22 +714,52 @@ Deployment to Cleanup on Discord. Everything but a battle, which step 7
 put on a message of its own (below, "Battles on Discord").
 
 **A panel a seat, its controls from its prompt's options.** **My board**
-answers with the seat's board and its panel, ephemeral, and the panel's
+answers with the seat's picture and its panel, ephemeral, and the panel's
 controls are `cogs/tnp_views/panel.py`'s, one view a turn prompt kind
-(`panel_view`, the one mapping): the plan (**What to change** -- the
-units to build, the facilities and upgrades, attack spots A and B, each
-defense -- then that part's menus, **Lock in** and **Clear plan**), the
-trade (a token kind, how many for materials and how many for gold,
-**Lock in**, **Clear trade**), March's **Ground unit to reveal**, and the
-harvest's counts and **Take**. Every menu is built from
-`PendingPrompt.options` -- the units to build with their most, the
-targets with whether a ground unit has a path now, the units at the
-base, the defenses, the tokens held -- and the panel's words are
-`tnp.formatting`'s (`plan_lines`, `plan_offer_lines`, `trade_lines`),
-off the same options: the saved plan and what its Infrastructure costs
-(`PlanOptions.cost`), the saved trade and what it gains
-(`TradeOptions.gains`), both added to the options for this, since a
-cost is the model's to work out.
+(`panel_view`, the one mapping). **They are buttons** (the author,
+2026-11-06, replacing step 6's menus), but for the one list too long for
+a row of five: an attack's target, or a defense spot's territory, a menu
+that puts the territories a ground unit has a path to now first and
+marks the rest "No current path". A count is a row of its own -- what it
+reads, **−1**, **+1**, all of it, **0** -- and a row too long for five
+buttons pages with a **▶**.
+
+**The plan is two steps, each with its own picture** (the author,
+2026-11-06: "a clear separation between infrastructure and
+deployment"). **① Infrastructure** shows the seat's player board: a
+button a unit its board builds now and its count, a button a facility or
+upgrade to place, green once placed and pressed again to take back.
+**② Deployment** shows **the seat's attack board** (`render_deployment`
+over `deployment_brief`, that seat's alone): attack spots A and B with
+their targets, defense spots 1 to 3 -- the territories defended, in
+number order -- the base's, the units in each, what is still at the base
+and what is queued; the pile being changed ringed. A button a pile, its
+territory from the menu, a button a unit at the base with how many are
+left, its count. The two steps save into one plan, so **Clear** empties
+the step shown and **Lock in plan** locks the whole -- and where a step
+is empty asks once more, naming what is empty, with **Back to** that step
+and **Lock in anyway** (the author, 2026-11-06). A step counts as done
+when it holds something, not when it was opened, so a seat that means to
+build nothing pays one more click. The panel's words are
+`tnp.formatting`'s (`plan_lines`, `plan_offer_lines` for the step shown,
+`trade_lines`), off the same options: the saved plan and what its
+Infrastructure costs (`PlanOptions.cost`), the saved trade and what it
+gains (`TradeOptions.gains`), both added to the options for this, since
+a cost is the model's to work out. **Three defense spots and one card a
+territory** (TNP 2.5, the author, 2026-11-06) are the model's:
+`check_plan` refuses a fourth territory defended and a territory in two
+spots, and `PlanOptions.cards` says where each territory's card is, so
+the menus offer only the territories whose card is free. As PR #717's
+print kit has it (the author, 2026-11-06), the deck also holds **a card
+for the other seat's base**, so two attack spots never go at it, and
+**a territory where the seat's stranded units stand keeps one of the
+three spots** (`turn.stranded_areas`, `PlanOptions.stranded`): the
+units are in its defense spot and cannot leave, so the spot is taken
+whatever the plan says, and the panel offers one defense spot fewer.
+
+The trade is a button a token kind and a row for each of materials and
+gold; March's conquest a button a ground unit to reveal; the harvest a
+row a kind and **Take**.
 
 - **Every change is a save through the service.** A menu choice sends
   the whole plan again (`PLAN`, `save`), which the model checks as it
@@ -745,10 +775,15 @@ cost is the model's to work out.
   an attack with no units, so a target alone would be lost -- and a
   harvest's counts before **Take**.
 - **A click redraws the panel in place, through the click's own
-  response**, which spends nothing from the channel's bucket; the board
-  under it is drawn again only where the turn or the phase moved since
-  it was drawn (`PanelState.drawn`), deferred and edited through the
-  click's webhook. A panel answers clicks for an hour (`PANEL_TIMEOUT`,
+  response**, which spends nothing from the channel's bucket. **A
+  plan's every change goes on its picture**: the picture is drawn again,
+  deferred and edited through the click's webhook, wherever what it is
+  drawn from moved -- the turn, the phase, the step, the plan saved or
+  the pile being changed (`panel_picture_key`, kept as
+  `PanelState.drawn`); a click that changes none of these, a unit picked,
+  edits the words alone. The player board's pool is the pool less what
+  the plan's Infrastructure costs (`board_brief`), so it goes down as the
+  plan grows. A panel answers clicks for an hour (`PANEL_TIMEOUT`,
   Codex's), and is not persistent: after that, or a restart, **My
   board** opens a fresh one over what is saved. Nothing is lost by it.
 - **Only the seat's player may click it** -- both seats', in a test game.
@@ -829,6 +864,22 @@ taken the revealed piles off it.
   small: the count, the name, the unit type's stripe. `scripts/render_tnp_sample.py`
   draws two (`attack-A-2.png`, one pile; `attack-B-9.png`, a defense
   and an attack).
+- **Both deployment boards go under each spot's message** (the author,
+  2026-11-06: "a public view of the board during the march phase to see
+  how many piles are there"): `render_spots` over `spots_brief`, kept
+  where the run stopped (`Picture.spots`) as the spot left it, after
+  that spot's attack pictures, in the same send. A row a seat, a box a
+  spot: a pile face down in its seat's colour, with nothing of what is
+  in it or where its card sends it; a pile March has shown, with its
+  territory and what was revealed; an empty spot dashed. An attack
+  spot's pile that resolved unrevealed has left its spot -- home, or
+  into the territory's defense spot, where it shows as a face-down pile
+  (TNP 5.3, 5.5) -- which is where the physical pile would be. A
+  stranded territory's spot (`STRANDED`) is in its seat's colour with
+  the territory named, as its Stranded token on the map already says,
+  and nothing of the units. The
+  public boards are drawn in March alone; before it nothing of a
+  deployment is public, not even which spots are filled.
 - **A battle met in March** posts its opening lines on its spot's
   message, and the battle its own message after it (below).
 
