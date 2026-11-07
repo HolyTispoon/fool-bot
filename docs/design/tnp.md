@@ -537,9 +537,9 @@ by name (`BASE_UPGRADES`) as it knows the four infrastructure upgrades.
 It is placed in Infrastructure like any upgrade and needs no facility
 built (`turn.structures_open`); once finished, `turn.attack_spots` gives
 its seat A, B and C -- the one reading, per seat, the plan check and the
-panel's options both ask. A base card cannot destroy it: TNP 6.9's hits
-take "one upgrade of one of the defender's facilities", and it is no
-facility's (`battle.destroyable`).
+panel's options both ask. A base card's hits may destroy it like any
+upgrade (TNP 6.9, the author, 2026-11-06), and since it is no
+facility's it never holds a facility standing (`battle.destroyable`).
 
 **The board** follows the canvas the author saw (the Human base board):
 the seat's colour as the header with the available pool beside it,
