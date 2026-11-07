@@ -4,7 +4,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 
 `python3 scripts/render_tnp_kit.py` builds **the basic game** for a
 table -- Humans against Humans, Blue against Green, no technology cards
-(TNP 8 is step 9's) -- into `tnpkit/print/` (gitignored), `--zip` beside
+(TNP 8 is step 9's) -- into `tnp/print/` (gitignored), `--zip` beside
 it. It was asked for by the author on 2026-11-06. Nothing in it is
 tested for how it looks, by the standing rule that nothing printed is
 (CLAUDE.md, "Tests"): render it and look.

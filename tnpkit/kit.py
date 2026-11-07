@@ -17,7 +17,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Iterator, Sequence
 
 from PIL import Image
 
@@ -28,7 +28,7 @@ from tnpkit.paper import DPI, cut_sheet, halves, save
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RULES = PROJECT_ROOT / "docs" / "tnp-rules.md"
-DEFAULT_OUT = PROJECT_ROOT / "tnpkit" / "print"
+DEFAULT_OUT = PROJECT_ROOT / "tnp" / "print"
 
 RULES_TITLE = "The New Project: the rules"
 
@@ -64,42 +64,43 @@ class Sheet:
 
 
 def build_sheets(catalog: Catalog) -> list[Sheet]:
-    sheets = [
-        Sheet("map", (mapsheet.render_map_sheet(catalog),), "tabloid",
-              "Map 3.3, with each territory's setup tokens and the two point contacts."),
-        Sheet("battle-mat", (boards.render_battle_mat(catalog),), "tabloid",
-              "The battle line's four rows in columns, the round track and the initiative groups."),
-        Sheet("track-sheet", (boards.render_track_sheet(catalog),), "letter",
-              f"The harvest track, 0 to {screen.winning_count(catalog)}, and the four base cards to cut out."),
-    ]
+    return list(iter_sheets(catalog))
+
+
+def iter_sheets(catalog: Catalog) -> Iterator[Sheet]:
+    """Every sheet, each drawn only as it is asked for, so `write_kit`
+    can save one and say so before drawing the next."""
+    yield Sheet("map", (mapsheet.render_map_sheet(catalog),), "tabloid",
+                "Map 3.3, with each territory's setup tokens and the two point contacts.")
+    yield Sheet("battle-mat", (boards.render_battle_mat(catalog),), "tabloid",
+                "The battle line's four rows in columns, the round track and the initiative groups.")
+    yield Sheet("track-sheet", (boards.render_track_sheet(catalog),), "letter",
+                f"The harvest track, 0 to {screen.winning_count(catalog)}, and the four base cards to cut out.")
     for seat in boards.SEATS:
         word = seat.title()
-        counters = cut_sheet(pieces.unit_counters(catalog, seat), (1, 1), title=f"{word} unit counters")
-        sheets += [
-            Sheet(f"{seat}-screen", (screen.render_screen(catalog, seat),), "tabloid",
-                  f"{word}'s screen: fold in three on the dashed lines and stand it, printed side towards "
-                  f"{word}. Its inside is the player aid."),
-            Sheet(f"{seat}-player-board", tuple(boards.render_player_board(catalog, seat)), "letter",
-                  f"{word}'s player board: two sheets, side by side, behind the screen."),
-            Sheet(f"{seat}-unit-traits", tuple(keywords.render_traits(catalog, seat)), "letter",
-                  f"{word}'s unit traits: every trait a unit carries, with the units that carry it."),
-            Sheet(f"{seat}-keywords", tuple(keywords.render_terms(catalog, seat)), "letter",
-                  f"{word}'s keywords: every term the rules use, with its section."),
-            Sheet(f"{seat}-territory-cards",
-                  tuple(cut_sheet(territories.territory_deck(catalog, seat), territories.CARD,
+        yield Sheet(f"{seat}-screen", (screen.render_screen(catalog, seat),), "tabloid",
+                    f"{word}'s screen: fold in three on the dashed lines and stand it, printed side towards "
+                    f"{word}. Its inside is the player aid.")
+        yield Sheet(f"{seat}-player-board", tuple(boards.render_player_board(catalog, seat)), "letter",
+                    f"{word}'s player board: two sheets, side by side, behind the screen.")
+        yield Sheet(f"{seat}-unit-traits", tuple(keywords.render_traits(catalog, seat)), "letter",
+                    f"{word}'s unit traits: every trait a unit carries, with the units that carry it.")
+        yield Sheet(f"{seat}-keywords", tuple(keywords.render_terms(catalog, seat)), "letter",
+                    f"{word}'s keywords: every term the rules use, with its section.")
+        yield Sheet(f"{seat}-territory-cards",
+                    tuple(cut_sheet(territories.territory_deck(catalog, seat), territories.CARD,
                                   title=f"{word} territory cards")), "letter",
-                  f"{word}'s territory cards: one for each territory and the enemy base. Each pile in a spot "
-                  "goes on the card of what it attacks or defends."),
-            Sheet(f"{seat}-deployment-board", (boards.render_deployment_board(catalog, seat),), "letter",
-                  f"{word}'s deployment board, behind the screen."),
-            Sheet(f"{seat}-unit-counters", tuple(counters), "letter",
-                  f"{word}'s {len(pieces.unit_counters(catalog, seat))} unit counters, 1 inch: every unit as "
-                  "many times as its supply."),
-        ]
+                    f"{word}'s territory cards: one for each territory and the enemy base. Each pile in a spot "
+                    "goes on the card of what it attacks or defends.")
+        yield Sheet(f"{seat}-deployment-board", (boards.render_deployment_board(catalog, seat),), "letter",
+                    f"{word}'s deployment board, behind the screen.")
+        counters = cut_sheet(pieces.unit_counters(catalog, seat), (1, 1), title=f"{word} unit counters")
+        yield Sheet(f"{seat}-unit-counters", tuple(counters), "letter",
+                    f"{word}'s {len(pieces.unit_counters(catalog, seat))} unit counters, 1 inch: every unit as "
+                    "many times as its supply.")
     tokens = pieces.resource_tokens(catalog) + pieces.other_tokens(catalog)
-    sheets.append(Sheet("tokens", tuple(cut_sheet(tokens, (0.75, 0.75), title="Tokens")), "letter",
-                        f"{len(tokens)} tokens, 3/4 inch (listed below)."))
-    return sheets
+    yield Sheet("tokens", tuple(cut_sheet(tokens, (0.75, 0.75), title="Tokens")), "letter",
+                f"{len(tokens)} tokens, 3/4 inch (listed below).")
 
 
 def token_lines(catalog: Catalog) -> list[str]:
@@ -186,16 +187,27 @@ boards cite them ("TNP 6.7").
 """
 
 
-def write_kit(out: Path, catalog: Catalog | None = None) -> list[Path]:
+def write_kit(out: Path, catalog: Catalog | None = None,
+              report: Callable[[Path], None] | None = None) -> list[Path]:
+    """The kit into `out`; the files written, each handed to `report` as
+    soon as it is on disk, since the whole kit takes a while to draw."""
     catalog = catalog or load()
     out.mkdir(parents=True, exist_ok=True)
-    sheets = build_sheets(catalog)
+    sheets: list[Sheet] = []
     written: list[Path] = []
+
+    def wrote(paths: Sequence[Path]) -> None:
+        written.extend(paths)
+        if report:
+            for path in paths:
+                report(path)
+
     letter: list[Image.Image] = []
     tabloid: list[Image.Image] = []
     tabloid_halves: list[Image.Image] = []
-    for item in sheets:
-        written += save(item.pages, out / "sheets" / f"{item.name}.pdf")
+    for item in iter_sheets(catalog):
+        sheets.append(item)
+        wrote(save(item.pages, out / "sheets" / f"{item.name}.pdf"))
         if item.paper == "tabloid":
             tabloid.extend(item.pages)
             for page in item.pages:
@@ -206,15 +218,15 @@ def write_kit(out: Path, catalog: Catalog | None = None) -> list[Path]:
                         (tabloid_halves, "print-tabloid-as-letter.pdf")):
         path = out / name
         pages[0].save(path, "PDF", resolution=DPI, save_all=True, append_images=pages[1:])
-        written.append(path)
+        wrote([path])
 
     rules = out / "rules.pdf"
     rules.write_bytes(rules_pdf())
-    written.append(rules)
+    wrote([rules])
 
     readme = out / "README.md"
     readme.write_text(readme_text(catalog, sheets), encoding="utf-8")
-    written.append(readme)
+    wrote([readme])
     return written
 
 
