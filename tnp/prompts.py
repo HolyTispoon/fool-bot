@@ -64,7 +64,7 @@ from tnp.battle import (
     unplaced,
 )
 from tnp.catalog import UnitType
-from tnp.components import MARCH, OVER, PLAN, PRODUCTION, TRADE, CLEANUP, MatchState
+from tnp.components import DEFENSE_SPOTS, MARCH, OVER, PLAN, PRODUCTION, TRADE, CLEANUP, MatchState
 from tnp.flow.result import FollowOn, FollowOnStep
 from tnp.wire import jsonable
 
@@ -178,6 +178,16 @@ class PlanOptions(_Wire):
     #: The units that go only into the base defense spot (TNP 7).
     base_only: tuple[str, ...]
     together: tuple["TogetherLimit", ...]
+    #: How many territories may be defended, beside the base (TNP 2.5).
+    defense_spots: int = DEFENSE_SPOTS
+    #: The territories whose stranded units keep a defense spot each
+    #: (`tnp.turn.stranded_areas`, TNP 2.5, 5.7).
+    stranded: tuple[str, ...] = ()
+    #: Where each card of the seat's deck is in the saved plan -- an
+    #: attack spot's letter, "defense" or "stranded" -- by territory or
+    #: the other base (`tnp.turn.card_spots`): a card goes into one spot
+    #: a turn (TNP 2.5).
+    cards: Mapping[str, str] = field(default_factory=dict)
     #: The plan saved so far (`tnp.turn.normal_plan`'s shape), or `None`.
     plan: Optional[Mapping[str, Any]] = None
     #: What the saved plan's Infrastructure costs (`tnp.turn.plan_cost`):
@@ -602,6 +612,9 @@ def _plan_options(engine, match, prompt) -> PlanOptions:
             TogetherLimit(tuple(limit["units"]), int(limit["max"]))
             for limit in catalog.board["limits"]["deployed_together"]
         ),
+        defense_spots=DEFENSE_SPOTS,
+        stranded=turn.stranded_areas(match, seat),
+        cards=turn.card_spots(turn.normal_plan(state.plan), seat, turn.stranded_areas(match, seat)),
         plan=state.plan,
         cost=_plan_cost(engine, state.plan),
     )

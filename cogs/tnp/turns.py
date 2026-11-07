@@ -32,9 +32,11 @@ from typing import Any, Optional, Sequence
 import discord
 
 from cogs.tnp.battles import ROUND_FILENAME, battle_key, fighting
-from cogs.tnp_views import BATTLE_VIEWS, PanelState, panel_view, send_ephemeral
+from cogs.tnp_views import (
+    BATTLE_VIEWS, DEPLOYMENT, INFRASTRUCTURE, PanelState, empty_steps, panel_view, send_ephemeral,
+)
 from tnp import tokens
-from tnp.briefs import board_brief, map_brief
+from tnp.briefs import board_brief, deployment_brief, map_brief, spots_brief
 from tnp.catalog import Cost
 from tnp.formatting import (
     battle_heading, board_caption, cost_text, map_caption, phase_heading, plan_lines,
@@ -43,7 +45,7 @@ from tnp.formatting import (
 from tnp.flow.result import FollowOnStep
 from tnp.game import GameStatus, RuleRefusal, TnpGame
 from tnp.prompts import SIMULTANEOUS, Action, PendingPrompt, PromptKind, prompt_for
-from tnp.render import render_attack, render_board, render_map
+from tnp.render import render_attack, render_board, render_deployment, render_map, render_spots
 
 LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +53,10 @@ LOGGER = logging.getLogger(__name__)
 #: the table replaces the picture rather than adding one.
 MAP_FILENAME = "tnp-map.png"
 BOARD_FILENAME = "tnp-board-{seat}.png"
+#: A seat's attack board, under its panel's Deployment step.
+DEPLOYMENT_FILENAME = "tnp-deployment-{seat}.png"
+#: Both seats' deployment boards, under a March message.
+SPOTS_FILENAME = "tnp-spots.png"
 
 #: Discord's limits on a message: its text, and the files it carries.
 MESSAGE_LENGTH = 2000
@@ -75,6 +81,8 @@ class Post:
     key: Optional[str] = None
     #: The attacks pictured on it, by area: `(spot, area, map brief)`.
     pictures: dict = field(default_factory=dict)
+    #: Both deployment boards as a March spot left them, or `None`.
+    spots: Any = None
 
 
 @dataclass(frozen=True)
@@ -89,11 +97,21 @@ class PostPlan:
     ended: Optional[str] = None
     settled: bool = False
 
-#: Under a plan's controls.
+#: Under a plan's controls, by step.
+PLAN_HINTS = {
+    INFRASTRUCTURE: "**① Infrastructure**: what to build and place. Your board shows the plan as you change it.",
+    DEPLOYMENT: "**② Deployment**: a pile, its territory, then its units. Your attack board shows the plan "
+                "as you change it.",
+}
 PLAN_HINT = (
-    "Choose what to change below. Every change is saved as you make it, and nobody sees "
-    "any of it until both of you have locked in."
+    "Every change is saved as you make it, and nobody sees any of it until both of you have locked in."
 )
+#: What **Lock in plan** warns of, by the step left empty.
+EMPTY_WARNINGS = {
+    INFRASTRUCTURE: "Your plan builds and places nothing: your pool stays as it is.",
+    DEPLOYMENT: "Your plan deploys nothing: no attack and no defense, and every unit stays at your base "
+                "this turn.",
+}
 
 
 class TurnMixin:
@@ -114,6 +132,17 @@ class TurnMixin:
         """The map's brief where a run stops (`Batching.picture`): public
         by construction, so it may be drawn under a post."""
         return map_brief(match, map_caption(match))
+
+    def spots_picture(self, match):
+        """Both seats' deployment boards where a run stops in March:
+        public by construction (`spots_brief`)."""
+        if match is None or match.phase != "march":
+            return None
+        return spots_brief(self.engine, match, map_caption(match))
+
+    async def spots_file(self, brief) -> discord.File:
+        png = await asyncio.to_thread(render_spots, self.catalog, brief)
+        return discord.File(io.BytesIO(png), filename=SPOTS_FILENAME)
 
     async def draw_map(self, brief) -> bytes:
         return await asyncio.to_thread(render_map, self.catalog, brief)
@@ -159,14 +188,48 @@ class TurnMixin:
         match = self.service.load(game)
         for seat in seats:
             prompt = prompt_for(self.engine, game, match, seat)
-            state = PanelState(drawn=(match.turn, match.phase))
+            state = PanelState()
+            state = replace(state, drawn=self.panel_picture_key(match, seat, prompt, state))
             await interaction.followup.send(
                 self.panel_text(game, match, seat, prompt, state),
-                file=await self.board_file(match, seat),
+                file=await self.panel_file(match, seat, prompt, state),
                 view=panel_view(self, game.game_id, seat, prompt, state) or discord.utils.MISSING,
                 ephemeral=True,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
+
+    def deploying(self, prompt: Optional[PendingPrompt], state: PanelState) -> bool:
+        """Whether the panel shows the seat's attack board: its plan's
+        Deployment step."""
+        return prompt is not None and prompt.kind is PromptKind.PLAN and state.step == DEPLOYMENT and not state.confirm
+
+    def panel_picture_key(self, match, seat: str, prompt: Optional[PendingPrompt], state: PanelState) -> tuple:
+        """What the panel's picture is drawn from: the turn and phase, and
+        while a plan is asked the step, the plan saved and the pile being
+        changed -- **a plan's every change goes on its picture**, a
+        click that changes none of these draws nothing again."""
+        key = (match.turn, match.phase)
+        if prompt is not None and prompt.kind is PromptKind.PLAN:
+            plan = match.seat(seat).plan
+            key += (self.deploying(prompt, state), repr(plan),
+                    state.pile if self.deploying(prompt, state) else None, state.targets)
+        return key
+
+    async def panel_file(self, match, seat: str, prompt: Optional[PendingPrompt], state: PanelState) -> discord.File:
+        """The picture under a seat's panel: its attack board in the
+        plan's Deployment step, its player board otherwise."""
+        if self.deploying(prompt, state):
+            brief = deployment_brief(self.engine, match, seat, self.picked_spot(seat, prompt, state),
+                                     board_caption(match))
+            png = await asyncio.to_thread(render_deployment, self.catalog, brief)
+            return discord.File(io.BytesIO(png), filename=DEPLOYMENT_FILENAME.format(seat=seat))
+        return await self.board_file(match, seat)
+
+    def picked_spot(self, seat: str, prompt: PendingPrompt, state: PanelState) -> Optional[str]:
+        """The attack board's name of the pile the panel is changing."""
+        view = panel_view(self, "", seat, prompt, state)
+        pile = getattr(view, "state", state).pile
+        return view.spot_label(pile) if pile else None
 
     async def board_file(self, match, seat: str) -> discord.File:
         brief = board_brief(self.engine, match, seat, board_caption(match))
@@ -185,6 +248,10 @@ class TurnMixin:
         lines = []
         if state.notice:
             lines.append(f"**Not done:** {state.notice}")
+        if state.confirm and prompt is not None and prompt.kind is PromptKind.PLAN:
+            empty = empty_steps(prompt.options.plan)
+            lines.append("**Before you lock in:** " + " ".join(EMPTY_WARNINGS[one] for one in empty)
+                         + " Once you lock in, the plan cannot be changed this turn.")
         lines += [
             self.render_text(f"{phase_heading(match)} -- your board, {tokens.seat(seat)}.", game),
             f"Pool: {pool_text(match.seat(seat).pool)}.",
@@ -200,7 +267,10 @@ class TurnMixin:
         lines.append(self.render_text(prompt.ask, game))
         said: list[str] = []
         if prompt.kind is PromptKind.PLAN:
-            said = plan_lines(prompt.options) + plan_offer_lines(prompt.options) + [PLAN_HINT]
+            step = state.step if state.step in PLAN_HINTS else INFRASTRUCTURE
+            said = plan_lines(prompt.options) + plan_offer_lines(prompt.options, step) + [
+                PLAN_HINTS[step], PLAN_HINT,
+            ]
         elif prompt.kind is PromptKind.TRADE:
             said = trade_lines(prompt.options)
         elif prompt.kind in BATTLE_VIEWS:
@@ -238,16 +308,17 @@ class TurnMixin:
         if prompt is not None and prompt.kind is not view.prompt.kind:
             # A new question: nothing of the last one's choices carries.
             state = PanelState(notice=state.notice, drawn=state.drawn)
-        now = (match.turn, match.phase)
+        now = self.panel_picture_key(match, seat, prompt, state)
         new_view = panel_view(self, game.game_id, seat, prompt, replace(state, drawn=now))
         text = self.panel_text(game, match, seat, prompt, state)
         fields = dict(content=text, view=new_view, allowed_mentions=discord.AllowedMentions.none())
         if state.drawn != now:
-            # The turn or the phase has moved: the board under the panel
+            # What the picture shows has moved -- the turn, the phase, the
+            # plan's step, the plan itself or the pile being changed: it
             # is drawn again, through the click's own webhook.
             await interaction.response.defer()
             await interaction.edit_original_response(
-                attachments=[await self.board_file(match, seat)], **fields,
+                attachments=[await self.panel_file(match, seat, prompt, state)], **fields,
             )
         else:
             await interaction.response.edit_message(**fields)
@@ -304,6 +375,9 @@ class TurnMixin:
                 last = Post("part" if group.part is not None else "rest", [], part=group.part)
                 posts.append(last)
             last.lines += lines
+            if group.part is not None and picture is not None and picture.spots is not None:
+                # Both deployment boards as the spot left them.
+                last.spots = picture.spots
             if group.part is not None and group.area is not None and picture is not None:
                 # The latest picture of each area the spot resolved at,
                 # in the order the spot first reached it.
@@ -444,8 +518,12 @@ class TurnMixin:
             files = []
             if post.kind == "round":
                 files = [self.battle_file(pngs[index], ROUND_FILENAME.format(round=post.battle.round))]
-            await self.post(channel, game, text, list(post.pictures.values())[:MESSAGE_FILES],
-                            pinged if last else (), files=files)
+            room, after = MESSAGE_FILES, []
+            if post.spots is not None:
+                after = [await self.spots_file(post.spots)]
+                room -= 1
+            await self.post(channel, game, text, list(post.pictures.values())[:room],
+                            pinged if last else (), files=files, after=after)
         if new_battle:
             await self.post_battle_message(channel, game, match, plan.battle[1],
                                            self.asked_players(game, result))
@@ -469,9 +547,11 @@ class TurnMixin:
         png = await asyncio.to_thread(render_attack, self.catalog, brief, area, spot)
         return discord.File(io.BytesIO(png), filename=ATTACK_FILENAME.format(spot=spot, area=area))
 
-    async def post(self, channel, game: TnpGame, text: str, pictures=(), pinged=(), files=()) -> None:
-        """One message, with its attacks' pictures where it has any, and
-        `files` drawn already (a round's battle) -- and where the text is
+    async def post(self, channel, game: TnpGame, text: str, pictures=(), pinged=(), files=(),
+                   after=()) -> None:
+        """One message, with its attacks' pictures where it has any,
+        `files` drawn already (a round's battle) before them and `after`
+        (both deployment boards) after them -- and where the text is
         longer than Discord takes, the rest in the messages after it, the
         pictures on the last. `pinged` are the users its mentions may
         ping; every other mention is inert."""
@@ -480,7 +560,7 @@ class TurnMixin:
         for index, chunk in enumerate(chunks):
             files = []
             if index == len(chunks) - 1:
-                files = drawn + [await self.attack_file(*picture) for picture in pictures]
+                files = drawn + [await self.attack_file(*picture) for picture in pictures] + list(after)
             mentions = discord.AllowedMentions.none()
             if pinged:
                 mentions = discord.AllowedMentions(

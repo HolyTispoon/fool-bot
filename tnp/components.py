@@ -60,6 +60,8 @@ PHASES = (PLAN, MARCH, PRODUCTION, TRADE, CLEANUP, OVER)
 #: CPU in the advanced game (step 9's).
 ATTACK_SPOTS = ("A", "B", "C")
 BASIC_ATTACK_SPOTS = ("A", "B")
+#: How many territories a seat defends a turn, beside its base (TNP 2.5).
+DEFENSE_SPOTS = 3
 
 #: How a seat wins (TNP 1.3).
 WON_BY_BASE = "base"
