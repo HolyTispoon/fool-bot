@@ -2,11 +2,13 @@
 The kit's pieces, each drawn in one cell of a cut sheet
 (`tnpkit.paper.cut_sheet`):
 
-- **Unit counters**, 1 inch square, a seat's units as many as their
-  supply (TNP 2.3) -- 80 a seat, one letter sheet. Each is framed in its
-  seat's colour and banded in its type's, board v4's colours, with its
-  name, type, initiative (the white disc) and three ratings as the d12
-  numbers it needs (TNP 4.1), and its traits underneath.
+- **Unit counters**, 1.5 inches square, a seat's units as many as their
+  supply (TNP 2.3) -- 80 a seat, three letter sheets. Each is white to
+  its edges, banded in its type's colour, board v4's, with its name,
+  type and initiative (the white disc); room for the unit's picture,
+  with the player's shield in its corner; its three ratings as the d12
+  numbers they need (TNP 4.1), each named under its number; and its
+  traits underneath.
 - **Tokens and markers**, 3/4 inch square: the 96 resource tokens map
   3.3 holds (TNP 2.1), materials and gold, control tokens, Stranded
   tokens, damage tokens, the Built markers for the player board, each
@@ -20,6 +22,7 @@ tokens -- or is the kit's own and says so in `TOKEN_COUNTS`.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from PIL import Image, ImageDraw
@@ -93,73 +96,95 @@ def unit_traits(unit: Unit) -> str:
     return " · ".join(words)
 
 
+#: A unit counter, in inches: square.
+COUNTER = 1.5
+
+#: Where a unit's picture goes, `<slug>.png`, once there is one; until
+#: then its counter leaves the room empty.
+UNIT_IMAGES = Path(__file__).resolve().parent.parent / "tnp" / "images" / "units"
+
+#: The faint outline of the picture's room while it is empty.
+IMAGE_ROOM = (222, 225, 230)
+
+
+def _unit_image(slug: str) -> Optional[Image.Image]:
+    path = UNIT_IMAGES / f"{slug}.png"
+    return Image.open(path).convert("RGBA") if path.exists() else None
+
+
 def unit_counter(unit: Unit, seat: str) -> Piece:
     def draw_it(tile: Image.Image) -> None:
         size = tile.width
-        k = size / 300  # drawn for 300 pixels, the inch at 300 dpi
-        colours = SEAT_COLOURS[seat]
+        k = size / 450  # drawn for 450 pixels, 1.5 inches at 300 dpi
+        draw = _fill(tile, WHITE)
         band, band_ink = TYPE_COLOURS[unit.type]
-        draw = _fill(tile, colours["strong"])
-        inset = 15 * k
-        inner = (inset, inset, size - inset, size - inset)
-        draw.rounded_rectangle(inner, radius=10 * k, fill=WHITE)
-        left, top, right, bottom = inner
-        pad = 9 * k
+        # Nothing coloured reaches the edge: a white margin all round, so
+        # a cut a little off the line leaves no sliver of colour.
+        edge = 22 * k
+        left, top, right, bottom = edge, edge, size - edge, size - edge
+        pad = 12 * k
 
-        # The band, inset so a white edge parts it from the seat's frame
-        # -- Green's infantry is green on green otherwise: the name, the
-        # type, and the initiative disc.
-        edge = 6 * k
-        band_h = 88 * k
-        draw.rounded_rectangle((left + edge, top + edge, right - edge, top + band_h), radius=7 * k, fill=band)
-        disc = 50 * k
+        # The band: the name, the type, and the initiative disc.
+        band_h = 104 * k
+        draw.rounded_rectangle((left, top, right, top + band_h), radius=10 * k, fill=band)
+        disc = 70 * k
         disc_x = right - pad - disc
         disc_y = top + (band_h - disc) / 2
         draw.ellipse((disc_x, disc_y, disc_x + disc, disc_y + disc), fill=WHITE)
-        _centred(draw, (disc_x + disc / 2, disc_y + disc / 2 + 1 * k), str(unit.initiative), 32 * k, band_ink)
+        _centred(draw, (disc_x + disc / 2, disc_y + disc / 2 + 1 * k), str(unit.initiative), 46 * k, band_ink)
         name_w = disc_x - left - 2 * pad
-        name_face = font(27 * k)
+        name_face = font(38 * k)
         rows = _wrap(unit.name, name_face, name_w)
         if len(rows) > 1 or name_face.getlength(rows[0]) > name_w:
-            name_face = font(22 * k)
+            name_face = font(31 * k)
             rows = _wrap(unit.name, name_face, name_w)[:2]
         line_h = name_face.size * 1.02
-        type_size = 15 * k
-        block = line_h * len(rows) + type_size + 3 * k
-        y = top + edge + (band_h - edge - block) / 2
+        type_size = 21 * k
+        block = line_h * len(rows) + type_size + 4 * k
+        y = top + (band_h - block) / 2
         for row in rows:
             draw.text((left + pad, y), row, font=name_face, fill=WHITE, anchor="lt")
             y += line_h
-        draw.text((left + pad, y + 3 * k), TYPE_WORDS[unit.type].upper(), font=font(type_size), fill=WHITE,
+        draw.text((left + pad, y + 4 * k), TYPE_WORDS[unit.type].upper(), font=font(type_size), fill=WHITE,
                   anchor="lt")
 
-        # The three ratings, as the d12 number each needs (TNP 4.1).
-        y = top + band_h + 8 * k
-        cell_h = 80 * k
-        gap = 5 * k
-        cell_w = (right - left - 2 * pad - 2 * gap) / 3
+        # The picture's room, with the player's shield in its corner.
+        room = (left, top + band_h + 8 * k, right, top + band_h + 8 * k + 104 * k)
+        picture = _unit_image(unit.slug)
+        if picture is None:
+            draw.rounded_rectangle(room, radius=8 * k, outline=IMAGE_ROOM, width=max(1, round(3 * k)))
+        else:
+            picture.thumbnail((round(room[2] - room[0]), round(room[3] - room[1])))
+            at = (round((room[0] + room[2] - picture.width) / 2), round((room[1] + room[3] - picture.height) / 2))
+            tile.paste(picture, at, picture)
+        shield_h = 52 * k
+        _shield(draw, seat, (room[0] + 8 * k, room[1] + 8 * k), shield_h)
+
+        # The three ratings: the d12 number each needs (TNP 4.1), and
+        # the rating's name under it.
+        y = room[3] + 8 * k
+        cell_h = 116 * k
+        gap = 6 * k
+        cell_w = (right - left - 2 * gap) / 3
         for index, kind in enumerate(UnitType):
             rating = unit.rating(kind)
-            x = left + pad + index * (cell_w + gap)
-            draw.rounded_rectangle((x, y, x + cell_w, y + cell_h), radius=6 * k, fill=RATING_FILLS[rating])
+            x = left + index * (cell_w + gap)
+            draw.rounded_rectangle((x, y, x + cell_w, y + cell_h), radius=8 * k, fill=RATING_FILLS[rating])
             label = {UnitType.INFANTRY: "INF", UnitType.ARMORED: "ARM", UnitType.AIR: "AIR"}[kind]
-            _centred(draw, (x + cell_w / 2, y + 15 * k), label, 17 * k, MUTED)
-            _centred(draw, (x + cell_w / 2, y + 50 * k), rating.shown, 40 * k, INK)
+            _centred(draw, (x + cell_w / 2, y + 17 * k), label, 22 * k, MUTED)
+            _centred(draw, (x + cell_w / 2, y + 56 * k), rating.shown, 54 * k, INK)
+            _centred(draw, (x + cell_w / 2, y + 96 * k), rating.value.upper(), 21 * k, INK)
 
-        # The seat's shield, and the traits beside it, under the ratings.
-        y = top + band_h + 8 * k + cell_h + 8 * k
-        space = bottom - pad / 2 - y
-        shield_h = 42 * k
-        _shield(draw, seat, (left + pad, y + (space - shield_h) / 2), shield_h)
+        # The traits, under the ratings.
+        y += cell_h
         traits = unit_traits(unit)
         if traits:
-            face = font(20 * k, bold=False)
-            text_left = left + pad + shield_h + 6 * k
-            rows = _wrap(traits, face, right - pad - text_left)
-            line_h = min(25 * k, space / max(1, len(rows)))
-            y += (space - line_h * len(rows)) / 2
+            face = font(26 * k, bold=False)
+            rows = _wrap(traits, face, right - left)
+            line_h = min(30 * k, (bottom - y) / max(1, len(rows)))
+            y += (bottom - y - line_h * len(rows)) / 2
             for row in rows:
-                draw.text(((text_left + right - pad) / 2, y + line_h / 2), row, font=face, fill=INK, anchor="mm")
+                draw.text(((left + right) / 2, y + line_h / 2), row, font=face, fill=INK, anchor="mm")
                 y += line_h
 
     return draw_it
