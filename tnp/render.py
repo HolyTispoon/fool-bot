@@ -47,7 +47,7 @@ from PIL import Image, ImageDraw, ImageFont
 from tnp import battle as lines
 from tnp.battle import BASE_LEFT, BASE_RIGHT, ROUNDS, SEATS, BattleState
 from tnp.briefs import (
-    DEFENSE, EMPTY, FACE_DOWN, POOL, RESOURCES, SHOWN, BoardBrief, DeploySpot, DeploymentBrief,
+    DEFENSE, EMPTY, FACE_DOWN, POOL, RESOURCES, SHOWN, STRANDED, BoardBrief, DeploySpot, DeploymentBrief,
     MapBrief, Pile, SpotsBrief,
 )
 from tnp.catalog import Area, Catalog, Rating, Unit, UnitType
@@ -776,6 +776,8 @@ def _spot_card(catalog: Catalog, spot: DeploySpot, own: bool) -> str:
     seat's own board whether an attack has a path now."""
     if spot.state == EMPTY:
         return "empty"
+    if spot.state == STRANDED and spot.area is not None:
+        return f"{_area_words(catalog, spot.area)} · stranded"
     if spot.area is None or (spot.state == FACE_DOWN and not own):
         return "face down"
     if spot.spot == "base":
@@ -795,7 +797,7 @@ def _spot_column(draw, catalog: Catalog, seat: str, spot: DeploySpot, box, *, ow
     on the public boards is its seat's colour and no tiles."""
     left, top, right, bottom = box
     colours = SEAT_COLOURS[seat]
-    hidden = spot.state == FACE_DOWN and not own
+    hidden = spot.state in (FACE_DOWN, STRANDED) and not own
     if spot.state == EMPTY:
         _dashed_box(draw, box, MUTED, dash=10, width=3)
     elif hidden:

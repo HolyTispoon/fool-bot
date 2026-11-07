@@ -259,10 +259,11 @@ def _deployment_offer_lines(options) -> list[str]:
         if reached:
             line += "; a ground unit has a path now to " + ", ".join(tokens.area(area) for area in reached)
         lines.append(line + ".")
-    lines.append(
-        f"Defense spots: {options.defense_spots} for your territories, and your base's. "
-        "A territory goes into one spot a turn."
-    )
+    line = f"Defense spots: {options.defense_spots} for your territories, and your base's."
+    if options.stranded:
+        line += " Stranded units keep " + ("one" if len(options.stranded) == 1 else str(len(options.stranded))) + \
+            " of them, in " + ", ".join(tokens.area(area) for area in options.stranded) + "."
+    lines.append(line + " A card goes into one spot a turn: a territory, or the other base.")
     return lines
 
 

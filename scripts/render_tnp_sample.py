@@ -32,7 +32,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from tnp.battle import DAMAGE  # noqa: E402
 from tnp.briefs import (  # noqa: E402
-    FACE_DOWN, SHOWN, BoardBrief, DeploySpot, DeploymentBrief, MapBrief, Pile, SpotsBrief,
+    FACE_DOWN, SHOWN, STRANDED, BoardBrief, DeploySpot, DeploymentBrief, MapBrief, Pile, SpotsBrief,
     opening_board, opening_map,
 )
 from tnp.components import MatchState  # noqa: E402
@@ -86,7 +86,8 @@ def midgame_board(engine: RulesEngine) -> BoardBrief:
 
 
 def midgame_deployment() -> DeploymentBrief:
-    """Blue's attack board mid-plan: both attacks aimed, one defense, the
+    """Blue's attack board mid-plan: both attacks aimed, stranded units
+    keeping a defense spot, one defense, the
     base empty, attack A being changed."""
     return DeploymentBrief(
         seat="blue",
@@ -95,8 +96,9 @@ def midgame_deployment() -> DeploymentBrief:
             DeploySpot("B", "5", "green", False, {"mercenary": 2, "jeep": 1}, FACE_DOWN),
         ),
         defenses=(
-            DeploySpot("1", "14", "blue", None, {"mercenary": 1}, FACE_DOWN),
-            DeploySpot("2"), DeploySpot("3"),
+            DeploySpot("1", "9", "blue", None, {"jeep": 1}, STRANDED),
+            DeploySpot("2", "14", "blue", None, {"mercenary": 1}, FACE_DOWN),
+            DeploySpot("3"),
         ),
         base=DeploySpot("base"),
         at_base={"worker": 1, "mercenary": 1},
@@ -113,7 +115,8 @@ def march_spots() -> SpotsBrief:
         ("blue", (
             DeploySpot("A", "3", "blue", None, {"worker": 1}, SHOWN),
             DeploySpot("B", state=FACE_DOWN),
-            DeploySpot("1", state=FACE_DOWN), DeploySpot("2"), DeploySpot("3"),
+            DeploySpot("1", "9", "blue", None, {}, STRANDED),
+            DeploySpot("2", state=FACE_DOWN), DeploySpot("3"),
             DeploySpot("base"),
         )),
         ("green", (

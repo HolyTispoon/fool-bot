@@ -391,7 +391,8 @@ class PlanPanelView(PanelView):
         left to defend."""
         defended = self.defended()
         defenses = [f"d:{area}" for area in defended]
-        if len(defended) < self.options.defense_spots and self.territories_to_defend():
+        kept = len(self.options.stranded) + len(defended)
+        if kept < self.options.defense_spots and self.territories_to_defend():
             defenses.append(NEW_DEFENSE)
         return [*self.options.spots, "base"], defenses
 

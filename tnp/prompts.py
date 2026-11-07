@@ -180,9 +180,13 @@ class PlanOptions(_Wire):
     together: tuple["TogetherLimit", ...]
     #: How many territories may be defended, beside the base (TNP 2.5).
     defense_spots: int = DEFENSE_SPOTS
-    #: Where each territory's card is in the saved plan -- an attack
-    #: spot's letter or "defense" -- by territory (`tnp.turn.card_spots`):
-    #: a territory goes into one spot a turn (TNP 2.5).
+    #: The territories whose stranded units keep a defense spot each
+    #: (`tnp.turn.stranded_areas`, TNP 2.5, 5.7).
+    stranded: tuple[str, ...] = ()
+    #: Where each card of the seat's deck is in the saved plan -- an
+    #: attack spot's letter, "defense" or "stranded" -- by territory or
+    #: the other base (`tnp.turn.card_spots`): a card goes into one spot
+    #: a turn (TNP 2.5).
     cards: Mapping[str, str] = field(default_factory=dict)
     #: The plan saved so far (`tnp.turn.normal_plan`'s shape), or `None`.
     plan: Optional[Mapping[str, Any]] = None
@@ -609,7 +613,8 @@ def _plan_options(engine, match, prompt) -> PlanOptions:
             for limit in catalog.board["limits"]["deployed_together"]
         ),
         defense_spots=DEFENSE_SPOTS,
-        cards=turn.card_spots(turn.normal_plan(state.plan), seat) if state.plan else {},
+        stranded=turn.stranded_areas(match, seat),
+        cards=turn.card_spots(turn.normal_plan(state.plan), seat, turn.stranded_areas(match, seat)),
         plan=state.plan,
         cost=_plan_cost(engine, state.plan),
     )

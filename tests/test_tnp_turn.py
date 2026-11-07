@@ -47,10 +47,11 @@ from tnp.prompts import (
     prompt_for,
 )
 from tnp.briefs import (
-    FACE_DOWN, SHOWN, board_brief, deployment_brief, map_brief, opening_board, opening_map, spots_brief,
+    FACE_DOWN, SHOWN, STRANDED, board_brief, deployment_brief, map_brief, opening_board, opening_map, spots_brief,
 )
 from tnp.tokens import plain
-from tnp.turn import has_path, joined
+from tnp.components import Pile
+from tnp.turn import has_path, joined, stranded_areas
 
 from tnp_battles import first
 from tnp_games import Strategy, opening, reload
@@ -342,6 +343,46 @@ class PlanCheckTests(unittest.TestCase):
         options = prompt_for(self.engine, self.game, self.match, "blue").options
         self.assertEqual(options.cards, {"8": "A", "14": "defense"})
         self.assertEqual(options.defense_spots, 3)
+
+    def test_a_card_for_the_other_base(self) -> None:
+        """The deck has a card for the other seat's base, so two attack
+        spots never go at it (TNP 2.5, the author, 2026-11-06)."""
+        self.refused({"attacks": {"A": {"target": "green_base", "units": {"worker": 1}},
+                                  "B": {"target": "green_base", "units": {"worker": 1}}}}, "TNP 2.5")
+        save(self.engine, self.game, self.match, "blue",
+             {"attacks": {"A": {"target": "green_base", "units": {"worker": 1}}}})
+        options = prompt_for(self.engine, self.game, self.match, "blue").options
+        self.assertEqual(options.cards, {"green_base": "A"})
+
+    def test_stranded_units_keep_a_defense_spot(self) -> None:
+        """A territory where a seat's stranded units stand keeps one of
+        the three defense spots (TNP 2.5, 5.7)."""
+        for area in ("10", "13", "14"):
+            hold(self.match, "blue", area)
+        far = next(
+            slug for slug, area in sorted(self.engine.catalog.areas.items())
+            if not area.is_base and slug not in joined(self.engine, self.match, "blue")
+            and slug not in self.engine.catalog.areas["14"].adjacent
+        )
+        hold(self.match, "blue", far)
+        self.match.areas[far].stranded.append("blue")
+        self.match.spots.setdefault(far, {})["blue"] = Pile({"mercenary": 2})
+        self.assertEqual(stranded_areas(self.match, "blue"), (far,))
+        self.match.seat("blue").available["mercenary"] = 5
+        two = {area: {"mercenary": 1} for area in ("10", "13")}
+        run = save(self.engine, self.game, self.match, "blue", {"defense": two})
+        self.assertNotIsInstance(run, driver.Refusal, getattr(run, "reason", ""))
+        run = self.refused({"defense": {**two, "14": {"mercenary": 1}}}, "TNP 2.5")
+        self.assertIn("stranded units keep 1", run.reason)
+        options = prompt_for(self.engine, self.game, self.match, "blue").options
+        self.assertEqual(options.stranded, (far,))
+        self.assertEqual(options.cards[far], "stranded")
+        board = deployment_brief(self.engine, self.match, "blue")
+        self.assertEqual([(one.area, one.state) for one in board.defenses],
+                         [(far, STRANDED), ("10", FACE_DOWN), ("13", FACE_DOWN)])
+        public = dict(spots_brief(self.engine, self.match).seats)["blue"]
+        kept = [one for one in public if one.state == STRANDED]
+        self.assertEqual([(one.area, dict(one.units)) for one in kept], [(far, {})])
 
     def test_what_is_allowed(self) -> None:
         hold(self.match, "blue", "14")

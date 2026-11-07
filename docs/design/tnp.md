@@ -747,7 +747,13 @@ a cost is the model's to work out. **Three defense spots and one card a
 territory** (TNP 2.5, the author, 2026-11-06) are the model's:
 `check_plan` refuses a fourth territory defended and a territory in two
 spots, and `PlanOptions.cards` says where each territory's card is, so
-the menus offer only the territories whose card is free.
+the menus offer only the territories whose card is free. As PR #717's
+print kit has it (the author, 2026-11-06), the deck also holds **a card
+for the other seat's base**, so two attack spots never go at it, and
+**a territory where the seat's stranded units stand keeps one of the
+three spots** (`turn.stranded_areas`, `PlanOptions.stranded`): the
+units are in its defense spot and cannot leave, so the spot is taken
+whatever the plan says, and the panel offers one defense spot fewer.
 
 The trade is a button a token kind and a row for each of materials and
 gold; March's conquest a button a ground unit to reveal; the harvest a
@@ -866,7 +872,10 @@ taken the revealed piles off it.
   territory and what was revealed; an empty spot dashed. An attack
   spot's pile that resolved unrevealed has left its spot -- home, or
   into the territory's defense spot, where it shows as a face-down pile
-  (TNP 5.3, 5.5) -- which is where the physical pile would be. The
+  (TNP 5.3, 5.5) -- which is where the physical pile would be. A
+  stranded territory's spot (`STRANDED`) is in its seat's colour with
+  the territory named, as its Stranded token on the map already says,
+  and nothing of the units. The
   public boards are drawn in March alone; before it nothing of a
   deployment is public, not even which spots are filled.
 - **A battle met in March** posts its opening lines on its spot's

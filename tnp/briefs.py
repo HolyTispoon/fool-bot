@@ -186,6 +186,9 @@ def board_brief(engine: "RulesEngine", match: "MatchState", seat: str, caption: 
 #: A spot's state on the public deployment boards: a pile face down, a
 #: pile March has shown, or nothing in the spot.
 FACE_DOWN, SHOWN, EMPTY = "face_down", "shown", "empty"
+#: A defense spot a territory's stranded units keep (TNP 2.5, 5.7): its
+#: territory is public, as its Stranded token is; its units are not.
+STRANDED = "stranded"
 
 
 @dataclass(frozen=True)
@@ -247,7 +250,7 @@ def deployment_brief(engine: "RulesEngine", match: "MatchState", seat: str,
     base's spot, and what is left at the base.
     """
     from tnp.components import DEFENSE_SPOTS
-    from tnp.turn import area_order, attack_spots, base_of, deployed, has_path, normal_plan
+    from tnp.turn import area_order, attack_spots, base_of, deployed, has_path, normal_plan, stranded_areas
 
     state = match.seat(seat)
     plan = normal_plan(state.plan)
@@ -263,9 +266,12 @@ def deployment_brief(engine: "RulesEngine", match: "MatchState", seat: str,
             dict(attack["units"]), FACE_DOWN,
         ))
     defended = sorted((area for area in plan["defense"] if area != base_of(seat)), key=area_order)
+    kept = [area for area in stranded_areas(match, seat) if area not in defended]
+    piles = [(area, dict(match.standing(area, seat).units), STRANDED) for area in kept]
+    piles += [(area, dict(plan["defense"][area]), FACE_DOWN) for area in defended]
     defenses = [
-        DeploySpot(str(index + 1), area, seat, None, dict(plan["defense"][area]), FACE_DOWN)
-        for index, area in enumerate(defended)
+        DeploySpot(str(index + 1), area, seat, None, units, state)
+        for index, (area, units, state) in enumerate(piles)
     ]
     defenses += [DeploySpot(str(index + 1)) for index in range(len(defenses), DEFENSE_SPOTS)]
     base_units = plan["defense"].get(base_of(seat), {})
@@ -290,13 +296,14 @@ def spots_brief(engine: "RulesEngine", match: "MatchState", caption: str = "") -
     territory -- and empty otherwise: a pile that resolved unrevealed has
     left its spot, home or into the territory's defense spot (TNP 5.3,
     5.5). The defense piles are the piles in territories' defense spots
-    that no revealed attack of the seat's put there and no Stranded token
-    holds, each face down, with no territory, until a battle reveals it
-    -- an air pile waiting where it took nothing among them, as it waits
-    there face down; the base's spot the same.
+    that no revealed attack of the seat's put there, each face down, with
+    no territory, until a battle reveals it -- an air pile waiting where
+    it took nothing among them, as it waits there face down -- and a
+    territory's stranded units, which keep a spot under its name, as its
+    Stranded token is public (TNP 2.5, 5.7); the base's spot the same.
     """
     from tnp.components import DEFENSE_SPOTS
-    from tnp.turn import area_order, attack_spots, base_of
+    from tnp.turn import area_order, attack_spots, base_of, stranded_areas
 
     seats = []
     for seat in ("blue", "green"):
@@ -329,7 +336,10 @@ def spots_brief(engine: "RulesEngine", match: "MatchState", caption: str = "") -
             if area == base_of(seat) or area in attacked_at:
                 continue
             pile = match.spots[area].get(seat)
-            if pile is None or pile.empty() or seat in match.areas[area].stranded:
+            if pile is None or pile.empty():
+                continue
+            if area in stranded_areas(match, seat):
+                defended.append(DeploySpot("", area, seat, None, {}, STRANDED))
                 continue
             units = shown.get((DEFENSE, area))
             defended.append(
@@ -337,7 +347,7 @@ def spots_brief(engine: "RulesEngine", match: "MatchState", caption: str = "") -
             )
         # The face-down piles after the shown ones, so their order says
         # nothing of where they are.
-        defended.sort(key=lambda one: one.state != SHOWN)
+        defended.sort(key=lambda one: (one.state != SHOWN, one.state != STRANDED))
         for index, one in enumerate(defended):
             spots.append(DeploySpot(str(index + 1), one.area, one.held_by, None, one.units, one.state))
         spots += [DeploySpot(str(index + 1)) for index in range(len(defended), DEFENSE_SPOTS)]
