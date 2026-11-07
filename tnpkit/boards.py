@@ -395,7 +395,7 @@ def render_deployment_board(catalog: Catalog, seat: str) -> Image.Image:
         width=0.02)
     text(draw, (x + 0.15, rows_top + 0.1), "YOUR BASE", 0.18, fill=colours["ink"])
     paragraph(draw, x + 0.15, rows_top + 0.42, spot_w - 0.3,
-              "Its own defense spot, besides the three. Base Defense units go here, and only here (TNP 7).",
+              "Base Defense units go here, and only here (TNP 7).",
               0.13, fill=colours["ink"])
     x += spot_w + gap
     box(draw, x, rows_top, width - MARGIN - x, bottom - rows_top, outline=None, fill=PANEL)
