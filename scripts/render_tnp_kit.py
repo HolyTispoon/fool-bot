@@ -5,7 +5,7 @@
     python3 scripts/render_tnp_kit.py --out /some/folder
     python3 scripts/render_tnp_kit.py --zip
 
-Writes into `tnpkit/print/` (gitignored) unless `--out` names somewhere
+Writes into `tnp/print/` (gitignored) unless `--out` names somewhere
 else: the map, the battle mat, the track sheet, each seat's screen,
 player board, deployment board and unit counters, the tokens, the
 rules as a PDF and a README -- docs/design/tnp-print-kit.md. Look at
@@ -27,9 +27,8 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="the folder to write the kit into")
     parser.add_argument("--zip", action="store_true", help="also zip the folder, beside it")
     args = parser.parse_args()
-    written = write_kit(args.out)
-    for path in written:
-        print(path)
+    print(f"Building the kit into {args.out} ...", flush=True)
+    write_kit(args.out, report=lambda path: print(path, flush=True))
     if args.zip:
         archive = shutil.make_archive(str(args.out), "zip", root_dir=args.out.parent, base_dir=args.out.name)
         print(archive)

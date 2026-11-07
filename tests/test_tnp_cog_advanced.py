@@ -63,7 +63,7 @@ class TnpAdvancedCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(chosen["Basic game"], discord.ButtonStyle.secondary)
         match = turn.match()
         self.assertTrue(match.advanced)
-        self.assertEqual(sum(len(cards) for cards in match.decks.values()), 103)
+        self.assertEqual(sum(len(cards) for cards in match.decks.values()), 102)
 
     async def test_the_panel_puts_cards_into_play_and_says_nothing_in_public(self) -> None:
         turn = self.turn

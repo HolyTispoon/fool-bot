@@ -56,8 +56,8 @@ OVER = "over"
 
 PHASES = (PLAN, MARCH, PRODUCTION, TRADE, CLEANUP, OVER)
 
-#: The attack spots (TNP 2.5): A and B, and C with Command and Control
-#: CPU in the advanced game (step 9's).
+#: The attack spots (TNP 2.5): A and B, and C once the base has the
+#: Command and Control CPU upgrade.
 ATTACK_SPOTS = ("A", "B", "C")
 BASIC_ATTACK_SPOTS = ("A", "B")
 #: How many territories a seat defends a turn, beside its base (TNP 2.5).

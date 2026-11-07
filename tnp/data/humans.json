@@ -364,6 +364,15 @@
         "gold": 0
       },
       "ability": "Increase production cap to 8"
+    },
+    "command_and_control_cpu": {
+      "name": "Command and Control CPU",
+      "facility": null,
+      "cost": {
+        "materials": 1,
+        "gold": 2
+      },
+      "ability": "You may deploy units to attack space C"
     }
   }
 }

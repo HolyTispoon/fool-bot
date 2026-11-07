@@ -34,7 +34,6 @@ ROOT = Path(__file__).resolve().parent.parent
 
 #: Each card whose effect is built, and the test that pins it.
 CARD_TESTS = {
-    "command_and_control_cpu": "test_command_and_control_cpu_opens_attack_spot_c",
     "salvage_yard": "test_salvage_gains_a_material_a_mechanical_unit_destroyed",
     "salvaging_under_fire": "test_salvaging_under_fire_is_one_a_round",
     "jeweler": "test_jeweler_and_trader_raise_a_minerals_trade",
@@ -118,8 +117,8 @@ class TheCardsTests(unittest.TestCase):
         found = 0
         for name, value in re.findall(r"^\| ([A-Z][^|]+?) \| [^|]+ \| [^|]+ \| ([+−-]\d)", section, re.M):
             slug = find_card(self.catalog, name)
-            if slug is None:
-                continue  # Positioning and Air Cover have no count in the sheet
+            if slug is None or slug in effects.UNIMPLEMENTED:
+                continue  # Air Cover has no count in the sheet; Positioning waits on a question
             self.assertEqual(effects.EFFECTS[slug].modifier, int(value.replace("−", "-")), name)
             found += 1
         self.assertEqual(found, 9)
@@ -149,12 +148,18 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(opening(seed=4)[2].decks, {})
         self.assertEqual(MatchState.from_dict(json.loads(json.dumps(match.to_dict()))).decks, match.decks)
 
-    def test_the_decks_cover_the_map(self) -> None:
-        """A card a token harvested: each deck holds at least the map's tokens of its kind."""
+    def test_a_deck_that_runs_out_shuffles_its_discards_back_in(self) -> None:
+        """A card a token harvested: the blue minerals' deck is shorter than
+        the map's blue tokens, so its discard pile goes back in."""
         engine, _, match = opening(advanced=True)
-        for deck in match.decks:
-            on_map = sum(area.resources.get(deck, 0) for area in match.areas.values())
-            self.assertGreaterEqual(len(match.decks[deck]), on_map, deck)
+        from tnp.flow.turn import draw
+        deck = match.decks["blue_minerals"]
+        discarded = deck[:-1]
+        match.discards["blue_minerals"] = list(discarded)
+        del deck[:-1]
+        self.assertEqual(draw(match, "blue", "blue_minerals", 3, engine.rng), 3)
+        self.assertEqual(match.discards["blue_minerals"], [])
+        self.assertEqual(len(match.decks["blue_minerals"]), len(discarded) + 1 - 3)
 
 
 class TurnTests(unittest.TestCase):
@@ -203,12 +208,12 @@ class TurnTests(unittest.TestCase):
         """TNP 5.2, 8.3, 8.4: a building tech on a production facility, a
         tech facility paid for, both in play from Production."""
         blue = self.match.seat("blue")
-        blue.hand = {"grenades": 1, "jeweler": 1, "command_and_control_cpu": 1}
+        blue.hand = {"grenades": 1, "jeweler": 1, "lasers": 1}
         plan = {"techs": {"attach": {"barracks": "grenades"}, "build": ["jeweler"]}}
         lock(self.engine, self.game, self.match, "blue", plan)
         lock(self.engine, self.game, self.match, "green", {})
         self.assertEqual(blue.pool["materials"], 5 - 3)
-        self.assertEqual(blue.hand, {"command_and_control_cpu": 1})
+        self.assertEqual(blue.hand, {"lasers": 1})
         self.assertEqual(blue.tech, ["jeweler"])
         self.assertEqual(blue.attached, {"barracks": "grenades"})
         self.assertEqual(blue.queued_techs, {})
@@ -282,18 +287,6 @@ class CardEffectTests(unittest.TestCase):
         battle.line = [Column(front=dict(front)) for front in columns]
 
     # -- The turn ---------------------------------------------------------
-
-    def test_command_and_control_cpu_opens_attack_spot_c(self) -> None:
-        engine, game, match = opening(advanced=True)
-        self.assertEqual(turn.attack_spots(match, "blue"), ("A", "B"))
-        with self.assertRaises(RuleRefusal):
-            turn.check_plan(engine, match, "blue", turn.normal_plan(
-                {"attacks": {"C": {"target": "13", "units": {"worker": 1}}}}))
-        match.seat("blue").tech = ["command_and_control_cpu"]
-        self.assertEqual(turn.attack_spots(match, "blue"), ("A", "B", "C"))
-        lock(engine, game, match, "blue", {"attacks": {"C": {"target": "13", "units": {"worker": 1}}}})
-        lock(engine, game, match, "green", {})
-        self.assertEqual(match.controller("13"), "blue")
 
     def test_jeweler_and_trader_raise_a_minerals_trade(self) -> None:
         state = SeatState()

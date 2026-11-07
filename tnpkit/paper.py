@@ -62,15 +62,19 @@ def cut_sheet(
     paper: str = "letter",
     landscape: bool = False,
     title: str = "",
+    turned: bool = False,
 ) -> list[Image.Image]:
     """
     `pieces` laid out edge to edge on a grid of `cell` (inches, wide x
     tall), as many sheets as they take, each sheet's grid centred and
     ruled with cut lines -- one cut separates two pieces. `title` is
     printed small in the top margin of each sheet, with its number.
+    `turned` lays each piece on its side: it is drawn `cell` tall x
+    wide, upright, and turned a quarter onto the grid, so a portrait
+    card packs a sheet as tightly as a landscape one.
     """
     page = sheet(paper, landscape)
-    cell_w, cell_h = px(cell[0]), px(cell[1])
+    cell_w, cell_h = (px(cell[1]), px(cell[0])) if turned else (px(cell[0]), px(cell[1]))
     usable_w = page.width - 2 * px(MARGIN)
     usable_h = page.height - 2 * px(MARGIN) - px(0.2)
     columns, rows = usable_w // cell_w, usable_h // cell_h
@@ -86,8 +90,10 @@ def cut_sheet(
         top = px(MARGIN) + px(0.2) + (usable_h - rows * cell_h) // 2
         for index, piece in enumerate(chunk):
             row, column = divmod(index, columns)
-            tile = Image.new("RGB", (cell_w, cell_h), (255, 255, 255))
+            tile = Image.new("RGB", (cell_h, cell_w) if turned else (cell_w, cell_h), (255, 255, 255))
             piece(tile)
+            if turned:
+                tile = tile.transpose(Image.Transpose.ROTATE_90)
             page.paste(tile, (left + column * cell_w, top + row * cell_h))
         draw = ImageDraw.Draw(page)
         # The cut lines: every piece outlined, the shared edges drawn

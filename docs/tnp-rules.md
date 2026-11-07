@@ -183,6 +183,9 @@ Vassal module give them; `tnp/data/human_board.json` keeps them.
 | Base Defenses | built | -- | 4 | cap 8 | Laser Cannon |
 
 - **An infrastructure upgrade** costs 1 material (the unit sheet).
+- **The Command and Control CPU** is an upgrade of the base itself, not
+  of a facility: 1 material and 2 gold (the unit sheet). Once it is
+  finished the seat has attack spot C (2.5) (the author, 2026-11-06).
 - **The Airport needs a Factory already built**: one finished in an
   earlier turn's Production and Trade. A seat cannot place both in the
   same Infrastructure (the author, 2026-11-05).
@@ -208,8 +211,8 @@ Vassal module give them; `tnp/data/human_board.json` keeps them.
 Each seat deploys onto its own **deployment board**, behind its screen:
 
 - **Attack spots A and B**: two attacks a turn, one from each. A third,
-  **C**, only with the tech *Command and Control CPU* -- the advanced
-  game (the author, 2026-11-05).
+  **C**, once the seat's base has the *Command and Control CPU* upgrade
+  (2.4) finished (the author, 2026-11-06).
 - **Defense spots 1, 2 and 3**, and the **base defense spot** (the
   author, 2026-11-06, replacing one spot for every territory held): a
   seat defends at most three of the territories it holds a turn, and
@@ -315,8 +318,8 @@ A seat may spend resources from its available pool:
   cost, up to the facility's production cap (2.4) and the unit's supply
   (2.3).
 - **On a facility**: the Factory or the Airport, at its cost (2.4).
-- **On an upgrade**: a facility's infrastructure upgrade, or a unit
-  upgrade (2.4).
+- **On an upgrade**: a facility's infrastructure upgrade, a unit
+  upgrade, or the base's Command and Control CPU (2.4).
 
 Nothing is built at once. Everything placed in Infrastructure is
 finished in that turn's Production and Trade (5.9) and can be deployed
@@ -660,8 +663,9 @@ its line, one at either end (the author, 2026-11-05).
   column further.
 - **A force that scores 2 or more hits on a base card destroys one
   thing**, the attacker's choice (the author, 2026-11-05): one upgrade
-  of one of the defender's facilities, or, once a facility has no
-  upgrades left, the Factory or the Airport itself. An upgrade must be
+  of one of the defender's facilities or the base's Command and Control
+  CPU (the author, 2026-11-06), or, once a facility has no upgrades
+  left, the Factory or the Airport itself. An upgrade must be
   destroyed before its facility, and the **Barracks and Base Defenses
   cannot be destroyed**. *The advanced game's:* the rulebook also lets it destroy
   a tech facility or a building tech.
@@ -989,3 +993,9 @@ One line per change, dated, with where it came from.
   and a defense -- and the other base has a card too; a territory with
   stranded units keeps one of the three spots -- 2.5. (The author, on
   the plan panel's sketch and PR #717's kit.)
+- 2026-11-06: The Command and Control CPU is no longer a tech: it is an
+  upgrade of the base, 1 material and 2 gold, in the basic game, and
+  opens attack spot C -- 2.4, 2.5, 5.2. (The author, in chat; the unit
+  sheet's Humans tab.)
+- 2026-11-06: A base card's hits may destroy the Command and Control
+  CPU, as they may a facility's upgrade -- 6.9. (The author, in chat.)

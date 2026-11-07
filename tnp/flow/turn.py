@@ -205,11 +205,18 @@ def discard(engine: "RulesEngine", match: MatchState, slug: str, count: int = 1)
     pile.extend([slug] * count)
 
 
-def draw(match: MatchState, seat: str, deck: str, count: int) -> int:
+def draw(match: MatchState, seat: str, deck: str, count: int, rng=None) -> int:
     """`count` cards off the top of a deck into the seat's hand (TNP
-    8.1); how many there were. The decks hold a card for every token on
-    the map, so a harvest never finds one empty."""
+    8.1); how many there were. A deck that runs out has its discard pile
+    shuffled back in from `rng` (`engine.rng`) -- the blue minerals'
+    deck holds fewer cards than the map's tokens since the Command and
+    Control CPU left it; a code reading, asked in the PR."""
     cards = match.decks.setdefault(deck, [])
+    if len(cards) < count and rng is not None and match.discards.get(deck):
+        again = list(match.discards[deck])
+        match.discards[deck] = []
+        rng.shuffle(again)
+        cards.extend(again)
     drawn = cards[:count]
     del cards[:len(drawn)]
     state = match.seat(seat)
@@ -627,11 +634,11 @@ def _harvest(engine: "RulesEngine", match: MatchState, seat: str, area: str, wor
         taken = {next(iter(left)): count}
     else:
         taken = dict(left)
-    _take(match, seat, area, int(workers), taken, result)
+    _take(match, seat, area, int(workers), taken, result, engine.rng)
 
 
 def _take(match: MatchState, seat: str, area: str, workers: int, taken: Mapping[str, int],
-          result: StepResult) -> None:
+          result: StepResult, rng=None) -> None:
     """The tokens off the territory: into the seat's pool, or in the
     advanced game a card drawn from that resource's deck for each, in
     place of the token (TNP 5.8, 8.1). Either way they count toward the
@@ -642,7 +649,7 @@ def _take(match: MatchState, seat: str, area: str, workers: int, taken: Mapping[
         if count:
             left[kind] -= count
             if match.advanced:
-                drawn = draw(match, seat, kind, count)
+                drawn = draw(match, seat, kind, count, rng)
                 if drawn < count:
                     state.pool[kind] = state.pool.get(kind, 0) + count - drawn
             else:
@@ -695,7 +702,7 @@ def answer_harvest(engine: "RulesEngine", game, match: MatchState, seat: str,
             "or all of it that is left.", cite="TNP 8.4",
         )
     result = StepResult(part=resolving["spot"], area=area)
-    _take(match, seat, area, workers, chosen, result)
+    _take(match, seat, area, workers, chosen, result, engine.rng)
     match.resolving = None
     return _waiting(engine, game, match, result)
 

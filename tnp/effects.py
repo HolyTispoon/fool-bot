@@ -84,7 +84,6 @@ class Effect:
     scouting: int = 0
     rerolls: int = 0
     salvage: Optional[tuple[str, int]] = None
-    spot: Optional[str] = None
     rates: Optional[tuple[str, int]] = None
     harvest: int = 0
     discount: int = 0
@@ -97,7 +96,6 @@ class Effect:
 #: (TNP 8.5).
 EFFECTS: Mapping[str, Effect] = {
     # -- Blue minerals: the economy ---------------------------------------------
-    "command_and_control_cpu": Effect(spot="C"),
     "salvage_yard": Effect(salvage=("battle", 3)),
     "jeweler": Effect(rates=("gold", 2)),
     "harvesters": Effect(harvest=2),
@@ -130,6 +128,15 @@ EFFECTS: Mapping[str, Effect] = {
 #: preamble's rule: a question goes to the author, never into the code
 #: as a guess). Each is still a mineral or a gem, drawn and traded.
 UNIMPLEMENTED: Mapping[str, str] = {
+    "positioning": (
+        "Is the +3 (TNP 8.5) for each Jeep and Tank attacking a force it is engaged with, and "
+        "does \"eased by 1\" mean an adjacent column has no penalty and two away -1? Is the "
+        "card only for the attacking seat, or for whoever plays it?"
+    ),
+    "shields": (
+        "Is the first hit each round ignored by one Mechanical unit of the seat's, or by each? "
+        "Does it stack with Repair and Bunkers, and does a second Shields in play ignore a second hit?"
+    ),
     "intelligence_facility": (
         "Whose pile is examined, and who chooses which half of it is seen? Which pile may be "
         "redeployed -- one of the seat's own, anywhere its deployment could have gone? With "
@@ -230,12 +237,6 @@ def in_play(state: "SeatState") -> list[tuple[str, Optional[str]]]:
 
 def _effects(state: "SeatState") -> list[tuple[Effect, Optional[str]]]:
     return [(EFFECTS[slug], facility) for slug, facility in in_play(state) if slug in EFFECTS]
-
-
-def attack_spots(state: "SeatState") -> tuple[str, ...]:
-    """The extra attack spots a seat's cards open: C with Command and
-    Control CPU (TNP 2.5)."""
-    return tuple(sorted({effect.spot for effect, _ in _effects(state) if effect.spot}))
 
 
 def mineral_rates(state: "SeatState", normal: Mapping[str, int]) -> dict[str, int]:
@@ -400,7 +401,7 @@ def add_tactic(engine: "RulesEngine", battle, seat: str, slug: str) -> bool:
 
 __all__ = [
     "BASE", "BUILDING_TECH", "DECK_RATE", "EFFECTS", "Effect", "TACTIC", "TECH_FACILITY",
-    "UNIMPLEMENTED", "add_tactic", "attack_spots", "battle_effects", "built", "carrier_capacity",
+    "UNIMPLEMENTED", "add_tactic", "battle_effects", "built", "carrier_capacity",
     "deck_of", "discounted", "harvest_per_worker", "improved_carriers", "in_play", "kind_of",
     "mineral_rates", "production_gold", "rate_key", "tactic_applies", "unit_discount",
 ]

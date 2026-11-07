@@ -76,6 +76,14 @@ class UnitDataTests(unittest.TestCase):
             self.assertEqual((upgrade.cost.materials, upgrade.cost.gold), (1, 0))
             self.assertIn(f"cap to {facility.upgraded_production_cap}", upgrade.ability)
 
+    def test_the_command_and_control_cpu_is_a_base_upgrade(self) -> None:
+        """TNP 2.4: an upgrade of the base, of no facility, 1 material and
+        2 gold, and no longer a tech (the author, 2026-11-06)."""
+        upgrade = self.catalog.upgrades["command_and_control_cpu"]
+        self.assertEqual((upgrade.kind, upgrade.facility), ("base", None))
+        self.assertEqual((upgrade.cost.materials, upgrade.cost.gold), (1, 2))
+        self.assertNotIn("command_and_control_cpu", self.catalog.techs)
+
     def test_the_board_as_the_rules_give_it(self) -> None:
         """TNP 2.4 and 3: the caps, the build costs, which start built."""
         facilities = self.catalog.facilities
@@ -123,8 +131,7 @@ class UnitDataTests(unittest.TestCase):
 
     def test_the_technology_rows_with_no_count_are_left_out(self) -> None:
         techs = self.catalog.techs
-        for slug in ("shields", "positioning", "air_cover"):
-            self.assertNotIn(slug, techs)
+        self.assertNotIn("air_cover", techs)
         for tech in techs.values():
             self.assertGreater(tech.count, 0, tech.slug)
             self.assertIn(tech.deck, {"blue_minerals", "orange_minerals", "gems"})

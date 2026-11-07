@@ -7,8 +7,8 @@ The kit's boards, each a sheet drawn in inches at 300 dpi:
   what Infrastructure places on it (TNP 5.2), every unit it builds with
   its cost, ratings, initiative, traits and supply, its unit upgrades and
   its infrastructure upgrade, each with a slot for its Built marker.
-- **The deployment board**, a letter sheet a seat, behind the screen:
-  attack spots A and B and three defense spots, each pile on its
+- **The deployment board**, a tabloid sheet a seat, behind the screen:
+  attack spots A, B and C and three defense spots, each pile on its
   territory card (`tnpkit.territories`), the base's own spot, and the
   available units (TNP 2.5, 5.3).
 - **The battle mat**, tabloid: the round track, the initiative groups,
@@ -171,6 +171,8 @@ def render_player_board(catalog: Catalog, seat: str) -> list[Image.Image]:
             end = _facility(draw, catalog, seat, slug, x, top, width, bottom - top)
             if number == len(BOARD_SHEETS) and index == 0:
                 _board_legend(draw, catalog, x + 0.12, end + 0.15, width - 0.24)
+            if slug == "base_defenses":
+                _base_upgrades(draw, catalog, x + 0.12, end + 0.12, width - 0.24)
         pages.append(page)
     return pages
 
@@ -261,6 +263,27 @@ def _facility(draw, catalog: Catalog, seat: str, slug: str, x: float, y: float, 
     return cursor
 
 
+def _base_upgrades(draw, catalog: Catalog, x: float, y: float, w: float) -> float:
+    """The upgrades of the base itself, of no facility -- the Command and
+    Control CPU (TNP 2.4) -- each with its Built marker's slot; the y
+    under them."""
+    for upgrade in catalog.upgrades.values():
+        if upgrade.kind != "base":
+            continue
+        cost = upgrade.cost
+        price = f"{cost.materials} material{'s' if cost.materials != 1 else ''}"
+        if cost.gold:
+            price += f" and {cost.gold} gold"
+        h = 0.62
+        dashed(draw, x, y, w, h)
+        text(draw, (x + 0.08, y + 0.07), f"BASE UPGRADE: {upgrade.name.upper()}", 0.1, fill=MUTED)
+        paragraph(draw, x + 0.08, y + 0.24, w - 0.6,
+                  f"Build {price}: attack spot C on your deployment board (TNP 2.5).", 0.105, fill=INK)
+        _mini_slot(draw, x + w - 0.5, y + 0.08)
+        y += h + 0.08
+    return y
+
+
 def _board_legend(draw, catalog: Catalog, x: float, y: float, w: float) -> None:
     """What the unit rows' marks mean, in the space the Airport leaves."""
     text(draw, (x, y), "Reading a unit", 0.15)
@@ -343,65 +366,66 @@ DEFENSE_SPOTS = 3
 
 
 def render_deployment_board(catalog: Catalog, seat: str) -> Image.Image:
-    page = sheet("letter", landscape=True)
+    """Tabloid, so every spot holds a whole territory card, 2.5 x 3.5 in:
+    the three attack spots over the three defense spots, each just big
+    enough for its card, and the base's spot and the available units
+    beside them."""
+    page = sheet("tabloid", landscape=True)
     draw = ImageDraw.Draw(page)
     top = header(draw, page, seat, "Deployment board",
                  "Behind your screen. Nobody sees anything of a deployment until March reveals it (TNP 5.3).")
     colours = SEAT_COLOURS[seat]
     card_w, card_h = CARD
-    full = 11 - 2 * MARGIN
-    gap = 0.14
+    width, height = 17, 11
+    gap = 0.16
 
-    def card_slot(x: float, y: float) -> None:
+    def card_slot(x: float, y: float, verb: str) -> None:
         dashed(draw, x, y, card_w, card_h)
-        draw.text((px(x + card_w / 2), px(y + card_h / 2)), "Territory card: the pile goes on it",
-                  font=font(px(0.1), bold=False), fill=MUTED, anchor="mm")
+        paragraph(draw, x + 0.25, y + card_h / 2 - 0.3, card_w - 0.5,
+                  f"Place a territory card with a pile of units here to {verb}", 0.14, fill=MUTED)
 
-    # The attack spots.
-    spot_w, spot_h = (full - gap) / 2, 2.4
+    def spot(x: float, y: float, title: str, outline, verb: str) -> None:
+        box(draw, x, y, spot_w, spot_h, outline=outline, width=0.02)
+        text(draw, (x + 0.15, y + 0.1), title, 0.2, fill=outline if outline != RULE else INK)
+        card_slot(x + 0.15, y + 0.42, verb)
+
+    # Two rows of spots, each just big enough for its card: the attack
+    # spots, A, B and C -- C with the Command and Control CPU, an upgrade
+    # of the base (the author, 2026-11-06) -- and the defense spots.
+    spot_w, spot_h = card_w + 0.3, card_h + 0.57
     y = top
-    for index, (spot, words) in enumerate((
-        ("A", "Resolves first in March: both players' A, then both players' B (TNP 5.4)."),
-        ("B", "Resolves second. A player may plan an attack it cannot reach yet, in the hope that A takes "
-              "the way (TNP 5.3)."),
-    )):
-        x = MARGIN + index * (spot_w + gap)
-        box(draw, x, y, spot_w, spot_h, outline=colours["strong"], width=0.02)
-        text(draw, (x + 0.12, y + 0.08), f"Attack spot {spot}", 0.2, fill=colours["ink"])
-        card_slot(x + 0.12, y + 0.5)
-        paragraph(draw, x + card_w + 0.28, y + 0.52, spot_w - card_w - 0.4, words, 0.1)
-    y += spot_h + 0.1
-
-    # The defense spots.
-    text(draw, (MARGIN, y + 0.02), "DEFENSE SPOTS", 0.12, fill=MUTED)
-    paragraph(draw, MARGIN + 1.45, y + 0.025, full - 1.45,
-              f"At most {DEFENSE_SPOTS} a turn, each a territory you hold that your held territories join to "
-              "your base. Stranded units keep theirs. Never attack a territory you defend (TNP 2.5).", 0.1,
+    text(draw, (MARGIN, y), "ATTACK SPOTS", 0.13, fill=MUTED)
+    paragraph(draw, MARGIN + 1.5, y + 0.005, 3 * spot_w,
+              "March resolves A, then B, then C. C needs the Command and Control CPU (TNP 2.5, 5.4).", 0.12,
               fill=INK)
-    y += 0.42
-    defense_w, defense_h = (full - (DEFENSE_SPOTS - 1) * gap) / DEFENSE_SPOTS, 2.2
+    y += 0.3
+    for index, name in enumerate("ABC"):
+        spot(MARGIN + index * (spot_w + gap), y, f"Attack spot {name}", colours["strong"], "attack")
+    rows_top = y
+    y += spot_h + 0.14
+    text(draw, (MARGIN, y), "DEFENSE SPOTS", 0.13, fill=MUTED)
+    paragraph(draw, MARGIN + 1.5, y + 0.005, 3 * spot_w,
+              f"At most {DEFENSE_SPOTS} a turn, territories joined to your base. Never attack one you defend "
+              "(TNP 2.5).", 0.12, fill=INK)
+    y += 0.3
     for index in range(DEFENSE_SPOTS):
-        x = MARGIN + index * (defense_w + gap)
-        box(draw, x, y, defense_w, defense_h)
-        text(draw, (x + 0.12, y + 0.08), f"Defense spot {index + 1}", 0.16, fill=INK)
-        card_slot(x + (defense_w - card_w) / 2, y + 0.4)
-    y += defense_h + gap
+        spot(MARGIN + index * (spot_w + gap), y, f"Defense spot {index + 1}", RULE, "defend")
+    bottom = y + spot_h
 
-    # The base's spot, and the available units.
-    bottom = 8.5 - MARGIN
-    base_w = defense_w
-    box(draw, MARGIN, y, base_w, bottom - y, outline=colours["strong"], fill=colours["held"], width=0.02)
-    text(draw, (MARGIN + 0.12, y + 0.08), "YOUR BASE", 0.14, fill=colours["ink"])
-    paragraph(draw, MARGIN + 0.12, y + 0.34, base_w - 0.24,
-              "Its own defense spot, besides the three. Base Defense units go here, and only here (TNP 7).",
-              0.1, fill=colours["ink"])
-    x = MARGIN + base_w + gap
-    box(draw, x, y, 11 - MARGIN - x, bottom - y, outline=None, fill=PANEL)
-    text(draw, (x + 0.12, y + 0.08), "AVAILABLE UNITS", 0.14, fill=MUTED)
-    paragraph(draw, x + 0.12, y + 0.34, 11 - MARGIN - x - 0.24,
-              "Units ready to deploy. Cleanup brings every unit back here but the stranded (TNP 5.10). Ground "
-              "units attack along a path of held territories from your base; air units, and a stack Chopper "
-              "Carriers carry, need none (TNP 5.3, 7).", 0.1, fill=SOFT_INK)
+    # The base's spot and the available units, beside both rows.
+    x = MARGIN + 3 * (spot_w + gap)
+    box(draw, x, rows_top, spot_w, bottom - rows_top, outline=colours["strong"], fill=colours["held"],
+        width=0.02)
+    text(draw, (x + 0.15, rows_top + 0.1), "YOUR BASE", 0.18, fill=colours["ink"])
+    paragraph(draw, x + 0.15, rows_top + 0.42, spot_w - 0.3,
+              "Base Defense units go here, and only here (TNP 7).",
+              0.13, fill=colours["ink"])
+    x += spot_w + gap
+    box(draw, x, rows_top, width - MARGIN - x, bottom - rows_top, outline=None, fill=PANEL)
+    text(draw, (x + 0.15, rows_top + 0.1), "AVAILABLE UNITS", 0.18, fill=MUTED)
+    paragraph(draw, x + 0.15, rows_top + 0.42, width - MARGIN - x - 0.3,
+              "Units ready to deploy. Cleanup brings every unit back here but the stranded (TNP 5.10).",
+              0.13, fill=SOFT_INK)
     return page
 
 

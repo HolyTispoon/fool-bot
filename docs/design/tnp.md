@@ -201,7 +201,8 @@ half turn the author gave, at 96 tokens, and each base beside one blue
 and one orange territory.
 
 **The catalog** reads the four into `Unit`, `Facility`, `Upgrade` (an
-infrastructure upgrade or a unit upgrade, by `kind`), `Tech` and
+infrastructure upgrade, a unit upgrade, or a **base upgrade** -- of the
+base itself, with no `facility` -- by `kind`), `Tech` and
 `Area`, with `Catalog.name` the one way from a slug back to a name;
 `load` refuses a slug used twice across the tables. `Rating` is the d12
 (TNP 4.1): `target` is the number to reach, `shown` the board's
@@ -531,6 +532,17 @@ its spot's letter, or a white shield for a defense spot, a disc so it
 never reads as a control token -- and a card under the map with its
 units, in the order March revealed them.
 
+**The Command and Control CPU is a base upgrade** (the author,
+2026-11-06), moved off the Technology tab onto the Humans tab's upgrade
+rows: 1 material and 2 gold, of no facility, so the importer knows it
+by name (`BASE_UPGRADES`) as it knows the four infrastructure upgrades.
+It is placed in Infrastructure like any upgrade and needs no facility
+built (`turn.structures_open`); once finished, `turn.attack_spots` gives
+its seat A, B and C -- the one reading, per seat, the plan check and the
+panel's options both ask. A base card's hits may destroy it like any
+upgrade (TNP 6.9, the author, 2026-11-06), and since it is no
+facility's it never holds a facility standing (`battle.destroyable`).
+
 **The board** follows the canvas the author saw (the Human base board):
 the seat's colour as the header with the available pool beside it,
 which is open information (TNP 2.2); the four facilities as columns,
@@ -538,7 +550,8 @@ each with its current production cap (the upgraded one once its
 infrastructure upgrade is built), what it is producing, and whether it
 is built, being built or what it costs; its units, then each unit
 upgrade with the units it unlocks; and its infrastructure upgrade in a
-dashed box with the sheet's own text. A unit card carries board v4's
+dashed box with the sheet's own text. Under the columns, a row for each
+base upgrade with its chip. A unit card carries board v4's
 type colour (infantry green, armored red, air blue), its cost, its three
 ratings as `Rating.shown` -- 3+, 6+, 12, X -- over the rating's name,
 initiative, traits as `formatting.TRAIT_NAMES` spells them, and supply
@@ -1183,10 +1196,12 @@ table 8.5 read from the rules file itself, and a test to every card in
 
 **The decks, the hand and the card as the mineral.** `opening` shuffles
 each deck from `engine.rng` -- each card as many times as its count --
-and `TnpGame.start` hands it the engine's rng. The decks hold 41, 40
-and 22 cards against the map's 40, 40 and 16 tokens, so a harvest never
-finds one empty (`test_the_decks_cover_the_map`); `draw` takes the token
-into the pool instead should a later map outgrow a deck. A harvest
+and `TnpGame.start` hands it the engine's rng. The decks hold 36, 44
+and 22 cards against the map's 40, 40 and 16 tokens: the blue minerals'
+deck lost the Command and Control CPU's five when it became a base
+upgrade. **A deck that runs out has its discard pile shuffled back in**
+from `engine.rng` (`draw`), a code reading asked in the PR; with
+nothing to shuffle back, the token goes into the pool instead. A harvest
 takes the tokens off the map -- they count toward the 51% as ever --
 and draws a card for each into the hand (`SeatState.hand`, by slug), the
 lines saying the kind and never the card. **A trade names cards** in

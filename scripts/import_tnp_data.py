@@ -14,7 +14,8 @@ each whole, by their headers:
 - **Humans** (Building, Type, Name, Materials, Gems, inf, arm, air,
   Initiative, Ability, picture, Count, trait1, trait2, scouting, trait3)
   into `humans.json`: every unit, keyed by slug, and the four
-  infrastructure upgrades -- the rows with a name and no Building. The
+  infrastructure upgrades and the base upgrade, Command and Control
+  CPU -- the rows with a name and no Building. The
   sheet's "Gems" column is **gold** (docs/tnp-rules.md, 2.2), and its
   Count is the unit's supply. A unit's traits are its icons (trait1 to
   trait3), the board's own record of them; its Ability text is kept
@@ -103,6 +104,12 @@ INFRASTRUCTURE = {
     "airport upgrade": "airport",
     "base defense upgrade": "base_defenses",
 }
+
+#: The base upgrades (a name and no Building): bought like an
+#: infrastructure upgrade, but of the base, not of a facility -- saved
+#: with no facility. Command and Control CPU opens attack spot C (the
+#: author, 2026-11-06, moving it out of the tech deck).
+BASE_UPGRADES = {"command and control cpu"}
 
 #: A trait icon's file name, lower-cased, to the trait. "-" and an empty
 #: cell are no trait.
@@ -216,8 +223,8 @@ def import_humans(rows: list[dict[str, object]], report: list[str]) -> dict:
         }
         if not building:
             facility = INFRASTRUCTURE.get(name.lower())
-            if facility is None:
-                raise SheetError(f"{where}: a row with no Building is not a known infrastructure upgrade")
+            if facility is None and name.lower() not in BASE_UPGRADES:
+                raise SheetError(f"{where}: a row with no Building is not a known infrastructure or base upgrade")
             if slug in upgrades:
                 raise SheetError(f"{where}: a second upgrade with the slug {slug!r}")
             upgrades[slug] = {
@@ -353,7 +360,7 @@ def main() -> int:
         print(line)
     print(
         f"Wrote {len(humans['units'])} units and "
-        f"{len(humans['infrastructure_upgrades'])} infrastructure upgrades to "
+        f"{len(humans['infrastructure_upgrades'])} upgrades (infrastructure and base) to "
         f"{HUMANS_JSON.name}, {len(technology['techs'])} cards to {TECHNOLOGY_JSON.name}."
     )
     return 0
