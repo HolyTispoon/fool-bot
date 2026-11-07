@@ -384,6 +384,21 @@ class PlanCheckTests(unittest.TestCase):
         kept = [one for one in public if one.state == STRANDED]
         self.assertEqual([(one.area, dict(one.units)) for one in kept], [(far, {})])
 
+    def test_attack_spot_c_with_the_command_and_control_cpu(self) -> None:
+        """TNP 2.4, 2.5: the base upgrade is placed with no facility, and
+        once built the seat has attack spot C; the other seat does not."""
+        options = prompt_for(self.engine, self.game, self.match, "blue").options
+        self.assertIn("command_and_control_cpu", {one.structure for one in options.structures})
+        self.match.seat("blue").built.append("command_and_control_cpu")
+        options = prompt_for(self.engine, self.game, self.match, "blue").options
+        self.assertEqual(options.spots, ("A", "B", "C"))
+        self.assertNotIn("command_and_control_cpu", {one.structure for one in options.structures})
+        self.assertEqual(prompt_for(self.engine, self.game, self.match, "green").options.spots, ("A", "B"))
+        run = save(self.engine, self.game, self.match, "blue", {
+            "attacks": {"C": {"target": "8", "units": {"worker": 1}}},
+        })
+        self.assertNotIsInstance(run, driver.Refusal, getattr(run, "reason", ""))
+
     def test_what_is_allowed(self) -> None:
         hold(self.match, "blue", "14")
         run = save(self.engine, self.game, self.match, "blue", {
@@ -399,7 +414,7 @@ class PlanCheckTests(unittest.TestCase):
         self.assertEqual({one.unit for one in options.build}, {"worker", "mercenary", "smart_mines", "rocket_launcher"})
         self.assertEqual({one.structure for one in options.structures},
                          {"factory", "barracks_upgrade", "base_defense_upgrade", "stealth_upgrade",
-                          "cyborg_upgrade", "laser_cannon_upgrade"})
+                          "cyborg_upgrade", "laser_cannon_upgrade", "command_and_control_cpu"})
         self.assertEqual(options.spots, ("A", "B"))
         self.assertEqual(options.defenses, ("blue_base",))
         reachable = {one.area for one in options.targets if one.path}

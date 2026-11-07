@@ -255,7 +255,7 @@ def deployment_brief(engine: "RulesEngine", match: "MatchState", seat: str,
     state = match.seat(seat)
     plan = normal_plan(state.plan)
     attacks = []
-    for spot in attack_spots(match):
+    for spot in attack_spots(match, seat):
         attack = plan["attacks"].get(spot)
         if attack is None:
             attacks.append(DeploySpot(spot))
@@ -322,7 +322,7 @@ def spots_brief(engine: "RulesEngine", match: "MatchState", caption: str = "") -
             # The pile March is resolving is its attack spot's still.
             attacked_at.add(resolving.get("area"))
         spots = []
-        for spot in attack_spots(match):
+        for spot in attack_spots(match, seat):
             revealed = [(area, units) for (where, area), units in shown.items() if where == spot]
             if revealed:
                 area, units = revealed[-1]

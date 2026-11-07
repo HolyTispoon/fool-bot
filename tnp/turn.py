@@ -195,7 +195,8 @@ def structures_open(engine: "RulesEngine", state: SeatState) -> tuple[str, ...]:
     The facilities and upgrades a seat may place this Infrastructure
     (TNP 2.4, 5.2), each on its own: a facility not built, whose
     requirement is finished; an infrastructure or unit upgrade of a
-    finished facility, not built, within the facility's unit upgrades.
+    finished facility, not built, within the facility's unit upgrades;
+    a base upgrade not built.
     Together they are checked by `check_plan`.
     """
     catalog = engine.catalog
@@ -209,7 +210,9 @@ def structures_open(engine: "RulesEngine", state: SeatState) -> tuple[str, ...]:
             continue
         found.append(slug)
     for slug, upgrade in catalog.upgrades.items():
-        if slug in state.built or upgrade.facility not in state.built:
+        if slug in state.built:
+            continue
+        if upgrade.facility is not None and upgrade.facility not in state.built:
             continue
         if upgrade.kind == "unit":
             standing = [one for one in catalog.facilities[upgrade.facility].unit_upgrades if one in state.built]
@@ -226,9 +229,15 @@ def structure_cost(engine: "RulesEngine", slug: str) -> Cost:
     return catalog.upgrades[slug].cost
 
 
-def attack_spots(match: MatchState) -> tuple[str, ...]:
-    """A and B; C only with Command and Control CPU, the advanced game's
-    (TNP 2.5) -- never in the basic game."""
+#: The base upgrade that opens attack spot C (TNP 2.5).
+COMMAND_AND_CONTROL = "command_and_control_cpu"
+
+
+def attack_spots(match: MatchState, seat: str) -> tuple[str, ...]:
+    """A and B; C too once the seat's base has the Command and Control
+    CPU upgrade, finished in an earlier turn (TNP 2.5)."""
+    if COMMAND_AND_CONTROL in match.seat(seat).built:
+        return ATTACK_SPOTS
     return BASIC_ATTACK_SPOTS
 
 
@@ -423,14 +432,14 @@ def check_plan(engine: "RulesEngine", match: MatchState, seat: str, plan: Mappin
         )
 
     # Deployment (TNP 2.5, 5.3).
-    spots = attack_spots(match)
+    spots = attack_spots(match, seat)
     targets = attack_targets(engine, seat)
     for spot, attack in plan["attacks"].items():
         if spot not in ATTACK_SPOTS:
             raise RuleRefusal(f"There is no attack spot {spot!r}.", cite="TNP 2.5")
         if spot not in spots:
             raise RuleRefusal(
-                f"Attack spot {spot} needs Command and Control CPU, the advanced game's.",
+                f"Attack spot {spot} needs the Command and Control CPU, an upgrade of your base.",
                 cite="TNP 2.5",
             )
         if attack["target"] not in targets:

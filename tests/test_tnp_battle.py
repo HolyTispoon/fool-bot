@@ -677,6 +677,15 @@ class BaseTests(unittest.TestCase):
         prompt = asked(engine, match)
         self.assertEqual((prompt.asked_seat, prompt.options.forces[0].force), ("green", "green:smart_mines"))
 
+    def test_a_base_card_cannot_destroy_the_command_and_control_cpu(self) -> None:
+        """TNP 6.9: a base card destroys a facility's upgrade, and the
+        Command and Control CPU is the base's, no facility's."""
+        from tnp.battle import destroyable
+        structures = {"facilities": ["barracks", "base_defenses", "factory"],
+                      "upgrades": ["factory_upgrade", "command_and_control_cpu"]}
+        engine, match = stage({"mercenary": 1}, {"mercenary": 1}, territory="green_base", structures=structures)
+        self.assertEqual(destroyable(engine, match.battle), ("factory_upgrade",))
+
     def test_an_undefended_base_falls(self) -> None:
         """TNP 1.3, 6.1: an attack on an undefended base succeeds at once."""
         engine, match = stage({"mercenary": 1}, {}, territory="green_base", structures=self.STRUCTURES)

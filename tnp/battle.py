@@ -719,7 +719,12 @@ def destroyable(engine: "RulesEngine", battle: BattleState) -> tuple[str, ...]:
     """
     if battle.destroyed is not None or battle.structures is None:
         return ()
-    upgrades = [slug for slug in battle.structures.get("upgrades", [])]
+    # A facility's upgrades only: the base's own (the Command and
+    # Control CPU) is no facility's (TNP 6.9).
+    upgrades = [
+        slug for slug in battle.structures.get("upgrades", [])
+        if engine.catalog.upgrades[slug].facility is not None
+    ]
     standing = {engine.catalog.upgrades[slug].facility for slug in upgrades}
     facilities = [
         slug for slug in battle.structures.get("facilities", [])
