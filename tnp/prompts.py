@@ -42,6 +42,7 @@ from tnp.battle import (
     ROUND,
     ROUND_END,
     SEATS,
+    TACTICS,
     BattleState,
     aimed,
     carriable,
@@ -53,6 +54,7 @@ from tnp.battle import (
     modifier_parts,
     needs,
     repair_workers,
+    rerolls_left,
     reposition_asker,
     retreat_asker,
     roller,
@@ -108,6 +110,11 @@ class PromptKind(Enum):
     SPLASH = "splash"
     #: What a base card's hits destroy (TNP 6.9).
     DESTROY = "destroy"
+    #: Tactical Command: a tactic card played face down, or none -- both
+    #: seats at once, revealed together (TNP 6.3, 8.2).
+    TACTIC = "tactic"
+    #: Ammo Depos: roll a roll's missed dice again (TNP 8.4).
+    REROLL = "reroll"
 
 
 class _Wire:
@@ -193,6 +200,33 @@ class PlanOptions(_Wire):
     #: What the saved plan's Infrastructure costs (`tnp.turn.plan_cost`):
     #: `{"materials", "gold"}`, nothing where no plan is saved.
     cost: Mapping[str, int] = field(default_factory=lambda: {"materials": 0, "gold": 0})
+    #: The advanced game's cards (TNP 8), empty in the basic game: the
+    #: hand, by card with how many; the cards in play; what may be put
+    #: into play -- `CardOption`s, each card's kind, cost and whether its
+    #: effect is built -- the production facilities a building tech may
+    #: go on, and how many tech facilities may stand at once.
+    advanced: bool = False
+    hand: Mapping[str, int] = field(default_factory=dict)
+    hand_cards: tuple["CardOption", ...] = ()
+    tech: tuple[str, ...] = ()
+    attached: Mapping[str, str] = field(default_factory=dict)
+    attach_to: tuple[str, ...] = ()
+    tech_facilities: int = 0
+
+
+@dataclass(frozen=True)
+class CardOption(_Wire):
+    """A card in a hand (TNP 8): its kind -- tactic, building tech or
+    tech facility -- its deck, the materials a tech facility costs, how
+    many are held, and whether its effect is built (`tnp.effects`); a
+    card not built is still traded as a mineral."""
+
+    card: str
+    kind: str
+    deck: str
+    materials: int
+    count: int
+    built: bool
 
 
 @dataclass(frozen=True)
@@ -224,6 +258,10 @@ class TradeOptions(_Wire):
     #: What the saved trade gains (`tnp.turn.trade_gains`):
     #: `{"materials", "gold"}`, nothing where no trade is saved.
     gains: Mapping[str, int] = field(default_factory=lambda: {"materials": 0, "gold": 0})
+    #: The advanced game: the cards in the hand, which a trade names
+    #: (TNP 8.1) -- `tokens` is then empty.
+    advanced: bool = False
+    cards: tuple[CardOption, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -259,6 +297,12 @@ class EmergencyOptions(_Wire):
     together: tuple[TogetherLimit, ...]
     #: What an action's `trade` may name.
     trades: tuple[str, ...] = ("blue", "orange", "gems_materials", "gems_gold")
+    #: The advanced game: the defender's hand, which an action's `trade`
+    #: names instead, `{"materials": {card: n}, "gold": {card: n}}` --
+    #: a mineral card for a material, a gem card for a material or a gold
+    #: (TNP 6.2, 8.1).
+    advanced: bool = False
+    cards: tuple[CardOption, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -382,9 +426,35 @@ class DestroyOptions(_Wire):
     things: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class TacticOptions(_Wire):
+    """The seat's tactic cards it may play (TNP 6.3): **its own alone**,
+    as its hand is. `applies` names those whose units are in the battle
+    on its side; one that is not does nothing (TNP 8.2)."""
+
+    seat: str
+    area: str
+    cards: tuple[CardOption, ...]
+    applies: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RerollOptions(_Wire):
+    """A roll's missed dice, and how many of them may be rolled again
+    (TNP 8.4): at most the misses and the rerolls left this battle."""
+
+    seat: str
+    force: str
+    target: str
+    hit: int
+    missed: int
+    most: int
+    left: int
+
+
 PromptOptions = Union[
     PlanOptions, ConquerOptions, HarvestOptions, TradeOptions, RoleOptions, EmergencyOptions, RepositionOptions, PlaceOptions, RetreatOptions, TargetOptions,
-    RepairOptions, SplashOptions, DestroyOptions,
+    RepairOptions, SplashOptions, DestroyOptions, TacticOptions, RerollOptions,
 ]
 
 
@@ -441,7 +511,7 @@ class Action:
 
 
 #: The kinds that ask both seats at once (decision 7).
-SIMULTANEOUS = frozenset({PromptKind.PLAN, PromptKind.TRADE})
+SIMULTANEOUS = frozenset({PromptKind.PLAN, PromptKind.TRADE, PromptKind.TACTIC})
 
 
 #: The answers each kind offers. A kind with one answer offers "".
@@ -459,6 +529,8 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.REPAIR: ("repair", "decline"),
     PromptKind.SPLASH: ("splash", "decline"),
     PromptKind.DESTROY: ("",),
+    PromptKind.TACTIC: ("play", "none"),
+    PromptKind.REROLL: ("reroll", "decline"),
 }
 
 
@@ -484,6 +556,46 @@ def _emergency_options(engine, match, prompt) -> EmergencyOptions:
             for slug, count in most.items()
         ),
         together=tuple(TogetherLimit(units, room) for units, room in together),
+        advanced="hand" in (battle.emergency or {}),
+        cards=_card_options(engine, (battle.emergency or {}).get("hand", {})),
+    )
+
+
+def _card_options(engine, hand: Mapping[str, int]) -> tuple[CardOption, ...]:
+    """The cards in a hand, in the catalog's order (TNP 8)."""
+    from tnp import effects
+
+    found = []
+    for slug, tech in engine.catalog.techs.items():
+        count = int(hand.get(slug, 0))
+        if count > 0:
+            found.append(CardOption(
+                slug, tech.type, tech.deck, int(tech.materials or 0), count, effects.built(slug),
+            ))
+    return tuple(found)
+
+
+def _tactic_options(engine, match, prompt) -> TacticOptions:
+    from tnp import effects
+    from tnp.flow.battle import tactic_cards
+
+    battle = match.battle
+    seat = prompt.asked_seat
+    playable = tactic_cards(engine, match, seat)
+    hand = {slug: match.seat(seat).hand[slug] for slug in playable}
+    return TacticOptions(
+        seat, battle.territory, _card_options(engine, hand),
+        tuple(slug for slug in playable if effects.tactic_applies(engine, battle, seat, slug)),
+    )
+
+
+def _reroll_options(engine, match, prompt) -> RerollOptions:
+    battle = match.battle
+    owed = battle.owed[0]
+    left = rerolls_left(battle, owed["seat"])
+    return RerollOptions(
+        owed["seat"], owed["force"], owed["target"], int(owed["hit"]), int(owed["missed"]),
+        min(int(owed["missed"]), left), left,
     )
 
 
@@ -585,7 +697,8 @@ def _plan_options(engine, match, prompt) -> PlanOptions:
         if not turn.can_build_unit(engine, state, slug):
             continue
         most = min(room[slug], turn.production_cap(engine, state, unit.facility))
-        build.append(BuildOption(slug, unit.facility, unit.cost.materials, unit.cost.gold, most))
+        cost = turn.unit_cost(engine, state, slug)
+        build.append(BuildOption(slug, unit.facility, cost.materials, cost.gold, most))
     return PlanOptions(
         seat=seat,
         turn=match.turn,
@@ -616,16 +729,23 @@ def _plan_options(engine, match, prompt) -> PlanOptions:
         stranded=turn.stranded_areas(match, seat),
         cards=turn.card_spots(turn.normal_plan(state.plan), seat, turn.stranded_areas(match, seat)),
         plan=state.plan,
-        cost=_plan_cost(engine, state.plan),
+        cost=_plan_cost(engine, state.plan, state),
+        advanced=match.advanced,
+        hand=dict(state.hand),
+        hand_cards=_card_options(engine, state.hand),
+        tech=tuple(state.tech),
+        attached=dict(state.attached),
+        attach_to=turn.production_facilities(engine, state) if match.advanced else (),
+        tech_facilities=int(catalog.board["limits"]["tech_facilities"]),
     )
 
 
-def _plan_cost(engine, plan) -> dict:
+def _plan_cost(engine, plan, state=None) -> dict:
     from tnp import turn
 
     if not plan:
         return {"materials": 0, "gold": 0}
-    cost = turn.plan_cost(engine, turn.normal_plan(plan))
+    cost = turn.plan_cost(engine, turn.normal_plan(plan), state)
     return {"materials": cost.materials, "gold": cost.gold}
 
 
@@ -643,7 +763,9 @@ def _harvest_options(engine, match, prompt) -> HarvestOptions:
     from tnp.flow.turn import harvest_choice
 
     resolving = match.resolving
-    count, left = harvest_choice(match, resolving["area"], resolving["harvest"]["workers"])
+    count, left = harvest_choice(
+        match, resolving["area"], resolving["harvest"]["workers"], resolving["harvest"]["seat"],
+    )
     return HarvestOptions(resolving["area"], count, left)
 
 
@@ -654,13 +776,15 @@ def _trade_options(engine, match, prompt) -> TradeOptions:
     state = match.seat(prompt.asked_seat)
     gains = {"materials": 0, "gold": 0}
     if state.plan:
-        gains = turn.trade_gains(engine, turn.normal_trade(state.plan))
+        gains = turn.trade_gains(engine, turn.normal_trade(state.plan, match.advanced), state, match.advanced)
     return TradeOptions(
         prompt.asked_seat,
-        {kind: int(state.pool.get(kind, 0)) for kind in RESOURCES},
-        engine.catalog.board["conversion"]["normal"],
+        {} if match.advanced else {kind: int(state.pool.get(kind, 0)) for kind in RESOURCES},
+        turn.trade_rates(engine, state if match.advanced else None),
         state.plan,
         gains,
+        advanced=match.advanced,
+        cards=_card_options(engine, state.hand) if match.advanced else (),
     )
 
 
@@ -678,6 +802,8 @@ OPTIONS = {
     PromptKind.REPAIR: _repair_options,
     PromptKind.SPLASH: _splash_options,
     PromptKind.DESTROY: _destroy_options,
+    PromptKind.TACTIC: _tactic_options,
+    PromptKind.REROLL: _reroll_options,
 }
 
 
@@ -691,6 +817,13 @@ def with_options(engine: "RulesEngine", match: MatchState, prompt: PendingPrompt
 def _owed_prompt(battle: BattleState) -> PendingPrompt:
     owed = battle.owed[0]
     seat = owed["seat"]
+    if owed["kind"] == "reroll":
+        return PendingPrompt(
+            PromptKind.REROLL,
+            f"{tokens.seat(seat)}, {owed['missed']} of your dice missed: roll some again, with "
+            "your Ammo Depos' rerolls?",
+            seat,
+        )
     if owed["kind"] == "destroy":
         return PendingPrompt(
             PromptKind.DESTROY,
@@ -716,6 +849,24 @@ OWED_STEPS = {
     LOSSES: FollowOnStep.CLOSE_GROUP,
     ROUND_END: FollowOnStep.END_ROUND,
 }
+
+
+def _battle_pending(engine: "RulesEngine", battle: BattleState) -> list[Union[PendingPrompt, FollowOn]]:
+    """Everything a battle waits on: one seat's question, or both seats'
+    at Tactical Command (TNP 6.3), or the step the bot owes."""
+    if battle.outcome is None and not battle.owed and battle.phase == TACTICS:
+        from tnp.flow.battle import tactics_waiting
+
+        return [
+            PendingPrompt(
+                PromptKind.TACTIC,
+                f"{tokens.seat(seat)}, Tactical Command at {tokens.area(battle.territory)}: play a "
+                "tactic card face down, or none.", seat,
+            )
+            for seat in tactics_waiting(battle)
+        ]
+    waiting = _pending(engine, battle)
+    return [] if waiting is None else [waiting]
 
 
 def _pending(engine: "RulesEngine", battle: BattleState) -> Union[PendingPrompt, FollowOn, None]:
@@ -807,8 +958,7 @@ def _turn_pending(engine: "RulesEngine", game, match: MatchState) -> list[Union[
     battle = match.battle
     if battle is not None:
         if battle.outcome is None:
-            waiting = _pending(engine, battle)
-            return [] if waiting is None else [waiting]
+            return _battle_pending(engine, battle)
         return [FollowOn(FollowOnStep.SETTLE_BATTLE)]
     phase = match.phase
     if phase == PLAN:
@@ -853,8 +1003,7 @@ def pending_all(engine: "RulesEngine", game, match: MatchState) -> tuple[Union[P
     """
     if not match.playing:
         battle = match.battle
-        waiting = None if battle is None else _pending(engine, battle)
-        found = [] if waiting is None else [waiting]
+        found = [] if battle is None else _battle_pending(engine, battle)
     else:
         found = _turn_pending(engine, game, match)
     return tuple(
