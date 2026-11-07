@@ -356,15 +356,15 @@ def render_deployment_board(catalog: Catalog, seat: str) -> Image.Image:
     width, height = 17, 11
     gap = 0.16
 
-    def card_slot(x: float, y: float) -> None:
+    def card_slot(x: float, y: float, verb: str) -> None:
         dashed(draw, x, y, card_w, card_h)
-        paragraph(draw, x + 0.2, y + card_h / 2 - 0.1, card_w - 0.4, "Territory card: the pile goes on it",
-                  0.12, fill=MUTED)
+        paragraph(draw, x + 0.25, y + card_h / 2 - 0.3, card_w - 0.5,
+                  f"Place a territory card with a pile of units here to {verb}", 0.14, fill=MUTED)
 
-    def spot(x: float, y: float, title: str, outline) -> None:
+    def spot(x: float, y: float, title: str, outline, verb: str) -> None:
         box(draw, x, y, spot_w, spot_h, outline=outline, width=0.02)
         text(draw, (x + 0.15, y + 0.1), title, 0.2, fill=outline if outline != RULE else INK)
-        card_slot(x + 0.15, y + 0.42)
+        card_slot(x + 0.15, y + 0.42, verb)
 
     # Two rows of spots, each just big enough for its card: the attack
     # spots, A, B and C -- C with the Command and Control CPU, an upgrade
@@ -377,7 +377,7 @@ def render_deployment_board(catalog: Catalog, seat: str) -> Image.Image:
               fill=INK)
     y += 0.3
     for index, name in enumerate("ABC"):
-        spot(MARGIN + index * (spot_w + gap), y, f"Attack spot {name}", colours["strong"])
+        spot(MARGIN + index * (spot_w + gap), y, f"Attack spot {name}", colours["strong"], "attack")
     rows_top = y
     y += spot_h + 0.14
     text(draw, (MARGIN, y), "DEFENSE SPOTS", 0.13, fill=MUTED)
@@ -386,7 +386,7 @@ def render_deployment_board(catalog: Catalog, seat: str) -> Image.Image:
               "(TNP 2.5).", 0.12, fill=INK)
     y += 0.3
     for index in range(DEFENSE_SPOTS):
-        spot(MARGIN + index * (spot_w + gap), y, f"Defense spot {index + 1}", RULE)
+        spot(MARGIN + index * (spot_w + gap), y, f"Defense spot {index + 1}", RULE, "defend")
     bottom = y + spot_h
 
     # The base's spot and the available units, beside both rows.
