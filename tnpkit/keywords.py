@@ -54,8 +54,9 @@ TERMS = (
      "TNP 2.1, 6.8"),
     ("Air unit", "Attacks any territory or base with no path. Cannot take a territory, but defends one already "
                  "held. Always able to retreat.", "TNP 5.3, 5.5, 6.6, 6.11"),
-    ("Attack spot", "A and B on the deployment board: one attack each a turn, its pile on the territory card of "
-                    "the territory or base it attacks. A resolves before B.", "TNP 2.5, 5.4"),
+    ("Attack spot", "A and B on the deployment board, and C with the Command and Control CPU: one attack each a "
+                    "turn, its pile on the territory card of the territory or base it attacks. A resolves before "
+                    "B, B before C.", "TNP 2.5, 5.4"),
     ("Attacker", "In a battle, the player that does not hold the territory. Over a neutral one both attack: the "
                  "scouting advantage chooses, or else the lower initiative total defends.", "TNP 6.1"),
     ("Available units", "A player's units not deployed: what it may put into spots.", "TNP 5.3, 5.10"),
@@ -92,7 +93,8 @@ TERMS = (
                 "harvested wins.", "TNP 5.10"),
     ("Initiative", "The group a unit shoots in, 1 first; the group's losses come off once it has all rolled.",
      "TNP 6.7"),
-    ("March", "Both players' attack spot A, then both players' B; within a spot by territory number, a base last.",
+    ("March", "Both players' attack spot A, then both players' B, then C; within a spot by territory number, a "
+              "base last.",
      "TNP 5.4"),
     ("Materials, gold", "What a player spends; only from trade.", "TNP 2.2"),
     ("Neutral", "Held by nobody. A ground unit attacking it unopposed takes it.", "TNP 5.5"),

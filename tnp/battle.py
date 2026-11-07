@@ -714,12 +714,13 @@ def destroyable(engine: "RulesEngine", battle: BattleState) -> tuple[str, ...]:
     """
     What a base card's hits may destroy (TNP 6.9): nothing once one
     thing has gone this attack; otherwise any upgrade the defender has
-    built, and a facility only once it has no upgrade left -- and never
+    built -- a facility's or the base's own, the Command and Control
+    CPU -- and a facility only once it has no upgrade left -- and never
     the Barracks or Base Defenses.
     """
     if battle.destroyed is not None or battle.structures is None:
         return ()
-    upgrades = [slug for slug in battle.structures.get("upgrades", [])]
+    upgrades = list(battle.structures.get("upgrades", []))
     standing = {engine.catalog.upgrades[slug].facility for slug in upgrades}
     facilities = [
         slug for slug in battle.structures.get("facilities", [])

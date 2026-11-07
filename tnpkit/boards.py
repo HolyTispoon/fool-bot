@@ -171,6 +171,8 @@ def render_player_board(catalog: Catalog, seat: str) -> list[Image.Image]:
             end = _facility(draw, catalog, seat, slug, x, top, width, bottom - top)
             if number == len(BOARD_SHEETS) and index == 0:
                 _board_legend(draw, catalog, x + 0.12, end + 0.15, width - 0.24)
+            if slug == "base_defenses":
+                _base_upgrades(draw, catalog, x + 0.12, end + 0.12, width - 0.24)
         pages.append(page)
     return pages
 
@@ -259,6 +261,27 @@ def _facility(draw, catalog: Catalog, seat: str, slug: str, x: float, y: float, 
             cursor = paragraph(draw, left, cursor, inner,
                                f"At most {group['max']} {names} deployed together (TNP 2.4).", 0.1, fill=INK)
     return cursor
+
+
+def _base_upgrades(draw, catalog: Catalog, x: float, y: float, w: float) -> float:
+    """The upgrades of the base itself, of no facility -- the Command and
+    Control CPU (TNP 2.4) -- each with its Built marker's slot; the y
+    under them."""
+    for upgrade in catalog.upgrades.values():
+        if upgrade.kind != "base":
+            continue
+        cost = upgrade.cost
+        price = f"{cost.materials} material{'s' if cost.materials != 1 else ''}"
+        if cost.gold:
+            price += f" and {cost.gold} gold"
+        h = 0.62
+        dashed(draw, x, y, w, h)
+        text(draw, (x + 0.08, y + 0.07), f"BASE UPGRADE: {upgrade.name.upper()}", 0.1, fill=MUTED)
+        paragraph(draw, x + 0.08, y + 0.24, w - 0.6,
+                  f"Build {price}: attack spot C on your deployment board (TNP 2.5).", 0.105, fill=INK)
+        _mini_slot(draw, x + w - 0.5, y + 0.08)
+        y += h + 0.08
+    return y
 
 
 def _board_legend(draw, catalog: Catalog, x: float, y: float, w: float) -> None:

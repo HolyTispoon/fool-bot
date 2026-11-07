@@ -7,16 +7,6 @@
     "tab": "Technology"
   },
   "techs": {
-    "command_and_control_cpu": {
-      "name": "Command and Control CPU",
-      "count": 5,
-      "type": "tech_facility",
-      "deck": "blue_minerals",
-      "materials": 2,
-      "ability": "You may deploy units to attack space C",
-      "short_ability": "",
-      "icon": ""
-    },
     "salvage_yard": {
       "name": "Salvage Yard",
       "count": 2,
@@ -207,6 +197,16 @@
       "short_ability": "",
       "icon": ""
     },
+    "shields": {
+      "name": "Shields",
+      "count": 2,
+      "type": "tech_facility",
+      "deck": "orange_minerals",
+      "materials": 4,
+      "ability": "Mechanical units ignore the first hit every round",
+      "short_ability": "",
+      "icon": ""
+    },
     "arm_workers": {
       "name": "Arm workers",
       "count": 2,
@@ -244,6 +244,16 @@
       "deck": "orange_minerals",
       "materials": null,
       "ability": "Cyborgs gain +2 air",
+      "short_ability": "",
+      "icon": "tactics.png"
+    },
+    "positioning": {
+      "name": "Positioning",
+      "count": 2,
+      "type": "tactic",
+      "deck": "orange_minerals",
+      "materials": null,
+      "ability": "Jeeps and Tanks gain +1 when attacking forces they are engaged with (no penalty for adjacent columns, -1 for 2 away etc.)",
       "short_ability": "",
       "icon": "tactics.png"
     },

@@ -111,12 +111,14 @@ class Facility:
 @dataclass(frozen=True)
 class Upgrade:
     """A facility's infrastructure upgrade (`kind` "infrastructure",
-    imported) or a unit upgrade (`kind` "unit", the board's)."""
+    imported), a unit upgrade (`kind` "unit", the board's), or an
+    upgrade of the base itself (`kind` "base", imported, with no
+    `facility`): Command and Control CPU, which opens attack spot C."""
 
     slug: str
     name: str
     kind: str
-    facility: str
+    facility: Optional[str]
     cost: Cost
     units: tuple[str, ...] = ()
     ability: str = ""
@@ -250,7 +252,7 @@ def load(data_dir: Path = DATA_DIR) -> Catalog:
             slug: Upgrade(
                 slug=slug,
                 name=row["name"],
-                kind="infrastructure",
+                kind="infrastructure" if row["facility"] else "base",
                 facility=row["facility"],
                 cost=_cost(row["cost"]),
                 ability=row["ability"],

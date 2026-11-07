@@ -107,7 +107,8 @@ def _turn(c: Column, catalog: Catalog) -> None:
                 "production cap and the unit's supply; buy the Factory or the Airport, or an upgrade, putting "
                 "its Built marker in that facility's queue. Nothing is finished until Production and Trade, and "
                 "a facility being built takes no units.", "Build.")
-    c.item("•", "Put available units into attack spots A and B and up to three defense spots, each pile on "
+    c.item("•", "Put available units into attack spots A and B -- and C with the Command and Control CPU -- and "
+                "up to three defense spots, each pile on "
                 "the territory card of what it attacks or defends, and into your base's own spot. Defend only "
                 "a territory you hold that your held territories join to your base, and never attack one you "
                 "defend. Stranded units stay where they are and keep one of the three spots. Base Defense units "
@@ -115,7 +116,7 @@ def _turn(c: Column, catalog: Catalog) -> None:
     c.item("•", "Ground units need a path of held territories from your base to the target when the attack "
                 "resolves. Air units, and a stack Chopper Carriers carry, need none, a base included.", "Paths.")
     c.heading("2. March", "TNP 5.4")
-    c.para("Both players' attack spot A, then both players' B. Within a spot, attacks go in ascending territory "
+    c.para("Both players' attack spot A, then both players' B, then C. Within a spot, attacks go in ascending territory "
            "number, an attack on a base last. Each attack is resolved whole before the next:")
     c.item("a", "Ground units with no path when it resolves go back to your base, unrevealed; the pile's air "
                 "units attack alone (TNP 5.3).", "No path.")

@@ -107,8 +107,8 @@ runs out uses anything.
   text in it (the author, 2026-11-06: "no need for all this empty space
   and text on the attack spots"): the three attack spots, A, B and
   **C, with the Command and Control CPU, an upgrade of the base** (the
-  author, 2026-11-06; the rules and the bot still have it a tech, TNP
-  2.5), over the three defense spots, and the base's spot and the
+  author, 2026-11-06, TNP 2.4, 2.5; the player board prints it as a box
+  under Base Defenses), over the three defense spots, and the base's spot and the
   available units beside both rows. A row's one line of rules is above it.
 - **Three defense spots, and the base's** (the author, 2026-11-06:
   "there are only 3 defense spots ... you can't defend more than that at
@@ -184,6 +184,4 @@ The token counts in `TOKEN_COUNTS` are the author's (2026-11-06). Open:
 - the rules PDF still carries the author's dated attributions
   ("the author, 2026-11-05"), the bot's notes ("The bot plays two
   seats"), the *step 9's* markers and the change log;
-- the advanced game's cards are not in it;
-- the Command and Control CPU upgrade is printed on the deployment
-  board, but not yet on the player board, in the rules or in the bot.
+- the advanced game's cards are not in it.

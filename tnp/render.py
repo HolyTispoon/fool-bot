@@ -948,8 +948,29 @@ def render_board(catalog: Catalog, brief: BoardBrief) -> bytes:
         x = BOARD_PAD + index * (column_w + BOARD_GAP)
         draw.rounded_rectangle((x, y, x + column_w, bottom), radius=12, outline=RULE, width=2)
 
-    y = _board_footer(draw, catalog, bottom + BOARD_GAP)
+    y = _base_upgrades(draw, catalog, brief, bottom + BOARD_GAP)
+    y = _board_footer(draw, catalog, y)
     return _png(image.crop((0, 0, BOARD_WIDTH, y + BOARD_PAD)))
+
+
+def _base_upgrades(draw, catalog: Catalog, brief: BoardBrief, y: float) -> float:
+    """The upgrades of the base itself, of no facility -- the Command and
+    Control CPU, which opens attack spot C (TNP 2.4, 2.5) -- a row each
+    across the board with its chip; the y under them."""
+    for slug, upgrade in catalog.upgrades.items():
+        if upgrade.kind != "base":
+            continue
+        height = 64
+        right = BOARD_WIDTH - BOARD_PAD
+        draw.rounded_rectangle((BOARD_PAD, y, right, y + height), radius=12, outline=RULE, width=2)
+        draw.text((BOARD_PAD + 18, y + height / 2), "BASE UPGRADE", font=font(17), fill=MUTED, anchor="lm")
+        draw.text((BOARD_PAD + 170, y + height / 2), upgrade.name, font=font(26), fill=INK, anchor="lm")
+        name_w = font(26).getlength(upgrade.name)
+        draw.text((BOARD_PAD + 190 + name_w, y + height / 2), "Attack spot C on the deployment board",
+                  font=font(20, bold=False), fill=SOFT_INK, anchor="lm")
+        _upgrade_state(draw, catalog, brief, slug, right - 16, y + (height - 32) / 2)
+        y += height + BOARD_GAP
+    return y
 
 
 def _board_header(draw, catalog: Catalog, brief: BoardBrief) -> float:
@@ -1058,7 +1079,9 @@ def _upgrade_state(draw, catalog: Catalog, brief: BoardBrief, slug: str, right: 
     elif slug in brief.queued:
         words, fill, ink, icon, outline = "Queued", RATING_FILLS[Rating.FAIR], INK, None, None
     else:
-        words, fill, ink, icon, outline = f"Build {catalog.upgrades[slug].cost.materials}", WHITE, INK, "materials", RULE
+        cost = catalog.upgrades[slug].cost
+        words = f"Build {cost.materials}" + (f" + {cost.gold} gold" if cost.gold else "")
+        fill, ink, icon, outline = WHITE, INK, "materials", RULE
     width = _pill_width(words, face, height, icon=icon is not None)
     _pill(draw, right - width, top, words, face, fill=fill, ink=ink, height=height, icon=icon, outline=outline)
 

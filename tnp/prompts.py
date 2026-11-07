@@ -601,7 +601,7 @@ def _plan_options(engine, match, prompt) -> PlanOptions:
             for slug in turn.structures_open(engine, state)
         ),
         available=dict(state.available),
-        spots=turn.attack_spots(match),
+        spots=turn.attack_spots(match, seat),
         targets=tuple(
             AttackTarget(area, match.controller(area), turn.has_path(engine, match, seat, area))
             for area in sorted(turn.attack_targets(engine, seat), key=turn.area_order)
