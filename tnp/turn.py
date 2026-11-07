@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Iterable, Mapping, Optional
 
 from tnp.battle import SEATS, other
 from tnp.catalog import Cost, UnitType
-from tnp.components import ATTACK_SPOTS, BASIC_ATTACK_SPOTS, RESOURCES, MatchState, SeatState
+from tnp.components import ATTACK_SPOTS, BASIC_ATTACK_SPOTS, DEFENSE_SPOTS, RESOURCES, MatchState, SeatState
 from tnp.game import RuleRefusal
 
 if TYPE_CHECKING:
@@ -325,6 +325,33 @@ def plan_cost(engine: "RulesEngine", plan: Mapping) -> Cost:
     return Cost(materials, gold)
 
 
+def stranded_areas(match: MatchState, seat: str) -> tuple[str, ...]:
+    """The territories where a seat's stranded units stand (TNP 5.7), in
+    number order: each keeps one of the three defense spots (TNP 2.5)."""
+    return tuple(sorted(
+        (slug for slug, area in match.areas.items()
+         if seat in area.stranded and match.standing(slug, seat) is not None),
+        key=_area_order,
+    ))
+
+
+def card_spots(plan: Mapping, seat: str, stranded: Iterable[str] = ()) -> dict[str, str]:
+    """
+    Where each card of a seat's deck is (TNP 2.5): the spot it went into
+    -- an attack spot's letter, "defense", or "stranded" for a territory
+    whose stranded units keep a defense spot -- by territory, or by the
+    other seat's base. A card is in one spot at most; the seat's own base
+    has none, and is not here.
+    """
+    found: dict[str, str] = {area: "stranded" for area in stranded}
+    for spot, attack in plan.get("attacks", {}).items():
+        found.setdefault(attack["target"], spot)
+    for area in plan.get("defense", {}):
+        if area != base_of(seat):
+            found.setdefault(area, "defense")
+    return found
+
+
 def deployed(plan: Mapping) -> dict[str, int]:
     """Every unit a plan deploys, into any spot."""
     found: dict[str, int] = {}
@@ -429,6 +456,25 @@ def check_plan(engine: "RulesEngine", match: MatchState, seat: str, plan: Mappin
                 raise RuleRefusal(
                     "Base Defense units go only into the base defense spot.", cite="TNP 7",
                 )
+    defended = [area for area in plan["defense"] if area != base_of(seat)]
+    stranded = [area for area in stranded_areas(match, seat) if area not in defended]
+    if len(defended) + len(stranded) > DEFENSE_SPOTS:
+        kept = f", and stranded units keep {len(stranded)}" if stranded else ""
+        raise RuleRefusal(
+            f"There are {DEFENSE_SPOTS} defense spots beside the base's{kept}: at most "
+            f"{DEFENSE_SPOTS} territories are defended a turn.", cite="TNP 2.5",
+        )
+    seen: dict[str, str] = {}
+    places = [
+        (attack["target"], f"attack {spot}") for spot, attack in plan["attacks"].items()
+    ] + [(area, "a defense") for area in defended]
+    for area, where in places:
+        if area in seen:
+            raise RuleRefusal(
+                f"{catalog.areas[area].name}'s card is in {seen[area]} already: a territory "
+                "goes into one spot a turn.", cite="TNP 2.5",
+            )
+        seen[area] = where
     going = deployed(plan)
     for slug, count in going.items():
         if count > state.available.get(slug, 0):

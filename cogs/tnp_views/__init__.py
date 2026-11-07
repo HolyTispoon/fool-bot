@@ -12,15 +12,15 @@ from cogs.tnp_views.battle import BATTLE_VIEWS, BattleHeld, BattleView, battle_v
 from cogs.tnp_views.ending import ConcedeConfirmView, RematchView
 from cogs.tnp_views.lobby import LobbyView
 from cogs.tnp_views.panel import (
-    PANEL_TIMEOUT, ConquerPanelView, HarvestPanelView, PanelState, PanelView, PlanPanelView,
-    TradePanelView, panel_view,
+    DEPLOYMENT, INFRASTRUCTURE, PANEL_TIMEOUT, ConquerPanelView, HarvestPanelView, PanelState, PanelView,
+    PlanPanelView, TradePanelView, empty_steps, panel_view,
 )
 from cogs.tnp_views.table import TableView
 
 __all__ = [
     "BATTLE_VIEWS", "BattleHeld", "BattleView", "battle_view",
     "ConcedeConfirmView", "RematchView",
-    "ConquerPanelView", "ERROR_RECOVERY_ADVICE", "HarvestPanelView", "LobbyView", "PANEL_TIMEOUT",
+    "ConquerPanelView", "DEPLOYMENT", "ERROR_RECOVERY_ADVICE", "INFRASTRUCTURE", "empty_steps", "HarvestPanelView", "LobbyView", "PANEL_TIMEOUT",
     "PanelState", "PanelView", "PlanPanelView", "SafeView", "TableView", "TradePanelView",
     "panel_view", "send_ephemeral",
 ]
