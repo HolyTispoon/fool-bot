@@ -19,10 +19,10 @@ tested for how it looks, by the standing rule that nothing printed is
 | `<seat>-screen` | tabloid | Folded in three; its inside is the player aid |
 | `<seat>-unit-traits` | letter | Every unit trait, with the units that carry it |
 | `<seat>-keywords` | 2 x letter | Every term the rules use, with its section |
-| `<seat>-territory-cards` | letter | One card a territory and the enemy base, 2.5 x 1.7 in: a pile goes on the card of what it attacks or defends |
+| `<seat>-territory-cards` | 2 x letter | One card a territory and the enemy base, 2.5 x 3.5 in: a pile goes on the card of what it attacks or defends |
 | `<seat>-player-board` | 2 x letter | The four facilities, two a sheet |
-| `<seat>-deployment-board` | letter | Attack spots A and B, three defense spots, the base's own spot, the available units |
-| `<seat>-unit-counters` | letter | 80 counters, 1 in: every unit as many times as its supply |
+| `<seat>-deployment-board` | tabloid | Attack spots A, B and C, three defense spots, the base's own spot, the available units |
+| `<seat>-unit-counters` | 3 x letter | 80 counters, 1.5 in: every unit as many times as its supply |
 | `tokens` | 2 x letter | 234 tokens, 3/4 in |
 | `rules.pdf` | letter | docs/tnp-rules.md, set by D12 Ball's rulebook builder |
 
@@ -68,13 +68,23 @@ runs out uses anything.
   tokens in attack and defense spaces", so the physical game was always
   counters; the supply is "the most units of that kind a seat may have
   at once" (TNP 2.3), so printing exactly that many makes the limit
-  physical. The supply adds to 80 a seat, which at 1 inch is one letter
-  sheet of 8 x 10.
-- **A counter is framed in its seat's colour and banded in its type's**
-  (board v4's infantry green, armored red, air blue), with its seat's
-  shield beside its traits. The band is inset so a white edge parts it
-  from the frame: Green's infantry is green on green otherwise, which
-  the first render showed.
+  physical. The supply adds to 80 a seat: three letter sheets of 5 x 6
+  at 1.5 inches, the size the author asked for (2026-11-06: "tokens
+  should be larger and have larger font").
+- **Nothing coloured reaches a piece's edge** (the author, 2026-11-06:
+  no "colored frames which would not be easy to cut well"). A counter
+  and a territory card are white to the cut line, with a white margin
+  inside it, so a cut a little off leaves no sliver of colour. **The
+  player's shield says whose a piece is** -- in the corner of a
+  counter's picture and of a card -- and that is enough. The first
+  draft framed both in the seat's colour.
+- **A counter is banded in its type's colour** (board v4's infantry
+  green, armored red, air blue) with its name, type and initiative; then
+  **room for the unit's picture**, `tnp/images/units/<slug>.png`, drawn
+  once it exists and an empty outline until then; then its three
+  ratings, each the d12 number it needs with **the rating's name --
+  Strong, Fair, Weak, Poor -- under it** (the author, 2026-11-06); then
+  its traits.
 - **Everything is one-sided.** Nothing in the basic game is turned
   over to show a second state -- a Tough unit's damage is a token on it
   (TNP 6.8), a hidden pile is behind the screen rather than face down --
@@ -88,8 +98,18 @@ runs out uses anything.
   cards" did. They replaced the first draft's target chips. **One card a
   territory** is enough because a player never attacks a territory it
   defends (the author, 2026-11-06), so the deck also keeps a territory to
-  one pile a turn. A card is 2.5 x 1.7 in so a deck is one letter sheet,
-  and a stack of counters sits on it.
+  one pile a turn. **A card is 2.5 x 3.5 in, a playing card** (the
+  author, 2026-11-06), portrait, laid on its side on the sheet
+  (`cut_sheet(turned=True)`) so eight fit a letter sheet and a deck is
+  two; a stack of counters sits on it.
+- **The deployment board is tabloid** so every spot holds a whole
+  card. Each spot is just big enough for its card and its name, with no
+  text in it (the author, 2026-11-06: "no need for all this empty space
+  and text on the attack spots"): the three attack spots, A, B and
+  **C, with the Command and Control CPU, an upgrade of the base** (the
+  author, 2026-11-06; the rules and the bot still have it a tech, TNP
+  2.5), over the three defense spots, and the base's spot and the
+  available units beside both rows. A row's one line of rules is above it.
 - **Three defense spots, and the base's** (the author, 2026-11-06:
   "there are only 3 defense spots ... you can't defend more than that at
   any given turn"). The base's spot is a fourth, its own; a territory
@@ -164,4 +184,6 @@ The token counts in `TOKEN_COUNTS` are the author's (2026-11-06). Open:
 - the rules PDF still carries the author's dated attributions
   ("the author, 2026-11-05"), the bot's notes ("The bot plays two
   seats"), the *step 9's* markers and the change log;
-- the advanced game's cards, and the third attack spot, are not in it.
+- the advanced game's cards are not in it;
+- the Command and Control CPU upgrade is printed on the deployment
+  board, but not yet on the player board, in the rules or in the bot.

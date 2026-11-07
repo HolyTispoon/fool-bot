@@ -89,14 +89,14 @@ def iter_sheets(catalog: Catalog) -> Iterator[Sheet]:
                     f"{word}'s keywords: every term the rules use, with its section.")
         yield Sheet(f"{seat}-territory-cards",
                     tuple(cut_sheet(territories.territory_deck(catalog, seat), territories.CARD,
-                                  title=f"{word} territory cards")), "letter",
+                                  title=f"{word} territory cards", turned=True)), "letter",
                     f"{word}'s territory cards: one for each territory and the enemy base. Each pile in a spot "
                     "goes on the card of what it attacks or defends.")
-        yield Sheet(f"{seat}-deployment-board", (boards.render_deployment_board(catalog, seat),), "letter",
+        yield Sheet(f"{seat}-deployment-board", (boards.render_deployment_board(catalog, seat),), "tabloid",
                     f"{word}'s deployment board, behind the screen.")
-        counters = cut_sheet(pieces.unit_counters(catalog, seat), (1, 1), title=f"{word} unit counters")
+        counters = cut_sheet(pieces.unit_counters(catalog, seat), (pieces.COUNTER, pieces.COUNTER), title=f"{word} unit counters")
         yield Sheet(f"{seat}-unit-counters", tuple(counters), "letter",
-                    f"{word}'s {len(pieces.unit_counters(catalog, seat))} unit counters, 1 inch: every unit as "
+                    f"{word}'s {len(pieces.unit_counters(catalog, seat))} unit counters, 1.5 inches: every unit as "
                     "many times as its supply.")
     tokens = pieces.resource_tokens(catalog) + pieces.other_tokens(catalog)
     yield Sheet("tokens", tuple(cut_sheet(tokens, (0.75, 0.75), title="Tokens")), "letter",
