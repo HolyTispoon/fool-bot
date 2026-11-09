@@ -2551,6 +2551,33 @@ class DeathRulingTests(unittest.TestCase):
         apply(engine, game, match, PromptKind.TARGET, target=f"2:{second.ref}")
         self.assertIsNotNone(match.player(2).instance(first.id))
 
+    def test_a_sacrificed_technician_draws_its_owner_a_card(self) -> None:
+        """"Dies: A card dies when it is destroyed or sacrificed" (UMR
+        p. 16), so a technician sacrificed pays its card as one destroyed
+        does (Rulebook p. 7)."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        put(match, 1, "argonaut")
+        technician = put(match, 2, "neo_plexus")
+        technician.patrol_slot = "technician"
+        match.player(2).deck = ["tenderfoot"]
+        before = len(match.player(2).hand)
+        cast(engine, game, match, "sacrifice_the_weak")
+        self.assertIsNone(match.player(2).instance(technician.id))
+        self.assertEqual(len(match.player(2).hand), before + 1)
+        self.assertEqual(match.player(2).hand[-1], "tenderfoot")
+
+    def test_a_sacrificed_scavenger_finds_its_owner_a_gold(self) -> None:
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        put(match, 1, "argonaut")
+        scavenger = put(match, 2, "neo_plexus")
+        scavenger.patrol_slot = "scavenger"
+        match.player(2).gold = 3
+        cast(engine, game, match, "sacrifice_the_weak")
+        self.assertIsNone(match.player(2).instance(scavenger.id))
+        self.assertEqual(match.player(2).gold, 4)
+
     def test_hooded_executioner_1(self) -> None:
         """"Lowest tech unit with least ATK" means first you look at the set
         of units the lowest tech, such as "tech 0." Tech 0 is below I is
