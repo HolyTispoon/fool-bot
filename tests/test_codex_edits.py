@@ -151,6 +151,45 @@ class CorrectionTests(unittest.TestCase):
         self.assertLessEqual(set(RUNE_COLORS) | set(SINGLE_RUNES), set(edits.NAMED_RUNES))
 
 
+class DrawTests(unittest.TestCase):
+    """`edits.draw`: cards off the deck, the discard shuffled in as the
+    rules shuffle it, and the shuffle journalled so a replay deals it."""
+
+    def setUp(self) -> None:
+        self.engine, self.game, self.match = new_game(seed=11)
+        begin(self.engine, self.game, self.match)
+        self.match.turn_snapshots[-1] = history.position(self.match)
+
+    def test_a_card_is_drawn_off_the_top(self) -> None:
+        player = self.match.player(2)
+        top, held = player.deck[-1], len(player.hand)
+        said = edits.correct(self.engine, self.match, edits.draw(2, 1)).narration
+        self.assertEqual(said, ["Corrected: {player:2} draws a card."])
+        self.assertEqual((len(player.hand), player.hand[-1]), (held + 1, top))
+
+    def test_an_empty_deck_shuffles_the_discard_in_and_a_replay_deals_the_same(self) -> None:
+        player = self.match.player(2)
+        player.discard, player.deck = player.discard + player.deck, []
+        self.match.turn_snapshots[-1] = history.position(self.match)
+        said = edits.correct(self.engine, self.match, edits.draw(2, 2)).narration
+        self.assertEqual(said[0], "Corrected: {player:2} draws 2 cards.")
+        self.assertIn("shuffles their discard pile into their deck", said[1])
+        self.assertEqual(len(self.match.journal[-1]["outcomes"]), 1)
+        again = history.replay(self.engine, self.game, self.match.turn_snapshots[-1], self.match.journal,
+                               history=self.match.turn_snapshots)
+        self.assertEqual(history.position(again), history.position(self.match))
+
+    def test_a_short_draw_says_so_and_nothing_to_draw_is_refused(self) -> None:
+        player = self.match.player(2)
+        player.deck, player.discard = player.deck[-1:], []
+        said = edits.correct(self.engine, self.match, edits.draw(2, 3)).narration
+        self.assertEqual(said, ["Corrected: {player:2} draws a card of 3: there were no more to draw."])
+        with self.assertRaises(RuleRefusal):
+            edits.correct(self.engine, self.match, edits.draw(2, 1))
+        with self.assertRaises(RuleRefusal):
+            edits.correct(self.engine, self.match, edits.draw(9, 1))
+
+
 class JournalTests(unittest.TestCase):
     """Turn 1, staged: a hire, a correction, a play."""
 

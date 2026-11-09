@@ -189,10 +189,10 @@ def record(match: MatchState, action: "Action", outcomes: Iterable[Sequence[str]
     })
 
 
-def record_edit(match: MatchState, edit: dict) -> None:
+def record_edit(match: MatchState, edit: dict, outcomes: Iterable[Sequence[str]] = ()) -> None:
     """Write a correction into the journal (`EDIT`): what it was, with
-    nothing drawn."""
-    match.journal.append({"action": dict(edit), "outcomes": []})
+    what it drew -- a draw's shuffle, which a replay takes back."""
+    match.journal.append({"action": dict(edit), "outcomes": [list(order) for order in outcomes]})
 
 
 def _restore(match: MatchState, data: dict, snapshots: list[dict]) -> None:

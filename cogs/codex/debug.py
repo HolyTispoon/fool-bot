@@ -3,7 +3,8 @@
 for a position a bug left wrong -- `patrol`, a unit or hero into a slot,
 between slots or out of the patrol zone; `damage`, added to or removed
 from a unit, hero or building card; and `rune`, +1/+1, -1/-1, time or a
-named rune added to or removed from any card in play or hero. The
+named rune added to or removed from any card in play or hero; and
+`draw`, cards drawn by a player off their deck. The
 corrections and their rules are the model's (`codex.flow.edits`), made
 through `GameService.correct`; the line each says joins the turn's lines
 and the board is redrawn, as an action's are (`present`). Any of the
@@ -77,6 +78,37 @@ class DebugMixin:
         signed = amount if change.value == ADD else -amount
         await self.correct_board(interaction, card, lambda seat, ref: edits.rune(seat, ref, rune.value, signed))
 
+    @debug.command(name="draw", description="Draw a player cards off their deck, for a draw a bug left owed.")
+    @app_commands.describe(player="Who draws", amount="How many cards")
+    async def debug_draw(self, interaction: discord.Interaction, player: str,
+                         amount: app_commands.Range[int, 1, 10] = 1) -> None:
+        game = await self.correction_game(interaction)
+        if game is None:
+            return
+        if not player.isdigit():
+            await send_ephemeral(interaction, "Pick them from the list.")
+            return
+        await self.run_correction(interaction, game, edits.draw(int(player), amount))
+
+    @debug_draw.autocomplete("player")
+    async def debug_draw_autocomplete(self, interaction: discord.Interaction,
+                                      current: str) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.status is not GameStatus.PLAYING \
+                or not may_act_in_game(interaction.user, game):
+            return []
+        try:
+            match = self.service.load(game)
+        except RuleRefusal:
+            return []
+        needle = current.strip().casefold()
+        choices = []
+        for seat in (player.seat for player in match.players):
+            label = game.seat_name(seat) or f"Player {seat}"
+            if needle in label.casefold():
+                choices.append(app_commands.Choice(name=label[:100], value=str(seat)))
+        return choices[:25]
+
     @debug_patrol.autocomplete("unit")
     async def debug_patrol_autocomplete(self, interaction: discord.Interaction,
                                         current: str) -> list[app_commands.Choice[str]]:
@@ -130,21 +162,34 @@ class DebugMixin:
         """The one path of every command: the gate, the card named by the
         autocomplete's value, the correction through the service under
         the game's lock, and the result presented as an action's."""
-        game = self.game_for_channel(interaction.channel_id)
-        if game is None or game.status is not GameStatus.PLAYING:
-            await send_ephemeral(interaction, NO_GAME_HERE)
-            return
-        if not may_act_in_game(interaction.user, game):
-            await send_ephemeral(interaction, PLAYERS_ONLY)
+        game = await self.correction_game(interaction)
+        if game is None:
             return
         seat, _, ref = unit.partition("|")
         if not seat.isdigit() or not ref:
             await send_ephemeral(interaction, "Pick it from the list.")
             return
+        await self.run_correction(interaction, game, make(int(seat), ref))
+
+    async def correction_game(self, interaction: discord.Interaction):
+        """This channel's game being played, where the user may correct
+        it; `None`, with the reason sent, where not."""
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.status is not GameStatus.PLAYING:
+            await send_ephemeral(interaction, NO_GAME_HERE)
+            return None
+        if not may_act_in_game(interaction.user, game):
+            await send_ephemeral(interaction, PLAYERS_ONLY)
+            return None
+        return game
+
+    async def run_correction(self, interaction: discord.Interaction, game, edit: dict) -> None:
+        """The correction through the service under the game's lock, its
+        line to the user and the result presented as an action's."""
         await interaction.response.defer(ephemeral=True, thinking=True)
         async with self.locks.hold(game.game_id):
             try:
-                result = self.service.correct(game.game_id, make(int(seat), ref))
+                result = self.service.correct(game.game_id, edit)
             except RuleRefusal as refused:
                 await interaction.followup.send(str(refused), ephemeral=True)
                 return
