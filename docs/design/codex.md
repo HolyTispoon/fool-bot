@@ -3322,8 +3322,9 @@ cards to damage, every card and hero for runes -- with its HP, slot and
 runes: "kime: Hardened Mox, 1/1 HP, elite, exhausted", "ann: Might of
 Leaf and Claw, 3 growth", its value `<seat>|<ref>`.
 
-**`/codex debug draw`** draws a player cards off their deck (1 by
-default, up to 10), for a draw a bug left owed -- added on 2026-11-09,
+**`/codex debug draw`** draws cards off the asker's own deck (1 by
+default, up to 10) -- or, with `player`, another seat's, which a helper
+holding no seat must name (the author, 2026-11-09) -- for a draw a bug left owed -- added on 2026-11-09,
 the day a sacrificed technician was found to draw nothing (a sacrificed
 unit dies, UMR p. 16, so its patrol slot pays as a destroyed one's
 does; `board.sacrifice` now pays it). It names a seat, not a card

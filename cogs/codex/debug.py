@@ -4,7 +4,7 @@ for a position a bug left wrong -- `patrol`, a unit or hero into a slot,
 between slots or out of the patrol zone; `damage`, added to or removed
 from a unit, hero or building card; and `rune`, +1/+1, -1/-1, time or a
 named rune added to or removed from any card in play or hero; and
-`draw`, cards drawn by a player off their deck. The
+`draw`, cards drawn off the asker's deck, or a named player's. The
 corrections and their rules are the model's (`codex.flow.edits`), made
 through `GameService.correct`; the line each says joins the turn's lines
 and the board is redrawn, as an action's are (`present`). Any of the
@@ -15,6 +15,7 @@ game's players, or a helper (Manage Channels), read at run time
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 import discord
 from discord import app_commands
@@ -78,17 +79,31 @@ class DebugMixin:
         signed = amount if change.value == ADD else -amount
         await self.correct_board(interaction, card, lambda seat, ref: edits.rune(seat, ref, rune.value, signed))
 
-    @debug.command(name="draw", description="Draw a player cards off their deck, for a draw a bug left owed.")
-    @app_commands.describe(player="Who draws", amount="How many cards")
-    async def debug_draw(self, interaction: discord.Interaction, player: str,
-                         amount: app_commands.Range[int, 1, 10] = 1) -> None:
+    @debug.command(name="draw", description="Draw cards off your deck, or another player's, for a draw a bug left owed.")
+    @app_commands.describe(amount="How many cards", player="Who draws, if not you")
+    async def debug_draw(self, interaction: discord.Interaction,
+                         amount: app_commands.Range[int, 1, 10] = 1,
+                         player: Optional[str] = None) -> None:
         game = await self.correction_game(interaction)
         if game is None:
             return
-        if not player.isdigit():
+        if player is None:
+            # The asker's own seat -- in a test game, where one person
+            # holds every seat, the one whose turn it is.
+            try:
+                active = self.service.load(game).active
+            except RuleRefusal:
+                active = 0
+            seat = game.seat_for(interaction.user.id, active)
+            if seat is None:
+                await send_ephemeral(interaction, "You hold no seat in this game: pick the player who draws.")
+                return
+        elif player.isdigit():
+            seat = int(player)
+        else:
             await send_ephemeral(interaction, "Pick them from the list.")
             return
-        await self.run_correction(interaction, game, edits.draw(int(player), amount))
+        await self.run_correction(interaction, game, edits.draw(seat, amount))
 
     @debug_draw.autocomplete("player")
     async def debug_draw_autocomplete(self, interaction: discord.Interaction,
