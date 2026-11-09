@@ -3,7 +3,8 @@ A player's or helper's corrections to a position (`/codex debug`), for
 a board a bug left wrong: a unit or hero moved into a patrol slot, between slots
 or out of the patrol zone; damage added to or removed from a unit, hero
 or building card; and runes -- +1/+1, -1/-1, time and every named kind --
-added to or removed from any card in play or hero. Not a rule and not an
+added to or removed from any card in play or hero; and cards drawn, for a
+draw a bug left owed (a sacrificed technician's, before it paid). Not a rule and not an
 action of the game's; nobody's turn is spent and nothing triggers. Each
 still keeps the rules a position holds -- an exhausted card can't patrol
 (UMR p. 16), one slot holds one patroller, a +1/+1 rune cancels a -1/-1
@@ -25,11 +26,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
-from codex import history
+from codex import history, tokens
 from codex.components import PATROL_SLOTS, CardInstance, HeroState, MatchState, hero_ref
 from codex.engine import SQUAD_LEADER_ARMOR
 from codex.flow import board
 from codex.flow.result import StepResult
+from codex.flow.turn import draw_cards
 from codex.formatting import SLOT_NAMES
 from codex.game import RuleRefusal
 
@@ -53,6 +55,9 @@ RUNE_WORDS = {PLUS: "+1/+1", MINUS: "-1/-1", TIME: "time", **{kind: kind for kin
 #: What each correction may name: a unit or hero to patrol, anything
 #: with HP to damage, any card in play or hero to carry runes.
 PATROL, DAMAGE, RUNE = "patrol", "damage", "rune"
+
+#: A correction that names a seat rather than a card: cards drawn.
+DRAW = "draw"
 
 
 @dataclass(frozen=True)
@@ -139,19 +144,28 @@ def rune(seat: int, ref: str, kind: str, change: int) -> dict:
     return {"kind": EDIT, "edit": RUNE, "seat": seat, "ref": ref, "rune": kind, "change": change}
 
 
+def draw(seat: int, count: int) -> dict:
+    """A correction drawing `seat` `count` cards off their deck, as a
+    draw the rules owed them would (`draw_cards`)."""
+    return {"kind": EDIT, "edit": DRAW, "seat": seat, "count": count}
+
+
 def correct(engine: "RulesEngine", match: MatchState, edit: dict) -> StepResult:
-    """Make the correction `edit` and journal it; refused with
-    `RuleRefusal`, and nothing changed, where it can't be made."""
+    """Make the correction `edit` and journal it, with any shuffle it
+    drew; refused with `RuleRefusal`, and nothing changed, where it
+    can't be made."""
     if match.winner is not None:
         raise RuleRefusal("This game is over.")
     result = apply(engine, match, edit)
-    history.record_edit(match, edit)
+    history.record_edit(match, edit, result.drawn)
     return result
 
 
 def apply(engine: "RulesEngine", match: MatchState, edit: dict) -> StepResult:
     """The correction `edit`, made: what `correct` journals and a replay
     makes again."""
+    if edit["edit"] == DRAW:
+        return _draw(engine, match, edit["seat"], edit["count"])
     seat, ref, kind = edit["seat"], edit["ref"], edit["edit"]
     if kind not in (PATROL, DAMAGE, RUNE):
         raise RuleRefusal(f"There is no correction called {kind!r}.")
@@ -267,6 +281,30 @@ def _rune(engine: "RulesEngine", match: MatchState, seat: int, ref: str, body, k
     return f"Corrected: {board.named(match, seat, ref)} now has {' and '.join(said)}."
 
 
+def _draw(engine: "RulesEngine", match: MatchState, seat: int, count: int) -> StepResult:
+    """`seat` draws `count` cards, the discard pile shuffled into an
+    empty deck as the rules shuffle it (UMR p. 5) -- once a phase, so a
+    draw may come up short, and is said so. Which cards stays the
+    drawer's: the line counts them."""
+    if seat not in {player.seat for player in match.players}:
+        raise RuleRefusal("There is no such player in this game.")
+    if count < 1:
+        raise RuleRefusal("Draw at least 1 card.")
+    result = StepResult(board_changed=True)
+    drawn = draw_cards(engine, match, seat, count, result)
+    if not drawn:
+        raise RuleRefusal("They have no card to draw: their deck is empty, and their discard "
+                          "pile has been shuffled in this phase or is empty too.", cite="UMR p. 5")
+    line = f"Corrected: {tokens.player(seat)} draws {_cards(drawn)}"
+    line += "." if drawn == count else f" of {count}: there were no more to draw."
+    result.narration.insert(0, line)
+    return result
+
+
+def _cards(count: int) -> str:
+    return "a card" if count == 1 else f"{count} cards"
+
+
 def _rune_counts(body) -> dict[str, int]:
     return {PLUS: body.plus_runes, MINUS: body.minus_runes, TIME: body.time_runes,
             **{kind: body.runes.get(kind, 0) for kind in NAMED_RUNES}, **(body.runes or {})}
@@ -306,6 +344,10 @@ def replayed(engine: "RulesEngine", game, match: MatchState, entry: dict):
     from codex.flow.driver import DriverRun
     from codex.prompts import pending
 
-    result = apply(engine, match, entry["action"])
+    engine.replaying = [list(order) for order in entry.get("outcomes", ())]
+    try:
+        result = apply(engine, match, entry["action"])
+    finally:
+        engine.replaying = []
     result.next = pending(engine, game, match)
     return DriverRun(result=result, board_changed=True)

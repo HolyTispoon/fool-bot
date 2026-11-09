@@ -1,5 +1,5 @@
 """
-`/codex debug patrol`, `damage` and `rune` on the faked Discord: a
+`/codex debug patrol`, `damage`, `rune` and `draw` on the faked Discord: a
 correction made through the service, its line joining the turn's lines
 on the turn message, edited in place; the game's players and helpers
 allowed and nobody else; the autocomplete listing what each may name
@@ -64,6 +64,26 @@ class DebugCommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("now has 2 +1/+1 runes", call.text())
         found = await cog.debug_rune_autocomplete(self.table.interaction(self.helper), "tender")
         self.assertEqual([one.name for one in found], ["fencer: Tenderfoot, 4/4 HP, 2 +1/+1"])
+
+    async def test_a_player_draws_a_card_and_the_autocomplete_lists_the_seats(self) -> None:
+        cog = self.table.cog
+        held = len(cog.service.load(self.game).player(2).hand)
+        call = self.table.interaction(self.table.basher)
+        await cog.debug_draw.callback(cog, call, 1, "2")
+        self.assertIn("draws a card", call.text())
+        self.assertEqual(len(cog.service.load(self.game).player(2).hand), held + 1)
+        found = await cog.debug_draw_autocomplete(self.table.interaction(self.helper), "")
+        self.assertEqual([one.value for one in found], ["1", "2"])
+
+    async def test_a_draw_naming_nobody_is_the_askers_own(self) -> None:
+        cog = self.table.cog
+        seat = self.game.seat_of(self.table.basher.id)
+        held = len(cog.service.load(self.game).player(seat).hand)
+        await cog.debug_draw.callback(cog, self.table.interaction(self.table.basher), 2)
+        self.assertEqual(len(cog.service.load(self.game).player(seat).hand), held + 2)
+        call = self.table.interaction(self.helper)
+        await cog.debug_draw.callback(cog, call, 1)
+        self.assertIn("You hold no seat", call.text())
 
     async def test_a_refusal_is_the_helpers_alone(self) -> None:
         mark = len(self.table.game_channel.requests)

@@ -754,8 +754,11 @@ def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance,
     A card of yours out of play to its owner's discard pile. A unit
     sacrificed **dies** -- "Dies: A card dies when it is destroyed or
     sacrificed" (UMR p. 16) -- so what pays on a death pays (step 11:
-    Bombaster, Land Octopus, Circle of Life); a spell or a building card
-    is no unit, and nothing pays.
+    Bombaster, Land Octopus, Circle of Life), the scavenger's gold and
+    the technician's card among it -- "Finds 1 gold for you if it dies
+    while patrolling" (Rulebook p. 7); a spell or a building card is no
+    unit, and nothing pays. A unit's sacrifice is handed `result`, where
+    the payout is said and a shuffle for the technician's card recorded.
     """
     if engine.catalog.cards[card.slug].is_unit and not engine.may_sacrifice(match, card):
         # "You can't sacrifice this card" (UMR p. 17): nothing happens.
@@ -767,9 +770,15 @@ def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance,
         # what the sacrifice paid for still happens (step 13).
         return
     witnesses = _witnesses(engine, match)
+    slot = card.patrol_slot
     leave_play(engine, match, card, "died")
     match.record_event("sacrificed", slug=card.slug, owner=card.owner)
     if engine.catalog.cards[card.slug].is_unit:
+        if result is not None:
+            # A lent card pays its owner, not the borrower (Rulebook p. 14).
+            paid = _patrol_payout(engine, match, slot, home_seat(card), result)
+            if paid:
+                result.narration.append(paid.strip())
         _deaths(engine, match, [card], [], witnesses, result=result)
         second_chances(engine, match, [card], result)
 

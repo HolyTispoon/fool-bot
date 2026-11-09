@@ -3262,7 +3262,8 @@ carries the heading alone.
 
 ### Corrections by hand
 
-`/codex debug patrol`, `/codex debug damage` and `/codex debug rune` let
+`/codex debug patrol`, `/codex debug damage`, `/codex debug rune` and
+`/codex debug draw` let
 any of the game's players, or a helper, put right a board a bug left
 wrong (the author, 2026-10-30,
 after a spared Hardened Mox stayed exhausted in a patrol slot): a unit
@@ -3320,6 +3321,21 @@ may name
 cards to damage, every card and hero for runes -- with its HP, slot and
 runes: "kime: Hardened Mox, 1/1 HP, elite, exhausted", "ann: Might of
 Leaf and Claw, 3 growth", its value `<seat>|<ref>`.
+
+**`/codex debug draw`** draws cards off the asker's own deck (1 by
+default, up to 10) -- or, with `player`, another seat's, which a helper
+holding no seat must name (the author, 2026-11-09) -- for a draw a bug left owed -- added on 2026-11-09,
+the day a sacrificed technician was found to draw nothing (a sacrificed
+unit dies, UMR p. 16, so its patrol slot pays as a destroyed one's
+does; `board.sacrifice` now pays it). It names a seat, not a card
+(`edits.draw`, its autocomplete the game's seats), and draws through
+`draw_cards`, as a draw the rules owed would: an empty deck takes the
+discard pile shuffled in, once a phase (UMR p. 5), so a draw may come
+up short and says so, and one with nothing to draw is refused. **The
+shuffle is journalled with it** -- `record_edit` takes the outcomes an
+action's entry carries, and `edits.replayed` hands them back -- so a
+replay deals the same cards. Its line counts the cards and names none:
+"Corrected: {player:2} draws a card." -- the hand is its owner's.
 
 ## The end of a game
 

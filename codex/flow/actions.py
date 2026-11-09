@@ -401,7 +401,7 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         by = tokens.card(effects.HARMONY)
     else:
         by = tokens.hero(body.slug) if is_hero_ref(source) else tokens.card(body.slug)
-        result.narration.append(_pay(engine, match, seat, body, effect, by))
+        _pay(engine, match, seat, body, effect, by, result)
     match.record_event("ability", effect=effect, source=source)
     resolve.push(match, resolve.frame(
         effect, seat, by, source=source, cancel_from=len(match.journal),
@@ -409,13 +409,17 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     return resolve.carry_on(engine, game, match, result)
 
 
-def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str, by: str) -> str:
+def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str, by: str,
+         result: StepResult) -> None:
     """
     An ability's cost, all of it (UMR p. 7-8): the gold, the runes off
     its card, its card exhausted or sacrificed -- said as one line,
-    "{player:1} exhausts {card:merfolk_prospector}." A sacrifice is a
-    death (UMR p. 18), so what pays on one pays.
+    "{player:1} exhausts {card:merfolk_prospector}.", put into `result`
+    ahead of whatever the sacrifice said. A sacrifice is a death (UMR
+    p. 18), so what pays on one pays -- a patrolling Bombaster's
+    technician card among it.
     """
+    before = len(result.narration)
     cost = engine.ability_cost(effect)
     player = match.player(seat)
     said = []
@@ -441,7 +445,7 @@ def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str,
         body.exhausted = True
         said.append(f"exhausts {by}")
     if cost.sacrifice:
-        board.sacrifice(engine, match, body)
+        board.sacrifice(engine, match, body, result)
         said.append(f"sacrifices {by}")
     if cost.once:
         # Once-per-turn (step 12).
@@ -449,7 +453,9 @@ def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str,
     if not said:
         # A cost the effect's own parts pay -- Calamandra's discards.
         said.append(f"uses {by}")
-    return f"{tokens.player(seat)} " + " and ".join(said) + "." + gold_left(match, seat, cost.gold)
+    result.narration.insert(
+        before, f"{tokens.player(seat)} " + " and ".join(said) + "." + gold_left(match, seat, cost.gold),
+    )
 
 
 def _check_spec(spec: Optional[str], choices, what: str) -> Optional[str]:
