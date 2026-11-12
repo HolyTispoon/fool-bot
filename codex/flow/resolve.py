@@ -258,6 +258,10 @@ def _applies(part, top: dict) -> bool:
         return False
     if part.when == "boosted" and not top.get("boosted"):
         return False
+    if top.get("boost_only") and part.when != "boosted":
+        # A jailed unit's boost, resolved as it is played: the rest of its
+        # arrives text waits for its release (`actions._to_jail`).
+        return False
     if part.when == "from_hand" and not top.get("from_hand"):
         return False
     if part.follows and not top.get("chose"):
@@ -899,6 +903,14 @@ def band_name(engine, slug: str, first: int) -> str:
     if first == starts[-1]:
         return "max level"
     return "first level" if first == starts[0] else "middle level"
+
+
+def _jail_entry(engine, match, top, part, target, result) -> None:
+    """A boosted unit, its boost resolved, goes to the Jail it was played
+    into (`actions.enter_jail`)."""
+    from codex.flow import actions
+
+    actions.enter_jail(engine, match, top["seat"], top["origin"], result)
 
 
 def _dancer(engine, match, top, part, target, result) -> None:
@@ -2991,6 +3003,7 @@ DOES = {
     "stealth": _stealth,
     "base_damage": _base_damage,
     "dancer": _dancer,
+    "jail": _jail_entry,
     "stop_music": _stop_music,
     "gain_gold": _gain_gold,
     "coin": _coin,

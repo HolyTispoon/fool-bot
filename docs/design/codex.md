@@ -1144,9 +1144,20 @@ re-import that adds one fails loudly.
   counts to his limit of two (his rulings).
 - **The jail.** A unit its opponent's Jail catches goes from the hand
   to the Jail's `jailed` slot -- `{slug, owner, boosted}`, not in play
-  and not arriving -- and is released, arriving then, boost and all,
-  when the next one takes its place; it is discarded with the Jail.
-  Forecast units never go there (the jail rulings).
+  and not arriving -- and is released, arriving then, when the next one
+  takes its place; it is discarded with the Jail. Forecast units never go
+  there (the jail rulings). **A boost paid resolves as the unit is
+  played, before it goes to Jail, and never on its release** (the boost
+  ruling, Sirlin 2016-03-11: "the boost effect happens and your unit goes
+  to Jail"; the UMR's Card FAQ has it resolve on release, and the ruling
+  governs -- the author, 2026-11-12, on Hooded Executioner). So a boosted
+  play pushes the arrives frames' boosted parts alone (`boost_only`) and
+  a `jail_entry` frame behind them, which is when the unit goes in and
+  whatever was there is released -- after the boost, so a released unit
+  is never the boost's target. Where the Jail is gone by then the unit
+  arrives. `boosted` is written `False` in the slot now; a unit jailed
+  boosted under the old reading still carries `True`, and its boost,
+  never resolved, resolves on release.
 - **The rules a player is put under** are reasons a card may not be
   played, read in `why_not_playable` so the panel and the refusal say
   the same: Censorship Council's one card a turn from the hand (a "put

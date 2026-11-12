@@ -341,28 +341,64 @@ def _to_jail(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cos
     """
     Jail: "Opposing units played from hand go to jail instead of arriving.
     When a unit enters jail, any unit already there is released and
-    arrives in play." -- the unit played, paid and its boost with it, goes
-    into the Jail's slot, not in play and not arriving (its ruling); the
-    one there before arrives for whoever played it, its arrives effects
-    then, a boost paid resolving as it leaves.
+    arrives in play." -- the unit played goes into the Jail's slot, not in
+    play and not arriving (its ruling); the one there before arrives for
+    whoever played it, its arrives effects then.
+
+    A boost paid resolves now, before the unit goes to Jail, and not again
+    as it leaves (the boost ruling, Sirlin 2016-03-11: "You do that
+    immediately as you play the unit from your hand, then the boost effect
+    happens and your unit goes to Jail."). The UMR's Card FAQ has the
+    boost resolve on release instead; the ruling governs. So a boosted
+    unit's boosted parts go on the stack, and the Jail entry after them
+    (`jail_entry`), which is when anything already there is released.
     """
     jail = _jail_of(engine, match, seat)
     boosted = ", boosted" if boost else ""
-    held = jail.jailed
-    jail.jailed = {"slug": slug, "owner": seat, "controller": seat, "boosted": bool(boost)}
-    match.record_event("jailed", slug=slug, seat=seat)
     result.narration.append(
         f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{boosted}: it goes to "
         f"{board.named(match, jail.controller, jail.ref)} instead of arriving.{note}"
     )
+    boosts = [
+        resolve.frame(effect, seat, tokens.card(slug), boosted=True, origin=slug)
+        for effect in effects.triggers(slug, "arrives")
+        if any(part.when == "boosted" for part in effects.EFFECTS[effect].parts)
+    ] if boost else []
+    if not boosts:
+        enter_jail(engine, match, seat, slug, result)
+        return
+    for one in boosts:
+        one["boost_only"] = True
+    resolve.push(match, *boosts, resolve.frame("jail_entry", seat, tokens.card(slug), origin=slug))
+
+
+def enter_jail(engine: "RulesEngine", match: MatchState, seat: int, slug: str,
+               result: StepResult) -> None:
+    """`slug`, played by `seat`, into the opposing Jail's slot, releasing
+    whatever was there. Where the Jail is gone by now -- destroyed while a
+    boost resolved -- nothing stops it arriving, and it arrives."""
+    jail = _jail_of(engine, match, seat)
+    if jail is None:
+        card = match.new_instance(slug, seat)
+        atk, hp = engine.unit_stats(card, match)
+        result.narration.append(f"{tokens.card(slug)} arrives for {tokens.player(seat)}: {atk}/{hp}.")
+        board.arrive(engine, match, card, from_hand=True)
+        return
+    held = jail.jailed
+    # "boosted" is written False: a boost paid has resolved already. A
+    # unit jailed boosted before this was so still carries True, and its
+    # boost, never resolved, resolves on its release.
+    jail.jailed = {"slug": slug, "owner": seat, "controller": seat, "boosted": False}
+    match.record_event("jailed", slug=slug, seat=seat)
     if held is not None:
         release(engine, match, held, result, by=jail)
 
 
 def release(engine: "RulesEngine", match: MatchState, held: dict, result: StepResult, by) -> None:
     """A jailed unit released: it arrives for its controller, with arrival
-    fatigue, its arrives effects resolving now -- boosted where it was
-    played boosted (Jail's ruling)."""
+    fatigue, its arrives effects resolving now (Jail's ruling) -- never its
+    boost, which resolved as it was played (the boost ruling), but for a
+    unit jailed boosted before that was so (`enter_jail`)."""
     card = match.new_instance(held["slug"], held["controller"])
     card.owner = held["owner"]
     match.record_event("released", slug=held["slug"], seat=held["controller"])
