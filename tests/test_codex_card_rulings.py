@@ -4913,15 +4913,30 @@ class WhiteBlueRuleRulingTests(unittest.TestCase):
         match.player(1).gold = 20
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
         self.assertEqual(jail.jailed["slug"], "hooded_executioner")
-        self.assertTrue(jail.jailed["boosted"])
         self.assertFalse(any(card.slug == "hooded_executioner" for card in match.player(1).play))
-        self.assertIsNotNone(match.player(2).instance(weak.id))
-        # A boosted unit jailed and released: its boost was paid as it was
-        # played, and resolves as it leaves -- the weakest unit destroyed.
+        # Its boost resolved as it was played, before it went to Jail (the
+        # boost ruling): the weakest unit destroyed at once.
+        self.assertIsNone(match.player(2).instance(weak.id))
+        self.assertFalse(jail.jailed["boosted"])
+        # Released: it arrives, and the boost is not done a second time.
+        weaker = put(match, 2, "tenderfoot")
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="older_brother")
         self.assertEqual(jail.jailed["slug"], "older_brother")
         released = next(card for card in match.player(1).play if card.slug == "hooded_executioner")
         self.assertTrue(released.arrived_this_turn)
+        self.assertIsNotNone(match.player(2).instance(weaker.id))
+
+    def test_jail_boost_saved_before_the_ruling(self) -> None:
+        """A unit jailed boosted by a bot that held its boost for the
+        release -- `boosted` still True in the save -- has it resolve then,
+        since it never resolved as it was played."""
+        engine, game, match, jail = self.jail_against()
+        weak = put(match, 2, "tenderfoot")
+        jail.jailed = {"slug": "hooded_executioner", "owner": 1, "controller": 1, "boosted": True}
+        hand(match, 1, "older_brother")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="older_brother")
+        self.assertTrue(any(card.slug == "hooded_executioner" for card in match.player(1).play))
         self.assertIsNone(match.player(2).instance(weak.id))
 
     def test_jail_2(self) -> None:

@@ -729,6 +729,10 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     _effect("hooded_executioner", Part("destroy", "weakest_opposing_to_destroy", 0,
                                        "choose their weakest unit to destroy", targeted=False,
                                        when="boosted")),
+    # A boosted unit an opponent's Jail catches: its boost resolves first,
+    # then it goes to Jail (the boost ruling, Sirlin 2016-03-11) -- this
+    # frame, pushed behind the boost's, puts it there (`actions.enter_jail`).
+    _effect("jail_entry", Part("jail", None, 0, targeted=False)),
     # Death Rites: "Whenever one of your units dies this turn, destroy one of
     # an opponent's lowest tech units." -- the trigger set on its caster.
     _effect("death_rites", Part("rites", None, 0, targeted=False)),

@@ -1359,19 +1359,27 @@ class BoostTests(KeywordCase):
         engine, game, match = fresh(teams=(("anarchy",), ("growth",)))
         built(match, 1, "tech1")
         built(match, 1, "tech2")
-        match.player(1).hand = ["marauder"]
-        match.player(1).gold = 6
+        jail = put(match, 2, "jail")
+        match.player(1).hand = ["marauder", "older_brother"]
+        match.player(1).gold = 10
         workers = match.player(2).workers
         driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play",
                                                  {"slug": "marauder", "boost": True}))
+        # The boost is asked and done as it is played, before the Jail.
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.TARGET)
+        self.assertIsNone(jail.jailed)
         driver.apply(engine, game, match, Action(PromptKind.TARGET, "", {"target": "2:workers"}))
         self.assertEqual(match.player(2).workers, workers - 1)
-        # Back to the hand and in again, unplayed: no second boost.
-        marauder = next(card for card in match.player(1).play if card.slug == "marauder")
-        board.leave_play(engine, match, marauder, "hand")
-        match.player(1).hand.remove("marauder")
-        board.put_into_play(engine, match, "marauder", 1, from_hand=True)
-        self.assertEqual(match.resolving[-1].get("boosted"), None)
+        self.assertEqual(jail.jailed["slug"], "marauder")
+        self.assertFalse(any(card.slug == "marauder" for card in match.player(1).play))
+        # Released by the next unit: it arrives, and its boost is not done
+        # a second time.
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play",
+                                                 {"slug": "older_brother"}))
+        self.assertTrue(any(card.slug == "marauder" for card in match.player(1).play))
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(match.player(2).workers, workers - 1)
+        self.assertEqual(match.player(1).gold, 10 - 6 - 2)
 
 
 class ChannellingTests(KeywordCase):
