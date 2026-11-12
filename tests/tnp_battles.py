@@ -40,6 +40,7 @@ def stage(
     structures: Optional[Mapping[str, list]] = None,
     emergency: Optional[Mapping] = None,
     modifiers: tuple = (),
+    effects: Optional[Mapping] = None,
     damaged: Optional[Mapping[str, Mapping[str, int]]] = None,
     rolls: Optional[Iterable[int]] = None,
     answers_the_only_choice: bool = False,
@@ -63,7 +64,8 @@ def stage(
             contested=contested,
             held_by=defending if held and not contested and not area.is_base else None,
             paths_home=paths_home if paths_home is not None else {"blue": True, "green": True},
-            structures=structures, emergency=emergency, modifiers=modifiers, damaged=damaged,
+            structures=structures, emergency=emergency, modifiers=modifiers, effects=effects,
+            damaged=damaged,
         )
         driver.advance(engine, None, match, result)
     return engine, match
@@ -89,7 +91,8 @@ def first(prompt: PendingPrompt) -> Action:
     """The first legal answer to any battle question: the first force to
     its first slot, the first shooter at its first target, fight on,
     attack, build nothing, keep the flankers, give no Workers, take the
-    splash, the first thing destroyed."""
+    splash, the first thing destroyed, the first tactic card that does
+    something, and every reroll."""
     options = prompt.options
     kind = prompt.kind
     if kind is PromptKind.CHOOSE_ROLE:
@@ -113,6 +116,12 @@ def first(prompt: PendingPrompt) -> Action:
         return Action(kind, "splash", {"force": options.forces[0]})
     if kind is PromptKind.DESTROY:
         return Action(kind, "", {"thing": options.things[0]})
+    if kind is PromptKind.TACTIC:
+        if options.applies:
+            return Action(kind, "play", {"card": options.applies[0]}, seat=prompt.asked_seat)
+        return Action(kind, "none", seat=prompt.asked_seat)
+    if kind is PromptKind.REROLL:
+        return Action(kind, "reroll", {"count": options.most})
     raise AssertionError(kind)
 
 

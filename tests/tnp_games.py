@@ -31,12 +31,14 @@ from tnp_battles import first as first_battle_answer
 TURN_KINDS = (PromptKind.PLAN, PromptKind.TRADE, PromptKind.CONQUER, PromptKind.HARVEST)
 
 
-def opening(seed: int = 0) -> tuple[RulesEngine, TnpGame, MatchState]:
-    """A game with both seats taken, started: turn 1's plans open."""
+def opening(seed: int = 0, advanced: bool = False) -> tuple[RulesEngine, TnpGame, MatchState]:
+    """A game with both seats taken, started: turn 1's plans open -- the
+    advanced game's, with its decks, where `advanced`."""
     engine = RulesEngine(rng=random.Random(seed))
     game = TnpGame(game_id="test")
     game.take_seat(1, "Blue's player", "blue")
     game.take_seat(2, "Green's player", "green")
+    game.set_advanced(advanced)
     game.start(engine)
     return engine, game, MatchState.from_dict(game.match_state)
 
@@ -92,7 +94,11 @@ def buy(options, wanted: Mapping[str, int], materials: Optional[int] = None) -> 
 
 
 def trade_everything(options, into: str = "materials") -> dict:
-    """Every mineral and gem for materials (or gold)."""
+    """Every mineral and gem for materials (or gold) -- in the advanced
+    game, every card in the hand but its tactic cards, which it keeps
+    for Tactical Command."""
+    if getattr(options, "advanced", False):
+        return {into: {one.card: one.count for one in options.cards if one.kind != "tactic"}}
     return {into: {kind: count for kind, count in options.tokens.items() if count}}
 
 

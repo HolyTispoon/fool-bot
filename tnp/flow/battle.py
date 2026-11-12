@@ -35,6 +35,7 @@ from tnp.battle import (
     ROUND_END,
     ROUNDS,
     SEATS,
+    TACTICS,
     BattleState,
     Column,
     aimed,
@@ -48,12 +49,15 @@ from tnp.battle import (
     emergency_limits,
     flankers_of,
     groups,
+    has_trait,
+    hit_kills,
     initiative_totals,
     is_base,
     modifier_parts,
     needs,
     other,
     repair_workers,
+    rerolls_left,
     reposition_asker,
     retreat_asker,
     roller,
@@ -103,11 +107,19 @@ def _seat_forces(battle: BattleState, seat: str) -> str:
 
 def _waiting(engine: "RulesEngine", match: "MatchState", result: StepResult) -> StepResult:
     """Every step ends here: the battle moved as far as nobody's answer
-    is needed, and `next` is the one reading's."""
-    from tnp.prompts import pending
+    is needed, and `next` is the one reading's -- `None` where both seats
+    are asked at once, as in Tactical Command."""
+    from tnp.prompts import PendingPrompt, pending_all
 
     _settle(engine, match, result)
-    result.next = pending(engine, None, match)
+    everything = pending_all(engine, None, match)
+    prompts = [one for one in everything if isinstance(one, PendingPrompt)]
+    if everything and not prompts:
+        result.next = everything[0]
+    elif len(prompts) == 1:
+        result.next = prompts[0]
+    else:
+        result.next = None
     return result
 
 
@@ -127,6 +139,8 @@ def begin_battle(
     structures: Optional[Mapping[str, list]] = None,
     emergency: Optional[Mapping] = None,
     modifiers: tuple = (),
+    effects: Optional[Mapping] = None,
+    tactics: tuple = (),
     damaged: Optional[Mapping[str, Mapping[str, int]]] = None,
 ) -> StepResult:
     """
@@ -170,10 +184,16 @@ def begin_battle(
             "facilities": list((structures or {}).get("facilities", [])),
             "upgrades": list((structures or {}).get("upgrades", [])),
         }
+        for key in ("tech", "attached"):
+            # The advanced game's cards in play at the base (TNP 6.9, 8).
+            if key in (structures or {}):
+                battle.structures[key] = _plain(structures[key])
         battle.emergency = {
             "pool": dict((emergency or {}).get("pool", {})),
             "supply_room": dict((emergency or {}).get("supply_room", {})),
         }
+        if "hand" in (emergency or {}):
+            battle.emergency["hand"] = dict(emergency["hand"])
     elif contested:
         if held_by is not None:
             raise RuleRefusal("Only a neutral territory is attacked by both seats.", cite="TNP 6.1")
@@ -196,6 +216,9 @@ def begin_battle(
         raise RuleRefusal("An attack needs units.", cite="TNP 5.4")
     battle.paths_home = {seat: bool((paths_home or {}).get(seat, False)) for seat in SEATS}
     battle.modifiers = [dict(row) for row in modifiers]
+    battle.effects = _plain(effects or {})
+    if tactics:
+        battle.tactics = {"seats": [seat for seat in SEATS if seat in tactics], "chosen": {}}
     match.battle = battle
 
     result = StepResult(board_changed=True)
@@ -217,6 +240,15 @@ def begin_battle(
         )
         _after_sides(engine, battle, result)
     return _waiting(engine, match, result)
+
+
+def _plain(value):
+    """A deep copy of plain JSON."""
+    if isinstance(value, Mapping):
+        return {key: _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    return value
 
 
 def _contested_sides(engine: "RulesEngine", battle: BattleState, result: StepResult) -> None:
@@ -270,15 +302,92 @@ def _open_rounds(engine: "RulesEngine", battle: BattleState, result: StepResult)
     """
     A seat with no units in the battle has lost it (TNP 6.1): an attack
     on a held territory, or a base, with nobody defending it wins at
-    once. Otherwise the first round begins (TNP 6.4). Tactical Command
-    (TNP 6.3) is step 9's.
+    once. Otherwise, in the advanced game, Tactical Command (TNP 6.3),
+    where a seat holds a tactic card to play; then the first round
+    begins (TNP 6.4).
     """
     if not battle.living(battle.defender):
         result.narration.append(f"Nobody defends {tokens.area(battle.territory)}.")
         finish(engine, battle, result, battle.attacker, "undefended")
         return
     battle.round = 1
+    if battle.tactics.get("seats") and len(battle.tactics.get("chosen", {})) < len(battle.tactics["seats"]):
+        battle.phase = TACTICS
+        result.narration.append("Tactical Command: each seat with a tactic card may play one, face down.")
+        return
     battle.phase = ROUND
+
+
+# -- Tactical Command ------------------------------------------------------------
+
+
+def tactic_cards(engine: "RulesEngine", match: "MatchState", seat: str) -> tuple[str, ...]:
+    """The tactic cards in a seat's hand it may play (TNP 6.3, 8.2): a
+    tactic whose effect is built (`tnp.effects.EFFECTS`), once each."""
+    from tnp import effects
+
+    state = match.seats.get(seat)
+    if state is None or not match.advanced:
+        return ()
+    return tuple(
+        slug for slug in sorted(state.hand)
+        if state.hand[slug] > 0 and slug in engine.catalog.techs
+        and effects.kind_of(engine, slug) == effects.TACTIC and effects.built(slug)
+    )
+
+
+def tactics_waiting(battle: BattleState) -> tuple[str, ...]:
+    """The seats still to choose their tactic card (TNP 6.3)."""
+    if battle.phase != TACTICS:
+        return ()
+    chosen = battle.tactics.get("chosen", {})
+    return tuple(seat for seat in battle.tactics.get("seats", []) if seat not in chosen)
+
+
+def answer_tactic(engine: "RulesEngine", match: "MatchState", seat: str, choice: str,
+                  card: Optional[str] = None) -> StepResult:
+    """
+    A seat's tactic card, face down, or none (TNP 6.3). Nothing of it is
+    said until both seats have chosen: then the cards are revealed
+    together, each goes from its seat's hand to the discard pile -- it
+    lasts this battle alone (TNP 8.2) -- and its effect is added to the
+    battle, or nothing where its units are not in the battle on its
+    seat's side. Then the first round.
+    """
+    from tnp import effects
+
+    battle = match.battle
+    if seat not in tactics_waiting(battle):
+        raise RuleRefusal("That seat has chosen its tactic card.", cite="TNP 6.3")
+    if choice == "play":
+        if card not in tactic_cards(engine, match, seat):
+            raise RuleRefusal("Play a tactic card from your hand.", cite="TNP 6.3")
+    else:
+        card = ""
+    battle.tactics.setdefault("chosen", {})[seat] = card
+    result = StepResult()
+    if tactics_waiting(battle):
+        result.narration.append(f"{tokens.seat(seat)} has chosen.")
+        return _waiting(engine, match, result)
+    result.board_changed = True
+    from tnp.flow.turn import discard
+
+    for one in battle.tactics["seats"]:
+        played = battle.tactics["chosen"].get(one) or ""
+        if not played:
+            result.narration.append(f"{tokens.seat(one)} plays no tactic card.")
+            continue
+        match.seat(one).take_card(played)
+        discard(engine, match, played)
+        if effects.add_tactic(engine, battle, one, played):
+            result.narration.append(f"{tokens.seat(one)} plays {tokens.card(played)}.")
+        else:
+            result.narration.append(
+                f"{tokens.seat(one)} plays {tokens.card(played)}: its units are not in the battle, "
+                "and it does nothing."
+            )
+    battle.phase = ROUND
+    return _waiting(engine, match, result)
 
 
 # -- Who is which, contested -----------------------------------------------------
@@ -352,10 +461,14 @@ def answer_emergency(engine: "RulesEngine", match: "MatchState", choice: str,
         _open_rounds(engine, battle, result)
         return _waiting(engine, match, result)
     units = {slug: int(count) for slug, count in (units or {}).items() if int(count)}
-    trade = {key: int((trade or {}).get(key, 0)) for key in TRADES}
-    unknown = set((trade or {})) - set(TRADES)
-    if unknown:
-        raise RuleRefusal(f"Nothing trades as {sorted(unknown)[0]!r}.", cite="TNP 6.2")
+    if "hand" in (battle.emergency or {}):
+        trade, spent = _card_trade(engine, battle, trade)
+    else:
+        spent = {}
+        unknown = set((trade or {})) - set(TRADES)
+        if unknown:
+            raise RuleRefusal(f"Nothing trades as {sorted(unknown)[0]!r}.", cite="TNP 6.2")
+        trade = {key: int((trade or {}).get(key, 0)) for key in TRADES}
     if not units:
         raise RuleRefusal("Choose the units to produce, or produce none.", cite="TNP 6.2")
     if any(count < 0 for count in (*units.values(), *trade.values())):
@@ -396,6 +509,14 @@ def answer_emergency(engine: "RulesEngine", match: "MatchState", choice: str,
         "orange": pool["orange"] - trade["orange"],
         "gems": pool["gems"] - trade["gems_materials"] - trade["gems_gold"],
     }
+    if spent:
+        hand = battle.emergency["hand"]
+        record = battle.emergency.setdefault("spent", {})
+        for slug, count in spent.items():
+            hand[slug] = int(hand.get(slug, 0)) - count
+            if hand[slug] <= 0:
+                del hand[slug]
+            record[slug] = int(record.get(slug, 0)) + count
     for slug, count in units.items():
         battle.produced[slug] = battle.produced.get(slug, 0) + count
         room = battle.emergency["supply_room"]
@@ -414,6 +535,47 @@ def answer_emergency(engine: "RulesEngine", match: "MatchState", choice: str,
     return _waiting(engine, match, result)
 
 
+def _card_trade(engine: "RulesEngine", battle: BattleState,
+                trade: Optional[Mapping]) -> tuple[dict[str, int], dict[str, int]]:
+    """
+    An emergency trade in the advanced game, where the card is the
+    mineral (TNP 6.2, 8.1): `{"materials": {card: n}, "gold": {card: n}}`,
+    from the defender's hand -- a mineral card for a material, a gem card
+    for a material or a gold. Returns it as the basic game's counts by
+    kind, and the cards spent.
+    """
+    from tnp import effects
+
+    trade = dict(trade or {})
+    unknown = set(trade) - {"materials", "gold"}
+    if unknown:
+        raise RuleRefusal(f"A card trades for materials or gold, not {sorted(unknown)[0]!r}.", cite="TNP 6.2")
+    hand = battle.emergency.get("hand", {})
+    counts = {key: 0 for key in TRADES}
+    spent: dict[str, int] = {}
+    for into in ("materials", "gold"):
+        for slug, count in (trade.get(into) or {}).items():
+            count = int(count)
+            if count < 0:
+                raise RuleRefusal("A count cannot be below none.", cite="TNP 6.2")
+            if not count:
+                continue
+            if slug not in engine.catalog.techs:
+                raise RuleRefusal(f"No technology card is called {slug!r}.", cite="TNP 8.1")
+            deck = effects.deck_of(engine, slug)
+            if into == "gold" and deck != "gems":
+                raise RuleRefusal("In an emergency only a gem trades for gold.", cite="TNP 6.2")
+            spent[slug] = spent.get(slug, 0) + count
+            if deck == "gems":
+                counts["gems_gold" if into == "gold" else "gems_materials"] += count
+            else:
+                counts["blue" if deck == "blue_minerals" else "orange"] += count
+    for slug, count in spent.items():
+        if count > int(hand.get(slug, 0)):
+            raise RuleRefusal("That trades more cards than the hand holds.", cite="TNP 6.2")
+    return counts, spent
+
+
 # -- The round's start -----------------------------------------------------------
 
 
@@ -428,6 +590,10 @@ def begin_round(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
     battle = match.battle
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
     battle.reposition_asked = []
+    for entries in battle.effects.get("salvage", {}).values():
+        for entry in entries:
+            if entry["per"] == "round":
+                entry["used"] = 0
     if battle.round > 1:
         kept = []
         for column in battle.line:
@@ -656,6 +822,26 @@ def answer_target(engine: "RulesEngine", match: "MatchState", force: str, target
         f"{force_words(shooter)}{only} fire at {_target_words(battle, target)}: rolled {shown} "
         f"({roll_reason(rating, against, bonus, parts)}) — {hit} hit{'' if hit == 1 else 's'}."
     )
+    missed = count - hit
+    if missed and rerolls_left(battle, seat) > 0:
+        # Ammo Depos (TNP 8.4): the seat may roll its missed dice again
+        # before the hits land.
+        battle.owed.insert(0, {
+            "kind": "reroll", "seat": seat, "force": force, "target": target,
+            "hit": hit, "missed": missed,
+        })
+        return _waiting(engine, match, result)
+    _land(engine, battle, seat, force, target, hit, result)
+    return _waiting(engine, match, result)
+
+
+def _land(engine: "RulesEngine", battle: BattleState, seat: str, force: str, target: str, hit: int,
+          result: StepResult) -> None:
+    """A roll's hits land (TNP 6.7 to 6.9): held on the target until the
+    group has rolled; a Splash force that hit may take an adjacent
+    infantry unit too; a force's 2 hits on a base card destroy one thing
+    -- each asked before the next roll."""
+    shooter = battle.force(force)
     if target in BASE_CARDS:
         if hit >= BASE_CARD_HITS:
             things = destroyable(engine, battle)
@@ -667,14 +853,63 @@ def answer_target(engine: "RulesEngine", match: "MatchState", force: str, target
         battle.hits[target] = battle.hits.get(target, 0) + hit
         if engine.has_trait(shooter.unit, "splash") and splash_targets(engine, battle, target):
             battle.owed.append({"kind": "splash", "seat": seat, "force": force, "hit": target})
+
+
+def answer_reroll(engine: "RulesEngine", match: "MatchState", choice: str,
+                  count: Optional[int] = None) -> StepResult:
+    """
+    Ammo Depos (TNP 8.4): the seat rolls some of a roll's missed dice
+    again, each a reroll of the battle's, or none; then the roll's hits
+    land.
+    """
+    battle = match.battle
+    owed = battle.owed.pop(0)
+    seat, force, target = owed["seat"], owed["force"], owed["target"]
+    hit = int(owed["hit"])
+    result = StepResult()
+    if choice == "reroll":
+        try:
+            count = int(count)
+        except (TypeError, ValueError):
+            battle.owed.insert(0, owed)
+            raise RuleRefusal("Say how many dice are rolled again.", cite="TNP 8.4") from None
+        most = min(int(owed["missed"]), rerolls_left(battle, seat))
+        if not 1 <= count <= most:
+            battle.owed.insert(0, owed)
+            raise RuleRefusal(f"Roll again between 1 and {most} of the missed dice.", cite="TNP 8.4")
+        battle.effects["rerolls"][seat] = rerolls_left(battle, seat) - count
+        shooter = battle.force(force)
+        against = target_type(engine, battle, target)
+        rating = engine.rating(shooter.unit, against)
+        parts = modifier_parts(engine, battle, force, target)
+        bonus = sum(value for _, value, _ in parts)
+        rolled = tuple(engine.d12() for _ in range(count))
+        more = sum(1 for die in rolled if engine.hits(die, bonus, rating))
+        hit += more
+        result.rolls.append(Roll(
+            seat, force, target, rolled, bonus, rating.target, more,
+            rating=rating.value, parts=parts, needs=needs(rating.target, bonus),
+        ))
+        left = rerolls_left(battle, seat)
+        result.narration.append(
+            f"{tokens.seat(seat)} rolls {count} again: "
+            f"{', '.join(str(die) for die in rolled)} — {more} more hit{'' if more == 1 else 's'}, "
+            f"{hit} in all; {left} reroll{'' if left == 1 else 's'} left this battle."
+        )
+        result.board_changed = bool(more)
+    _land(engine, battle, seat, force, target, hit, result)
+    result.board_changed = result.board_changed or bool(hit)
     return _waiting(engine, match, result)
 
 
 def _destroy(battle: BattleState, thing: str, result: StepResult) -> None:
     battle.destroyed = thing
-    for key in ("upgrades", "facilities"):
+    for key in ("upgrades", "facilities", "tech"):
         if thing in battle.structures.get(key, []):
             battle.structures[key].remove(thing)
+    card, _, facility = thing.partition(":")
+    if facility and battle.structures.get("attached", {}).get(facility) == card:
+        del battle.structures["attached"][facility]
     result.narration.append(f"{tokens.seat(battle.defender)}'s {tokens.thing(thing)} is destroyed.")
     result.board_changed = True
 
@@ -763,11 +998,12 @@ def close_group(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
             for force in battle.living(seat):
                 if battle.hits.get(force.id, 0) <= 0:
                     continue
-                if engine.has_trait(force.unit, "mechanical") and repair_workers(engine, battle, force.id):
+                if has_trait(engine, battle, force, "mechanical") and repair_workers(engine, battle, force.id):
                     battle.owed.append({"kind": "repair", "seat": seat, "force": force.id})
         if battle.owed:
             return _waiting(engine, match, result)
     lost = []
+    salvaged = 0
     for force in list(battle.forces):
         before, hurt = force.count, force.damaged
         for _ in range(battle.hits.get(force.id, 0)):
@@ -779,13 +1015,16 @@ def close_group(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
             elif engine.has_trait(force.unit, "tough"):
                 force.damaged += 1
             else:
-                force.count -= 1
+                # Enhancing Drugs: each hit kills 2 (TNP 8.5).
+                force.count = max(0, force.count - hit_kills(battle, force))
         for _ in range(battle.removals.get(force.id, 0)):
             if force.count <= 0:
                 break
             if force.damaged:
                 force.damaged -= 1
             force.count -= 1
+        if force.count < before and has_trait(engine, battle, force, "mechanical"):
+            salvaged += before - force.count
         if force.count < before or force.damaged > hurt:
             gone = before - force.count
             words = f"{tokens.seat(force.seat)} loses {_count(gone, force.unit)}" if gone else ""
@@ -797,6 +1036,8 @@ def close_group(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
     if lost:
         result.narration.extend(lost)
         result.board_changed = True
+    if salvaged:
+        _salvage(battle, salvaged, result)
     _clear_the_dead(battle)
     finished = battle.group
     battle.hits, battle.removals, battle.rolled, battle.repairs_asked = {}, {}, [], False
@@ -808,6 +1049,29 @@ def close_group(engine: "RulesEngine", game, match: "MatchState", lead_in: str =
         battle.group = None
         battle.phase = ROUND_END
     return _waiting(engine, match, result)
+
+
+def _salvage(battle: BattleState, destroyed: int, result: StepResult) -> None:
+    """
+    Salvage Yard and Salvaging under Fire (TNP 8): a material for each
+    Mechanical unit destroyed in the battle -- whoever's, as the cards
+    say "a mechanical unit" -- each card up to its most a battle or a
+    round. The materials go into the seat's pool when the battle is put
+    on the map.
+    """
+    for seat in SEATS:
+        gained = 0
+        for entry in battle.effects.get("salvage", {}).get(seat, []):
+            room = int(entry["max"]) - int(entry["used"])
+            take = max(0, min(destroyed, room))
+            entry["used"] = int(entry["used"]) + take
+            gained += take
+        if gained:
+            gains = battle.effects.setdefault("gains", {})
+            gains[seat] = gains.get(seat, 0) + gained
+            result.narration.append(
+                f"{tokens.seat(seat)} salvages {gained} material{'' if gained == 1 else 's'}."
+            )
 
 
 def _clear_the_dead(battle: BattleState) -> None:
@@ -928,6 +1192,7 @@ def finish(engine: "RulesEngine", battle: BattleState, result: StepResult,
         "survivors": survivors,
         "withdrawn": {seat: dict(units) for seat, units in battle.withdrawn.items()},
         "home": home,
+        "gains": dict(battle.effects.get("gains", {})),
     }
     battle.phase = OVER
     battle.owed = []
@@ -1028,7 +1293,7 @@ def _settle(engine: "RulesEngine", match: "MatchState", result: StepResult) -> N
 
 __all__ = [
     "answer_destroy", "answer_emergency", "answer_place", "answer_repair", "answer_reposition",
-    "answer_retreat",
+    "answer_reroll", "answer_retreat", "answer_tactic", "tactic_cards", "tactics_waiting",
     "answer_role", "answer_splash", "answer_target", "begin_battle", "begin_round",
     "close_group", "emergency_possible", "end_round", "finish", "force_words",
 ]

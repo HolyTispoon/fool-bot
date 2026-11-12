@@ -24,12 +24,24 @@ and **a trade** the tokens of each kind traded for materials and for
 gold (TNP 5.9):
 
     {"materials": {"blue_minerals": 3}, "gold": {"gems": 1}}
+
+**The advanced game** (TNP 8) adds a plan's `"techs"` -- the cards from
+the seat's hand it puts into play, finished at Production like anything
+placed in Infrastructure (TNP 5.2): building techs by the production
+facility each is attached to, tech facilities built, and tech facilities
+in play discarded to make room (TNP 8.3, 8.4):
+
+    "techs": {"attach": {"factory": "lasers"}, "build": ["jeweler"], "discard": []}
+
+and a trade names cards, not tokens, since the card is the mineral
+(TNP 8.1): `{"materials": {"jeweler": 1}, "gold": {"grenades": 1}}`.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable, Mapping, Optional
 
+from tnp import effects
 from tnp.battle import SEATS, other
 from tnp.catalog import Cost, UnitType
 from tnp.components import ATTACK_SPOTS, BASIC_ATTACK_SPOTS, DEFENSE_SPOTS, RESOURCES, MatchState, SeatState
@@ -84,13 +96,15 @@ def has_path(engine: "RulesEngine", match: MatchState, seat: str, area: str) -> 
     return area in reach or any(there in reach for there in engine.catalog.areas[area].adjacent)
 
 
-def carriers_needed(engine: "RulesEngine", units: Mapping[str, int]) -> Optional[int]:
+def carriers_needed(engine: "RulesEngine", units: Mapping[str, int],
+                    improved: bool = False) -> Optional[int]:
     """
     How many Chopper Carriers it takes to carry a pile's ground units
     (TNP 7: Transport), one kind a carrier without mixing -- `None` where
-    one of them cannot be carried at all.
+    one of them cannot be carried at all. `improved` is Improved Carrier
+    Capacity's table (TNP 7, 8).
     """
-    capacity = engine.catalog.board.get("transport", {}).get("chopper_carrier", {})
+    capacity = effects.carrier_capacity(engine, improved).get("chopper_carrier", {})
     needed = 0
     for slug, count in units.items():
         if not count or engine.unit(slug).type is UnitType.AIR:
@@ -112,7 +126,7 @@ def reaches(engine: "RulesEngine", match: MatchState, seat: str, area: str,
     """
     if has_path(engine, match, seat, area):
         return True
-    needed = carriers_needed(engine, units)
+    needed = carriers_needed(engine, units, effects.improved_carriers(match.seat(seat)))
     return needed is not None and needed <= int(units.get("chopper_carrier", 0))
 
 
@@ -290,11 +304,36 @@ def _counts(value, what: str, cite: str) -> dict[str, int]:
     return found
 
 
+def _card_list(value, what: str) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+        raise RuleRefusal(f"{what} is a list of cards.", cite="TNP 8")
+    return [str(slug) for slug in value]
+
+
+def normal_techs(techs: Optional[Mapping]) -> dict:
+    """A plan's cards put into play (TNP 8.3, 8.4), every part present."""
+    techs = dict(techs or {})
+    unknown = set(techs) - {"attach", "build", "discard"}
+    if unknown:
+        raise RuleRefusal(f"A plan's cards have no part called {sorted(unknown)[0]!r}.", cite="TNP 8")
+    attach = techs.get("attach") or {}
+    if not isinstance(attach, Mapping):
+        raise RuleRefusal("Building techs are named by the facility each is attached to.", cite="TNP 8.3")
+    return {
+        "attach": {str(facility): str(slug) for facility, slug in attach.items() if slug},
+        "build": _card_list(techs.get("build"), "The tech facilities built"),
+        "discard": _card_list(techs.get("discard"), "The tech facilities discarded"),
+    }
+
+
 def normal_plan(plan: Optional[Mapping]) -> dict:
     """A plan with every part present and its zeros dropped -- the shape
-    `check_plan` reads and the match keeps."""
+    `check_plan` reads and the match keeps. `techs` is the advanced
+    game's, and present only where it puts a card into play."""
     plan = dict(plan or {})
-    unknown = set(plan) - {"build", "structures", "attacks", "defense"}
+    unknown = set(plan) - {"build", "structures", "attacks", "defense", "techs"}
     if unknown:
         raise RuleRefusal(f"A plan has no part called {sorted(unknown)[0]!r}.", cite="TNP 5.2")
     attacks = {}
@@ -312,25 +351,49 @@ def normal_plan(plan: Optional[Mapping]) -> dict:
     structures = plan.get("structures") or []
     if isinstance(structures, (str, bytes)) or not isinstance(structures, Iterable):
         raise RuleRefusal("The structures are a list of facilities and upgrades.", cite="TNP 5.2")
-    return {
+    found = {
         "build": _counts(plan.get("build"), "What is built", "TNP 5.2"),
         "structures": [str(slug) for slug in structures],
         "attacks": attacks,
         "defense": defense,
     }
+    techs = normal_techs(plan.get("techs"))
+    if any(techs.values()):
+        found["techs"] = techs
+    return found
 
 
-def plan_cost(engine: "RulesEngine", plan: Mapping) -> Cost:
-    """What a plan's Infrastructure costs (TNP 5.2)."""
+def unit_cost(engine: "RulesEngine", state: Optional[SeatState], slug: str) -> Cost:
+    """What one unit costs this seat (TNP 5.2): its cost, its materials
+    less the discount its cards in play give (Automation, Construction
+    Crane), to a minimum of 1."""
+    cost = engine.unit(slug).cost
+    if state is None:
+        return cost
+    return Cost(effects.discounted(cost.materials, effects.unit_discount(engine, state, slug)), cost.gold)
+
+
+def tech_cost(engine: "RulesEngine", slug: str) -> int:
+    """The materials a tech facility costs, printed on it (TNP 8.4); a
+    building tech costs nothing."""
+    return int(engine.catalog.techs[slug].materials or 0)
+
+
+def plan_cost(engine: "RulesEngine", plan: Mapping, state: Optional[SeatState] = None) -> Cost:
+    """What a plan's Infrastructure costs (TNP 5.2), the units at the
+    seat's discounted cost where `state` is given, and the tech
+    facilities it builds (TNP 8.4)."""
     materials = gold = 0
     for slug, count in plan["build"].items():
-        cost = engine.unit(slug).cost
+        cost = unit_cost(engine, state, slug)
         materials += cost.materials * count
         gold += cost.gold * count
     for slug in plan["structures"]:
         cost = structure_cost(engine, slug)
         materials += cost.materials
         gold += cost.gold
+    for slug in plan.get("techs", {}).get("build", []):
+        materials += tech_cost(engine, slug)
     return Cost(materials, gold)
 
 
@@ -422,7 +485,8 @@ def check_plan(engine: "RulesEngine", match: MatchState, seat: str, plan: Mappin
                 f"The {found.name} takes one unit upgrade until its infrastructure upgrade.",
                 cite="TNP 2.4",
             )
-    cost = plan_cost(engine, plan)
+    _check_techs(engine, match, seat, plan.get("techs"))
+    cost = plan_cost(engine, plan, state)
     pool = state.pool
     if cost.materials > pool.get("materials", 0) or cost.gold > pool.get("gold", 0):
         raise RuleRefusal(
@@ -500,10 +564,76 @@ def check_plan(engine: "RulesEngine", match: MatchState, seat: str, plan: Mappin
             )
 
 
+def production_facilities(engine: "RulesEngine", state: SeatState) -> tuple[str, ...]:
+    """The production facilities a building tech may be attached to now
+    (TNP 8.3): built in an earlier turn, with none attached yet."""
+    return tuple(
+        slug for slug in engine.catalog.facilities
+        if slug in state.built and slug not in state.attached
+    )
+
+
+def _check_techs(engine: "RulesEngine", match: MatchState, seat: str, techs: Optional[Mapping]) -> None:
+    """
+    The cards a plan puts into play (TNP 8.3, 8.4): only in the advanced
+    game, only cards in the hand -- each as many times as it is held --
+    and only a card whose effect is built; a building tech on a
+    production facility finished in an earlier turn, one a facility; a
+    tech facility within the two in play, counting those discarded to
+    make room.
+    """
+    if not techs or not any(techs.values()):
+        return
+    if not match.advanced:
+        raise RuleRefusal("Technology cards are the advanced game's.", cite="TNP 8")
+    catalog = engine.catalog
+    state = match.seat(seat)
+    using: dict[str, int] = {}
+    for slug in (*techs["attach"].values(), *techs["build"]):
+        if slug not in catalog.techs:
+            raise RuleRefusal(f"No technology card is called {slug!r}.", cite="TNP 8")
+        using[slug] = using.get(slug, 0) + 1
+    for slug, count in using.items():
+        if count > state.hand.get(slug, 0):
+            raise RuleRefusal(f"The hand holds {state.hand.get(slug, 0)} {catalog.name(slug)}.", cite="TNP 8")
+        if not effects.built(slug):
+            raise RuleRefusal(
+                f"{catalog.name(slug)} is not built yet: its text waits on a question to the author. "
+                "It still trades as a mineral.", cite="TNP 8",
+            )
+    open_to = set(production_facilities(engine, state))
+    for facility, slug in techs["attach"].items():
+        if effects.kind_of(engine, slug) != effects.BUILDING_TECH:
+            raise RuleRefusal(f"{catalog.name(slug)} is not a building tech.", cite="TNP 8.3")
+        if facility not in catalog.facilities:
+            raise RuleRefusal("A building tech is attached to a production facility.", cite="TNP 8.3")
+        if facility not in open_to:
+            raise RuleRefusal(
+                f"A building tech goes on a production facility finished in an earlier turn, one a "
+                f"facility; the {catalog.name(facility)} is not built or has one.", cite="TNP 8.3",
+            )
+    for slug in techs["build"]:
+        if effects.kind_of(engine, slug) != effects.TECH_FACILITY:
+            raise RuleRefusal(f"{catalog.name(slug)} is not a tech facility.", cite="TNP 8.4")
+    standing = list(state.tech)
+    for slug in techs["discard"]:
+        if slug not in standing:
+            raise RuleRefusal("Only a tech facility in play is discarded.", cite="TNP 8.4")
+        standing.remove(slug)
+    most = int(catalog.board["limits"]["tech_facilities"])
+    if len(standing) + len(techs["build"]) > most:
+        raise RuleRefusal(
+            f"At most {most} tech facilities at any one time: discard one to build another.",
+            cite="TNP 8.4",
+        )
+
+
 # -- Checking a trade -------------------------------------------------------------------
 
 
-def normal_trade(trade: Optional[Mapping]) -> dict:
+def normal_trade(trade: Optional[Mapping], advanced: bool = False) -> dict:
+    """A trade with both parts present and its zeros dropped: tokens by
+    kind, or in the advanced game cards by slug (TNP 8.1)."""
     trade = dict(trade or {})
     unknown = set(trade) - {"materials", "gold"}
     if unknown:
@@ -512,7 +642,12 @@ def normal_trade(trade: Optional[Mapping]) -> dict:
     for into in ("materials", "gold"):
         counts = _counts(trade.get(into), "A trade", "TNP 5.9")
         for kind in counts:
-            if kind not in RESOURCES:
+            if advanced and kind in RESOURCES:
+                raise RuleRefusal(
+                    "In the advanced game the card is the mineral: a trade names the cards.",
+                    cite="TNP 8.1",
+                )
+            if not advanced and kind not in RESOURCES:
                 raise RuleRefusal(f"Only minerals and gems are traded, not {kind!r}.", cite="TNP 5.9")
         found[into] = counts
     return found
@@ -522,19 +657,48 @@ def _rate_key(kind: str) -> str:
     return "gem" if kind == "gems" else "mineral"
 
 
-def trade_gains(engine: "RulesEngine", trade: Mapping) -> dict[str, int]:
-    """What a trade gains at the conversion rates (TNP 5.9)."""
-    rates = engine.catalog.board["conversion"]["normal"]
+def trade_rates(engine: "RulesEngine", state: Optional[SeatState] = None) -> dict[str, dict]:
+    """The conversion rates a seat trades at (TNP 5.9): the board's,
+    with a mineral's raised by Jeweler and Trader in play (TNP 8.4)."""
+    normal = engine.catalog.board["conversion"]["normal"]
+    rates = {key: dict(value) for key, value in normal.items()}
+    if state is not None:
+        rates["mineral"] = effects.mineral_rates(state, rates["mineral"])
+    return rates
+
+
+def trade_gains(engine: "RulesEngine", trade: Mapping, state: Optional[SeatState] = None,
+                advanced: bool = False) -> dict[str, int]:
+    """What a trade gains at the conversion rates (TNP 5.9): a token by
+    its kind, a card by its deck's (TNP 8.1), at the seat's rates."""
+    rates = trade_rates(engine, state)
+
+    def key(slug: str) -> str:
+        return effects.rate_key(engine, slug) if advanced else _rate_key(slug)
+
     return {
-        into: sum(count * int(rates[_rate_key(kind)][into]) for kind, count in trade[into].items())
+        into: sum(count * int(rates[key(kind)][into] or 0) for kind, count in trade[into].items())
         for into in ("materials", "gold")
     }
 
 
-def check_trade(match: MatchState, seat: str, trade: Mapping) -> None:
+def check_trade(match: MatchState, seat: str, trade: Mapping, engine: Optional["RulesEngine"] = None) -> None:
     """Each token trades for materials or for gold, never both, from the
-    tokens in the pool (TNP 5.9)."""
-    pool = match.seat(seat).pool
+    tokens in the pool (TNP 5.9) -- or, in the advanced game, each card
+    from the hand (TNP 8.1)."""
+    state = match.seat(seat)
+    if match.advanced:
+        for slug in set(trade["materials"]) | set(trade["gold"]):
+            if engine is not None and slug not in engine.catalog.techs:
+                raise RuleRefusal(f"No technology card is called {slug!r}.", cite="TNP 8.1")
+            traded = trade["materials"].get(slug, 0) + trade["gold"].get(slug, 0)
+            if traded > state.hand.get(slug, 0):
+                raise RuleRefusal(
+                    f"The hand holds {state.hand.get(slug, 0)} of that card, and a card trades once.",
+                    cite="TNP 8.1",
+                )
+        return
+    pool = state.pool
     for kind in RESOURCES:
         traded = trade["materials"].get(kind, 0) + trade["gold"].get(kind, 0)
         if traded > pool.get(kind, 0):
@@ -544,15 +708,19 @@ def check_trade(match: MatchState, seat: str, trade: Mapping) -> None:
 
 
 def has_tokens(match: MatchState, seat: str) -> bool:
-    """Whether a seat has a mineral or a gem to trade -- asked only then."""
-    pool = match.seat(seat).pool
-    return any(pool.get(kind, 0) for kind in RESOURCES)
+    """Whether a seat has a mineral or a gem to trade -- asked only then:
+    a token in the pool, or in the advanced game a card in the hand."""
+    state = match.seat(seat)
+    if match.advanced:
+        return state.cards() > 0
+    return any(state.pool.get(kind, 0) for kind in RESOURCES)
 
 
 __all__ = [
     "SEATS", "area_order", "attack_spots", "attack_targets", "base_of", "can_build_unit",
     "carriers_needed", "check_plan", "check_trade", "defense_areas", "deployed", "ground_units",
-    "has_path", "has_tokens", "held", "joined", "normal_plan", "normal_trade", "owned",
-    "plan_cost", "production_cap", "reaches", "structure_cost", "structures_open",
-    "supply_room", "trade_gains", "unit_upgrades_allowed",
+    "has_path", "has_tokens", "held", "joined", "normal_plan", "normal_techs", "normal_trade",
+    "owned", "plan_cost", "production_cap", "production_facilities", "reaches", "structure_cost",
+    "structures_open", "supply_room", "tech_cost", "trade_gains", "trade_rates", "unit_cost",
+    "unit_upgrades_allowed",
 ]

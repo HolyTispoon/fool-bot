@@ -33,14 +33,14 @@ import discord
 
 from cogs.tnp.battles import ROUND_FILENAME, battle_key, fighting
 from cogs.tnp_views import (
-    BATTLE_VIEWS, DEPLOYMENT, INFRASTRUCTURE, PanelState, empty_steps, panel_view, send_ephemeral,
+    BATTLE_VIEWS, DEPLOYMENT, INFRASTRUCTURE, TECHS, PanelState, empty_steps, panel_view, send_ephemeral,
 )
 from tnp import tokens
 from tnp.briefs import board_brief, deployment_brief, map_brief, spots_brief
 from tnp.catalog import Cost
 from tnp.formatting import (
-    battle_heading, board_caption, cost_text, map_caption, phase_heading, plan_lines,
-    plan_offer_lines, pool_text, token_text, trade_lines,
+    battle_heading, board_caption, card_trade_lines, cards_lines, cost_text, map_caption,
+    phase_heading, plan_lines, plan_offer_lines, pool_text, token_text, trade_lines,
 )
 from tnp.flow.result import FollowOnStep
 from tnp.game import GameStatus, RuleRefusal, TnpGame
@@ -102,6 +102,8 @@ PLAN_HINTS = {
     INFRASTRUCTURE: "**① Infrastructure**: what to build and place. Your board shows the plan as you change it.",
     DEPLOYMENT: "**② Deployment**: a pile, its territory, then its units. Your attack board shows the plan "
                 "as you change it.",
+    TECHS: "**③ Techs**: the building techs and tech facilities from your hand to put into play; they go "
+           "into play at Production.",
 }
 PLAN_HINT = (
     "Every change is saved as you make it, and nobody sees any of it until both of you have locked in."
@@ -268,11 +270,20 @@ class TurnMixin:
         said: list[str] = []
         if prompt.kind is PromptKind.PLAN:
             step = state.step if state.step in PLAN_HINTS else INFRASTRUCTURE
-            said = plan_lines(prompt.options) + plan_offer_lines(prompt.options, step) + [
+            offered = [] if step == TECHS else plan_offer_lines(prompt.options, step)
+            said = plan_lines(prompt.options) + offered + cards_lines(prompt.options) + [
                 PLAN_HINTS[step], PLAN_HINT,
             ]
         elif prompt.kind is PromptKind.TRADE:
-            said = trade_lines(prompt.options)
+            said = card_trade_lines(prompt.options) if prompt.options.advanced else trade_lines(prompt.options)
+        elif prompt.kind is PromptKind.TACTIC:
+            said = [
+                "Your tactic cards: " + ", ".join(
+                    tokens.card(one.card) + ("" if one.card in prompt.options.applies else " (its units are not here)")
+                    for one in prompt.options.cards
+                ) + ".",
+                "Nothing of your choice is shown until both seats have chosen.",
+            ]
         elif prompt.kind in BATTLE_VIEWS:
             link = self.battle_link(game)
             said = [f"{BATTLE_ELSEWHERE}" + (f": {link}" if link else ".")]

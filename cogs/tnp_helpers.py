@@ -88,14 +88,10 @@ class TnpTokens:
 
     def render(self, text: str, game: "Optional[TnpGame]" = None) -> str:
         def resolve(kind: str, arguments: tuple[str, ...]) -> Optional[str]:
-            (slug,) = arguments
             if kind == "seat":
-                return seat_label(game, slug)
+                return seat_label(game, arguments[0])
             if self.catalog is None:
                 return None
-            if kind == "area":
-                found = self.catalog.areas[slug]
-                return found.name if found.is_base else f"area {found.number}"
-            return self.catalog.name(slug)
+            return tokens.words(kind, arguments, self.catalog)
 
         return tokens.render(text, resolve)
