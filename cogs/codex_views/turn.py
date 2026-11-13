@@ -228,14 +228,16 @@ class PanelView(SafeView):
 
     async def act(self, interaction: discord.Interaction, action: Action) -> None:
         """
-        Answer through the service; the panel is edited in place either
-        way. Where the answer puts something in public, the click is
-        deferred and the turn message brought up to date first -- edited
-        through the gate, or, at the turn's end, left standing and the
-        next turn's posted -- so the panel's turn lines include what the
-        click said; where it puts nothing in public, the panel is edited
-        and the channel is left alone (docs/design/codex.md, "The turn
-        message, edited").
+        Answer through the service; the panel is edited in place. Where
+        the answer puts something in public, the click is deferred and
+        the turn message brought up to date first -- edited through the
+        gate, or, at the turn's end or its opening, a turn message posted
+        -- so the panel's turn lines include what the click said; where
+        it puts nothing in public, the panel is edited and the channel is
+        left alone (docs/design/codex.md, "The turn message, edited").
+        Where a turn message was posted, the panel is sent afresh under
+        it and the one clicked deleted, so it is never left above the
+        table (`answer_panel`'s `fresh`).
         """
         game, match = await self.mine(interaction)
         if game is None:
@@ -253,9 +255,14 @@ class PanelView(SafeView):
             return
         # The acknowledgement and the board go out together: the defer
         # is a round trip of its own that the board's write does not
-        # wait on, and the panel is edited after both.
+        # wait on, and the panel is edited after both -- or, where the
+        # click posted a turn message (its turn opened or ended), sent
+        # afresh under it, since an ephemeral message stays where it was
+        # first sent and the one clicked is above the new post.
+        posted = game.turn_message_id
         await asyncio.gather(acknowledge(interaction), self.cog.present(game, result))
-        await self.cog.answer_panel(interaction, game, self.seat, result, action.kind)
+        await self.cog.answer_panel(interaction, game, self.seat, result, action.kind,
+                                    fresh=game.turn_message_id != posted)
 
     async def refuse(self, interaction: discord.Interaction, reason: str) -> None:
         """

@@ -317,7 +317,7 @@ class TurnsMixin:
 
     async def show_panel(self, interaction: discord.Interaction, game: CodexGame, match,
                          seat: int, *, edit: bool, standing: bool = False, note: str = "",
-                         open_tech: bool = False) -> None:
+                         open_tech: bool = False, fresh: bool = False) -> None:
         """
         Put up what `seat` is asked: **made afresh** as an ephemeral
         message (`edit=False` -- My hand, Tech, `/codex resume`) -- for a
@@ -326,7 +326,9 @@ class TurnsMixin:
         is opened, or the picker at once where **Tech** was pressed
         (`open_tech`); saved picks open on their confirmation either way
         (the author, 2026-10-10) -- or **in place of the panel clicked**
-        (`edit=True`, `put_panel`). The cog never looks for an old
+        (`edit=True`, `put_panel`) -- or, with `fresh` beside `edit`,
+        what the click's panel becomes, sent as a new message under a
+        turn message the click posted (`answer_panel`). The cog never looks for an old
         panel: an ephemeral message dies with the client's session, and
         every entry point makes a new one.
         """
@@ -336,9 +338,9 @@ class TurnsMixin:
                 # A teammate's panel the team has moved past -- their
                 # teammate's action stands part-way, or they have locked:
                 # the hand, why, and **Back to my turn** (decision 13).
-                await self.put_waiting(interaction, game, match, seat, note)
+                await self.put_waiting(interaction, game, match, seat, note, fresh=fresh)
             elif edit:
-                await self.put_panel(interaction, NOTHING_ASKED, edit=True)
+                await self.put_panel(interaction, NOTHING_ASKED, edit=not fresh)
             elif owed_step(self.engine, game, match) is not None:
                 await send_ephemeral(interaction, STEP_OWED)
             else:
@@ -356,11 +358,11 @@ class TurnsMixin:
             self.add_switch(view, game, match, seat, interaction.user.id)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
-        await self.put_panel(interaction, content, files, view, edit=edit)
+        await self.put_panel(interaction, content, files, view, edit=edit and not fresh)
         LOGGER.info(
             "Codex game #%s: the panel's picture drawn in %d ms (%d KB); the panel %s in %d ms",
             game.game_number, drawn, pictures_size(files) // 1024,
-            "edited in place" if edit else "sent",
+            "edited in place" if edit and not fresh else "sent",
             elapsed_ms(started),
         )
 
@@ -398,7 +400,7 @@ class TurnsMixin:
             pass
 
     async def put_waiting(self, interaction: discord.Interaction, game: CodexGame, match,
-                          seat: int, note: str = "") -> None:
+                          seat: int, note: str = "", *, fresh: bool = False) -> None:
         """
         A dragon seat's panel edited in place where the team's turn asks
         it nothing now -- the teammate's attack or effect stands part-way,
@@ -428,7 +430,7 @@ class TurnsMixin:
         files = await drawn_acknowledged(interaction, draw, private=False)
         revealed = revealed_caption(self.engine, match, seat, game)
         text = self.with_turn_log(game, "\n".join([*lines, *([revealed] if revealed else [])]))
-        await self.put_panel(interaction, text, files, WaitingView(self, game.game_id, seat), edit=True)
+        await self.put_panel(interaction, text, files, WaitingView(self, game.game_id, seat), edit=not fresh)
 
     @staticmethod
     def mate_name(game: CodexGame, seat: Optional[int]) -> str:
@@ -464,7 +466,8 @@ class TurnsMixin:
 
     async def answer_panel(self, interaction: discord.Interaction, game: CodexGame,
                            seat: int, result: GameResult,
-                           answered: Optional[PromptKind] = None) -> None:
+                           answered: Optional[PromptKind] = None, *,
+                           fresh: bool = False) -> None:
         """
         The panel after its own click, with what is asked next: the next
         action, the defender, the patrol lock, the turn's actions once
@@ -476,13 +479,27 @@ class TurnsMixin:
         stands to pick (`codex.prompts.tech_stands`), so the panel closes
         naming the side whose turn it is now, and the one person plays on
         from My hand.
+
+        `fresh`: the click posted a turn message -- its turn's main phase
+        opened on a tech Confirm, or the turn ended -- so the panel clicked
+        is above it. An ephemeral message stays where it was first sent,
+        and an edit cannot move it: the panel is **sent afresh under the
+        turn message** through the click's webhook and the one clicked
+        deleted, as **Show board** does. A panel that closes, asking
+        nothing, is edited where it stands.
         """
         match = result.match
         asked = result.prompts or ((result.prompt,) if result.prompt is not None else ())
         prompt = next((one for one in asked if one.asked_player == seat), None)
         standing = next((one for one in result.standing if one.asked_player == seat), None)
+
+        async def panel(shown: int, **fields) -> None:
+            await self.show_panel(interaction, game, match, shown, edit=True, fresh=fresh, **fields)
+            if fresh:
+                await self.drop_clicked_panel(interaction, game)
+
         if prompt is not None:
-            await self.show_panel(interaction, game, match, seat, edit=True)
+            await panel(seat)
             return
         if match is not None and match.is_dragon and match.winner is None \
                 and seat in self.engine.turn_seats(match):
@@ -490,14 +507,14 @@ class TurnsMixin:
             # game, the one person's other seat, where it is asked
             # something; otherwise why it waits, the hand under it.
             other = self.switch_target(game, match, seat, interaction.user.id) if game.test_game else None
-            await self.show_panel(interaction, game, match, seat if other is None else other, edit=True)
+            await panel(seat if other is None else other)
             return
         if standing is not None and answered is PromptKind.TECH_CHOICE:
-            await self.show_panel(interaction, game, match, seat, edit=True, standing=True,
-                                  note="**Saved.** You may change it until your turn begins.")
+            await panel(seat, standing=True,
+                        note="**Saved.** You may change it until your turn begins.")
             return
         if standing is not None:
-            await self.show_panel(interaction, game, match, seat, edit=True, standing=True)
+            await panel(seat, standing=True)
             return
         if answered is PromptKind.PATROL and match is not None and seat not in self.engine.turn_seats(match) and match.winner is None:
             closing = self.turn_over_text(game, match, seat, result.prompt)
@@ -506,6 +523,16 @@ class TurnsMixin:
         else:
             closing = NOTHING_ASKED
         await self.put_panel(interaction, closing, edit=True)
+
+    @staticmethod
+    async def drop_clicked_panel(interaction: discord.Interaction, game: CodexGame) -> None:
+        """The panel clicked deleted, once its successor is sent under the
+        turn message; one that cannot be is left, and logged."""
+        try:
+            await interaction.delete_original_response()
+        except discord.HTTPException as error:
+            LOGGER.info("Codex game #%s: the panel clicked stays above the turn message (%s)",
+                        game.game_number, error)
 
     def turn_over_text(self, game: CodexGame, match, seat: int,
                        prompt: Optional[PendingPrompt]) -> str:
