@@ -64,6 +64,12 @@ CHANNEL_REQUESTS = ("send", "edit", "pin", "unpin", "delete")
 #: the panel clicked edited in place (`TurnsMixin.put_panel`).
 PANEL_EDITED = ["response.defer", "original.edit"]
 
+#: A click that posted a turn message -- the turn's end, or its main
+#: phase opened: deferred, then the panel sent afresh under the new post
+#: and the one clicked deleted, since an ephemeral message stays where it
+#: was first sent (`TurnsMixin.answer_panel`'s `fresh`).
+PANEL_SENT_UNDER = ["response.defer", "followup.send", "original.delete"]
+
 #: **My deck** and **Codex**: the click deferred as a private message
 #: before the picture is drawn, the picture its follow-up
 #: (`acknowledge_privately`).
@@ -874,16 +880,17 @@ class TurnEndTests(TurnTestCase):
         lock = await self.end_turn()
 
         # The panel becomes the tech picker, with no note above it and
-        # no turn lines -- it pictures the codex, not the hand -- edited
-        # in place.
+        # no turn lines -- it pictures the codex, not the hand -- sent
+        # under the next turn's message, the one clicked deleted.
         kinds = [answer[0] for answer in lock.answers]
-        self.assertEqual(kinds, PANEL_EDITED)
-        edit = lock.last("original.edit")[2]
-        caption = edit["content"]
+        self.assertEqual(kinds, PANEL_SENT_UNDER)
+        _, args, sent = lock.last("followup.send")
+        caption = args[0]
+        self.assertTrue(sent["ephemeral"])
         self.assertNotIn("turn is over", caption)
         self.assertTrue(caption.startswith("Before your next turn, you must tech "), caption)
-        self.assertIsInstance(edit["view"], TechChoiceView)
-        self.assertEqual(edit["view"].seat, self.game.seat_of(ending.id))
+        self.assertIsInstance(sent["view"], TechChoiceView)
+        self.assertEqual(sent["view"].seat, self.game.seat_of(ending.id))
 
         # The channel: the old message's last edit, without its buttons,
         # standing as the turn's summary, unpinned; then, since turn 2
@@ -1044,9 +1051,11 @@ class TurnEndTests(TurnTestCase):
         self.assertIsInstance(view, TechConfirmView)
         confirmed = await self.table.press(view, "Confirm")
         self.assertNothingWentWrong(confirmed)
-        self.assertEqual([answer[0] for answer in confirmed.answers], PANEL_EDITED)
-        panel = confirmed.last("original.edit")[2]
-        self.assertTrue(panel["attachments"][0].filename.startswith("codex-hand-"))
+        # The turn's main phase opened on the click, its turn message
+        # posted again under its start: the panel goes up under that.
+        self.assertEqual([answer[0] for answer in confirmed.answers], PANEL_SENT_UNDER)
+        panel = confirmed.last("followup.send")[2]
+        self.assertTrue(panel["files"][0].filename.startswith("codex-hand-"))
         self.assertIsInstance(panel["view"], TurnPanelView)
         self.assertEqual(self.table.match.phase, "main")
 
@@ -1062,8 +1071,8 @@ class TurnEndTests(TurnTestCase):
         picked = await pick_tech(self.table, changed.view())
         saved = await self.table.press(picked.view(), "Save tech")
         self.assertNothingWentWrong(saved)
-        self.assertEqual([answer[0] for answer in saved.answers], PANEL_EDITED)
-        self.assertIsInstance(saved.last("original.edit")[2]["view"], TurnPanelView)
+        self.assertEqual([answer[0] for answer in saved.answers], PANEL_SENT_UNDER)
+        self.assertIsInstance(saved.last("followup.send")[2]["view"], TurnPanelView)
         self.assertEqual(self.table.match.phase, "main")
         self.assertIn("2 tech cards", self.table.game_channel.texts[self.game.turn_message_id])
 
@@ -1285,8 +1294,15 @@ class WholeGameTests(TurnTestCase):
                     self.assertLessEqual(spent, allowed)
                     kinds = [answer[0] for answer in call.answers]
                     # Public or not, the click is acknowledged before its
-                    # panel is drawn, and the panel edited after.
-                    self.assertEqual(kinds, PANEL_EDITED)
+                    # panel is drawn, and the panel edited after -- or,
+                    # where the click posted a turn message (the turn's
+                    # end, its main phase opened), sent under it and the
+                    # one clicked deleted. A panel that closes, asking
+                    # nothing -- the game's end, a Lock with no tech to
+                    # pick -- is edited where it stands.
+                    closes = call.answers[1][2].get("view") is None
+                    posted = not closes and (match.turn != turn or opening)
+                    self.assertEqual(kinds, PANEL_SENT_UNDER if posted else PANEL_EDITED)
                     if match.turn != turn:
                         # The tech picker the Lock sent: its owner's
                         # clicks, each held to the click's budget.
@@ -1755,7 +1771,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         text = table.game_channel.texts[game.turn_message_id]
         self.assertIn("2 tech cards", text)
         self.assertNotIn("waits on", text)
-        self.assertEqual([answer[0] for answer in saved.answers], PANEL_EDITED)
+        self.assertEqual([answer[0] for answer in saved.answers], PANEL_SENT_UNDER)
         # The turn opened on the save: the message it was handed over
         # under became its start, pinned, and the turn message was
         # posted again under it.
