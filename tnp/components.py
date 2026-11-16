@@ -180,9 +180,37 @@ class SeatState:
     #: until the phase reveals it.
     plan: Optional[dict] = None
     locked: bool = False
+    #: The advanced game's cards (TNP 8): the hand, by card slug with how
+    #: many -- **the seat's own**, the minerals and gems it has harvested
+    #: (TNP 8.1) -- its tech facilities in play (TNP 8.4), its building
+    #: techs by the production facility each is attached to (TNP 8.3), and
+    #: what this turn's Infrastructure put into play, finished at
+    #: Production: `{"attach": {facility: card}, "build": [card],
+    #: "discard": [card]}`.
+    hand: dict[str, int] = field(default_factory=dict)
+    tech: list[str] = field(default_factory=list)
+    attached: dict[str, str] = field(default_factory=dict)
+    queued_techs: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {row.name: row.stored(getattr(self, row.name)) for row in SEAT_SAVED_FIELDS}
+
+    def cards(self) -> int:
+        return sum(self.hand.values())
+
+    def take_card(self, slug: str, count: int = 1) -> None:
+        """Cards out of the hand; the caller has checked they are there."""
+        left = self.hand.get(slug, 0) - count
+        if left < 0:
+            raise ValueError(f"the hand holds no {slug!r} to take")
+        if left:
+            self.hand[slug] = left
+        else:
+            self.hand.pop(slug, None)
+
+    def give_card(self, slug: str, count: int = 1) -> None:
+        if count:
+            self.hand[slug] = self.hand.get(slug, 0) + count
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "SeatState":
@@ -199,6 +227,10 @@ SEAT_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("harvested", default=0),
     SavedField("plan", write=_copy, read=_copy),
     SavedField("locked", default=False),
+    SavedField("hand", factory=dict, write=dict, read=_counts),
+    SavedField("tech", factory=list, write=list, read=list),
+    SavedField("attached", factory=dict, write=dict, read=dict),
+    SavedField("queued_techs", factory=dict, write=_copy, read=_copy),
 )
 
 
@@ -276,9 +308,13 @@ class MatchState:
     #: The seat that won, and how (`WON_BY_BASE`, `WON_BY_HARVEST`).
     winner: Optional[str] = None
     won_by: Optional[str] = None
-    #: The advanced game (TNP 8), a setting from the start; only the
-    #: basic game plays until step 9.
+    #: The advanced game (TNP 8), a setting from the start.
     advanced: bool = False
+    #: The three technology decks (TNP 8.1), by deck, each a list of card
+    #: slugs with the top card first -- face down, nobody's to see -- and
+    #: each deck's discard pile, played and traded cards on top last.
+    decks: dict[str, list[str]] = field(default_factory=dict)
+    discards: dict[str, list[str]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {row.name: row.stored(getattr(self, row.name)) for row in MATCH_SAVED_FIELDS}
@@ -324,18 +360,33 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("winner"),
     SavedField("won_by"),
     SavedField("advanced", default=False),
+    SavedField("decks", factory=dict, write=_copy, read=_copy),
+    SavedField("discards", factory=dict, write=_copy, read=_copy),
 )
 
 
-def opening(catalog, *, advanced: bool = False) -> MatchState:
+def opening(catalog, *, advanced: bool = False, rng=None) -> MatchState:
     """
     The position at setup (TNP 3): every territory neutral with its
     tokens, each seat's Barracks and Base Defenses built, 3 Workers, 3
     Mercenaries and 5 materials, and turn 1's Infrastructure and
-    Deployment open.
+    Deployment open -- and in the advanced game the three technology
+    decks, each card as many times as its count, shuffled from `rng`,
+    the engine's (TNP 8.1).
     """
     starting = catalog.board["starting"]
     match = MatchState(turn=1, phase=PLAN, advanced=advanced)
+    if advanced:
+        if rng is None:
+            raise ValueError("the advanced game's decks are shuffled from the engine's rng")
+        for deck in RESOURCES:
+            cards = [
+                slug for slug, tech in catalog.techs.items() if tech.deck == deck
+                for _ in range(tech.count)
+            ]
+            rng.shuffle(cards)
+            match.decks[deck] = cards
+            match.discards[deck] = []
     for slug, area in catalog.areas.items():
         match.areas[slug] = AreaState(
             controller=area.seat if area.is_base else None,

@@ -777,9 +777,10 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(game.take_seat(2, "two"), "green")
         with self.assertRaises(RuleRefusal):
             game.take_seat(3, "three")
-        with self.assertRaises(RuleRefusal) as refused:
-            game.set_advanced(True)
-        self.assertEqual(refused.exception.cite, "TNP 8")
+        game.set_advanced(True)
+        self.assertTrue(game.advanced)
+        game.set_advanced(False)
+        self.assertFalse(game.advanced)
         game.leave(2)
         self.assertEqual(game.seat_ids(), [1])
         game.take_seat(2, "two", "green")

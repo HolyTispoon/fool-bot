@@ -272,11 +272,17 @@ class TnpLobbyTests(unittest.IsolatedAsyncioTestCase):
         refused = await table.click(view, "test_game", table.watcher)
         self.assertIn("seated player", refused.response.send_message.await_args.args[0])
         self.assertFalse(table.game.test_game)
-        # The basic game is the one to play; the advanced is greyed out.
-        self.assertFalse(button(view, "basic").disabled)
-        self.assertTrue(button(view, "advanced").disabled)
-        refused = await table.click(view, "advanced", table.blue)
-        self.assertIn("not built yet", refused.response.send_message.await_args.args[0])
+        # The basic game until the advanced is chosen, the one chosen in
+        # green (TNP 8); a watcher may not choose it.
+        self.assertIs(button(view, "basic").style, discord.ButtonStyle.success)
+        self.assertFalse(button(view, "advanced").disabled)
+        refused = await table.click(view, "advanced", table.watcher)
+        self.assertIn("seated player", refused.response.send_message.await_args.args[0])
+        call = await table.click(view, "advanced", table.blue)
+        self.assertTrue(table.game.advanced)
+        self.assertIs(button(call.response.edit_message.await_args.kwargs["view"], "advanced").style,
+                      discord.ButtonStyle.success)
+        await table.click(view, "basic", table.blue)
         self.assertFalse(table.game.advanced)
         call = await table.click(view, "test_game", table.blue)
         self.assertTrue(table.game.test_game)
