@@ -4033,13 +4033,19 @@ class RulesEngine:
 
     def cost_words(self, effect: str) -> str:
         """What an ability costs, in words for its button: "exhaust",
-        "pay 1 gold and exhaust", "sacrifice it"."""
+        "pay 1 gold and exhaust", "sacrifice it", "sacrifice a non-Demon
+        unit" -- a sacrifice that opens the text before its arrow (Orpal
+        Gloor's, Garth Torken's draw, Omegacron's) being its cost -- or ""
+        for one that costs nothing to use (Vir Garbarean's look)."""
         cost = self.ability_cost(effect)
         words = []
+        text = effects.EFFECTS.get(effect)
+        if text is not None and text.says and text.parts and text.parts[0].does == "sacrifice":
+            words.append(text.parts[0].says)
         if cost.gold:
             words.append(f"pay {cost.gold} gold")
         if cost.discard:
-            words.append(f"discard {cost.discard} cards")
+            words.append("discard a card" if cost.discard == 1 else f"discard {cost.discard} cards")
         if cost.runes:
             kind, count = cost.runes
             rune = "+1/+1" if kind == "plus" else kind
@@ -4050,7 +4056,7 @@ class RulesEngine:
             words.append(f"exhaust {cost.skeletons} Skeletons")
         if cost.exhaust:
             words.append("exhaust")
-        return " and ".join(words) or "use it"
+        return " and ".join(words)
 
     def _ability_why_not(self, match: MatchState, seat: int, body, effect: str,
                          source: Optional[str] = None) -> str:

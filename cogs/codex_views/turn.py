@@ -41,7 +41,7 @@ import discord
 
 from codex import effects, history
 from codex.engine import ARRIVED, EXHAUSTED, TECH_BUILDINGS, building_name
-from codex.formatting import deck_name, ref_label, team_name
+from codex.formatting import deck_name, ref_label, ref_name, team_name
 from codex.game import by_variant
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name, seat_label
@@ -698,18 +698,31 @@ class TurnPanelView(PanelView):
         await self.act(interaction, Action(PromptKind.MAIN_ACTION, "summon", {"hero": hero}))
 
     def ability_label(self, ability) -> str:
-        """An ability's button: what offers it and what it does, in the
-        card's own words (`codex.effects.EFFECTS`)."""
+        """An ability's button: what offers it, by its name alone
+        (`ref_name`), what it costs and what it does, in the card's own
+        words (`codex.effects.EFFECTS`): "Orpal Gloor: sacrifice a
+        non-Demon unit to put a -1/-1 rune on a unit"; one that costs
+        nothing says only what it does."""
         if ability.effect == "stop_the_music":
             return f"Sacrifice {card_name(effects.HARMONY)}: stop the music"
-        return f"{self.label(ability.source)}: {ability.pays} to {self.ability_says(ability)}"
+        name = ref_name(self.cog.engine, self.match, self.seat, ability.source)
+        return f"{name}: {self.ability_does(ability)}"
 
     def ability_refused_label(self, ability) -> str:
-        """A refused ability's button, its reason before what it does so
-        the cut to 80 characters never takes the reason: "Vir Garbarean
-        (your draw pile is empty): look at the top card of your draw
-        pile"."""
-        return f"{self.label(ability.source)} ({ability.why_not}): {self.ability_says(ability)}"
+        """A refused ability's button, its reason before its cost and what
+        it does so the cut to 80 characters never takes the reason:
+        "Garth Torken (no target): sacrifice a Skeleton to draw a card"
+        -- the source by its name alone, as `ability_label`'s."""
+        name = ref_name(self.cog.engine, self.match, self.seat, ability.source)
+        return f"{name} ({ability.why_not}): {self.ability_does(ability)}"
+
+    def ability_does(self, ability) -> str:
+        """An ability's cost and what it does, the same on its button
+        whether it may be used or not: "sacrifice a Skeleton to draw a
+        card" (the author, 2026-11-16); one that costs nothing, only
+        what it does."""
+        says = self.ability_says(ability)
+        return f"{ability.pays} to {says}" if ability.pays else says
 
     @staticmethod
     def ability_says(ability) -> str:
