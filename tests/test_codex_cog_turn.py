@@ -2310,6 +2310,17 @@ class AbilityLabelTests(unittest.IsolatedAsyncioTestCase):
             "Orpal Gloor: sacrifice a non-Demon unit to put a -1/-1 rune on a unit",
         ])
 
+    async def test_a_refused_ability_keeps_its_cost(self) -> None:
+        match = self.table.match
+        match.active = 2
+        hero_in_play(match, 2, slug="garth_torken", level=4, damage=1)
+        match.player(2).gold = 0
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertIn("Garth Torken (no target): sacrifice a Skeleton to draw a card",
+                      [item.label for item in view.children if item.disabled],
+                      [item.label for item in view.children])
+
     async def test_a_free_ability_says_only_what_it_does(self) -> None:
         match = self.table.match
         match.active = 1

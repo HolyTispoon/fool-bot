@@ -706,17 +706,23 @@ class TurnPanelView(PanelView):
         if ability.effect == "stop_the_music":
             return f"Sacrifice {card_name(effects.HARMONY)}: stop the music"
         name = ref_name(self.cog.engine, self.match, self.seat, ability.source)
-        if not ability.pays:
-            return f"{name}: {self.ability_says(ability)}"
-        return f"{name}: {ability.pays} to {self.ability_says(ability)}"
+        return f"{name}: {self.ability_does(ability)}"
 
     def ability_refused_label(self, ability) -> str:
-        """A refused ability's button, its reason before what it does so
-        the cut to 80 characters never takes the reason: "Vir Garbarean
-        (your draw pile is empty): look at the top card of your draw
-        pile" -- the source by its name alone, as `ability_label`'s."""
+        """A refused ability's button, its reason before its cost and what
+        it does so the cut to 80 characters never takes the reason:
+        "Garth Torken (no target): sacrifice a Skeleton to draw a card"
+        -- the source by its name alone, as `ability_label`'s."""
         name = ref_name(self.cog.engine, self.match, self.seat, ability.source)
-        return f"{name} ({ability.why_not}): {self.ability_says(ability)}"
+        return f"{name} ({ability.why_not}): {self.ability_does(ability)}"
+
+    def ability_does(self, ability) -> str:
+        """An ability's cost and what it does, the same on its button
+        whether it may be used or not: "sacrifice a Skeleton to draw a
+        card" (the author, 2026-11-16); one that costs nothing, only
+        what it does."""
+        says = self.ability_says(ability)
+        return f"{ability.pays} to {says}" if ability.pays else says
 
     @staticmethod
     def ability_says(ability) -> str:

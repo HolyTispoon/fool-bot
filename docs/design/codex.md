@@ -2672,7 +2672,9 @@ ends." and **Lock patrol**).
   "Orpal Gloor: sacrifice a non-Demon unit to put a -1/-1 rune on a
   unit", a sacrifice that opens the text before its arrow being its
   cost (`RulesEngine.cost_words`), and one that costs nothing only
-  what it does, never "use it to" (the author, 2026-11-16); a group
+  what it does, never "use it to" -- a refused one the same after
+  its reason, "Garth Torken (no target): sacrifice a Skeleton to draw
+  a card" (the author, 2026-11-16); a group
   with nothing to offer is one
   disabled button saying why ("Nothing can be built now", unless a
   next tech building already says why), so the
