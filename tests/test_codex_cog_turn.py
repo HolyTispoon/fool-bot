@@ -2278,6 +2278,48 @@ class RefusedAbilityTests(unittest.IsolatedAsyncioTestCase):
             ["vir_garbarean", "vir_garbarean_exchange"])
 
 
+class AbilityLabelTests(unittest.IsolatedAsyncioTestCase):
+    """An ability's button names its source by name alone -- no ATK/HP,
+    no damage, which cut it short on a phone -- then its cost and what
+    it does; a sacrifice before the arrow is its cost, and one that costs
+    nothing says only what it does (the author, 2026-11-16)."""
+
+    PURPLE = ("past", "present", "future")
+    BLACK = ("demonology", "disease", "necromancy")
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started(teams=(self.PURPLE, self.BLACK))
+
+    def abilities(self, view) -> list[str]:
+        return [item.label for item in view.children if (item.choice or ("",))[0] == "ability"]
+
+    async def test_a_hero_by_name_alone(self) -> None:
+        match = self.table.match
+        match.active = 2
+        hero_in_play(match, 2, slug="orpal_gloor", level=4, damage=1)
+        hero_in_play(match, 2, slug="garth_torken", level=4, damage=1)
+        put(match, 2, "skeleton")
+        match.player(2).gold = 3
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertEqual(sorted(self.abilities(view)), [
+            "Garth Torken: pay 1 gold to summon a Skeleton",
+            "Garth Torken: sacrifice a Skeleton to draw a card",
+            "Orpal Gloor: sacrifice a non-Demon unit to put a -1/-1 rune on a unit",
+        ])
+
+    async def test_a_free_ability_says_only_what_it_does(self) -> None:
+        match = self.table.match
+        match.active = 1
+        hero_in_play(match, 1, slug="vir_garbarean", damage=1)
+        match.player(1).deck = ["argonaut"]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertIn("Vir Garbarean: look at the top card of your draw pile", self.abilities(view))
+
+
 class EyesOfTheChancellorTests(unittest.IsolatedAsyncioTestCase):
     """Eyes of the Chancellor (step 13): "Opponents play with their hands
     revealed" -- the opponent's hand pictured under the Eyes' controller's

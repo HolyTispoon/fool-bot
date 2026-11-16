@@ -2665,7 +2665,15 @@ ends." and **Lock patrol**).
   says no to is disabled with its reason as its label ("Hire a worker:
   already hired", "Attack: nothing can attack", "Summon Orpal Gloor:
   Hero limit is 2", "Vandy Anadrose: at its max level" -- the
-  author's wording, 2026-10-11); a group with nothing to offer is one
+  author's wording, 2026-10-11); an ability's button names its card
+  or hero by name alone (`formatting.ref_name`: "Orpal Gloor", a
+  copy's number kept), never `ref_label`'s ATK/HP and damage, which
+  cut it short on a phone, then what it costs and what it does --
+  "Orpal Gloor: sacrifice a non-Demon unit to put a -1/-1 rune on a
+  unit", a sacrifice that opens the text before its arrow being its
+  cost (`RulesEngine.cost_words`), and one that costs nothing only
+  what it does, never "use it to" (the author, 2026-11-16); a group
+  with nothing to offer is one
   disabled button saying why ("Nothing can be built now", unless a
   next tech building already says why), so the
   panel keeps its shape. **Hire worker** turns the panel into the hand, a button

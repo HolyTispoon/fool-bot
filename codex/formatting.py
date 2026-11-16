@@ -142,6 +142,37 @@ def _ref_label(engine, match, seat: int, ref: str, note: str) -> str:
     return f"{label}, {damage} damage" if damage else label
 
 
+def ref_name(engine, match, seat: int, ref: str) -> str:
+    """
+    What `ref` names on `seat`'s side by its name alone, for a button
+    that says what it does rather than what it is: "Orpal Gloor",
+    "Skeleton #2", "Plague Lab" -- no ATK/HP, no damage, no HP left,
+    which `ref_label` gives and which cut such a button short on a phone
+    (the author, 2026-11-16). A copy's number stays, since it is what
+    tells two copies apart.
+    """
+    from codex.components import is_hero_ref
+    from codex.engine import building_name, unit_ref
+
+    player = match.player(seat)
+    hero = match.hero_on(seat, ref) if is_hero_ref(ref) else None
+    if hero is not None:
+        return catalog().name(hero.slug)
+    instance_id = unit_ref(ref)
+    card = player.instance(instance_id) if instance_id is not None else None
+    if card is not None:
+        name = catalog().name(card.slug)
+        number = copy_number(player, card)
+        return f"{name} #{number}" if number else name
+    if ref == "add_on" and player.add_on is not None:
+        return catalog().name(player.add_on.slug)
+    if ref == "base":
+        return "Base"
+    if ref == "workers" or ":" in ref or "#" in ref:
+        return ref_label(engine, match, seat, ref)
+    return building_name(ref)
+
+
 def _with_hp_left(engine, match, seat: int, ref: str, name: str, note: str = "") -> str:
     left = engine.building_hp_left(match, seat, ref)
     if left is None:
