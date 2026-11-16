@@ -529,8 +529,8 @@ class LendingTests(unittest.IsolatedAsyncioTestCase):
         """The answer carries `lent` beside the assignment; the lock is
         the turn's end -- the old message's last edit, then, the next
         seat's first turn owing no tech, its start posted and pinned, and
-        the new turn message's post -- and the defer and the panel edited
-        into the tech picker, as a duel's."""
+        the new turn message's post -- and the defer and the tech picker
+        sent under the new post, the panel clicked deleted, as a duel's."""
         view = await self.patrol()
         view = (await self.table.choose(view, "Choose a slot", self.key("elite", self.borrower))).view()
         view = (await self.table.choose(view, "Who is lent to", self.card.ref)).view()
@@ -543,7 +543,8 @@ class LendingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(action.arguments, {
             "assignment": {}, "lent": {str(self.borrower): {"elite": self.card.ref}},
         })
-        self.assertEqual([kind for kind, _, _ in lock.answers], PANEL_EDITED)
+        self.assertEqual([kind for kind, _, _ in lock.answers],
+                         ["response.defer", "followup.send", "original.delete"])
         self.assertEqual([kind for kind, _ in channel_requests(self.table, mark)],
                          ["edit", "send", "pin", "send"])
         match = self.table.match

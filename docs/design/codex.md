@@ -2472,6 +2472,23 @@ ends." and **Lock patrol**).
   back to editing both (2026-10-12: "go back to editing the board and
   hand messages rather than reposting them"), and `/codex resume`
   brings the board back down when talk has pushed it up.
+- **Except where the click posted a turn message.** An ephemeral
+  message stays where it was first sent, and an edit cannot move it.
+  Two clicks post a turn message: the Lock that ends a turn
+  (`roll_over`), and the Confirm -- or a test game's Save tech, or an
+  upkeep's order -- that opens a turn's main phase (`open_turn`, which
+  makes the old message the turn's start and posts the turn message
+  under it). Edited in place, the panel clicked was left above the new
+  turn message, the turn's start and its pin's notice (the author,
+  2026-11-13: "my ephemeral hand menu appears above the turn message
+  rather than below", right after a tech choice). So where the turn
+  message's id moved during the click (`PanelView.act`), the panel is
+  **sent afresh under it** through the click's webhook and the one
+  clicked deleted (`answer_panel`'s `fresh`, `drop_clicked_panel`), as
+  **Show board** does -- the webhook's requests, none of the channel's.
+  A panel that closes, asking nothing -- the game's end, a test game's
+  Lock -- is edited where it stands, since nothing on it needs to be
+  under the board.
 - **Discord's phone apps leave a new picture in an ephemeral message a
   grey box; nothing the bot sends fixes that** (2026-10-15 to
   -18). Every new picture in an ephemeral message -- the hand, the
@@ -3037,8 +3054,8 @@ Measured with the fakes, and held on every click of the whole-game test:
 | A choice that moves nothing public and draws nothing (a patrol slot, Hire worker, Undo... opening its choices) | **0** | 1: the panel's edit |
 | A choice that moves nothing public and draws a picture (End main phase, a tech pick before saving, the tech picker's Show menu and Clear, Change on saved picks, Attack... picturing what may attack, a view chosen in the codex's menu) | **0** | 2: the defer, the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 2: the defer, the picker edited to the saved picks |
-| Lock in patrol zone (the turn's end) | **2**: the old message's last edit, the new one's post -- **4** where the new turn owes no tech, its start posted and pinned between | 2: the defer, the panel edited into the tech picker |
-| Confirm, or a test game's Save tech, opening a turn's main phase | **3**: the turn message's last edit into the turn's start, its pin, the turn message's post under it | 2 |
+| Lock in patrol zone (the turn's end) | **2**: the old message's last edit, the new one's post -- **4** where the new turn owes no tech, its start posted and pinned between | 3: the defer, the tech picker sent under the new turn message, the panel clicked deleted |
+| Confirm, or a test game's Save tech, opening a turn's main phase | **3**: the turn message's last edit into the turn's start, its pin, the turn message's post under it | 3: the defer, the turn's actions sent under the turn message, the panel clicked deleted |
 | The attack that destroys a base | **2**: the last edit, and the winner's line with the board | 2 |
 | Concede, the first click | **0** | 1: the confirmation |
 | Concede the game (step 8) | **2**: the last edit, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
