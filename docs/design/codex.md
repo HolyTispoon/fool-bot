@@ -1145,7 +1145,14 @@ re-import that adds one fails loudly.
 - **The jail.** A unit its opponent's Jail catches goes from the hand
   to the Jail's `jailed` slot -- `{slug, owner, boosted}`, not in play
   and not arriving -- and is released, arriving then, when the next one
-  takes its place; it is discarded with the Jail. Forecast units never go
+  takes its place; it is discarded with the Jail, and a line of its own
+  after the Jail's says so ("Older Brother, in Jail, goes to P1's
+  discard pile") -- the slot is no zone the table sees, so nothing else
+  would tell anyone it is gone. `leave_play` hands that line back rather
+  than saying it, because a destroyed card's own line is finished after
+  it leaves (`_destroy_unit` adds the payout and the bounty), and the
+  callers a Jail can leave through -- destroyed, sacrificed, trashed,
+  returned -- say it after theirs (`board.say_held`). Forecast units never go
   there (the jail rulings). **A boost paid resolves as the unit is
   played, before it goes to Jail, and never on its release** (the boost
   ruling, Sirlin 2016-03-11: "the boost effect happens and your unit goes

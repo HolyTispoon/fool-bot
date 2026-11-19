@@ -308,23 +308,28 @@ def is_token(engine: "RulesEngine", slug: str) -> bool:
     return engine.catalog.cards[slug].kind == "token"
 
 
-def leave_play(engine: "RulesEngine", match: MatchState, card: CardInstance, to: str) -> None:
+def leave_play(engine: "RulesEngine", match: MatchState, card: CardInstance, to: str) -> str:
     """
     `card` out of play to its **owner's** `to` -- "discard" or "hand"; a
     token is trashed wherever it goes, never entering a hand, a deck or a
     discard pile.
+
+    The sentence saying what a Jail held went to the discard pile with it
+    (`_empty_graveyard`), or "": the caller says it after its own line,
+    where a Jail can be the card leaving.
     """
     match.player(card.controller).play.remove(card)
-    _empty_graveyard(match, card)
+    held = _empty_graveyard(match, card)
     if is_token(engine, card.slug):
-        return
+        return held
     owner = match.player(card.owner)
     if to == "hand":
         owner.hand.append(card.slug)
     elif to == "died" and _bury(engine, match, card):
-        return
+        return held
     else:
         owner.discard.append(card.slug)
+    return held
 
 
 def _bury(engine: "RulesEngine", match: MatchState, card: CardInstance) -> bool:
@@ -344,16 +349,29 @@ def _bury(engine: "RulesEngine", match: MatchState, card: CardInstance) -> bool:
     return True
 
 
-def _empty_graveyard(match: MatchState, card: CardInstance) -> None:
+def _empty_graveyard(match: MatchState, card: CardInstance) -> str:
     """A Graveyard leaving play discards what is buried in it, each to its
     owner's discard pile -- and a Jail the unit it holds (step 13: "They're
-    discarded if Jail is destroyed")."""
+    discarded if Jail is destroyed"). The sentence saying where the jailed
+    unit went, or "": it was in no zone anybody sees, so nothing else
+    tells the table it is gone."""
     for buried in card.buried:
         match.player(buried["owner"]).discard.append(buried["slug"])
     card.buried = []
-    if card.jailed is not None:
-        match.player(card.jailed["owner"]).discard.append(card.jailed["slug"])
-        card.jailed = None
+    held = card.jailed
+    if held is None:
+        return ""
+    match.player(held["owner"]).discard.append(held["slug"])
+    card.jailed = None
+    return (f"{tokens.card(held['slug'])}, in {tokens.card(card.slug)}, goes to "
+            f"{tokens.player(held['owner'])}'s discard pile.")
+
+
+def say_held(result: Optional[StepResult], held: str) -> None:
+    """The jailed unit's line (`leave_play`), where there is one and a
+    result to say it in."""
+    if held and result is not None:
+        result.narration.append(held)
 
 
 #: A free-for-all pays 1 gold to the active player for each enemy unit
@@ -398,7 +416,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
         line = f"{by} destroys {named(match, seat, card.ref)}."
     else:
         line = f"{named(match, seat, card.ref)} is destroyed."
-    leave_play(engine, match, card, "died")
+    held = leave_play(engine, match, card, "died")
     match.record_event("destroyed", slug=card.slug, owner=card.owner)
     # A lent card pays its owner, not the borrower (Rulebook p. 14).
     line += _patrol_payout(engine, match, card.patrol_slot, home_seat(card), result)
@@ -410,6 +428,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
             line += (f" {tokens.player(match.active)} collects a bounty of {tokens.gold(paid)}: "
                      f"{gold_now(match, match.active)}.")
     result.narration.append(line)
+    say_held(result, held)
 
 
 def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
@@ -730,8 +749,9 @@ def trash(engine: "RulesEngine", match: MatchState, card: CardInstance,
     if engine.cant_leave_play(match, card):
         return False
     match.player(card.controller).play.remove(card)
-    _empty_graveyard(match, card)
+    held = _empty_graveyard(match, card)
     match.record_event("trashed", slug=card.slug, owner=card.owner)
+    say_held(result, held)
     if result is not None and engine.catalog.cards[card.slug].is_unit:
         second_chances(engine, match, [card], result)
     return True
@@ -771,8 +791,9 @@ def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance,
         return
     witnesses = _witnesses(engine, match)
     slot = card.patrol_slot
-    leave_play(engine, match, card, "died")
+    held = leave_play(engine, match, card, "died")
     match.record_event("sacrificed", slug=card.slug, owner=card.owner)
+    say_held(result, held)
     if engine.catalog.cards[card.slug].is_unit:
         if result is not None:
             # A lent card pays its owner, not the borrower (Rulebook p. 14).
