@@ -306,7 +306,7 @@ FIGURE_STRETCH = 1.2
 #: and no wider than the box. It is edged `WORKER_EDGE` thick at the
 #: picture's size: at 2 a count in a pale colour's ink -- Purple's pink
 #: on its lilac box, White's, Green's -- was hard to read (the author,
-#: 2026-11-19: 8 rather than 5). An ink darker than `WORKER_DARK_INK`
+#: 2026-11-19: 5, having seen 2, 5 and 8). An ink darker than `WORKER_DARK_INK`
 #: -- Black's, 29, where the next is Red's, 92 -- is edged
 #: `WORKER_LIGHT_EDGE` instead: black edged black is a blob (the
 #: author, 2026-11-19).
@@ -314,7 +314,7 @@ WORKER_AREA = (14, 280, 165, 392)
 WORKER_PLAYER = (0, 380, 92, 525)
 WORKER_BASELINE = 379
 WORKER_BOX_RIGHT = 157
-WORKER_EDGE = 8
+WORKER_EDGE = 5
 WORKER_DARK_INK = 60
 WORKER_LIGHT_EDGE = (245, 240, 230)
 
