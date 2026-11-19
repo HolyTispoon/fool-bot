@@ -303,11 +303,15 @@ FIGURE_STRETCH = 1.2
 #: picture's at 375 by 525: the count stands within `WORKER_AREA`, the
 #: printed "Player n" in `WORKER_PLAYER`, left alone, and the new count
 #: is set on `WORKER_BASELINE`, above it, as high as the print's digit
-#: and no wider than the box.
+#: and no wider than the box. It is edged `WORKER_EDGE` thick at the
+#: picture's size: at 2 a count in a pale colour's ink -- Purple's pink
+#: on its lilac box, White's, Green's -- was hard to read (the author,
+#: 2026-11-19); at 8 the edge fills the 2's and the x's counters.
 WORKER_AREA = (14, 280, 165, 392)
 WORKER_PLAYER = (0, 380, 92, 525)
 WORKER_BASELINE = 379
 WORKER_BOX_RIGHT = 157
+WORKER_EDGE = 5
 
 #: The command zone: one plate beside the patrol zone, as on the mat,
 #: with a slot per hero -- three in the standard game, one in the basic
@@ -1513,12 +1517,17 @@ def worker_card(workers: int, color: str, went_first: bool) -> Image.Image:
     wiped, left, top, ink = wiped_workers(worker_face(color, went_first), went_first)
     picture = wiped.copy()
     text = f"x{workers}"
+    # The edge stands outside the glyphs, so the figures are set inside
+    # it: raised off "Player n" and kept within the box's right side.
+    baseline = WORKER_BASELINE - (WORKER_EDGE - 2)
     _, glyph_top, _, glyph_bottom = font(100, bold=False).getbbox("4", anchor="ls")
-    size = round((WORKER_BASELINE - top) * 100 / (glyph_bottom - glyph_top))
-    while size > 20 and font(size, bold=False).getlength(text) > WORKER_BOX_RIGHT - left:
+    size = round((baseline - top) * 100 / (glyph_bottom - glyph_top))
+    while (size > 20 and font(size, bold=False).getlength(text) + 2 * WORKER_EDGE
+           > WORKER_BOX_RIGHT - left):
         size -= 2
-    ImageDraw.Draw(picture).text((left, WORKER_BASELINE), text, font=font(size, bold=False),
-                                 fill=ink, anchor="ls", stroke_width=2, stroke_fill=FIGURE_EDGE)
+    ImageDraw.Draw(picture).text((left + WORKER_EDGE, baseline), text, font=font(size, bold=False),
+                                 fill=ink, anchor="ls", stroke_width=WORKER_EDGE,
+                                 stroke_fill=FIGURE_EDGE)
     return rounded(picture.resize(CARD, Image.LANCZOS), round(CARD[0] / 20))
 
 
