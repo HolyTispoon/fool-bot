@@ -306,12 +306,17 @@ FIGURE_STRETCH = 1.2
 #: and no wider than the box. It is edged `WORKER_EDGE` thick at the
 #: picture's size: at 2 a count in a pale colour's ink -- Purple's pink
 #: on its lilac box, White's, Green's -- was hard to read (the author,
-#: 2026-11-19); at 8 the edge fills the 2's and the x's counters.
+#: 2026-11-19: 8 rather than 5). An ink darker than `WORKER_DARK_INK`
+#: -- Black's, 29, where the next is Red's, 92 -- is edged
+#: `WORKER_LIGHT_EDGE` instead: black edged black is a blob (the
+#: author, 2026-11-19).
 WORKER_AREA = (14, 280, 165, 392)
 WORKER_PLAYER = (0, 380, 92, 525)
 WORKER_BASELINE = 379
 WORKER_BOX_RIGHT = 157
-WORKER_EDGE = 5
+WORKER_EDGE = 8
+WORKER_DARK_INK = 60
+WORKER_LIGHT_EDGE = (245, 240, 230)
 
 #: The command zone: one plate beside the patrol zone, as on the mat,
 #: with a slot per hero -- three in the standard game, one in the basic
@@ -1509,6 +1514,15 @@ def wiped_workers(face: tuple[str, str],
     return wiped, left, top, tuple(round(v) for v in ink)
 
 
+def worker_edge(ink: tuple[int, int, int]) -> tuple[int, int, int]:
+    """The edge round the worker card's count: dark, but light round
+    an ink too dark to stand on a dark edge."""
+    red, green, blue = ink
+    if 0.299 * red + 0.587 * green + 0.114 * blue < WORKER_DARK_INK:
+        return WORKER_LIGHT_EDGE
+    return FIGURE_EDGE
+
+
 @lru_cache(maxsize=32)
 def worker_card(workers: int, color: str, went_first: bool) -> Image.Image:
     """The worker card in `color`, the starting deck's, at a card's
@@ -1527,7 +1541,7 @@ def worker_card(workers: int, color: str, went_first: bool) -> Image.Image:
         size -= 2
     ImageDraw.Draw(picture).text((left + WORKER_EDGE, baseline), text, font=font(size, bold=False),
                                  fill=ink, anchor="ls", stroke_width=WORKER_EDGE,
-                                 stroke_fill=FIGURE_EDGE)
+                                 stroke_fill=worker_edge(ink))
     return rounded(picture.resize(CARD, Image.LANCZOS), round(CARD[0] / 20))
 
 

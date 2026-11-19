@@ -1761,10 +1761,12 @@ else the bot shows is ephemeral.
     (`worker_figures`), and wiped on every colour's; the ink under them
     is the face's own. The workers the player has now are written in
     their place, "x8", in that ink, in Roboto
-    Slab's regular weight edged dark -- 5 px at the picture's 375 by
+    Slab's regular weight edged dark -- 8 px at the picture's 375 by
     525 (`WORKER_EDGE`), since at 2 a pale colour's count, Purple's
     pink on its lilac box, was hard to read (the author, 2026-11-19),
-    the figures set inside the edge -- as tall as the print's digit and
+    the figures set inside the edge; Black's ink, the one darker than
+    `WORKER_DARK_INK`, edged light instead, since black on black is a
+    blob (`worker_edge`) -- as tall as the print's digit and
     narrowed to fit the box (`worker_card`). It takes a cell, so the
     basic game's first row holds four cards beside it and a fifth starts
     the second. Then the heroes on the field (the level chit top left),
