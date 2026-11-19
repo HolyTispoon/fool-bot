@@ -4958,8 +4958,32 @@ class WhiteBlueRuleRulingTests(unittest.TestCase):
         hand(match, 1, "older_brother")
         match.player(1).gold = 20
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="older_brother")
-        board.destroy(engine, match, [(2, jail.ref)], StepResult())
+        result = StepResult()
+        board.destroy(engine, match, [(2, jail.ref)], result)
         self.assertIn("older_brother", match.player(1).discard)
+        # It was in no zone the table sees: the line after the Jail's says
+        # where it went.
+        destroyed = next(i for i, line in enumerate(result.narration) if "is destroyed" in line)
+        self.assertEqual(
+            result.narration[destroyed + 1],
+            "{card:older_brother}, in {card:jail}, goes to {player:1}'s discard pile.",
+        )
+
+    def test_an_empty_jail_says_nothing_of_a_jailed_unit(self) -> None:
+        engine, game, match, jail = self.jail_against()
+        result = StepResult()
+        board.destroy(engine, match, [(2, jail.ref)], result)
+        self.assertFalse(any("discard pile" in line for line in result.narration))
+
+    def test_a_jailed_unit_is_said_discarded_when_the_jail_returns_to_hand(self) -> None:
+        engine, game, match, jail = self.jail_against()
+        jail.jailed = {"slug": "older_brother", "owner": 1, "controller": 1, "boosted": False}
+        result = StepResult()
+        board.say_held(result, board.leave_play(engine, match, jail, "hand"))
+        self.assertIn("jail", match.player(2).hand)
+        self.assertIn("older_brother", match.player(1).discard)
+        self.assertEqual(result.narration,
+                         ["{card:older_brother}, in {card:jail}, goes to {player:1}'s discard pile."])
 
     def test_censorship_council_1(self) -> None:
         """The restriction doesn't apply to effects that would "put a card

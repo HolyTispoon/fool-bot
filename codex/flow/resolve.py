@@ -784,9 +784,10 @@ def _return(engine, match, top, part, target, result) -> bool:
         result.narration.append(f"{_thing(match, target)} can't leave play.")
         return False
     line = f"{top['by']} returns {_thing(match, target)} to {tokens.player(card.owner)}'s hand."
-    board.leave_play(engine, match, card, "hand")
+    held = board.leave_play(engine, match, card, "hand")
     match.record_event("returned", slug=card.slug, owner=card.owner)
     result.narration.append(line)
+    board.say_held(result, held)
     board.second_chances(engine, match, [card], result)
     return True
 
@@ -1322,7 +1323,7 @@ def _destroy_card(engine, match, top, part, target, result) -> None:
     if card is None:
         return
     result.narration.append(f"{top['by']} destroys {_thing(match, target)}.")
-    board.leave_play(engine, match, card, "discard")
+    board.say_held(result, board.leave_play(engine, match, card, "discard"))
     match.record_event("destroyed", slug=card.slug, owner=card.owner)
 
 
