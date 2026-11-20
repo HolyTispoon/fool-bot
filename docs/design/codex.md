@@ -3326,7 +3326,7 @@ runes -- +1/+1, -1/-1, time and every named kind the cards put
 are added and removed, never set** (the author, 2026-10-30, replacing a
 first `hp` command that set the HP): a correction is the difference a
 bug made, said as one. They are **corrections, not actions**: nobody's
-turn is spent, nothing triggers, and the model's `codex/flow/edits.py`
+turn is spent, and the model's `codex/flow/edits.py`
 makes them, through `GameService.correct` -- load, correct, save once
 -- so the cog decides nothing.
 
@@ -3335,20 +3335,30 @@ Each still keeps what a position holds -- **no patroller is exhausted**
 **a +1/+1 rune added cancels a -1/-1 one** and the other way round
 (`board.add_plus_rune`, `add_minus_rune`, as every effect puts them),
 +1/+1 and -1/-1 runes only on what has ATK and HP -- since a correction
-that broke one would be a bug of its own. **No correction kills**:
-damage up to lethal, or a -1/-1 rune that leaves 0 HP, is refused and
-the runes put back, because a death runs its triggers and asks, which
-only the driver may; and a fading card's or hero's last time rune is
-refused for the same reason, since the upkeep that takes it sacrifices
-the card (`board.remove_time_rune`). A squad leader moved in on another
+that broke one would be a bug of its own. **Lethal damage kills** (the
+author, 2026-11-20: "Adding damage manually should kill a unit. That's
+what the debug command is for", after a Manufactured Truth copy outlived
+its own HP): the damage is put on and the position settled as after any
+damage (`board.settle`) -- an indestructible unit spared, a hero to the
+command zone with its kill's levels to an opponent's hero. What the
+death sets off is worked as an action's is: where it put frames on the
+stack -- a Gorgon's draw, a choice of whose hero takes the levels --
+`resolve.carry_on` works them and picks up what they interrupted, and
+`driver.advance` runs anything owed (`edits.made`), so a death's trigger
+asks the way it would after combat. A correction that puts nothing on
+the stack leaves the question it was made under exactly as it was. The
+rune corrections still refuse to kill -- a -1/-1 rune that leaves 0 HP,
+a fading card's or hero's last time rune (`board.remove_time_rune`) --
+since nobody has asked for that. A squad leader moved in on another
 player's turn gets its armor then, as that turn's start would have
 given it (`SQUAD_LEADER_ARMOR`). **The zone is the unit's controller's**:
 `slot` picks the slot in it, and no correction puts a unit in another
 player's zone, which in a free-for-all is lending -- a control change
 until the borrower's upkeep (Rulebook p. 14) -- rather than a move.
 
-**A correction is journalled** (`history.EDIT`, `record_edit`) and
-replayed as written (`edits.replayed`), so every undo built on a replay
+**A correction is journalled** (`history.EDIT`, `record_edit`), with
+every shuffle it and what it set off drew, and replayed as written
+through the same `edits.made` (`edits.replayed`), so every undo built on a replay
 -- the fine undo, a spell's cancel, the turn's end taken back --
 rebuilds it rather than silently losing it. It is never an undo point of
 its own (`history.NOT_ACTIONS`): it goes with the action before it, so

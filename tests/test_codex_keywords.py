@@ -26,7 +26,7 @@ from unittest import mock
 
 from codex import keywords, rulings
 from codex.components import AddOnState, CardInstance, hero_ref, is_hero_ref
-from codex.flow import StepResult, actions, board, combat, driver, turn
+from codex.flow import StepResult, actions, board, combat, driver, resolve, turn
 from codex.game import RuleRefusal
 from codex.prompts import Action, PromptKind, pending_prompt
 from codex_positions import TROQ, begin, built, hero_in_play, new_game, put
@@ -2366,6 +2366,21 @@ class WhiteBlueKeywordTests(KeywordCase):
         turn.begin_tech(engine, game, match)
         self.assertIsNone(mine.copy_of)
         self.assertEqual(engine.unit_stats(mine, match), (1, 2))
+
+    def test_a_copy_with_more_damage_than_its_own_hp_dies_as_the_turn_ends(self) -> None:
+        engine, game, match = white_blue(first=2)
+        hero_in_play(match, 2, slug="sirus_quince")
+        cadet = put(match, 2, "overeager_cadet")
+        hound = put(match, 2, "spectral_hound")
+        cadet.modifiers.append({"kind": "copy", "until": "end_of_turn",
+                                "printed": cadet.printed, "copy_of": cadet.copy_of})
+        resolve.make_copy(engine, match, cadet, hound)
+        own_hp = engine.catalog.cards["overeager_cadet"].hp
+        cadet.damage = own_hp
+        self.assertGreater(engine.unit_stats(cadet, match)[1], cadet.damage)
+        turn.begin_tech(engine, game, match)
+        self.assertNotIn(cadet, match.player(2).play)
+        self.assertIn(hound, match.player(2).play)
 
 
 class EveryRulingIsPinnedTests(unittest.TestCase):

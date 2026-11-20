@@ -1,8 +1,8 @@
 """
 A helper's corrections by hand (`codex.flow.edits`, `/codex debug`): a
 unit or hero moved into, between and out of patrol slots, damage and
-runes added and removed, each keeping the rules a position holds and
-none killing; journalled, so a replay
+runes added and removed, each keeping the rules a position holds, and
+lethal damage killing as any damage does; journalled, so a replay
 makes it again, never an undo point of its own, and taken back by an
 undo to before it (docs/design/codex.md, "Corrections by hand").
 """
@@ -31,7 +31,7 @@ class CorrectionTests(unittest.TestCase):
         begin(self.engine, self.game, self.match)
 
     def correct(self, edit):
-        return edits.correct(self.engine, self.match, edit).narration
+        return edits.correct(self.engine, self.game, self.match, edit).narration
 
     def test_a_unit_patrols_moves_between_slots_and_leaves(self) -> None:
         card = put(self.match, 2, "tenderfoot")
@@ -74,7 +74,7 @@ class CorrectionTests(unittest.TestCase):
             self.correct(edits.patrol(2, "unit:999", "elite"))
         self.assertEqual(self.match.journal, [], "a refusal writes nothing")
 
-    def test_damage_is_added_and_removed_and_never_kills(self) -> None:
+    def test_damage_is_added_and_removed(self) -> None:
         card = put(self.match, 1, "iron_man", damage=1)
         self.assertEqual(self.correct(edits.damage(1, card.ref, 2)),
                          ["Corrected: {player:1}'s {card:iron_man} takes 2 damage and now has 3 damage, 1 HP of 4."])
@@ -83,9 +83,16 @@ class CorrectionTests(unittest.TestCase):
         self.assertEqual(card.damage, 0)
         with self.assertRaisesRegex(RuleRefusal, "only 0 damage"):
             self.correct(edits.damage(1, card.ref, -1))
-        with self.assertRaisesRegex(RuleRefusal, "would destroy it"):
-            self.correct(edits.damage(1, card.ref, 4))
         self.assertEqual(card.damage, 0)
+
+    def test_lethal_damage_destroys_the_unit(self) -> None:
+        """The author, 2026-11-20: "Adding damage manually should kill a
+        unit. That's what the debug command is for." """
+        card = put(self.match, 1, "iron_man", damage=1)
+        said = self.correct(edits.damage(1, card.ref, 3))
+        self.assertEqual(said[0], "Corrected: {player:1}'s {card:iron_man} takes 3 damage and now has 4 damage, 0 HP of 4.")
+        self.assertNotIn(card, self.match.player(1).play)
+        self.assertIn("iron_man", self.match.player(1).discard)
 
     def test_damage_names_no_card_without_hp(self) -> None:
         upgrade = put(self.match, 1, "might_of_leaf_and_claw")
@@ -166,7 +173,7 @@ class DrawTests(unittest.TestCase):
     def test_a_card_is_drawn_off_the_top(self) -> None:
         player = self.match.player(2)
         top, held = player.deck[-1], len(player.hand)
-        said = edits.correct(self.engine, self.match, edits.draw(2, 1)).narration
+        said = edits.correct(self.engine, self.game, self.match, edits.draw(2, 1)).narration
         self.assertEqual(said, ["Corrected: {player:2} draws a card."])
         self.assertEqual((len(player.hand), player.hand[-1]), (held + 1, top))
 
@@ -174,7 +181,7 @@ class DrawTests(unittest.TestCase):
         player = self.match.player(2)
         player.discard, player.deck = player.discard + player.deck, []
         self.match.turn_snapshots[-1] = history.position(self.match)
-        said = edits.correct(self.engine, self.match, edits.draw(2, 2)).narration
+        said = edits.correct(self.engine, self.game, self.match, edits.draw(2, 2)).narration
         self.assertEqual(said[0], "Corrected: {player:2} draws 2 cards.")
         self.assertIn("shuffles their discard pile into their deck", said[1])
         self.assertEqual(len(self.match.journal[-1]["outcomes"]), 1)
@@ -185,12 +192,12 @@ class DrawTests(unittest.TestCase):
     def test_a_short_draw_says_so_and_nothing_to_draw_is_refused(self) -> None:
         player = self.match.player(2)
         player.deck, player.discard = player.deck[-1:], []
-        said = edits.correct(self.engine, self.match, edits.draw(2, 3)).narration
+        said = edits.correct(self.engine, self.game, self.match, edits.draw(2, 3)).narration
         self.assertEqual(said, ["Corrected: {player:2} draws a card of 3: there were no more to draw."])
         with self.assertRaises(RuleRefusal):
-            edits.correct(self.engine, self.match, edits.draw(2, 1))
+            edits.correct(self.engine, self.game, self.match, edits.draw(2, 1))
         with self.assertRaises(RuleRefusal):
-            edits.correct(self.engine, self.match, edits.draw(9, 1))
+            edits.correct(self.engine, self.game, self.match, edits.draw(9, 1))
 
 
 class JournalTests(unittest.TestCase):
@@ -204,7 +211,7 @@ class JournalTests(unittest.TestCase):
         match.turn_snapshots[-1] = history.position(match)
         player = match.player(1)
         apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", {"slug": player.hand[1]})
-        edits.correct(engine, match, edits.patrol(2, self.foe.ref, "elite"))
+        edits.correct(engine, game, match, edits.patrol(2, self.foe.ref, "elite"))
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", {"slug": "tenderfoot"})
 
     def test_it_is_journalled_and_a_replay_makes_it_again(self) -> None:
@@ -232,8 +239,31 @@ class JournalTests(unittest.TestCase):
         apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
         apply(engine, game, match, PromptKind.PATROL, arguments={"assignment": {}})
         self.assertEqual(history.end_of_turn_owner(engine, game, match), 1)
-        edits.correct(engine, match, edits.damage(2, self.foe.ref, 1))
+        edits.correct(engine, game, match, edits.damage(2, self.foe.ref, 1))
         self.assertIsNone(history.end_of_turn_owner(engine, game, match))
+
+    def test_a_kill_by_correction_is_journalled_and_a_replay_makes_it_again(self) -> None:
+        engine, game, match = self.engine, self.game, self.match
+        edits.correct(engine, game, match, edits.damage(2, self.foe.ref, 5))
+        self.assertNotIn(self.foe, match.player(2).play)
+        again = history.replay(engine, game, match.turn_snapshots[-1], match.journal,
+                               history=match.turn_snapshots)
+        self.assertEqual(history.position(again), history.position(match))
+
+    def test_a_kill_by_correction_runs_the_deaths_trigger(self) -> None:
+        engine, game, match = new_game(seed=11)
+        begin(engine, game, match)
+        gorgon = put(match, 2, "gorgon")
+        match.turn_snapshots[-1] = history.position(match)
+        held = len(match.player(2).hand)
+        said = edits.correct(engine, game, match, edits.damage(2, gorgon.ref, 9)).narration
+        self.assertEqual(said[1:], ["{player:2}'s {card:gorgon} is destroyed.", "{player:2} draws a card."])
+        self.assertEqual(len(match.player(2).hand), held + 1)
+        self.assertEqual(match.resolving, [])
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        again = history.replay(engine, game, match.turn_snapshots[-1], match.journal,
+                               history=match.turn_snapshots)
+        self.assertEqual(history.position(again), history.position(match))
 
 
 if __name__ == "__main__":

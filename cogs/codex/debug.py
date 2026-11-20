@@ -209,7 +209,9 @@ class DebugMixin:
             except RuleRefusal as refused:
                 await interaction.followup.send(str(refused), ephemeral=True)
                 return
-            line = self.render_text(result.narration[0], game)
+            # The correction's line and what it set off -- a lethal
+            # correction's death and its triggers -- said together.
+            line = self.render_text(" ".join(result.narration), game)
             await interaction.delete_original_response()
             await interaction.followup.send(
                 f"{line} ({interaction.user.display_name})",
