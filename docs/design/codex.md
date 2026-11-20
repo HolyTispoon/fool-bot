@@ -3360,8 +3360,8 @@ elite." -- is a result's like any action's: it joins the turn's lines,
 the turn message is edited in place through the gate and the site gets
 it (`present`). **The line is also said in public**, with whoever made
 it named after it -- "Corrected: ... (helper)" -- as the command's own
-answer (the author, 2026-11-20: the change should be reported
-publicly): the answer is deferred ephemerally, so a refusal is the
+answer, for all four corrections (the author, 2026-11-20: the change
+should be reported publicly, and "all four should be"): the answer is deferred ephemerally, so a refusal is the
 asker's alone and puts nothing in public, and a correction made
 deletes that thinking message and posts its line through the
 interaction's webhook, never the channel's bucket. **`/codex debug
