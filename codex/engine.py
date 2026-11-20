@@ -1365,10 +1365,12 @@ class RulesEngine:
 
     # -- Time (step 12) --------------------------------------------------------
 
-    def fading(self, body) -> int:
+    def fading(self, body, match: Optional[MatchState] = None) -> int:
         """Fading X (UMR p. 17): the time runes it arrives with -- 0 for a
-        card without it."""
-        return self.keyword_x(body, "Fading")
+        card without it. Given the match, read as the thing stands there:
+        a silenced player's hero has no fading (Free Speech's "loses all
+        abilities"), so the upkeep takes no rune off it."""
+        return self.keyword_x(body, "Fading", match)
 
     def forecast(self, slug: str) -> int:
         """Forecast X (UMR p. 17): the time runes it goes into the future
@@ -4133,9 +4135,9 @@ class RulesEngine:
         # the future (UMR p. 17; step 12): a card with none left from the
         # start never fades.
         found += [f"fade:{card.id}" for card in player.play
-                  if card.time_runes > 0 and self.fading(card)]
+                  if card.time_runes > 0 and self.fading(card, match)]
         found += [f"fade_hero:{hero.slug}" for hero in player.heroes_in_play
-                  if hero.time_runes > 0 and self.fading(hero)]
+                  if hero.time_runes > 0 and self.fading(hero, match)]
         found += [f"forecast:{card.id}" for card in player.future]
         add_on = player.add_on
         if add_on is not None and add_on.active and add_on.slug in effects.UPKEEP_DRAW:

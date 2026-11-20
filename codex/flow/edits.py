@@ -236,7 +236,9 @@ def _damage(engine: "RulesEngine", match: MatchState, seat: int, ref: str, body,
             "which a correction never does."
         )
     body.damage = left
-    return f"Corrected: {board.named(match, seat, ref)} now has {left} damage, {max_hp - left} HP of {max_hp}."
+    moved = f"{'takes' if change > 0 else 'loses'} {abs(change)} damage"
+    return (f"Corrected: {board.named(match, seat, ref)} {moved} and now has {left} damage, "
+            f"{max_hp - left} HP of {max_hp}.")
 
 
 def _rune(engine: "RulesEngine", match: MatchState, seat: int, ref: str, body, kind: str,
@@ -278,7 +280,8 @@ def _rune(engine: "RulesEngine", match: MatchState, seat: int, ref: str, body, k
         for changed in (kind, *(other for other in (PLUS, MINUS) if other != kind))
         if changed == kind or after[changed] != before[changed]
     ]
-    return f"Corrected: {board.named(match, seat, ref)} now has {' and '.join(said)}."
+    moved = f"{'gains' if change > 0 else 'loses'} {_count(abs(change), kind)}"
+    return f"Corrected: {board.named(match, seat, ref)} {moved} and now has {' and '.join(said)}."
 
 
 def _draw(engine: "RulesEngine", match: MatchState, seat: int, count: int) -> StepResult:

@@ -77,8 +77,9 @@ class CorrectionTests(unittest.TestCase):
     def test_damage_is_added_and_removed_and_never_kills(self) -> None:
         card = put(self.match, 1, "iron_man", damage=1)
         self.assertEqual(self.correct(edits.damage(1, card.ref, 2)),
-                         ["Corrected: {player:1}'s {card:iron_man} now has 3 damage, 1 HP of 4."])
-        self.correct(edits.damage(1, card.ref, -3))
+                         ["Corrected: {player:1}'s {card:iron_man} takes 2 damage and now has 3 damage, 1 HP of 4."])
+        self.assertEqual(self.correct(edits.damage(1, card.ref, -3)),
+                         ["Corrected: {player:1}'s {card:iron_man} loses 3 damage and now has 0 damage, 4 HP of 4."])
         self.assertEqual(card.damage, 0)
         with self.assertRaisesRegex(RuleRefusal, "only 0 damage"):
             self.correct(edits.damage(1, card.ref, -1))
@@ -94,8 +95,10 @@ class CorrectionTests(unittest.TestCase):
     def test_a_named_rune_goes_on_any_card_in_play_and_comes_off(self) -> None:
         upgrade = put(self.match, 1, "might_of_leaf_and_claw")
         self.assertEqual(self.correct(edits.rune(1, upgrade.ref, "growth", 3)),
-                         ["Corrected: {player:1}'s {card:might_of_leaf_and_claw} now has 3 growth runes."])
-        self.correct(edits.rune(1, upgrade.ref, "growth", -3))
+                         ["Corrected: {player:1}'s {card:might_of_leaf_and_claw} gains 3 growth runes and now has 3 growth runes."])
+        self.assertEqual(self.correct(edits.rune(1, upgrade.ref, "growth", -2)),
+                         ["Corrected: {player:1}'s {card:might_of_leaf_and_claw} loses 2 growth runes and now has 1 growth rune."])
+        self.correct(edits.rune(1, upgrade.ref, "growth", -1))
         self.assertEqual(upgrade.runes, {})
         with self.assertRaisesRegex(RuleRefusal, "has no growth runes to remove"):
             self.correct(edits.rune(1, upgrade.ref, "growth", -1))
@@ -104,7 +107,7 @@ class CorrectionTests(unittest.TestCase):
         card = put(self.match, 1, "iron_man")
         card.minus_runes = 1
         self.assertEqual(self.correct(edits.rune(1, card.ref, edits.PLUS, 2)),
-                         ["Corrected: {player:1}'s {card:iron_man} now has 1 +1/+1 rune and no -1/-1 runes."])
+                         ["Corrected: {player:1}'s {card:iron_man} gains 2 +1/+1 runes and now has 1 +1/+1 rune and no -1/-1 runes."])
         self.assertEqual((card.plus_runes, card.minus_runes), (1, 0))
         self.correct(edits.rune(1, card.ref, edits.PLUS, -1))
         self.assertEqual(card.plus_runes, 0)

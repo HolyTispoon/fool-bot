@@ -5087,6 +5087,46 @@ class WhiteBlueRuleRulingTests(unittest.TestCase):
         self.assertFalse(player.silenced)
         self.assertTrue(engine.has_keyword(grave, "Sparkshot", match))
 
+    def test_free_speech_takes_prynns_fading(self) -> None:
+        """A silenced player's hero "loses all abilities" (Free Speech's
+        rulings), fading among them: Prynn Pasternaak loses no time rune at
+        the upkeep of the turn she is silenced through, and fades again at
+        the upkeep after it (the author, 2026-11-20)."""
+        engine, game, match = wb(first=2, teams=(("past", "peace", "truth"), ("law", "discipline", "strength")))
+        prynn = wb_hero(match, 1, "prynn_pasternaak")
+        prynn.time_runes = 4
+        match.player(1).silenced = True
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(match.active, 1)
+        self.assertEqual(prynn.time_runes, 4)
+        end_turn_of(engine, game, match, 1)
+        self.assertFalse(match.player(1).silenced)
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(prynn.time_runes, 3)
+
+    def test_prynn_summoned_while_silenced_arrives_with_no_time_runes(self) -> None:
+        """A new hero summoned while its player is silenced "loses all
+        abilities" (Free Speech's ruling): Prynn Pasternaak arrives with
+        no time runes, so she never fades once the silence ends unless she
+        gains one (the author, 2026-11-20)."""
+        engine, game, match = wb(first=2, teams=(("past", "peace", "truth"), ("law", "discipline", "strength")))
+        match.player(1).silenced = True
+        end_turn_of(engine, game, match, 2)
+        player = match.player(1)
+        player.gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "summon", hero="prynn_pasternaak")
+        prynn = player.hero_of("prynn_pasternaak")
+        self.assertEqual(prynn.time_runes, 0)
+        end_turn_of(engine, game, match, 1)
+        self.assertFalse(player.silenced)
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(prynn.time_runes, 0)
+        self.assertTrue(prynn.in_play, "no rune, no fading")
+        prynn.time_runes = 2
+        end_turn_of(engine, game, match, 1)
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(prynn.time_runes, 1, "a rune gained fades as any does")
+
     def test_free_speech_3(self) -> None:
         """A hero that "loses all abilities" from the silence effect can't
         get new abilities either. For example, it can't be granted anti-air
