@@ -77,8 +77,9 @@ class CorrectionTests(unittest.TestCase):
     def test_damage_is_added_and_removed_and_never_kills(self) -> None:
         card = put(self.match, 1, "iron_man", damage=1)
         self.assertEqual(self.correct(edits.damage(1, card.ref, 2)),
-                         ["Corrected: {player:1}'s {card:iron_man} now has 3 damage, 1 HP of 4."])
-        self.correct(edits.damage(1, card.ref, -3))
+                         ["Corrected: {player:1}'s {card:iron_man} takes 2 damage and now has 3 damage, 1 HP of 4."])
+        self.assertEqual(self.correct(edits.damage(1, card.ref, -3)),
+                         ["Corrected: {player:1}'s {card:iron_man} loses 3 damage and now has 0 damage, 4 HP of 4."])
         self.assertEqual(card.damage, 0)
         with self.assertRaisesRegex(RuleRefusal, "only 0 damage"):
             self.correct(edits.damage(1, card.ref, -1))

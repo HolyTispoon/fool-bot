@@ -37,10 +37,6 @@ SLOT_CHOICES = [
     app_commands.Choice(name="Out of the patrol zone", value=edits.OFF),
 ]
 
-#: Which way a damage correction goes.
-ADD, REMOVE = "add", "remove"
-CHANGE_CHOICES = [app_commands.Choice(name="Add", value=ADD), app_commands.Choice(name="Remove", value=REMOVE)]
-
 #: Every rune a rune correction may name, by what a line calls it.
 RUNE_CHOICES = [
     app_commands.Choice(name=word.capitalize(), value=kind) for kind, word in edits.RUNE_WORDS.items()
@@ -62,13 +58,13 @@ class DebugMixin:
         await self.correct_board(interaction, unit, lambda seat, ref: edits.patrol(seat, ref, slot.value))
 
     @debug.command(name="damage", description="Add damage to a unit, hero or building card, or remove it.")
-    @app_commands.describe(unit="The unit, hero or building card", change="Add or remove",
-                           amount="How much damage")
-    @app_commands.choices(change=CHANGE_CHOICES)
+    @app_commands.describe(unit="The unit, hero or building card",
+                           amount="Damage to add, or a negative number to remove: 2 adds two, -1 removes one")
     async def debug_damage(self, interaction: discord.Interaction, unit: str,
-                           change: app_commands.Choice[str], amount: app_commands.Range[int, 1, 99]) -> None:
-        signed = amount if change.value == ADD else -amount
-        await self.correct_board(interaction, unit, lambda seat, ref: edits.damage(seat, ref, signed))
+                           amount: app_commands.Range[int, -99, 99]) -> None:
+        # One signed number, as `rune` takes (the author, 2026-11-20): 0
+        # is refused by the model ("Add or remove at least 1 damage.").
+        await self.correct_board(interaction, unit, lambda seat, ref: edits.damage(seat, ref, amount))
 
     @debug.command(name="rune", description="Add runes to a card in play or a hero, or remove them.")
     @app_commands.describe(card="The card or hero", rune="Which rune",
@@ -76,8 +72,8 @@ class DebugMixin:
     @app_commands.choices(rune=RUNE_CHOICES)
     async def debug_rune(self, interaction: discord.Interaction, card: str, rune: app_commands.Choice[str],
                          amount: app_commands.Range[int, -99, 99]) -> None:
-        # One signed number (the author, 2026-11-20): 0 is refused by the
-        # model ("Add or remove at least 1 rune.").
+        # One signed number, as `damage` takes (the author, 2026-11-20):
+        # 0 is refused by the model ("Add or remove at least 1 rune.").
         await self.correct_board(interaction, card, lambda seat, ref: edits.rune(seat, ref, rune.value, amount))
 
     @debug.command(name="draw", description="Draw cards off your deck, or another player's, for a draw a bug left owed.")

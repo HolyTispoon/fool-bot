@@ -51,10 +51,13 @@ class DebugCommandTests(unittest.IsolatedAsyncioTestCase):
     async def test_damage_is_added(self) -> None:
         cog = self.table.cog
         call = self.table.interaction(self.helper)
-        await cog.debug_damage.callback(cog, call, f"2|{self.card.ref}",
-                                        self.choice(cog.debug_damage, "change", "add"), 1)
-        self.assertIn("now has 1 damage", call.text())
+        await cog.debug_damage.callback(cog, call, f"2|{self.card.ref}", 1)
+        self.assertIn("takes 1 damage and now has 1 damage", call.text())
         self.assertEqual(cog.service.load(self.game).player(2).instance(self.card.id).damage, 1)
+        call = self.table.interaction(self.helper)
+        await cog.debug_damage.callback(cog, call, f"2|{self.card.ref}", -1)
+        self.assertIn("loses 1 damage and now has 0 damage", call.text())
+        self.assertEqual(cog.service.load(self.game).player(2).instance(self.card.id).damage, 0)
 
     async def test_a_rune_is_added_and_the_autocomplete_shows_it(self) -> None:
         cog = self.table.cog

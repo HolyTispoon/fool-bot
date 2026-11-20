@@ -3365,11 +3365,11 @@ publicly): the answer is deferred ephemerally, so a refusal is the
 asker's alone and puts nothing in public, and a correction made
 deletes that thinking message and posts its line through the
 interaction's webhook, never the channel's bucket. **`/codex debug
-rune` takes one signed `amount`** (the author, 2026-11-20) -- 2 adds
-two, -1 removes one, 0 is refused by the model -- in place of a
-change and an amount, and its line says the difference and the count
-it leaves: "gains 2 +1/+1 runes and now has 2 +1/+1 runes". `damage`
-keeps its **Add**/**Remove** choice. **Any of the
+rune` and `damage` take one signed `amount`** (the author, 2026-11-20)
+-- 2 adds two, -1 removes one, 0 is refused by the model -- in place of
+an **Add**/**Remove** choice and an amount, and each line says the
+difference and what it leaves: "gains 2 +1/+1 runes and now has 2
++1/+1 runes", "takes 2 damage and now has 3 damage, 1 HP of 4". **Any of the
 game's players may correct it, or a helper** (the author, 2026-10-30:
 "Any player in the game should be able to change it"):
 `may_act_in_game`, the gate a button either coach may press stands on,
