@@ -5,12 +5,15 @@ or out of the patrol zone; damage added to or removed from a unit, hero
 or building card; and runes -- +1/+1, -1/-1, time and every named kind --
 added to or removed from any card in play or hero; and cards drawn, for a
 draw a bug left owed (a sacrificed technician's, before it paid). Not a rule and not an
-action of the game's; nobody's turn is spent and nothing triggers. Each
-still keeps the rules a position holds -- an exhausted card can't patrol
-(UMR p. 16), one slot holds one patroller, a +1/+1 rune cancels a -1/-1
-one -- since a correction that broke one would be a bug of its own; and
-none kills: a death runs its triggers and asks, which only the driver
-may.
+action of the game's; nobody's turn is spent. Each still keeps the
+rules a position holds -- an exhausted card can't patrol (UMR p. 16),
+one slot holds one patroller, a +1/+1 rune cancels a -1/-1 one -- since
+a correction that broke one would be a bug of its own. **Damage up to
+lethal kills** (the author, 2026-11-20: "Adding damage manually should
+kill a unit. That's what the debug command is for"): the position is
+settled as after any damage (`board.settle`), and what the death owes
+-- its triggers, a hero's kill levels -- is run by the driver's loop
+(`made`), never here. No rune correction kills.
 
 **A correction is a journal entry of its own kind** (`EDIT`), written by
 `correct` and replayed by `codex.history.replay` as it was written, so
@@ -150,15 +153,36 @@ def draw(seat: int, count: int) -> dict:
     return {"kind": EDIT, "edit": DRAW, "seat": seat, "count": count}
 
 
-def correct(engine: "RulesEngine", match: MatchState, edit: dict) -> StepResult:
-    """Make the correction `edit` and journal it, with any shuffle it
-    drew; refused with `RuleRefusal`, and nothing changed, where it
-    can't be made."""
+def correct(engine: "RulesEngine", game, match: MatchState, edit: dict) -> StepResult:
+    """Make the correction `edit` and journal it, with every shuffle it
+    and what it led to drew; refused with `RuleRefusal`, and nothing
+    changed, where it can't be made."""
     if match.winner is not None:
         raise RuleRefusal("This game is over.")
+    run = made(engine, game, match, edit)
+    history.record_edit(match, edit, run.drawn)
+    return run.result
+
+
+def made(engine: "RulesEngine", game, match: MatchState, edit: dict):
+    """The correction `edit` made, and what it set off worked until only
+    somebody's answer can carry on: where damage killed, the frames the
+    death put on the stack -- its triggers, a hero's kill levels -- are
+    worked as an action's are, and what they interrupted picked up
+    (`resolve.carry_on`), then the driver's loop runs what is owed
+    (`driver.advance`). What `correct` journals and a replay makes
+    again, as one. A correction that puts nothing on the stack leaves
+    the question it was made under as it was."""
+    from codex.flow import driver, resolve
+    from codex.prompts import pending
+
+    stacked = {id(frame) for frame in match.resolving}
     result = apply(engine, match, edit)
-    history.record_edit(match, edit, result.drawn)
-    return result
+    if any(id(frame) not in stacked for frame in match.resolving):
+        result = resolve.carry_on(engine, game, match, result)
+    else:
+        result.next = pending(engine, game, match)
+    return driver.advance(engine, game, match, result)
 
 
 def apply(engine: "RulesEngine", match: MatchState, edit: dict) -> StepResult:
@@ -179,7 +203,11 @@ def apply(engine: "RulesEngine", match: MatchState, edit: dict) -> StepResult:
     if kind == PATROL:
         line = _patrol(engine, match, seat, ref, body, edit["slot"])
     elif kind == DAMAGE:
-        line = _damage(engine, match, seat, ref, body, edit["change"])
+        result = StepResult(narration=[_damage(engine, match, seat, ref, body, edit["change"])],
+                            board_changed=True)
+        # Lethal damage destroys, as any damage does (`board.settle`).
+        board.settle(engine, match, result)
+        return result
     else:
         line = _rune(engine, match, seat, ref, body, edit["rune"], edit["change"])
     return StepResult(narration=[line], board_changed=True)
@@ -230,15 +258,10 @@ def _damage(engine: "RulesEngine", match: MatchState, seat: int, ref: str, body,
     if left < 0:
         raise RuleRefusal(f"{_plain(engine, body)} has only {body.damage} damage to remove.")
     max_hp = engine.body_stats(match, body)[1]
-    if left >= max_hp:
-        raise RuleRefusal(
-            f"{_plain(engine, body)} has {max_hp} HP: {left} damage would destroy it, "
-            "which a correction never does."
-        )
     body.damage = left
     moved = f"{'takes' if change > 0 else 'loses'} {abs(change)} damage"
     return (f"Corrected: {board.named(match, seat, ref)} {moved} and now has {left} damage, "
-            f"{max_hp - left} HP of {max_hp}.")
+            f"{max(0, max_hp - left)} HP of {max_hp}.")
 
 
 def _rune(engine: "RulesEngine", match: MatchState, seat: int, ref: str, body, kind: str,
@@ -344,13 +367,8 @@ def replayed(engine: "RulesEngine", game, match: MatchState, entry: dict):
     """A journalled correction made again in a replay
     (`codex.history.replay`), as a run the replay's readers take as any
     action's: its line, and what the position asks after it."""
-    from codex.flow.driver import DriverRun
-    from codex.prompts import pending
-
     engine.replaying = [list(order) for order in entry.get("outcomes", ())]
     try:
-        result = apply(engine, match, entry["action"])
+        return made(engine, game, match, entry["action"])
     finally:
         engine.replaying = []
-    result.next = pending(engine, game, match)
-    return DriverRun(result=result, board_changed=True)

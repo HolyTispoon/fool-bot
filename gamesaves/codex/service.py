@@ -408,7 +408,7 @@ class GameService:
         """
         game = self.game(game_id)
         match = self.load(game)
-        corrected = edits.correct(self.engine, match, edit)
+        corrected = edits.correct(self.engine, game, match, edit)
         self.persist(game, match)
         following = pending(self.engine, game, match)
         result = GameResult(
