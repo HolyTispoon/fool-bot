@@ -1175,7 +1175,11 @@ re-import that adds one fails loudly.
   (`built_this_turn`). **The silence** is `PlayerState.silenced`: Free
   Speech's, until after that player's next turn; their heroes cast no
   spells, lose their band texts and keywords, and one summoned or levelled
-  meanwhile arrives with nothing (its rulings).
+  meanwhile arrives with nothing (its rulings). Fading is one of those
+  keywords: the upkeep reads it off the match (`fading(body, match)` in
+  `upkeep_effects`), so Prynn Pasternaak loses no time rune at the
+  upkeep of the turn her player is silenced through (the author,
+  2026-11-20).
 - **The stash.** Bigby's keyword: at the draw phase the `STASH` prompt
   asks whether to keep a card, the hand's cards as its options; one kept
   is one fewer drawn, so the hand ends the size it would have without
@@ -3354,8 +3358,18 @@ the turn before** (`_ended_turn`), which would lose it unsaid.
 Its line -- "Corrected: {player:2}'s {card:tenderfoot} patrols as
 elite." -- is a result's like any action's: it joins the turn's lines,
 the turn message is edited in place through the gate and the site gets
-it (`present`). Whoever made it is answered ephemerally with the same
-line, or with the refusal, which puts nothing in public. **Any of the
+it (`present`). **The line is also said in public**, with whoever made
+it named after it -- "Corrected: ... (helper)" -- as the command's own
+answer (the author, 2026-11-20: the change should be reported
+publicly): the answer is deferred ephemerally, so a refusal is the
+asker's alone and puts nothing in public, and a correction made
+deletes that thinking message and posts its line through the
+interaction's webhook, never the channel's bucket. **`/codex debug
+rune` takes one signed `amount`** (the author, 2026-11-20) -- 2 adds
+two, -1 removes one, 0 is refused by the model -- in place of a
+change and an amount, and its line says the difference and the count
+it leaves: "gains 2 +1/+1 runes and now has 2 +1/+1 runes". `damage`
+keeps its **Add**/**Remove** choice. **Any of the
 game's players may correct it, or a helper** (the author, 2026-10-30:
 "Any player in the game should be able to change it"):
 `may_act_in_game`, the gate a button either coach may press stands on,

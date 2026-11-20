@@ -5087,6 +5087,23 @@ class WhiteBlueRuleRulingTests(unittest.TestCase):
         self.assertFalse(player.silenced)
         self.assertTrue(engine.has_keyword(grave, "Sparkshot", match))
 
+    def test_free_speech_takes_prynns_fading(self) -> None:
+        """A silenced player's hero "loses all abilities" (Free Speech's
+        rulings), fading among them: Prynn Pasternaak loses no time rune at
+        the upkeep of the turn she is silenced through, and fades again at
+        the upkeep after it (the author, 2026-11-20)."""
+        engine, game, match = wb(first=2, teams=(("past", "peace", "truth"), ("law", "discipline", "strength")))
+        prynn = wb_hero(match, 1, "prynn_pasternaak")
+        prynn.time_runes = 4
+        match.player(1).silenced = True
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(match.active, 1)
+        self.assertEqual(prynn.time_runes, 4)
+        end_turn_of(engine, game, match, 1)
+        self.assertFalse(match.player(1).silenced)
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(prynn.time_runes, 3)
+
     def test_free_speech_3(self) -> None:
         """A hero that "loses all abilities" from the silence effect can't
         get new abilities either. For example, it can't be granted anti-air

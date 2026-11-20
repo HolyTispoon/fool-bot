@@ -59,11 +59,30 @@ class DebugCommandTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_rune_is_added_and_the_autocomplete_shows_it(self) -> None:
         cog = self.table.cog
         call = self.table.interaction(self.helper)
-        await cog.debug_rune.callback(cog, call, f"2|{self.card.ref}", self.choice(cog.debug_rune, "rune", "plus"),
-                                      self.choice(cog.debug_rune, "change", "add"), 2)
-        self.assertIn("now has 2 +1/+1 runes", call.text())
+        await cog.debug_rune.callback(cog, call, f"2|{self.card.ref}", self.choice(cog.debug_rune, "rune", "plus"), 2)
+        self.assertIn("gains 2 +1/+1 runes and now has 2 +1/+1 runes", call.text())
         found = await cog.debug_rune_autocomplete(self.table.interaction(self.helper), "tender")
         self.assertEqual([one.name for one in found], ["fencer: Tenderfoot, 4/4 HP, 2 +1/+1"])
+
+    async def test_a_negative_amount_removes_runes_and_says_so_in_public(self) -> None:
+        cog = self.table.cog
+        plus = self.choice(cog.debug_rune, "rune", "plus")
+        await cog.debug_rune.callback(cog, self.table.interaction(self.helper), f"2|{self.card.ref}", plus, 3)
+        call = self.table.interaction(self.helper)
+        await cog.debug_rune.callback(cog, call, f"2|{self.card.ref}", plus, -2)
+        self.assertEqual(cog.service.load(self.game).player(2).instance(self.card.id).plus_runes, 1)
+        _, _, sent = call.last("followup.send")
+        self.assertNotEqual(sent.get("ephemeral"), True, "the change is said in public")
+        self.assertIn("loses 2 +1/+1 runes and now has 1 +1/+1 rune", call.text())
+        self.assertIn("(helper)", call.text())
+        self.assertEqual(call.answers[1][0], "original.delete", "the ephemeral thinking message goes")
+
+    async def test_zero_runes_is_refused_to_the_asker_alone(self) -> None:
+        cog = self.table.cog
+        call = self.table.interaction(self.helper)
+        await cog.debug_rune.callback(cog, call, f"2|{self.card.ref}", self.choice(cog.debug_rune, "rune", "plus"), 0)
+        self.assertIn("at least 1 rune", call.text())
+        self.assertTrue(call.last("followup.send")[2].get("ephemeral"))
 
     async def test_a_player_draws_a_card_and_the_autocomplete_lists_the_seats(self) -> None:
         cog = self.table.cog

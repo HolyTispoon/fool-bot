@@ -37,7 +37,7 @@ SLOT_CHOICES = [
     app_commands.Choice(name="Out of the patrol zone", value=edits.OFF),
 ]
 
-#: Which way a damage or rune correction goes.
+#: Which way a damage correction goes.
 ADD, REMOVE = "add", "remove"
 CHANGE_CHOICES = [app_commands.Choice(name="Add", value=ADD), app_commands.Choice(name="Remove", value=REMOVE)]
 
@@ -71,13 +71,14 @@ class DebugMixin:
         await self.correct_board(interaction, unit, lambda seat, ref: edits.damage(seat, ref, signed))
 
     @debug.command(name="rune", description="Add runes to a card in play or a hero, or remove them.")
-    @app_commands.describe(card="The card or hero", rune="Which rune", change="Add or remove",
-                           amount="How many runes")
-    @app_commands.choices(rune=RUNE_CHOICES, change=CHANGE_CHOICES)
+    @app_commands.describe(card="The card or hero", rune="Which rune",
+                           amount="Runes to add, or a negative number to remove: 2 adds two, -1 removes one")
+    @app_commands.choices(rune=RUNE_CHOICES)
     async def debug_rune(self, interaction: discord.Interaction, card: str, rune: app_commands.Choice[str],
-                         change: app_commands.Choice[str], amount: app_commands.Range[int, 1, 99]) -> None:
-        signed = amount if change.value == ADD else -amount
-        await self.correct_board(interaction, card, lambda seat, ref: edits.rune(seat, ref, rune.value, signed))
+                         amount: app_commands.Range[int, -99, 99]) -> None:
+        # One signed number (the author, 2026-11-20): 0 is refused by the
+        # model ("Add or remove at least 1 rune.").
+        await self.correct_board(interaction, card, lambda seat, ref: edits.rune(seat, ref, rune.value, amount))
 
     @debug.command(name="draw", description="Draw cards off your deck, or another player's, for a draw a bug left owed.")
     @app_commands.describe(amount="How many cards", player="Who draws, if not you")
@@ -200,7 +201,11 @@ class DebugMixin:
 
     async def run_correction(self, interaction: discord.Interaction, game, edit: dict) -> None:
         """The correction through the service under the game's lock, its
-        line to the user and the result presented as an action's."""
+        line said in public and the result presented as an action's. The
+        answer is deferred ephemerally, so a refusal is the asker's
+        alone; a correction made replaces it with its line in the open,
+        through the interaction's webhook rather than the channel's
+        bucket (docs/design/rate-limits.md)."""
         await interaction.response.defer(ephemeral=True, thinking=True)
         async with self.locks.hold(game.game_id):
             try:
@@ -208,5 +213,10 @@ class DebugMixin:
             except RuleRefusal as refused:
                 await interaction.followup.send(str(refused), ephemeral=True)
                 return
-            await interaction.followup.send(self.render_text(result.narration[0], game), ephemeral=True)
+            line = self.render_text(result.narration[0], game)
+            await interaction.delete_original_response()
+            await interaction.followup.send(
+                f"{line} ({interaction.user.display_name})",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
             await self.present(game, result)
