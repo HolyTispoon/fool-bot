@@ -1107,6 +1107,10 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             # Chaos Mirror's swap lasts the turn.
             if body.printed and "atk" in body.printed:
                 body.printed = {k: v for k, v in body.printed.items() if k != "atk"} or None
+    # What ended can kill: a copy back to its own HP with the damage it
+    # took as the copy, a "this turn" bonus to HP gone (`board.settle`).
+    from codex.flow import board
+    board.settle(engine, match, result)
     for seat in taking:
         player = match.player(seat)
         minimum, maximum = engine.tech_bounds(player)
