@@ -1179,7 +1179,9 @@ re-import that adds one fails loudly.
   keywords: the upkeep reads it off the match (`fading(body, match)` in
   `upkeep_effects`), so Prynn Pasternaak loses no time rune at the
   upkeep of the turn her player is silenced through (the author,
-  2026-11-20).
+  2026-11-20). Summoned while silenced, she arrives with no time runes
+  (`hero_arrives`), so she never fades unless she gains one -- her own
+  attack puts one on her -- (the author, 2026-11-20).
 - **The stash.** Bigby's keyword: at the draw phase the `STASH` prompt
   asks whether to keep a card, the hand's cards as its options; one kept
   is one fewer drawn, so the hand ends the size it would have without

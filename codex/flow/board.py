@@ -1095,9 +1095,12 @@ def hero_arrives(engine: "RulesEngine", match: MatchState, seat: int, hero: Hero
     Argagarg's Wisp -- and Blooming Ancient's rune."""
     from codex.flow import resolve
 
-    fading = engine.fading(hero)
+    # Prynn Pasternaak's fading 4: she arrives with four time runes -- or
+    # none where she is summoned while her player is silenced, whose heroes
+    # arrive with no abilities (Free Speech's ruling); she then never fades
+    # unless she gains a time rune (the author, 2026-11-20).
+    fading = 0 if match.player(seat).silenced else engine.fading(hero)
     if fading:
-        # Prynn Pasternaak's fading 4: she arrives with four time runes.
         hero.time_runes = fading
     if match.player(seat).silenced:
         # A hero summoned while its player is silenced arrives with no
