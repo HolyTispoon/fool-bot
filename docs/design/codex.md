@@ -1484,6 +1484,23 @@ text alone by default, `rulings:True` adding Sirlin's rulings as the
 official rules they are, ephemeral unless `public:True`. A keyword with
 no reminder text answers with its rulings whether or not they were asked
 for, for the reason a card with no picture answers with its text.
+`/codex spec <spec>` and `/codex color <color>` show many cards at
+once (the author, 2026-11-26): one picture, the cards' own art at the
+codex view's size with nothing drawn on them (`render.render_cards`),
+captioned with its name as the menu offers it -- "Anarchy (Red)", "Blood Anarchs (Red)", the deck's name first and its colour after, Neutral's "Neutral" -- ephemeral unless `public:True`. A spec is its
+hero, then its units, buildings and upgrades by tech level, then its
+spells with the ultimate last (`CardCatalog.spec_sheet`), seven to a
+row so the thirteen read on a phone. A colour is its ten starting cards
+on the first row and then each of its specs a row, hero first, by spec
+name (`color_sheet`) -- one row a spec, so the picture is thirteen wide
+-- and its tokens on the last row, by name (`tokens_of`; the author,
+2026-11-26); green's, the most, is about 650 KB. A token's colour is the
+data's, which is the token's own and not always that of the card that
+makes it (red's Surprise Attack makes blue Sharks). The buildings and
+workers are no colour's and are left out; `/codex card` still finds
+them. The spec is
+autocompleted over the twenty heroes' specs, the colour a fixed choice
+of the seven.
 Both autocomplete (over every card and hero, and over the `General`
 group's keywords) and both fit Discord's 2000 characters by counting the
 rulings that do not fit and leaving them to the link, measured after

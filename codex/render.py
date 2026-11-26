@@ -2779,6 +2779,47 @@ def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
                          None if places is None else tuple(map(tuple, places)))
 
 
+#: How far apart two groups of `render_cards` are, beyond the gap
+#: between two cards: enough that a spec's row reads as its own.
+CARD_GROUP_GAP = 30
+
+
+def render_cards(groups: Sequence[Sequence[str]], columns: int,
+                 cards: Optional[CardCatalog] = None) -> bytes:
+    """
+    Cards as WebP bytes, their own pictures at `CODEX_CARD`'s size with
+    nothing drawn on them: each group of slugs starting a row of its own,
+    `columns` a row -- what `/codex spec` and `/codex color` attach. The
+    same picture asked again is the bytes already drawn (`RENDERED_KEPT`).
+    """
+    return _render_cards(tuple(map(tuple, groups)), columns, cards or load_catalog())
+
+
+@lru_cache(maxsize=RENDERED_KEPT)
+def _render_cards(groups: tuple[tuple[str, ...], ...], columns: int,
+                  cards: CardCatalog) -> bytes:
+    gap = 14
+    groups = tuple(group for group in groups if group) or ((),)
+    across = max(1, min(columns, max(len(group) for group in groups)))
+    heights = [max(1, -(-len(group) // across)) for group in groups]
+    width = across * (CODEX_CARD[0] + gap) + gap
+    height = (sum(heights) * (CODEX_CARD[1] + gap) + gap
+              + CARD_GROUP_GAP * (len(groups) - 1))
+    canvas = Image.new("RGBA", (width, height), STRIP_FILL)
+    if not groups[0]:
+        text_centred(ImageDraw.Draw(canvas), (width // 2, height // 2), "Nothing here", 32)
+    top = gap
+    for group, rows in zip(groups, heights):
+        for index, slug in enumerate(group):
+            row, column = divmod(index, across)
+            canvas.alpha_composite(
+                scaled_card(slug, CODEX_CARD, cards),
+                (gap + column * (CODEX_CARD[0] + gap), top + row * (CODEX_CARD[1] + gap)),
+            )
+        top += rows * (CODEX_CARD[1] + gap) + CARD_GROUP_GAP
+    return _webp(canvas)
+
+
 def codex_tile(slug: str, count: int, cards: CardCatalog) -> Image.Image:
     """One card of a codex: its picture with a badge of its copies,
     faint where none are left. **My deck** draws every copy instead."""

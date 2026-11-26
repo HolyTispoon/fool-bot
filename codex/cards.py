@@ -250,6 +250,54 @@ class CardCatalog:
                 return color
         return None
 
+    def specs(self) -> list[Hero]:
+        """Every landed colour's heroes, one a spec, by colour in
+        `LANDED_COLORS` order and then by spec: what `/codex spec`
+        offers."""
+        return sorted(
+            (hero for hero in self.landed_heroes() if hero.spec),
+            key=lambda hero: (LANDED_COLORS.index((hero.color or "").lower()), hero.spec),
+        )
+
+    def spec_sheet(self, spec: str) -> list[str]:
+        """
+        A spec's hero and its twelve codex cards, as slugs: the hero
+        first, then its units, buildings and upgrades by tech level, then
+        its spells with the ultimate last -- each group in the data's
+        order. What `/codex spec` shows, and a row of `/codex color`.
+        """
+        def order(card: Card) -> tuple[int, int]:
+            if card.is_spell:
+                return (4 if "Ultimate" in card.type else 3, 0)
+            return (0, card.tech_level or 0)
+
+        cards = sorted(self.by_spec(spec), key=order)
+        return [self.hero_for(spec).slug, *(card.slug for card in cards)]
+
+    def color_sheet(self, color: str) -> list[list[str]]:
+        """
+        A colour's cards, as rows of slugs: its ten starting cards, then
+        each of its specs' sheets (`spec_sheet`) by spec name, then its
+        tokens (`tokens_of`) where it has any. What `/codex color` shows;
+        the buildings and workers are no colour's and are left out.
+        """
+        key = _spec_key(color)
+        specs = sorted(hero.spec for hero in self.specs() if _spec_key(hero.color or "") == key)
+        tokens = self.tokens_of(color)
+        return [self.starting_deck(color), *(self.spec_sheet(spec) for spec in specs),
+                *([tokens] if tokens else [])]
+
+    def tokens_of(self, color: str) -> list[str]:
+        """A colour's tokens, as slugs by name -- the data's own colour,
+        which is the token's and not always the colour of the card that
+        makes it (Surprise Attack, red, makes blue Sharks)."""
+        key = _spec_key(color)
+        return sorted(
+            (card.slug for card in self.cards.values()
+             if card.kind == KIND_TOKEN and card.color and _spec_key(card.color) == key),
+            key=self.name,
+        )
+
     def hero_for(self, spec: str) -> Hero:
         key = _spec_key(spec)
         for hero in self.heroes.values():

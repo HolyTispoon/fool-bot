@@ -1,10 +1,12 @@
 """
-`/codex card` and `/codex rules`: a card's picture -- with its text and
+`/codex card`, `/codex spec`, `/codex color` and `/codex rules`: a card's picture -- with its text and
 Sirlin's rulings on it under the picture, each only when asked for --
 and a keyword's reminder text, with its rulings, the official rules of
 the game, when asked for; both read from the imported data (docs/codex-bot.md, decision 12). No rulebook text is
 bundled, nothing here is an embed, and both answers link the card
-database.
+database. `/codex spec` and `/codex color` are pictures of many cards
+at once -- a spec's hero and its twelve codex cards, and a colour's
+starting deck and every spec of it.
 """
 
 from __future__ import annotations
@@ -18,8 +20,8 @@ from typing import Callable
 import discord
 from discord import app_commands
 
-from codex.cards import Card, Hero, catalog
-from codex.render import bundled, bundled_bytes
+from codex.cards import COLOR_DECK_NAMES, LANDED_COLORS, Card, Hero, catalog
+from codex.render import bundled, bundled_bytes, render_cards
 from codex.rulings import Ruling, keyword_entry, keywords, rulings_for
 from cogs.codex_helpers import elapsed_ms
 
@@ -158,6 +160,50 @@ def keyword_answer(
     return fit(head, shown, f"<{keyword_url(entry.slug)}>", render)
 
 
+#: How many cards a row of `/codex spec`'s picture holds: its thirteen
+#: in two rows, rather than one too wide to read on a phone.
+SPEC_COLUMNS = 7
+#: `/codex color`'s: a spec's hero and twelve cards to a row, so each
+#: row is one spec and the starting deck the row above them.
+COLOR_COLUMNS = 13
+
+
+def spec_label(hero: Hero) -> str:
+    """A spec as `/codex spec`'s menu names it -- "Anarchy (Red)" -- and
+    as its picture's caption says it."""
+    return f"{hero.spec} ({hero.color})"
+
+
+def color_label(color: str) -> str:
+    """A colour as `/codex color`'s menu names it -- its deck's name
+    first, "Blood Anarchs (Red)", or the colour alone where it has no
+    deck of three, "Neutral" -- and as its picture's caption says it."""
+    key = color.strip().lower()
+    return f"{COLOR_DECK_NAMES[key]} ({key.title()})" if key in COLOR_DECK_NAMES else key.title()
+
+
+def spec_caption(spec: str) -> str | None:
+    """`/codex spec`'s line above its picture -- the spec's name as the
+    menu offered it -- or None for a spec no landed hero has."""
+    for hero in catalog().specs():
+        if hero.spec.lower() == spec.strip().lower():
+            return f"**{spec_label(hero)}**"
+    return None
+
+
+def color_caption(color: str) -> str | None:
+    """`/codex color`'s line above its picture -- the colour's name as
+    the menu offered it -- or None for a colour that is not landed."""
+    if color.strip().lower() not in LANDED_COLORS:
+        return None
+    return f"**{color_label(color)}**"
+
+
+COLOR_CHOICES = [
+    app_commands.Choice(name=color_label(color), value=color) for color in LANDED_COLORS
+]
+
+
 class ReferenceMixin:
     @app_commands.command(
         name="card",
@@ -225,6 +271,77 @@ class ReferenceMixin:
             app_commands.Choice(name=names.name(slug)[:100], value=slug)
             for slug in names.search(current)
         ]
+
+    async def send_cards(self, interaction: discord.Interaction, caption: str,
+                         groups: list[list[str]], columns: int, filename: str,
+                         public: bool) -> None:
+        """A picture of many cards, its caption above it, the asker's
+        alone unless `public` -- drawn off the event loop."""
+        started = time.perf_counter()
+        data = await asyncio.to_thread(render_cards, groups, columns)
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
+        await interaction.response.send_message(
+            caption, file=discord.File(io.BytesIO(data), filename=filename),
+            ephemeral=not public,
+        )
+        LOGGER.info("Codex %s: %d KB drawn in %d ms, sent in %d ms",
+                    filename, len(data) // 1024, drawn, elapsed_ms(started))
+
+    @app_commands.command(
+        name="spec",
+        description="Show a Codex spec's hero and all twelve of its codex cards.",
+    )
+    @app_commands.describe(
+        spec="The spec, such as Anarchy or Bashing",
+        public="Post it in the channel for everyone, rather than to you alone",
+    )
+    async def spec(
+        self, interaction: discord.Interaction, spec: str, public: bool = False,
+    ) -> None:
+        caption = spec_caption(spec)
+        if caption is None:
+            await interaction.response.send_message(
+                f"No spec is called {spec!r}. Pick one from the list as you type.",
+                ephemeral=True,
+            )
+            return
+        key = spec.strip().lower()
+        await self.send_cards(interaction, caption, [catalog().spec_sheet(key)],
+                              SPEC_COLUMNS, f"codex_spec_{key}.webp", public)
+
+    @spec.autocomplete("spec")
+    async def spec_autocomplete(
+        self, interaction: discord.Interaction, current: str,
+    ) -> list[app_commands.Choice[str]]:
+        needle = current.strip().lower()
+        return [
+            app_commands.Choice(name=spec_label(hero), value=hero.spec.lower())
+            for hero in catalog().specs()
+            if needle in hero.spec.lower() or needle in (hero.color or "").lower()
+        ][:25]
+
+    @app_commands.command(
+        name="color",
+        description="Show every card of a Codex colour: its starting deck and each spec.",
+    )
+    @app_commands.describe(
+        color="The colour",
+        public="Post it in the channel for everyone, rather than to you alone",
+    )
+    @app_commands.choices(color=COLOR_CHOICES)
+    async def color(
+        self, interaction: discord.Interaction, color: str, public: bool = False,
+    ) -> None:
+        caption = color_caption(color)
+        if caption is None:
+            await interaction.response.send_message(
+                f"No colour is called {color!r}.", ephemeral=True,
+            )
+            return
+        key = color.strip().lower()
+        await self.send_cards(interaction, caption, catalog().color_sheet(key),
+                              COLOR_COLUMNS, f"codex_color_{key}.webp", public)
 
     @app_commands.command(
         name="rules",
