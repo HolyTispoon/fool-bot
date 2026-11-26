@@ -1,6 +1,6 @@
 """
 `/codex replay`: a game that is over shown again turn by turn, as a
-slideshow the asker alone sees (docs/design/codex.md, "The replay").
+slideshow the asker alone sees, or with `public` the whole channel (docs/design/codex.md, "The replay").
 
 The turns are the channel's pins -- each turn's start, posted and pinned
 with its heading and its board (`open_turn`) -- so a replay draws no
@@ -12,8 +12,8 @@ pin from before 2026-10-21 holds its turn's lines whole. The last slide
 is the final board, drawn once from the saved match.
 
 The requests: the pins' listing, 50 a request, and the final board's
-upload; every slide after the first is an edit of the ephemeral message
-through the interaction's webhook, never the channel's edit bucket
+upload; every slide after the first is an edit of the message through
+the interaction's webhook -- a public one as much as the asker's own --, never the channel's edit bucket
 (docs/design/rate-limits.md).
 """
 
@@ -53,20 +53,24 @@ HEADING = re.compile(r"^\*\*Turn (\d+)\*\*")
 
 class ReplayMixin:
     @app_commands.command(name="replay",
-                          description="Replay a finished Codex game turn by turn, to you alone.")
-    @app_commands.describe(number="The game's number; by default the last one over in this channel.")
-    async def replay(self, interaction: discord.Interaction, number: Optional[int] = None) -> None:
+                          description="Replay a finished Codex game turn by turn.")
+    @app_commands.describe(number="The game's number; by default the last one over in this channel.",
+                           public="Show it to the channel, steered by you (by default to you alone).")
+    async def replay(self, interaction: discord.Interaction, number: Optional[int] = None,
+                     public: bool = False) -> None:
         game = self.replayed_game(interaction, number)
         if isinstance(game, str):
             await send_ephemeral(interaction, game)
             return
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        await interaction.response.defer(ephemeral=not public, thinking=True)
         slides = await self.replay_slides(game)
         if isinstance(slides, str):
-            await interaction.followup.send(slides, ephemeral=True)
+            # Said where the defer put the answer: a refusal is public too
+            # where the replay would have been.
+            await interaction.followup.send(slides, ephemeral=not public)
             return
-        view = ReplayView(game.game_number, slides)
-        message = await interaction.followup.send(ephemeral=True, wait=True, **view.content())
+        view = ReplayView(game.game_number, slides, owner=interaction.user if public else None)
+        message = await interaction.followup.send(ephemeral=not public, wait=True, **view.content())
         view.attach(interaction, message)
 
     def replayed_game(self, interaction: discord.Interaction,

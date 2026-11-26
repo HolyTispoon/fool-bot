@@ -710,8 +710,12 @@ framework") and a page anyone can open should call no other host.
 author, 2026-11-26, with the bot's `/codex replay`,
 [codex.md](codex.md), "The replay"): its turns one board at a time, from
 the history's first to the final board. A slide is a history entry --
-its board in the viewer, "Turn n's start", and its heading and lines in
-the log's current section, the earlier turns hidden while it runs -- and
+its board in the viewer, "Turn n's start", and what happened in that
+turn -- its heading and lines -- in the log's current section beside it,
+the earlier turns hidden while it runs. **The text is beside the board,
+never over it** (the author, 2026-11-26): the log is shown for the
+replay's length even where **Hide log** took it away, its toggle greyed,
+and hidden again after; on a phone it is under the board, as always -- and
 the last is `live.json`'s board, heading and lines, "The final board".
 The bar over the board is **⏮ ◀ Play ▶ ⏭**, where it stands ("Turn 7's
 start · 7 of 24") and **Close**; the arrow keys, Home and End step through

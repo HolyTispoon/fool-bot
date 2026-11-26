@@ -1511,7 +1511,9 @@ rulebook's PDF under `docs/codex/` is for the developers to read.
 ## The replay
 
 `/codex replay` shows a game that is over again, turn by turn, as a
-slideshow the asker alone sees (`cogs/codex/replay.py`,
+slideshow the asker alone sees -- or, with `public`, the channel, steered
+by whoever ran it or a helper (`is_game_helper`; anyone else clicking is
+told to run their own, ephemerally) -- (`cogs/codex/replay.py`,
 `cogs/codex_views/replay.py`; the author, 2026-11-26, with the site's
 **Replay**, [pbd-site.md](pbd-site.md), "The replay"). With no `number`
 it is the last game over in the channel it is typed in -- a Rematch
@@ -1542,9 +1544,14 @@ a replay is for a game that is over, finished or abandoned.
   token lasts 15). Every edit is the interaction's webhook, never the
   channel's edit bucket ([rate-limits.md](rate-limits.md)); the command
   itself costs one pin listing per 50 pins and the final board's upload.
-- **No `SafeView`**: the view reads no match and changes nothing, and an
-  ephemeral message has one person to click it, so there is no lock and
-  no gate.
+- **The text is on the slide, the picture the turn's start**: the embed's
+  description is the turn's heading and what happened in it, over the
+  board it started on (the author, 2026-11-26).
+- **No `SafeView`**: the view reads no match and changes nothing, so
+  there is no lock; its one gate is the public replay's owner
+  (`interaction_check`). As the view times out its buttons are taken
+  away, through the last click's token, so a public replay left in the
+  channel shows no dead buttons.
 
 ## The service and its file
 

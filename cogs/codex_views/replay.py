@@ -1,11 +1,12 @@
 """
-`ReplayView`: `/codex replay`'s slideshow, one ephemeral message the
-asker steps through -- **⏮ ◀ Play ▶ ⏭** -- each slide a turn's start
+`ReplayView`: `/codex replay`'s slideshow, one message the
+asker steps through -- their own alone, or with `public` the channel's -- **⏮ ◀ Play ▶ ⏭** -- each slide a turn's start
 board with its heading and lines, the last the final board
 (docs/design/codex.md, "The replay").
 
 It reads no match and changes nothing, so it is no `SafeView`: no game
-lock, no gate -- an ephemeral message has one person to click it. Every
+lock. A public replay is steered by whoever ran it, or a helper
+(`is_game_helper`); anyone else clicking is told to run their own. Every
 step is an edit of that message through the click's own response, and
 **Play** edits it through the latest click's token every
 `REPLAY_EVERY` seconds, never the channel. A pinned board is its
@@ -23,6 +24,8 @@ from typing import Optional
 
 import discord
 
+from cogs.game_auth import is_game_helper
+
 LOGGER = logging.getLogger(__name__)
 
 #: Play shows the next slide this often, in seconds.
@@ -33,6 +36,9 @@ REPLAY_TIMEOUT = 14 * 60
 #: An embed's description is at most 4096 characters.
 DESCRIPTION_MAX = 4096
 FINAL_FILENAME = "codex-replay-final.webp"
+#: What a public replay tells somebody else who clicks it.
+NOT_YOUR_REPLAY = ("{owner} is steering this replay. `/codex replay` gives you one of "
+                   "your own to step through.")
 
 
 @dataclass
@@ -65,9 +71,11 @@ def slide_text(slide: ReplaySlide) -> str:
 
 
 class ReplayView(discord.ui.View):
-    def __init__(self, number: int, slides: list[ReplaySlide]) -> None:
+    def __init__(self, number: int, slides: list[ReplaySlide], owner=None) -> None:
         super().__init__(timeout=REPLAY_TIMEOUT)
         self.number = number
+        # Whoever ran it, where it is public; `None` for the asker's own.
+        self.owner = owner
         self.slides = slides
         self.index = 0
         self.playing: Optional[asyncio.Task] = None
@@ -180,5 +188,23 @@ class ReplayView(discord.ui.View):
         self.stop_playing()
         await self.show(interaction, len(self.slides) - 1)
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.owner is None or interaction.user.id == self.owner.id or is_game_helper(interaction.user):
+            return True
+        try:
+            await interaction.response.send_message(
+                NOT_YOUR_REPLAY.format(owner=self.owner.display_name), ephemeral=True)
+        except discord.HTTPException:
+            pass
+        return False
+
     async def on_timeout(self) -> None:
+        """The buttons taken away, while the last click's token can still
+        edit the message: a public replay outlives its view."""
         self.stop_playing()
+        if self.interaction is None:
+            return
+        try:
+            await self.interaction.edit_original_response(view=None)
+        except discord.HTTPException:
+            pass

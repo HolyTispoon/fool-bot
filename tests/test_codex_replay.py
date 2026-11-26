@@ -39,9 +39,9 @@ class ReplayCommandTests(hooks.HooksTestCase):
         self.table.cog.service.concede(self.game.game_id, 2)
         self.assertIs(self.game.status, GameStatus.FINISHED)
 
-    async def replayed(self, number=None):
+    async def replayed(self, number=None, public=False):
         call = self.table.interaction(self.table.fencer)
-        await self.table.cog.replay.callback(self.table.cog, call, number)
+        await self.table.cog.replay.callback(self.table.cog, call, number, public)
         return call
 
     async def test_a_game_still_played_is_not_replayed(self) -> None:
@@ -104,6 +104,27 @@ class ReplayCommandTests(hooks.HooksTestCase):
         call = self.table.interaction(self.table.fencer, self.table.lobby_channel)
         await self.table.cog.replay.callback(self.table.cog, call, self.game.game_number)
         self.assertIsInstance(call.last("followup.send")[2]["view"], ReplayView)
+
+
+    async def test_a_public_replay_is_steered_by_whoever_ran_it(self) -> None:
+        await self.finish()
+        call = await self.replayed(public=True)
+        self.assertEqual(call.last("response.defer")[2]["ephemeral"], False)
+        _, _, sent = call.last("followup.send")
+        self.assertFalse(sent["ephemeral"])
+        view = sent["view"]
+        self.assertIs(view.owner, self.table.fencer)
+        other = self.table.interaction(self.table.basher)
+        self.assertFalse(await view.interaction_check(other))
+        self.assertIn("is steering this replay", other.last("response.send")[2].get("content")
+                      or other.last("response.send")[1][0])
+        self.assertTrue(await view.interaction_check(self.table.interaction(self.table.fencer)))
+
+    async def test_the_asker_s_own_replay_is_theirs_alone(self) -> None:
+        await self.finish()
+        _, _, sent = (await self.replayed()).last("followup.send")
+        self.assertTrue(sent["ephemeral"])
+        self.assertIsNone(sent["view"].owner)
 
 
 class PlayTests(unittest.IsolatedAsyncioTestCase):

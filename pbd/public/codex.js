@@ -261,6 +261,7 @@ class GamePage {
     const button = document.getElementById("log-toggle");
     const main = document.getElementById("game-main");
     const set = (hidden) => {
+      this.logHidden = hidden;
       main.classList.toggle("log-hidden", hidden);
       document.getElementById("log").hidden = hidden;
       button.textContent = hidden ? "Show log" : "Hide log";
@@ -539,12 +540,21 @@ class GamePage {
     return Boolean(this.live && this.live.status !== "playing" && this.replaySlides().length > 1);
   }
 
+  showLog(shown) {
+    document.getElementById("game-main").classList.toggle("log-hidden", !shown);
+    document.getElementById("log").hidden = !shown;
+    document.getElementById("log-toggle").disabled = Boolean(this.slides);
+  }
+
   openReplay() {
     const slides = this.replaySlides();
     if (slides.length === 0) return;
     this.lookAt(null);
     this.slides = slides;
     document.body.classList.add("replaying");
+    // The slide's turn is read in the log, beside its board: shown while
+    // the replay runs, whatever Hide log says, and hidden again after.
+    this.showLog(true);
     document.getElementById("replay").hidden = false;
     const toggle = document.getElementById("replay-toggle");
     toggle.textContent = "Stop replay";
@@ -558,6 +568,7 @@ class GamePage {
     this.pause();
     this.slides = null;
     document.body.classList.remove("replaying");
+    this.showLog(!this.logHidden);
     document.getElementById("replay").hidden = true;
     const toggle = document.getElementById("replay-toggle");
     toggle.textContent = "Replay";
