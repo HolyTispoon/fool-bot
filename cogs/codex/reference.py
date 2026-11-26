@@ -168,29 +168,39 @@ SPEC_COLUMNS = 7
 COLOR_COLUMNS = 13
 
 
+def spec_label(hero: Hero) -> str:
+    """A spec as `/codex spec`'s menu names it -- "Anarchy (Red)" -- and
+    as its picture's caption says it."""
+    return f"{hero.spec} ({hero.color})"
+
+
+def color_label(color: str) -> str:
+    """A colour as `/codex color`'s menu names it -- its deck's name
+    first, "Blood Anarchs (Red)", or the colour alone where it has no
+    deck of three, "Neutral" -- and as its picture's caption says it."""
+    key = color.strip().lower()
+    return f"{COLOR_DECK_NAMES[key]} ({key.title()})" if key in COLOR_DECK_NAMES else key.title()
+
+
 def spec_caption(spec: str) -> str | None:
-    """`/codex spec`'s line above its picture, or None for a spec no
-    landed hero has."""
+    """`/codex spec`'s line above its picture -- the spec's name as the
+    menu offered it -- or None for a spec no landed hero has."""
     for hero in catalog().specs():
         if hero.spec.lower() == spec.strip().lower():
-            return f"**{hero.spec}** ({hero.color}): {hero.name} and the spec's twelve codex cards."
+            return f"**{spec_label(hero)}**"
     return None
 
 
 def color_caption(color: str) -> str | None:
-    """`/codex color`'s line above its picture, or None for a colour
-    that is not landed."""
-    key = color.strip().lower()
-    if key not in LANDED_COLORS:
+    """`/codex color`'s line above its picture -- the colour's name as
+    the menu offered it -- or None for a colour that is not landed."""
+    if color.strip().lower() not in LANDED_COLORS:
         return None
-    specs = sorted(hero.spec for hero in catalog().specs() if (hero.color or "").lower() == key)
-    named = f"**{key.title()}**" + (f" ({COLOR_DECK_NAMES[key]})" if key in COLOR_DECK_NAMES else "")
-    joined = specs[0] if len(specs) == 1 else ", ".join(specs[:-1]) + f" and {specs[-1]}"
-    return f"{named}: the starting deck, then {joined}, each its hero first."
+    return f"**{color_label(color)}**"
 
 
 COLOR_CHOICES = [
-    app_commands.Choice(name=color.title(), value=color) for color in LANDED_COLORS
+    app_commands.Choice(name=color_label(color), value=color) for color in LANDED_COLORS
 ]
 
 
@@ -306,7 +316,7 @@ class ReferenceMixin:
     ) -> list[app_commands.Choice[str]]:
         needle = current.strip().lower()
         return [
-            app_commands.Choice(name=f"{hero.spec} ({hero.color})", value=hero.spec.lower())
+            app_commands.Choice(name=spec_label(hero), value=hero.spec.lower())
             for hero in catalog().specs()
             if needle in hero.spec.lower() or needle in (hero.color or "").lower()
         ][:25]

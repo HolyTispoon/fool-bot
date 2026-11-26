@@ -1487,7 +1487,7 @@ for, for the reason a card with no picture answers with its text.
 `/codex spec <spec>` and `/codex color <color>` show many cards at
 once (the author, 2026-11-26): one picture, the cards' own art at the
 codex view's size with nothing drawn on them (`render.render_cards`),
-a caption line above it, ephemeral unless `public:True`. A spec is its
+captioned with its name as the menu offers it -- "Anarchy (Red)", "Blood Anarchs (Red)", the deck's name first and its colour after, Neutral's "Neutral" -- ephemeral unless `public:True`. A spec is its
 hero, then its units, buildings and upgrades by tech level, then its
 spells with the ultimate last (`CardCatalog.spec_sheet`), seven to a
 row so the thirteen read on a phone. A colour is its ten starting cards

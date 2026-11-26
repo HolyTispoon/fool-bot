@@ -264,21 +264,26 @@ class CodexSpecAndColorTests(unittest.IsolatedAsyncioTestCase):
             with self.assertLogs("cogs.codex.reference", level="INFO"):
                 await cog.spec.callback(cog, interaction, "Anarchy", public=public)
             call = interaction.response.send_message.call_args
-            self.assertIn("**Anarchy** (Red)", call.args[0])
+            self.assertEqual(call.args[0], "**Anarchy (Red)**")
             self.assertEqual(call.kwargs["file"].filename, "codex_spec_anarchy.webp")
             self.assertIs(call.kwargs["ephemeral"], not public)
             await bot.close()
 
-    async def test_the_color_command_names_the_deck_and_its_specs(self) -> None:
+    async def test_the_color_command_is_captioned_with_its_menu_name(self) -> None:
         bot, cog, interaction = self.cog()
         with self.assertLogs("cogs.codex.reference", level="INFO"):
             await cog.color.callback(cog, interaction, "red")
         call = interaction.response.send_message.call_args
-        self.assertEqual(call.args[0], "**Red** (Blood Anarchs): the starting deck, then "
-                                       "Anarchy, Blood and Fire, each its hero first.")
+        self.assertEqual(call.args[0], "**Blood Anarchs (Red)**")
         self.assertEqual(call.kwargs["file"].filename, "codex_color_red.webp")
         self.assertIs(call.kwargs["ephemeral"], True)
         await bot.close()
+
+    def test_a_colour_is_named_by_its_deck_then_its_colour(self) -> None:
+        from cogs.codex.reference import COLOR_CHOICES
+        names = {choice.value: choice.name for choice in COLOR_CHOICES}
+        self.assertEqual(names["red"], "Blood Anarchs (Red)")
+        self.assertEqual(names["neutral"], "Neutral")
 
     async def test_an_unknown_spec_is_refused_to_the_asker(self) -> None:
         bot, cog, interaction = self.cog()
