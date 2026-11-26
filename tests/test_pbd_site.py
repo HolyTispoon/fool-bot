@@ -82,6 +82,29 @@ class FilesTests(unittest.TestCase):
             self.assertIn(f'{variant}: "{VARIANT_LABELS[variant]}"', text)
 
 
+class CardPreviewTests(unittest.TestCase):
+    def test_the_preview_cuts_the_database_frame_the_bot_cuts(self):
+        """A database picture (".jpg") is drawn 330/300 of its 5:7 box's
+        width and moved 15/300 of it up and left, so the frame the bot
+        cuts off (`DATABASE_FRAME`) falls outside the box; a module face
+        (".png") fills it (docs/design/codex.md, "A card is 5:7")."""
+        from codex import render
+        from PIL import Image
+        with Image.open(next(cards.picture(slug) for slug in cards.pictured()
+                             if cards.picture(slug).suffix == ".jpg")) as framed:
+            width = framed.width
+        card = width - 2 * render.DATABASE_FRAME
+        css = (PUBLIC / "codex.css").read_text(encoding="utf-8")
+        scale = f"{width / card * 100:g}%"
+        shift = f"-{render.DATABASE_FRAME / card * 100:g}%"
+        self.assertIn(f".card-preview-card.framed img {{ width: {scale}; max-width: none; "
+                      f"margin: {shift} 0 0 {shift}; }}", css)
+        self.assertIn("aspect-ratio: 5 / 7;", css)
+        self.assertIn('card.key.endsWith(".jpg")',
+                      (PUBLIC / "preview.js").read_text(encoding="utf-8"))
+        self.assertEqual(keys.card_key("trojan_duck", ".jpg"), "codex/cards/trojan_duck.jpg")
+
+
 class FunctionPatternsTests(unittest.TestCase):
     def setUp(self):
         self.server = load_server()

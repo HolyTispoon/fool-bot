@@ -21,7 +21,7 @@ import discord
 from discord import app_commands
 
 from codex.cards import COLOR_DECK_NAMES, LANDED_COLORS, Card, Hero, catalog
-from codex.render import bundled, bundled_bytes, render_cards
+from codex.render import bundled, render_card, render_cards
 from codex.rulings import Ruling, keyword_entry, keywords, rulings_for
 from cogs.codex_helpers import elapsed_ms
 
@@ -248,17 +248,17 @@ class ReferenceMixin:
         if picture is None:
             await interaction.response.send_message(words, ephemeral=ephemeral)
             return
-        # The file's bytes from memory, or off the event loop the first
-        # time: never opened on it (`codex.render.bundled_bytes`).
+        # The card's face without the database's frame, drawn off the
+        # event loop from the pictures in memory (`codex.render.render_card`).
         started = time.perf_counter()
-        data = await asyncio.to_thread(bundled_bytes, picture)
-        read = elapsed_ms(started)
+        data = await asyncio.to_thread(render_card, slug)
+        drawn = elapsed_ms(started)
         started = time.perf_counter()
         await interaction.response.send_message(
-            file=discord.File(io.BytesIO(data), filename=picture.name), ephemeral=ephemeral,
+            file=discord.File(io.BytesIO(data), filename=picture.with_suffix(".webp").name), ephemeral=ephemeral,
         )
-        LOGGER.info("Codex card %s: %d KB read in %d ms, sent in %d ms",
-                    slug, len(data) // 1024, read, elapsed_ms(started))
+        LOGGER.info("Codex card %s: %d KB drawn in %d ms, sent in %d ms",
+                    slug, len(data) // 1024, drawn, elapsed_ms(started))
         if words:
             await interaction.followup.send(words, ephemeral=ephemeral)
 

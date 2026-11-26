@@ -141,15 +141,24 @@ def px(value):
 #: message out while the new picture loads -- and the hand, the codex
 #: and the tech picker on every click that pictures them. The card files
 #: themselves (330 by 450 JPEGs, 65 to 130 KB) are not what is sent, and
-#: drawing takes a quarter of a second either way; `/codex card` alone
-#: posts a card's own file as it is.
+#: drawing takes a quarter of a second either way; `/codex card` sends
+#: one card's face (`render_card`) the same way.
 WEBP_QUALITY = 85
 
 # -- The panel's measures, in pixels, as the canvas's plan board gives them,
 # at `DRAW_SCALE`.
 
-#: A card: the art (330 by 450) at 61% at a scale of 1, 79% as drawn.
-CARD = (px(200), px(273))
+#: A card: its face (300 by 420, `card_picture`) at 65% at a scale of 1,
+#: 85% as drawn -- 5:7, the shape of every card the module pictures,
+#: inside the patrol slot's 200 by 273 the mat prints.
+CARD = (px(195), px(273))
+#: A slot in the top row -- a patrol slot as the mat prints it, a
+#: command-zone slot -- which a card lies in the middle of: 200 by 273,
+#: the framed art's shape, so the top row is the mat's width whatever
+#: the card's.
+SLOT = (px(200), px(273))
+#: How far a card lies inside its slot, either side.
+SLOT_INSET = (SLOT[0] - CARD[0]) // 2
 #: A grid cell, square so an exhausted card lies in it at full size
 #: (the author, 2026-10-08: A of the canvas's three ways).
 CELL = CARD[1]
@@ -175,7 +184,7 @@ TILE = (px(136), px(97))
 #: Between two places in the building column.
 TILE_GAP = px(12)
 #: A patrol slot's bonus strip, and the space above it.
-BONUS = (CARD[0], px(41))
+BONUS = (SLOT[0], px(41))
 BONUS_GAP = px(6)
 #: A patrol holder's blue padding round its slot and bonus, and the
 #: gap between two holders. Each slot is its own holder, packed, rather
@@ -194,7 +203,7 @@ PATROL_SLOT_GAP = px(12)
 ADD_ON = (TILE[0], 2 * PATROL_PADDING + BONUS_GAP + BONUS[1] + CELL_GAP + 2 * CARD[1]
           - 4 * TILE[1] - 4 * TILE_GAP)
 #: A patrol holder's width.
-PATROL_HOLDER = CARD[0] + 2 * PATROL_PADDING
+PATROL_HOLDER = SLOT[0] + 2 * PATROL_PADDING
 #: The nameplate along the panel's outer edge, and the gap between it
 #: and the rest.
 NAMEPLATE_HEIGHT = px(56)
@@ -500,12 +509,30 @@ def board_piece(*parts: str) -> Image.Image:
     return image(BOARD_IMAGE_DIR.joinpath(*parts))
 
 
+#: The white frame round the card database's pictures, a side: each is
+#: 330 by 450 with the card in the middle 300 by 420, its corners
+#: rounded and a shadow off its bottom right. Cut off, the card is 5:7
+#: like every face the module pictures at 375 by 525 -- the database's
+#: neutral cards on the module's own sheet match it to the pixel
+#: (measured 2026-11-26). The file is kept whole: it is imported data,
+#: the emoji are read off it at its own coordinates, and the site shows
+#: it as the publisher put it.
+DATABASE_FRAME = 15
+
+
 def card_picture(slug: str, cards: CardCatalog) -> Image.Image:
-    """A card's or a hero's own art, or the card back where it has none."""
-    found = cards.by_slug(slug).picture
+    """A card's or a hero's own art, or the card back where it has none:
+    a database picture without its frame (`DATABASE_FRAME`), so every
+    card is 5:7 and its corners are the card's own."""
+    card = cards.by_slug(slug)
+    found = card.picture
     if found is None or not bundled(found):
         return board_piece("backs", "card.png")
-    return image(found)
+    picture = image(found)
+    if found.parent == CARD_IMAGE_DIR:
+        picture = picture.crop((DATABASE_FRAME, DATABASE_FRAME,
+                                picture.width - DATABASE_FRAME, picture.height - DATABASE_FRAME))
+    return picture
 
 
 def fitted(picture: Image.Image, box_size: tuple[int, int]) -> Image.Image:
@@ -538,6 +565,23 @@ def rounded(picture: Image.Image, radius: int) -> Image.Image:
     shaped = picture.convert("RGBA")
     shaped.putalpha(ImageChops.multiply(shaped.getchannel("A"), mask))
     return shaped
+
+
+def render_card(slug: str, cards: Optional[CardCatalog] = None) -> bytes:
+    """
+    One card on its own, as `/codex card` posts it: its face at its own
+    size -- a database card without its frame, 300 by 420 -- its corners
+    rounded and see-through, as WebP. Kept once drawn (`RENDERED_KEPT`).
+    """
+    return _render_card(slug, cards or load_catalog())
+
+
+@lru_cache(maxsize=32)
+def _render_card(slug: str, cards: CardCatalog) -> bytes:
+    picture = card_picture(slug, cards)
+    buffer = io.BytesIO()
+    rounded(picture, round(picture.width / 20)).save(buffer, format="WEBP", quality=WEBP_QUALITY)
+    return buffer.getvalue()
 
 
 def faint(picture: Image.Image, amount: float = 0.35) -> Image.Image:
@@ -1403,7 +1447,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
 
 def command_zone_width(count: int) -> int:
     """The command zone's plate, for `count` heroes."""
-    return 2 * PATROL_PADDING + count * CARD[0] + (count - 1) * COMMAND_SLOT_GAP
+    return 2 * PATROL_PADDING + count * SLOT[0] + (count - 1) * COMMAND_SLOT_GAP
 
 
 def command_zone(heroes_in_zone: Sequence[Optional[HeroState]],
@@ -1435,15 +1479,16 @@ def command_zone(heroes_in_zone: Sequence[Optional[HeroState]],
                        (top + CARD[1] + margin + PATROL_HEIGHT) / 2),
                 label, face, PLATE_INK, px(2))
     for index, hero in enumerate(heroes_in_zone):
-        left = margin + PATROL_PADDING + index * (CARD[0] + COMMAND_SLOT_GAP)
+        left = margin + PATROL_PADDING + index * (SLOT[0] + COMMAND_SLOT_GAP)
         if hero is None:
-            dashed_box(draw, (left, top, left + CARD[0], top + CARD[1]), PLATE_EDGE)
+            dashed_box(draw, (left, top, left + SLOT[0], top + SLOT[1]), PLATE_EDGE)
             word = "HERO"
             hero_face = font(px(18), bold=False)
-            spaced_text(draw, (left + (CARD[0] - spaced_width(word, hero_face, px(2))) / 2,
-                               top + CARD[1] / 2 - px(11)),
+            spaced_text(draw, (left + (SLOT[0] - spaced_width(word, hero_face, px(2))) / 2,
+                               top + SLOT[1] / 2 - px(11)),
                         word, hero_face, FAINT_INK, px(2))
             continue
+        left += SLOT_INSET
         tile.alpha_composite(card_face(hero.slug, cards, CARD), (left, top))
         mark(tile, (left, top, left + CARD[0], top + CARD[1]), card=hero.slug)
         if hero.summoning_runes:
@@ -2043,7 +2088,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         )
         card_left = holder_left + PATROL_PADDING
         holder_left += PATROL_HOLDER + PATROL_SLOT_GAP
-        body.alpha_composite(rounded(sized(board_piece("patrol_slots", f"{slot}.png"), CARD),
+        body.alpha_composite(rounded(sized(board_piece("patrol_slots", f"{slot}.png"), SLOT),
                                      px(12)),
                              (card_left, card_top))
         body.alpha_composite(sized(board_piece("patrol_slots", f"{slot}_bonus.png"), BONUS),
@@ -2073,8 +2118,9 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards, turned),
-                      (card_left, card_top, card_left + CARD[0], card_top + CARD[1]))
-        mark(body, (card_left, card_top, card_left + CARD[0], card_top + CARD[1]), card=lying.slug)
+                      (card_left, card_top, card_left + SLOT[0], card_top + SLOT[1]))
+        mark(body, (card_left + SLOT_INSET, card_top, card_left + SLOT_INSET + CARD[0],
+                    card_top + CARD[1]), card=lying.slug)
 
     top = o + PATROL_HEIGHT + CELL_GAP
     # The worker card in the grid's first cell, under the command zone.
@@ -2659,21 +2705,20 @@ def render_side(match: MatchState, seat: int, name: str,
 # -- A hand, a codex -----------------------------------------------------------
 
 
-#: A card in a hand or a codex picture, in pixels: the art (330 by 450)
-#: at 0.7, and at 8/15 -- from 0.8 and 0.6 (264 by 360, 198 by 270)
-#: until the author asked for the cards a bit smaller (2026-10-09),
-#: which takes about a sixth off each picture's bytes: the staged
-#: mid-game hand 87 KB to 72, the twelve-card codex 164 to 134, the
-#: standard game's seventy-two 590 to 477. The badges, the numbers and
-#: the picked pill keep their size, so they read a little larger on
-#: the card.
-HAND_CARD = (231, 315)
-CODEX_CARD = (176, 240)
+#: A card in a hand or a codex picture, in pixels: its face (300 by 420,
+#: `card_picture`) at 0.75 and at 7/12, 5:7 -- the framed art (330 by
+#: 450) at 0.7 and 8/15 until the frame was cut off (2026-11-26), and
+#: at 0.8 and 0.6 (264 by 360, 198 by 270) until the author asked for
+#: the cards a bit smaller (2026-10-09), which took about a sixth off
+#: each picture's bytes. The badges, the numbers and the picked pill
+#: keep their size, so they read a little larger on the card.
+HAND_CARD = (225, 315)
+CODEX_CARD = (175, 245)
 
 
 #: Where a hand card's printed cost coin ends and its middle sits, at
 #: `HAND_CARD`'s size: what a cost that differs is written beside.
-HAND_COST_RIGHT, HAND_COST_MIDDLE = 58, 38
+HAND_COST_RIGHT, HAND_COST_MIDDLE = 51, 29
 #: A cost reduced and a cost raised, beside the printed coin, as fill
 #: and ink: a light grey and a dark one, never the coin's gold, so
 #: neither reads as the printed cost, and not green or red, which the
@@ -2710,7 +2755,7 @@ def scaled_card(slug: str, size: tuple[int, int], cards: CardCatalog) -> Image.I
 
 @lru_cache(maxsize=128)
 def _scaled_card(slug: str, size: tuple[int, int], cards: CardCatalog) -> Image.Image:
-    return card_picture(slug, cards).resize(size, Image.LANCZOS)
+    return rounded(card_picture(slug, cards).resize(size, Image.LANCZOS), round(size[0] / 20))
 
 
 #: How many hands and codex pictures are kept, drawn, for the next click

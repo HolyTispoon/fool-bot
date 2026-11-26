@@ -425,6 +425,17 @@ class RenderTests(unittest.TestCase):
         self.assertLess(len(png), 10 * 1024 * 1024)
 
 
+    def test_a_card_on_its_own_is_its_face_without_the_frame(self) -> None:
+        """`/codex card`'s picture: a database card cut to 300 by 420, a
+        token at its own 375 by 525, each 5:7 with see-through corners."""
+        for slug, expected in (("trojan_duck", (300, 420)), ("beast", (375, 525))):
+            with self.subTest(slug=slug):
+                data = render.render_card(slug, self.engine.catalog)
+                self.assertEqual((data[:4], data[8:12]), (b"RIFF", b"WEBP"))
+                with Image.open(io.BytesIO(data)) as picture:
+                    self.assertEqual(picture.size, expected)
+                    self.assertEqual(picture.convert("RGBA").getpixel((0, 0))[3], 0)
+
     def test_cards_start_a_row_a_group(self) -> None:
         """`/codex color`'s picture: the starting deck, a row a spec, the tokens."""
         groups = self.engine.catalog.color_sheet("red")
