@@ -704,6 +704,27 @@ framework") and a page anyone can open should call no other host.
   when a board loads) and never taller than the screen, so a stacked board
   does not sit in black bands.
 
+### The replay
+
+**A game that is over has Replay** in the top bar (`GamePage.replay`; the
+author, 2026-11-26, with the bot's `/codex replay`,
+[codex.md](codex.md), "The replay"): its turns one board at a time, from
+the history's first to the final board. A slide is a history entry --
+its board in the viewer, "Turn n's start", and its heading and lines in
+the log's current section, the earlier turns hidden while it runs -- and
+the last is `live.json`'s board, heading and lines, "The final board".
+The bar over the board is **⏮ ◀ Play ▶ ⏭**, where it stands ("Turn 7's
+start · 7 of 24") and **Close**; the arrow keys, Home and End step through
+it, and Escape closes it. **Play** shows the next slide every 5 seconds
+(`REPLAY_EVERY`) and stops on the final board, where it starts again from
+the first; opening the replay plays it. The next board is fetched ahead,
+so a slide never waits on its picture, and the viewer keeps its zoom
+across slides as it does across new boards. It needs nothing new from
+the bucket: the history already carries every turn's board. The button
+shows only once the game is not `playing` and there are two slides or
+more. `scripts/serve_pbd.py --stage` gives its finished game a short
+history to replay.
+
 ### The viewer
 
 `viewer.js`, `BoardViewer`, is decision 6 by hand: pointer events and a CSS

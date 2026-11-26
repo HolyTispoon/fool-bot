@@ -171,7 +171,8 @@ def fake_attachment(file: discord.File) -> SimpleNamespace:
     async def read():
         return body
 
-    return SimpleNamespace(filename=file.filename, body=body, read=read)
+    return SimpleNamespace(filename=file.filename, body=body, read=read,
+                           url=f"https://cdn.test/{hashlib.sha256(body).hexdigest()[:12]}/{file.filename}")
 
 
 class FakeMessage(FakePartial):

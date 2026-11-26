@@ -63,7 +63,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 {command.name for command in group.commands},
                 {"card", "spec", "color", "rules", "create_game", "games", "board", "hand", "side_by_side", "resume",
-                 "concede", "abandon", "admin", "debug"},
+                 "concede", "abandon", "admin", "debug", "replay"},
             )
             self.assertEqual([command.name for command in bot.tree.get_commands()], ["codex"])
             await bot.close()

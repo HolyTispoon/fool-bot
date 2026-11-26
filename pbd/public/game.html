@@ -14,6 +14,7 @@
   <header class="top">
     <h1><a href="/">Codex games</a></h1>
     <p class="game-title" id="title"></p>
+    <button type="button" class="toggle" id="replay-toggle" aria-controls="replay" aria-expanded="false" hidden>Replay</button>
     <button type="button" class="toggle" id="log-toggle" aria-controls="log" aria-expanded="true">Hide log</button>
   </header>
   <main class="game-main" id="game-main">
@@ -25,6 +26,15 @@
         <button type="button" id="zoom-fit">Fit</button>
         <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
       </div>
+      <div class="replay" id="replay" role="group" aria-label="Replay the game turn by turn" hidden>
+        <button type="button" id="replay-first" aria-label="First turn">&#x23EE;</button>
+        <button type="button" id="replay-prev" aria-label="Previous turn">&#x25C0;</button>
+        <button type="button" id="replay-play" class="replay-play">Play</button>
+        <button type="button" id="replay-next" aria-label="Next turn">&#x25B6;</button>
+        <button type="button" id="replay-last" aria-label="Final board">&#x23ED;</button>
+        <span class="replay-where" id="replay-where" aria-live="polite"></span>
+        <button type="button" id="replay-close">Close</button>
+      </div>
       <p class="viewer-caption" id="viewer-caption" hidden>
         <span id="viewer-caption-text"></span>
         <button type="button" id="back-to-current">Back to the current board</button>
@@ -34,6 +44,7 @@
     <aside class="log" id="log" aria-label="The game's log">
       <p class="over" id="over" hidden></p>
       <section class="current">
+        <p class="current-label" id="current-label" hidden></p>
         <h2 class="heading" id="heading"></h2>
         <ol class="lines" id="lines"></ol>
       </section>

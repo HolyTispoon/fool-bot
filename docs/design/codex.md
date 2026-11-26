@@ -1508,6 +1508,44 @@ the tokens are rendered. The bot serves no rulebook text and
 `docs/living-rules.md` is not touched (worksheet decision 12); the
 rulebook's PDF under `docs/codex/` is for the developers to read.
 
+## The replay
+
+`/codex replay` shows a game that is over again, turn by turn, as a
+slideshow the asker alone sees (`cogs/codex/replay.py`,
+`cogs/codex_views/replay.py`; the author, 2026-11-26, with the site's
+**Replay**, [pbd-site.md](pbd-site.md), "The replay"). With no `number`
+it is the last game over in the channel it is typed in -- a Rematch
+reuses its channel, so the highest number -- and with one, that game of
+the server's, from any channel. A game still being played is refused:
+a replay is for a game that is over, finished or abandoned.
+
+- **The slides are the channel's pins**: each turn's start, posted and
+  pinned with its heading and its board (`open_turn`), read as the
+  publisher's import reads them -- the bot's own message carrying the
+  game's board by its exact name (`pins.board_of`), a turn pinned twice
+  its later pin. Nothing old is drawn again and the model keeps only
+  three snapshots, so there is nothing else to draw it from. A turn
+  past Discord's pin cap, or one that never opened its main phase, has
+  no slide.
+- **A slide's picture is the pin's own attachment, by its address**, in
+  the embed: no board is uploaded but the last. The last slide is the
+  final board, drawn once from the saved match, with who won.
+- **A turn's lines are the publisher's record's** (`PublishedGame.history`
+  and its current turn), drawn through `render_text`, where the site
+  publishes; else what the pin itself carries -- a pin from before
+  2026-10-21 holds its turn's lines whole, one since then its heading
+  alone. Folded to an embed's 4096 characters with "*and n more*".
+- **The buttons** -- **⏮ ◀ Play ▶ ⏭** -- edit the message through the
+  click's own response; **Play** shows the next slide every
+  `REPLAY_EVERY` seconds through the latest click's token, until the
+  final board, a step by hand, or 14 minutes after the last click (a
+  token lasts 15). Every edit is the interaction's webhook, never the
+  channel's edit bucket ([rate-limits.md](rate-limits.md)); the command
+  itself costs one pin listing per 50 pins and the final board's upload.
+- **No `SafeView`**: the view reads no match and changes nothing, and an
+  ephemeral message has one person to click it, so there is no lock and
+  no gate.
+
 ## The service and its file
 
 `gamesaves/codex/` is D12 Ball's two modules copied (decision 2):

@@ -154,6 +154,38 @@ button:focus-visible, .viewer:focus-visible, a:focus-visible {
 }
 .viewer-caption[hidden] { display: none; }
 
+/* The replay: a finished game's turns one board at a time (GamePage.replay). */
+.replay {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  width: fit-content;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--ground) 85%, transparent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  cursor: default;
+}
+.replay[hidden] { display: none; }
+.replay button { min-width: 36px; min-height: 32px; }
+.replay button:disabled { opacity: 0.4; cursor: default; border-color: var(--edge); }
+.replay .replay-play { min-width: 64px; }
+.replay-where { padding: 0 8px; white-space: nowrap; color: var(--muted); }
+.replay-where strong { color: var(--ink); }
+.game.replaying .history { display: none; }
+.current-label { margin: 0 0 4px; color: var(--accent); font-weight: 600; }
+.current-label[hidden] { display: none; }
+@media (max-width: 560px) {
+  .replay { flex-wrap: wrap; justify-content: center; top: 6px; }
+  .replay #replay-close { min-width: 0; }
+  .replay-where { order: -1; flex-basis: 100%; text-align: center; }
+}
+
 .viewer-hint {
   align-self: center;
   margin-right: 2px;

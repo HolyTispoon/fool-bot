@@ -17,6 +17,8 @@ const LOG_WIDTH = "codex-pbd-log-width";
 // The log is never narrower than this, and never leaves the board less.
 const LOG_MIN = 240;
 const BOARD_MIN = 240;
+// A replay's Play shows the next turn this often.
+const REPLAY_EVERY = 5 * 1000;
 
 // What a game's mode and variant are called: cogs/codex_views/lobby.py's
 // MODE_LABELS and codex/game.py's VARIANT_LABELS, held to both by
@@ -246,6 +248,11 @@ class GamePage {
     document.getElementById("zoom-out").addEventListener("click", () => this.viewer.zoomBy(0.8));
     document.getElementById("zoom-fit").addEventListener("click", () => { this.viewer.fit(); this.viewer.draw(); });
     document.getElementById("back-to-current").addEventListener("click", () => this.lookAt(null));
+    // The replay, while one is open: its slides and the one shown.
+    this.slides = null;
+    this.slide = 0;
+    this.playing = null;
+    this.replay();
     this.logToggle();
     this.splitter();
   }
@@ -433,6 +440,7 @@ class GamePage {
       this.historyVersion = live.history_version;
       this.historyTurns = history ? history.turns : [];
       this.showHistory();
+      document.getElementById("replay-toggle").hidden = !this.canReplay();
     }
     say("");
     // A game that is over changes no more.
@@ -447,6 +455,9 @@ class GamePage {
     const over = document.getElementById("over");
     over.hidden = live.status === "playing";
     over.textContent = live.status === "playing" ? "" : `${standing(live)}. This game is over.`;
+    const replay = document.getElementById("replay-toggle");
+    replay.hidden = !this.canReplay();
+    if (this.slides) return;
     const turnHeading = document.getElementById("heading");
     turnHeading.replaceChildren(...lineNode("span", live.heading).childNodes);
     fillLines(document.getElementById("lines"), live.lines);
@@ -478,6 +489,123 @@ class GamePage {
       return item;
     }));
     document.getElementById("turns-empty").hidden = turns.length > 0;
+  }
+
+  // -- The replay -------------------------------------------------------------
+
+  // A game that is over is shown again from its first turn to its final
+  // board, one turn a slide: the turn's start board in the viewer and its
+  // heading and lines in the log, by hand or on Play (docs/design/pbd-site.md,
+  // "The replay").
+  replay() {
+    const on = (id, run) => document.getElementById(id).addEventListener("click", run);
+    on("replay-toggle", () => (this.slides ? this.closeReplay() : this.openReplay()));
+    on("replay-first", () => this.goTo(0));
+    on("replay-prev", () => this.goTo(this.slide - 1));
+    on("replay-next", () => this.goTo(this.slide + 1));
+    on("replay-last", () => this.goTo(this.slides.length - 1));
+    on("replay-play", () => (this.playing ? this.pause() : this.play()));
+    on("replay-close", () => this.closeReplay());
+    document.addEventListener("keydown", (event) => {
+      if (!this.slides || event.ctrlKey || event.metaKey || event.altKey) return;
+      const at = event.target;
+      if (at && (at.id === "splitter" || at.closest && at.closest("input, textarea, select"))) return;
+      if (event.key === "ArrowRight") this.goTo(this.slide + 1);
+      else if (event.key === "ArrowLeft") this.goTo(this.slide - 1);
+      else if (event.key === "Home") this.goTo(0);
+      else if (event.key === "End") this.goTo(this.slides.length - 1);
+      else if (event.key === "Escape" && !this.peeking) this.closeReplay();
+      else return;
+      event.preventDefault();
+    });
+  }
+
+  // Every finished turn that has its board, oldest first, then where the game
+  // ended: the current board, heading and lines.
+  replaySlides() {
+    const turns = this.historyTurns
+      .filter((turn) => turn.board)
+      .sort((a, b) => a.turn - b.turn)
+      .map((turn) => ({ ...turn, label: `Turn ${turn.turn}'s start` }));
+    const live = this.live;
+    if (live && live.board) {
+      turns.push({ turn: live.turn, heading: live.heading, lines: live.lines, board: live.board,
+                   board_map: live.board_map, label: "The final board" });
+    }
+    return turns;
+  }
+
+  canReplay() {
+    return Boolean(this.live && this.live.status !== "playing" && this.replaySlides().length > 1);
+  }
+
+  openReplay() {
+    const slides = this.replaySlides();
+    if (slides.length === 0) return;
+    this.lookAt(null);
+    this.slides = slides;
+    document.body.classList.add("replaying");
+    document.getElementById("replay").hidden = false;
+    const toggle = document.getElementById("replay-toggle");
+    toggle.textContent = "Stop replay";
+    toggle.setAttribute("aria-expanded", "true");
+    this.goTo(0);
+    this.play();
+  }
+
+  closeReplay() {
+    if (!this.slides) return;
+    this.pause();
+    this.slides = null;
+    document.body.classList.remove("replaying");
+    document.getElementById("replay").hidden = true;
+    const toggle = document.getElementById("replay-toggle");
+    toggle.textContent = "Replay";
+    toggle.setAttribute("aria-expanded", "false");
+    document.getElementById("current-label").hidden = true;
+    if (this.live) {
+      this.showGame(this.live);
+      if (this.live.board) this.showBoard(this.live.board, this.live.board_map);
+    }
+  }
+
+  goTo(index) {
+    if (!this.slides) return;
+    const last = this.slides.length - 1;
+    this.slide = Math.max(0, Math.min(index, last));
+    const slide = this.slides[this.slide];
+    this.showBoard(slide.board, slide.board_map);
+    // The next board is fetched ahead, so Play never waits on it.
+    const next = this.slides[this.slide + 1];
+    if (next) new Image().src = DATA + next.board;
+    const label = document.getElementById("current-label");
+    label.hidden = false;
+    label.textContent = slide.label;
+    document.getElementById("heading").replaceChildren(...lineNode("span", slide.heading).childNodes);
+    fillLines(document.getElementById("lines"), slide.lines);
+    document.getElementById("log").scrollTop = 0;
+    const where = document.getElementById("replay-where");
+    where.replaceChildren(element("strong", null, slide.label), ` · ${this.slide + 1} of ${this.slides.length}`);
+    document.getElementById("replay-first").disabled = this.slide === 0;
+    document.getElementById("replay-prev").disabled = this.slide === 0;
+    document.getElementById("replay-next").disabled = this.slide === last;
+    document.getElementById("replay-last").disabled = this.slide === last;
+    if (this.slide === last) this.pause();
+  }
+
+  play() {
+    if (!this.slides) return;
+    // Play from the final board starts again from the first.
+    if (this.slide === this.slides.length - 1) this.goTo(0);
+    clearInterval(this.playing);
+    this.playing = setInterval(() => this.goTo(this.slide + 1), REPLAY_EVERY);
+    document.getElementById("replay-play").textContent = "Pause";
+  }
+
+  pause() {
+    clearInterval(this.playing);
+    this.playing = null;
+    document.getElementById("replay-play").textContent = "Play";
   }
 
   // A finished turn's board in the viewer, or (null) the current one again.

@@ -20,7 +20,7 @@ from codex.flow.result import FollowOnStep
 
 PACKAGE = Path(views.__file__).parent
 SUBMODULES = sorted(module.name for module in pkgutil.iter_modules([str(PACKAGE)]))
-MIXINS = ("core", "turns", "ending", "lobby", "presentation", "slash_commands", "reference", "debug")
+MIXINS = ("core", "turns", "ending", "lobby", "presentation", "slash_commands", "reference", "replay", "debug")
 
 
 class ViewsPackageTests(unittest.TestCase):
