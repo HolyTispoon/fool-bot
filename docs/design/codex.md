@@ -1683,8 +1683,9 @@ else the bot shows is ephemeral.
   own art, at the pixels the canvas was drawn at times `DRAW_SCALE`
   (1.3 since 2026-10-12, below), Roboto Slab for every word and number.
   The measures here are the canvas's, at a scale of 1.
-  - **Cards are 200 by 273** (the art at 61%; 260 by 355 as drawn)
-    **in square cells of 273**, 16 between, so an exhausted card lies in its cell on its side at
+  - **Cards are 195 by 273** (the face at 65%; 254 by 355 as drawn;
+    200 by 273, the framed art at 61%, until 2026-11-26 -- "A card is
+    5:7" below) **in square cells of 273**, 16 between, so an exhausted card lies in its cell on its side at
     full size, turned a quarter clockwise with the exhaust glyph on the
     cell's top corner (the author, 2026-10-08: A of the canvas's three
     ways -- dimmed in place, and a smaller card, were the others).
@@ -2289,6 +2290,31 @@ else the bot shows is ephemeral.
   keep their size, so they read a little larger on the card. The
   board's cards are the canvas's and `/codex card` posts the card's own
   file, so neither moved.
+- **A card is 5:7, its frame cut off** (the author, 2026-11-26). The
+  card database's pictures are 330 by 450 with the card in the middle
+  300 by 420 -- a white frame 15 a side, the card's corners rounded
+  inside it and a shadow off its bottom right -- where every face the
+  module pictures (a token, a building, a worker, the back) is the card
+  itself at 375 by 525. Both are 5:7 once the frame is off: the
+  database's 34 neutral cards on the module's own Brown Card Sheet match
+  the database's picture cut 15 a side to the pixel (measured
+  2026-11-26), every other offset worse. Drawn framed, a database card
+  showed its white frame on the board and in every picture, and a
+  token next to it was stretched to the framed shape. So
+  `card_picture` cuts `DATABASE_FRAME` off every picture under
+  `codex/images/cards/`, and the three card sizes are 5:7 -- `CARD`
+  195 by 273 (the board's, lying in the middle of `SLOT`, the mat's
+  200 by 273 patrol slot and a command-zone slot, which stay the top
+  row's measure, so the cells, the top row and every board's size are
+  unchanged), `HAND_CARD` 225 by 315,
+  `CODEX_CARD` 175 by 245 -- every card drawn with its corners rounded,
+  as the board's always were (`rounded`, a twentieth of the width). The
+  hand's cost note moved with the printed coin, to 51 by 29. The files
+  themselves are not cut: they are imported whole, `/codex card` posts
+  one as it is, `scripts/render_codex_emoji.py` reads each hero's face
+  at the framed picture's coordinates, and the site's hover shows the
+  file the publisher put. A colour's picture, green's, grew from about
+  650 KB to 740 with more of each card's art in the same space.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons
