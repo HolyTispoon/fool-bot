@@ -55,7 +55,7 @@ class ReplayMixin:
     @app_commands.command(name="replay",
                           description="Replay a finished Codex game turn by turn.")
     @app_commands.describe(number="The game's number; by default the last one over in this channel.",
-                           public="Show it to the channel, steered by you (by default to you alone).")
+                           public="Show it to the channel, for anyone to step through (by default to you alone).")
     async def replay(self, interaction: discord.Interaction, number: Optional[int] = None,
                      public: bool = False) -> None:
         game = self.replayed_game(interaction, number)
@@ -69,7 +69,7 @@ class ReplayMixin:
             # where the replay would have been.
             await interaction.followup.send(slides, ephemeral=not public)
             return
-        view = ReplayView(game.game_number, slides, owner=interaction.user if public else None)
+        view = ReplayView(game.game_number, slides)
         message = await interaction.followup.send(ephemeral=not public, wait=True, **view.content())
         view.attach(interaction, message)
 

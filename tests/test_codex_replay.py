@@ -106,25 +106,23 @@ class ReplayCommandTests(hooks.HooksTestCase):
         self.assertIsInstance(call.last("followup.send")[2]["view"], ReplayView)
 
 
-    async def test_a_public_replay_is_steered_by_whoever_ran_it(self) -> None:
+    async def test_a_public_replay_is_anyone_s_to_step_through(self) -> None:
         await self.finish()
         call = await self.replayed(public=True)
         self.assertEqual(call.last("response.defer")[2]["ephemeral"], False)
         _, _, sent = call.last("followup.send")
         self.assertFalse(sent["ephemeral"])
         view = sent["view"]
-        self.assertIs(view.owner, self.table.fencer)
+        # Somebody who did not run it steps it on.
         other = self.table.interaction(self.table.basher)
-        self.assertFalse(await view.interaction_check(other))
-        self.assertIn("is steering this replay", other.last("response.send")[2].get("content")
-                      or other.last("response.send")[1][0])
-        self.assertTrue(await view.interaction_check(self.table.interaction(self.table.fencer)))
+        self.assertTrue(await view.interaction_check(other))
+        await pressed(view, "next", other)
+        self.assertIn("Turn 2's start", other.last("response.edit")[2]["embed"].title)
 
     async def test_the_asker_s_own_replay_is_theirs_alone(self) -> None:
         await self.finish()
         _, _, sent = (await self.replayed()).last("followup.send")
         self.assertTrue(sent["ephemeral"])
-        self.assertIsNone(sent["view"].owner)
 
 
 class PlayTests(unittest.IsolatedAsyncioTestCase):
