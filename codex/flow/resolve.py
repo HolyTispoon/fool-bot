@@ -376,13 +376,13 @@ def _undecided(engine: "RulesEngine", match: MatchState, top: dict, result: Step
     effect asks you to make a decision on an opponent's turn, you do not
     resolve that effect" (UMR p. 14) -- an Insurance Agent that Prynn's
     fading returns to its controller's play in her controller's upkeep
-    puts no rune anywhere. Asked where the frame would ask its controller
+    puts no rune anywhere, and so for every "Arrives:" text. Asked where the frame would ask its controller
     something -- a target, a mode, a number, a split, a look -- and its
     controller is not a seat whose turn it is: the frame is dropped,
     said, and the stack goes on. Whether it was. A choice with one
     answer is no decision, and is taken as anywhere (`run`). Only the
-    effects in `effects.UNDECIDED_OFF_TURN` so far: each is the author's
-    to add.
+    effects in `effects.UNDECIDED_OFF_TURN` -- the arrivals; any other
+    kind is the author's to add.
     """
     seat = top["seat"]
     if top["effect"] not in effects.UNDECIDED_OFF_TURN or seat in engine.turn_seats(match):

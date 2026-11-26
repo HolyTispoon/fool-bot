@@ -1051,13 +1051,17 @@ black's, and the rest waits for step 13.
   an effect that asks a decision does not resolve (UMR p. 14), so a
   "Max level:" text reached there that chooses is lost
   (`board.max_level_reached`). On the stack the same rule is
-  `resolve._undecided`, applied **effect by effect, each the author's to
-  add** (2026-11-26: "for any other abilities ask me first"):
-  `effects.UNDECIDED_OFF_TURN` holds Insurance Agent's arrival alone --
-  one Prynn trashed comes back when she fades in her controller's
-  upkeep, under its own controller, and its rune is dropped, said,
-  where it would ask; before this it asked the seat whose turn it was
-  not, which no panel reaches, and the game stood still. A choice with
+  `resolve._undecided`, applied to **every "Arrives:" text**
+  (`effects.UNDECIDED_OFF_TURN`, read off `TEXT`; the author, 2026-11-26:
+  "All arrive ability follow the same rule") and to no other kind of
+  ability without the author's word ("for any other abilities ask me
+  first"). A unit arrives on an opponent's turn where Prynn's fading
+  returns it in her controller's upkeep -- an Insurance Agent she trashed
+  comes back under its own controller, and its rune is dropped, said,
+  where it would ask -- or Second Chances returns it; before this the
+  question went to the seat whose turn it was not, which no panel
+  reaches, and the game stood still. "Arrives or attacks:" is one
+  effect, and an attack is always on its controller's turn. A choice with
   one answer is no decision and is taken as anywhere. A choice that is the opponent's own --
   Banefire Golem's sacrifice, Carrion Curse's discards -- is asked of
   whoever the card says. **A look at hidden cards** (Carrion Curse's at

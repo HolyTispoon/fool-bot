@@ -2293,13 +2293,6 @@ CANT_ATTACK = CANT_ATTACK | GUARDIANS
 #: the Agent remembers the unit (its modifier `insures`), and the rune is a
 #: marker alone (its rulings).
 INSURERS = frozenset({"insurance_agent"})
-#: "In the rare event that an effect asks you to make a decision on an
-#: opponent's turn, you do not resolve that effect" (UMR p. 14): the
-#: effects that rule is applied to on the stack (`resolve._undecided`) --
-#: Insurance Agent's arrival, which Prynn's fading returns to its
-#: controller's play in her controller's upkeep. One effect at a time,
-#: each the author's (2026-11-26: "for any other abilities ask me first").
-UNDECIDED_OFF_TURN = frozenset({"insurance_agent"})
 INSURANCE = "insurance"
 #: Judgment Day: "Your max level Law hero can cast this no matter when he
 #: arrived or maxed."
@@ -2459,3 +2452,20 @@ COSTS.update({
     "sirus_quince_summon": Cost(gold=2),
     "sirus_quince_copy": Cost(gold=2),
 })
+
+
+# -- Decisions on opponents' turns ----------------------------------------------
+
+#: "In the rare event that an effect asks you to make a decision on an
+#: opponent's turn, you do not resolve that effect" (UMR p. 14): the
+#: effects that rule is applied to on the stack (`resolve._undecided`) --
+#: **every "Arrives:" text**, read off `TEXT` once it is whole, so a card
+#: imported later follows it too (the author, 2026-11-26: "All arrive
+#: ability follow the same rule"). A unit arrives on an opponent's turn
+#: when Prynn's fading returns it in her controller's upkeep, or Second
+#: Chances returns it. "Arrives or attacks:" is one effect; an attack is
+#: always on its controller's turn, so the rule never touches it. Any
+#: other kind of ability is the author's to add.
+UNDECIDED_OFF_TURN = frozenset(
+    effect for rows in TEXT.values() for when, effect in rows if when == "arrives"
+)

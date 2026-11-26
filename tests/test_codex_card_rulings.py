@@ -3750,24 +3750,42 @@ class PurpleRulingTests(unittest.TestCase):
         back = next(card for card in match.player(1).play if card.slug == "bone_collector")
         self.assertEqual((back.owner, back.controller), (2, 1))
 
-    def test_insurance_agent_returned_on_an_opponents_turn_insures_nothing(self) -> None:
-        """An Insurance Agent Prynn trashed comes back when she fades in
-        her controller's upkeep -- under its own controller, on an
-        opponent's turn, where its "Put an insurance rune on a unit" would
-        ask them a decision, so it does not resolve (UMR p. 14), and the
-        turn goes on to its main phase."""
+    def faded_back(self, unit: str):
+        """Prynn at 7 fading away in seat 1's upkeep with seat 2's `unit`
+        trashed, a Tiger Cub on each side, played through to seat 1's main
+        phase."""
         from test_codex_keywords import next_upkeep
 
         engine, game, match = purple()
         hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
         prynn = match.player(1).hero_of("prynn_pasternaak")
         prynn.time_runes = 1
-        prynn.trashed = [{"slug": "insurance_agent", "owner": 2, "controller": 2, "id": 90}]
+        prynn.trashed = [{"slug": unit, "owner": 2, "controller": 2, "id": 90}]
         put(match, 2, "tiger_cub")
         put(match, 1, "tiger_cub")
         next_upkeep(engine, game, match, 2)
         next_upkeep(engine, game, match, 1)
         self.assertEqual(prynn.zone, "command")
+        return engine, game, match, prynn
+
+    def test_every_arrival_returned_on_an_opponents_turn_does_not_resolve(self) -> None:
+        """Every "Arrives:" text follows the rule (the author, 2026-11-26):
+        a Tyrannosaurus Rex Prynn returns on an opponent's turn destroys
+        nothing -- "up to two" is a decision -- and says so."""
+        engine, game, match, _ = self.faded_back("tyrannosaurus_rex")
+        self.assertEqual((match.active, match.phase, match.resolving), (1, "main", []))
+        self.assertEqual(sorted(card.slug for card in match.player(1).play), ["tiger_cub"])
+        self.assertEqual(sorted(card.slug for card in match.player(2).play),
+                         ["tiger_cub", "tyrannosaurus_rex"])
+        self.assertIn("tyrannosaurus_rex", effects.UNDECIDED_OFF_TURN)
+
+    def test_insurance_agent_returned_on_an_opponents_turn_insures_nothing(self) -> None:
+        """An Insurance Agent Prynn trashed comes back when she fades in
+        her controller's upkeep -- under its own controller, on an
+        opponent's turn, where its "Put an insurance rune on a unit" would
+        ask them a decision, so it does not resolve (UMR p. 14), and the
+        turn goes on to its main phase."""
+        engine, game, match, prynn = self.faded_back("insurance_agent")
         agent = next(card for card in match.player(2).play if card.slug == "insurance_agent")
         self.assertEqual((match.active, match.phase, match.resolving), (1, "main", []))
         self.assertFalse(any(card.runes.get("insurance")
