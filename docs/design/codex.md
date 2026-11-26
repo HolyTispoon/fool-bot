@@ -2313,7 +2313,8 @@ else the bot shows is ephemeral.
   themselves are not cut: they are imported whole,
   `scripts/render_codex_emoji.py` reads each hero's face at the framed
   picture's coordinates, and the site's hover shows the file the
-  publisher put. `/codex card` posted the file as it was until the
+  publisher put, cut by the page itself (docs/design/pbd-site.md,
+  "Showing a card"). `/codex card` posted the file as it was until the
   author asked for it cut too (2026-11-26): it now sends `render_card`,
   the card's face at its own size -- 300 by 420, a token's or a
   worker's 375 by 525 -- its corners rounded and see-through, as WebP

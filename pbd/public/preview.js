@@ -52,6 +52,12 @@ class CardPreview {
       named.textContent = card.name;
       return named;
     }
+    // The card in a 5:7 box, as the bot draws it: a database picture
+    // (".jpg", 330 by 450) has a white frame round the card that the box
+    // cuts off (`.framed`, codex.css); the module's faces (".png") are the
+    // card alone (docs/design/codex.md, "A card is 5:7").
+    const box = document.createElement("span");
+    box.className = card.key.endsWith(".jpg") ? "card-preview-card framed" : "card-preview-card";
     const picture = document.createElement("img");
     picture.alt = card.name;
     picture.src = this.data + card.key;
@@ -60,9 +66,10 @@ class CardPreview {
       const named = document.createElement("span");
       named.className = "card-preview-name";
       named.textContent = card.name;
-      picture.replaceWith(named);
+      box.replaceWith(named);
     }, { once: true });
-    return picture;
+    box.append(picture);
+    return box;
   }
 
   // Beside the pointer, below and right of it where it fits, else on the

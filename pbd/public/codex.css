@@ -188,14 +188,26 @@ button:focus-visible, .viewer:focus-visible, a:focus-visible {
 }
 .card-preview[hidden] { display: none; }
 .card-preview-title { margin: 0 0 6px; font-weight: 600; color: var(--accent); }
-.card-preview img { display: block; border-radius: 6%/4.4%; }
-.card-preview-one img { width: auto; height: min(450px, 62vh); }
+/* A card in a 5:7 box, its corners rounded. A database picture is 330 by
+   450 with a white frame of 15 a side round the 300 by 420 card
+   (DATABASE_FRAME in codex/render.py): drawn 330/300 of the box's width
+   and moved 15/300 of it up and left, the frame falls outside the box.
+   A margin's percentage is of the width, across and down alike. */
+.card-preview-card {
+  display: block;
+  aspect-ratio: 5 / 7;
+  overflow: hidden;
+  border-radius: 5% / 3.6%;
+}
+.card-preview-card img { display: block; width: 100%; height: auto; }
+.card-preview-card.framed img { width: 110%; max-width: none; margin: -5% 0 0 -5%; }
+.card-preview-one .card-preview-card { width: calc(min(420px, 62vh) * 5 / 7); }
 .card-preview-grid {
   display: grid;
   grid-template-columns: repeat(var(--preview-columns, 6), auto);
   gap: 6px;
 }
-.card-preview-grid img { width: clamp(84px, 11vw, 150px); height: auto; }
+.card-preview-grid .card-preview-card { width: clamp(84px, 11vw, 150px); }
 .card-preview-name {
   display: block;
   padding: 6px 10px;
@@ -204,7 +216,7 @@ button:focus-visible, .viewer:focus-visible, a:focus-visible {
 }
 @media (max-width: 960px) {
   .card-preview-grid { --preview-columns: 4; }
-  .card-preview-grid img { width: clamp(64px, 20vw, 120px); }
+  .card-preview-grid .card-preview-card { width: clamp(64px, 20vw, 120px); }
 }
 
 /* The divider between the board and the log, dragged to resize the log

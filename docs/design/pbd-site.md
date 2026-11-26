@@ -747,6 +747,17 @@ of six (four on a phone) under its title, kept inside the window.
 - **A map is fetched once per board**, with the browser's cache, since its
   key never names another; a finished turn's board opened from the log
   brings its own.
+- **A card is shown 5:7, as the bot draws it** (the author, 2026-11-26;
+  docs/design/codex.md, "A card is 5:7"). The bucket holds each card's
+  file as it is -- a database card's `.jpg` with its white frame, 330 by
+  450, a module face's `.png`, the card alone -- and every history
+  already published names those keys, so the page cuts the frame rather
+  than the publisher putting cut copies under new keys: each picture
+  sits in a 5:7 box, `.card-preview-card`, and a `.jpg` (`.framed`) is
+  drawn 110% of the box's width and moved 5% up and left, the 15 of
+  `DATABASE_FRAME` on the 300 of the card, so the frame falls outside
+  the box. `tests/test_pbd_site.py` holds the CSS's numbers to
+  `DATABASE_FRAME`. Old games show cut cards too, with nothing put again.
 
 ### The Function
 
