@@ -10,7 +10,7 @@ cannot drift (docs/design/pbd-site.md, "Looking at it"):
     python3 scripts/serve_pbd.py --data /tmp/pbd-data
 
 `--stage <dir>` first writes a sample folder there -- three games, one
-being played with a history, one finished and one abandoned, through
+being played with a history, one finished with a short history to replay, and one abandoned, through
 the publisher's own shapes and boards drawn by `codex.render`, each
 board's map beside it and every card's picture -- and serves it:
 
@@ -260,11 +260,22 @@ def stage(folder: Path) -> list[str]:
     match = engine.new_match(("bashing", "finesse", "bashing"), first=1, variant="free_for_all")
     match.turn, match.winner = 21, 2
     finished.match_state = match.to_dict()
+    # Three turns behind it, so it has a replay: the opening board, then the
+    # staged middle game twice.
+    replayed = []
+    for turn, shown in ((18, engine.new_match(("bashing", "finesse", "bashing"), first=1,
+                                              variant="free_for_all")),
+                        (19, sample.staged(engine)), (20, sample.staged(engine))):
+        key, drawn = board(finished, shown)
+        write(key, drawn)
+        seat = (turn % 3) + 1
+        replayed.append({"turn": turn, "heading": f"**Turn {turn}** -- {tokens.addressed(seat)}",
+                         "lines": turn_lines(seat, seat % 3 + 1), "board": key})
     key, drawn = board(finished, match)
     write(key, drawn)
     published = PublishedGame(turn=21, heading=turn_heading(match),
                               lines=[f"{tokens.player(2)} destroys {tokens.player(3)}'s base. {tokens.player(2)} wins."],
-                              board=key, history_version=0, updated=ago(30))
+                              history=replayed, board=key, history_version=1, updated=ago(30))
     write(keys.live_key(finished.game_id), shapes.live(finished, match, published, mapped))
     write(keys.history_key(finished.game_id), shapes.history(finished, published, mapped))
     archived.append(shapes.archive_entry(finished, match, published.updated))

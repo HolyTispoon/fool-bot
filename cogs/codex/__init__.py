@@ -11,7 +11,8 @@ panel, the turn's rollover, the finished game, the two undos), `lobby`
 reset_channels`), `presentation` (the board, the channel, the turn
 message, a hand),
 `slash_commands` (`/codex games`, `board`, `hand`, `resume`),
-`reference` (`/codex card`, `/codex rules`) and `debug` (`/codex debug
+`reference` (`/codex card`, `/codex rules`), `replay` (`/codex replay`, a
+finished game's turns as a slideshow) and `debug` (`/codex debug
 patrol`, `damage` and `rune`, a player's or helper's corrections by
 hand). Nothing in it decides a
 rule: it asks `codex/` and renders the answer.
@@ -25,6 +26,7 @@ from cogs.codex.ending import EndingMixin
 from cogs.codex.lobby import LobbyMixin
 from cogs.codex.presentation import PresentationMixin
 from cogs.codex.reference import ReferenceMixin
+from cogs.codex.replay import ReplayMixin
 from cogs.codex.slash_commands import SlashCommandsMixin
 from cogs.codex.turns import TurnsMixin
 
@@ -37,6 +39,7 @@ class Codex(
     PresentationMixin,
     SlashCommandsMixin,
     ReferenceMixin,
+    ReplayMixin,
     DebugMixin,
     commands.GroupCog,
     group_name="codex",
