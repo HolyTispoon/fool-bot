@@ -426,13 +426,13 @@ class RenderTests(unittest.TestCase):
 
 
     def test_cards_start_a_row_a_group(self) -> None:
-        """`/codex color`'s picture: the starting deck, then a row a spec."""
+        """`/codex color`'s picture: the starting deck, a row a spec, the tokens."""
         groups = self.engine.catalog.color_sheet("red")
         png = render.render_cards(groups, 13, self.engine.catalog)
         self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         self.assertEqual(size(png), (13 * (render.CODEX_CARD[0] + 14) + 14,
-                                     4 * (render.CODEX_CARD[1] + 14) + 14
-                                     + 3 * render.CARD_GROUP_GAP))
+                                     5 * (render.CODEX_CARD[1] + 14) + 14
+                                     + 4 * render.CARD_GROUP_GAP))
         self.assertLess(len(png), 10 * 1024 * 1024)
 
     def test_a_group_wider_than_a_row_wraps(self) -> None:

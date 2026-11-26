@@ -250,13 +250,20 @@ class CodexSpecAndColorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(levels, sorted(levels))
         self.assertIn("Ultimate", rest[-1].type)
 
-    def test_a_color_sheet_is_its_starting_deck_then_each_spec(self) -> None:
+    def test_a_color_sheet_is_its_starting_deck_then_each_spec_then_its_tokens(self) -> None:
         cards = catalog()
         for color, specs in (("red", ("Anarchy", "Blood", "Fire")), ("neutral", ("Bashing", "Finesse"))):
             with self.subTest(color=color):
                 sheet = cards.color_sheet(color)
                 self.assertEqual(sheet[0], cards.starting_deck(color))
-                self.assertEqual(sheet[1:], [cards.spec_sheet(spec) for spec in specs])
+                self.assertEqual(sheet[1:-1], [cards.spec_sheet(spec) for spec in specs])
+                self.assertEqual(sheet[-1], cards.tokens_of(color))
+
+    def test_a_colours_tokens_are_its_own_by_name(self) -> None:
+        cards = catalog()
+        self.assertEqual(cards.tokens_of("green"), ["beast", "frog", "hunter", "squirrel", "wisp"])
+        self.assertEqual(cards.tokens_of("red"), ["pirate"])
+        self.assertNotIn("tower", cards.tokens_of("neutral"))
 
     async def test_the_spec_command_attaches_its_picture_the_askers_alone_unless_public(self) -> None:
         for public in (False, True):

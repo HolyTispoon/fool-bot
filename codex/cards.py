@@ -277,13 +277,26 @@ class CardCatalog:
     def color_sheet(self, color: str) -> list[list[str]]:
         """
         A colour's cards, as rows of slugs: its ten starting cards, then
-        each of its specs' sheets (`spec_sheet`) by spec name. What
-        `/codex color` shows; tokens, buildings and workers are not a
-        colour's cards and are left out.
+        each of its specs' sheets (`spec_sheet`) by spec name, then its
+        tokens (`tokens_of`) where it has any. What `/codex color` shows;
+        the buildings and workers are no colour's and are left out.
         """
         key = _spec_key(color)
         specs = sorted(hero.spec for hero in self.specs() if _spec_key(hero.color or "") == key)
-        return [self.starting_deck(color), *(self.spec_sheet(spec) for spec in specs)]
+        tokens = self.tokens_of(color)
+        return [self.starting_deck(color), *(self.spec_sheet(spec) for spec in specs),
+                *([tokens] if tokens else [])]
+
+    def tokens_of(self, color: str) -> list[str]:
+        """A colour's tokens, as slugs by name -- the data's own colour,
+        which is the token's and not always the colour of the card that
+        makes it (Surprise Attack, red, makes blue Sharks)."""
+        key = _spec_key(color)
+        return sorted(
+            (card.slug for card in self.cards.values()
+             if card.kind == KIND_TOKEN and card.color and _spec_key(card.color) == key),
+            key=self.name,
+        )
 
     def hero_for(self, spec: str) -> Hero:
         key = _spec_key(spec)
