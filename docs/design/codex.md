@@ -2177,7 +2177,7 @@ else the bot shows is ephemeral.
   every time, so the wait is the file's size twice over. The card
   files themselves were not what was slow: 330 by 450 JPEGs of 65 to
   130 KB, the smallest the pictures are drawn from, and `/codex card`
-  alone posts one as it is; drawing takes a quarter of a second
+  posted one as it was until 2026-11-26 ("A card is 5:7" below); drawing takes a quarter of a second
   whichever the encoding. `WEBP_QUALITY` is the one number
   (`BOARD_QUALITY` until then), and the attachments are `.webp`.
 - **A picture already up is not drawn or uploaded again** (2026-10-09:
@@ -2310,10 +2310,15 @@ else the bot shows is ephemeral.
   `CODEX_CARD` 175 by 245 -- every card drawn with its corners rounded,
   as the board's always were (`rounded`, a twentieth of the width). The
   hand's cost note moved with the printed coin, to 51 by 29. The files
-  themselves are not cut: they are imported whole, `/codex card` posts
-  one as it is, `scripts/render_codex_emoji.py` reads each hero's face
-  at the framed picture's coordinates, and the site's hover shows the
-  file the publisher put. A colour's picture, green's, grew from about
+  themselves are not cut: they are imported whole,
+  `scripts/render_codex_emoji.py` reads each hero's face at the framed
+  picture's coordinates, and the site's hover shows the file the
+  publisher put. `/codex card` posted the file as it was until the
+  author asked for it cut too (2026-11-26): it now sends `render_card`,
+  the card's face at its own size -- 300 by 420, a token's or a
+  worker's 375 by 525 -- its corners rounded and see-through, as WebP
+  (about 35 to 45 KB, against the JPEG's 65 to 130), named for the
+  file with `.webp`. A colour's picture, green's, grew from about
   650 KB to 740 with more of each card's art in the same space.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view

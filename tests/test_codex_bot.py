@@ -86,7 +86,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         await cog.card.callback(cog, interaction, "trojan duck")
         args, kwargs = interaction.response.send_message.call_args
         self.assertEqual(args, ())
-        self.assertEqual(kwargs["file"].filename, "trojan_duck.jpg")
+        self.assertEqual(kwargs["file"].filename, "trojan_duck.webp")
         self.assertTrue(kwargs["ephemeral"])
         interaction.followup.send.assert_not_called()
         await bot.close()
@@ -103,7 +103,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         await cog.card.callback(cog, interaction, "trojan duck", text=True, rulings=True)
         args, kwargs = interaction.response.send_message.call_args
         self.assertEqual(args, ())
-        self.assertEqual(kwargs["file"].filename, "trojan_duck.jpg")
+        self.assertEqual(kwargs["file"].filename, "trojan_duck.webp")
         (words,), followup = interaction.followup.send.call_args
         self.assertTrue(followup["ephemeral"])
         self.assertTrue(words.startswith("**Trojan Duck**"))
@@ -124,7 +124,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         await cog.card.callback(cog, interaction, "dancer")
         args, kwargs = interaction.response.send_message.call_args
         self.assertEqual(args, ())
-        self.assertEqual(kwargs["file"].filename, "dancer.png")
+        self.assertEqual(kwargs["file"].filename, "dancer.webp")
         interaction.followup.send.assert_not_called()
         await bot.close()
 
@@ -133,7 +133,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         await cog.card.callback(cog, interaction, "worker_x5")
         args, kwargs = interaction.response.send_message.call_args
         self.assertEqual(args, ())
-        self.assertEqual(kwargs["file"].filename, "worker_x5.png")
+        self.assertEqual(kwargs["file"].filename, "worker_x5.webp")
         interaction.followup.send.assert_not_called()
         await bot.close()
 
@@ -210,10 +210,10 @@ class CodexPicturesTests(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs("cogs.codex.reference", level="INFO") as logs:
             await cog.card.callback(cog, interaction, "trojan duck")
         file = interaction.response.send_message.call_args.kwargs["file"]
-        self.assertEqual(file.filename, "trojan_duck.jpg")
+        self.assertEqual(file.filename, "trojan_duck.webp")
         self.assertIsInstance(file.fp, io.BytesIO)
         self.assertRegex(logs.output[-1],
-                         r"Codex card trojan_duck: \d+ KB read in \d+ ms, sent in \d+ ms$")
+                         r"Codex card trojan_duck: \d+ KB drawn in \d+ ms, sent in \d+ ms$")
         await bot.close()
 
     async def test_the_rules_answer_is_the_askers_alone_unless_public(self) -> None:

@@ -141,8 +141,8 @@ def px(value):
 #: message out while the new picture loads -- and the hand, the codex
 #: and the tech picker on every click that pictures them. The card files
 #: themselves (330 by 450 JPEGs, 65 to 130 KB) are not what is sent, and
-#: drawing takes a quarter of a second either way; `/codex card` alone
-#: posts a card's own file as it is.
+#: drawing takes a quarter of a second either way; `/codex card` sends
+#: one card's face (`render_card`) the same way.
 WEBP_QUALITY = 85
 
 # -- The panel's measures, in pixels, as the canvas's plan board gives them,
@@ -514,8 +514,9 @@ def board_piece(*parts: str) -> Image.Image:
 #: rounded and a shadow off its bottom right. Cut off, the card is 5:7
 #: like every face the module pictures at 375 by 525 -- the database's
 #: neutral cards on the module's own sheet match it to the pixel
-#: (measured 2026-11-26). The file is kept whole: `/codex card` posts
-#: it as it is, and the emoji are read off it.
+#: (measured 2026-11-26). The file is kept whole: it is imported data,
+#: the emoji are read off it at its own coordinates, and the site shows
+#: it as the publisher put it.
 DATABASE_FRAME = 15
 
 
@@ -564,6 +565,23 @@ def rounded(picture: Image.Image, radius: int) -> Image.Image:
     shaped = picture.convert("RGBA")
     shaped.putalpha(ImageChops.multiply(shaped.getchannel("A"), mask))
     return shaped
+
+
+def render_card(slug: str, cards: Optional[CardCatalog] = None) -> bytes:
+    """
+    One card on its own, as `/codex card` posts it: its face at its own
+    size -- a database card without its frame, 300 by 420 -- its corners
+    rounded and see-through, as WebP. Kept once drawn (`RENDERED_KEPT`).
+    """
+    return _render_card(slug, cards or load_catalog())
+
+
+@lru_cache(maxsize=32)
+def _render_card(slug: str, cards: CardCatalog) -> bytes:
+    picture = card_picture(slug, cards)
+    buffer = io.BytesIO()
+    rounded(picture, round(picture.width / 20)).save(buffer, format="WEBP", quality=WEBP_QUALITY)
+    return buffer.getvalue()
 
 
 def faint(picture: Image.Image, amount: float = 0.35) -> Image.Image:
