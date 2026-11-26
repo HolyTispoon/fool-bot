@@ -1050,7 +1050,15 @@ black's, and the rest waits for step 13.
 - **A decision the active player cannot make.** On an opponent's turn
   an effect that asks a decision does not resolve (UMR p. 14), so a
   "Max level:" text reached there that chooses is lost
-  (`board.max_level_reached`); a choice that is the opponent's own --
+  (`board.max_level_reached`). On the stack the same rule is
+  `resolve._undecided`, applied **effect by effect, each the author's to
+  add** (2026-11-26: "for any other abilities ask me first"):
+  `effects.UNDECIDED_OFF_TURN` holds Insurance Agent's arrival alone --
+  one Prynn trashed comes back when she fades in her controller's
+  upkeep, under its own controller, and its rune is dropped, said,
+  where it would ask; before this it asked the seat whose turn it was
+  not, which no panel reaches, and the game stood still. A choice with
+  one answer is no decision and is taken as anywhere. A choice that is the opponent's own --
   Banefire Golem's sacrifice, Carrion Curse's discards -- is asked of
   whoever the card says. **A look at hidden cards** (Carrion Curse's at
   the opponent's hand, Vir's at the top of the deck, the discard) is a

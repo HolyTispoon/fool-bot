@@ -2293,6 +2293,13 @@ CANT_ATTACK = CANT_ATTACK | GUARDIANS
 #: the Agent remembers the unit (its modifier `insures`), and the rune is a
 #: marker alone (its rulings).
 INSURERS = frozenset({"insurance_agent"})
+#: "In the rare event that an effect asks you to make a decision on an
+#: opponent's turn, you do not resolve that effect" (UMR p. 14): the
+#: effects that rule is applied to on the stack (`resolve._undecided`) --
+#: Insurance Agent's arrival, which Prynn's fading returns to its
+#: controller's play in her controller's upkeep. One effect at a time,
+#: each the author's (2026-11-26: "for any other abilities ask me first").
+UNDECIDED_OFF_TURN = frozenset({"insurance_agent"})
 INSURANCE = "insurance"
 #: Judgment Day: "Your max level Law hero can cast this no matter when he
 #: arrived or maxed."

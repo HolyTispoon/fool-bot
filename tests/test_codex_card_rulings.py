@@ -3750,6 +3750,30 @@ class PurpleRulingTests(unittest.TestCase):
         back = next(card for card in match.player(1).play if card.slug == "bone_collector")
         self.assertEqual((back.owner, back.controller), (2, 1))
 
+    def test_insurance_agent_returned_on_an_opponents_turn_insures_nothing(self) -> None:
+        """An Insurance Agent Prynn trashed comes back when she fades in
+        her controller's upkeep -- under its own controller, on an
+        opponent's turn, where its "Put an insurance rune on a unit" would
+        ask them a decision, so it does not resolve (UMR p. 14), and the
+        turn goes on to its main phase."""
+        from test_codex_keywords import next_upkeep
+
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 1
+        prynn.trashed = [{"slug": "insurance_agent", "owner": 2, "controller": 2, "id": 90}]
+        put(match, 2, "tiger_cub")
+        put(match, 1, "tiger_cub")
+        next_upkeep(engine, game, match, 2)
+        next_upkeep(engine, game, match, 1)
+        self.assertEqual(prynn.zone, "command")
+        agent = next(card for card in match.player(2).play if card.slug == "insurance_agent")
+        self.assertEqual((match.active, match.phase, match.resolving), (1, "main", []))
+        self.assertFalse(any(card.runes.get("insurance")
+                             for seat in (1, 2) for card in match.player(seat).play))
+        self.assertFalse(any(m.get("kind") == "insures" for m in agent.modifiers))
+
     def test_prynn_fading_away_is_said_once(self) -> None:
         """Her last time rune, her death and what dying from fading does are
         one line, and the units she trashed come back in one line (the

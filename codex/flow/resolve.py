@@ -307,6 +307,8 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
         if opponent_owed(engine, match, top):
             # "An opponent's": which one is asked before the part does
             # anything (`opponent_owed`).
+            if _undecided(engine, match, top, result):
+                continue
             return False
         if part.does == "mode":
             if "mode" not in top:
@@ -317,21 +319,29 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
                 else:
                     possible = [key for key, _, allowed in engine.mode_rows(match, top, part) if allowed]
                     if len(possible) != 1:
+                        if _undecided(engine, match, top, result):
+                            continue
                         return False
                     top["mode"] = possible[0]
             _next_part(top)
             continue
         if part.does in ASKED_PARTS and part.does not in top:
             # The number or the oath is asked (`CHOOSE_NUMBER`, `OATH`).
+            if _undecided(engine, match, top, result):
+                continue
             return False
         if (part.does == "look_at" or part.choose in effects.LOOK_FIRST) and top.get("looked") != top["part"]:
             # A look with nothing to choose (Martial Mastery): asked once,
             # what is seen pictured to the asker alone, and Done (step 13).
             top["looked"] = top["part"]
             top["picks"] = []
+            if _undecided(engine, match, top, result):
+                continue
             return False
         if top.get("split") is not None:
             if sum(top["split"].values()) < damage_amount(engine, match, top, part.amount):
+                if _undecided(engine, match, top, result):
+                    continue
                 return False
             _deal_split(engine, match, top, part, result)
             continue
@@ -348,6 +358,8 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
         if len(picks) < least_picks(engine, match, top, part) and len(rows) == 1:
             _choose(engine, match, top, part, rows[0], result)
             continue
+        if _undecided(engine, match, top, result):
+            continue
         return False
     # The stack empty, the position's own consequences: a card played
     # with nothing to resolve -- a second copy of a legendary unit, say --
@@ -355,6 +367,33 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
     board.settle(engine, match, result)
     if match.resolving and match.winner is None:
         return run(engine, match, result)
+    return True
+
+
+def _undecided(engine: "RulesEngine", match: MatchState, top: dict, result: StepResult) -> bool:
+    """
+    **A decision on an opponent's turn**: "In the rare event that an
+    effect asks you to make a decision on an opponent's turn, you do not
+    resolve that effect" (UMR p. 14) -- an Insurance Agent that Prynn's
+    fading returns to its controller's play in her controller's upkeep
+    puts no rune anywhere. Asked where the frame would ask its controller
+    something -- a target, a mode, a number, a split, a look -- and its
+    controller is not a seat whose turn it is: the frame is dropped,
+    said, and the stack goes on. Whether it was. A choice with one
+    answer is no decision, and is taken as anywhere (`run`). Only the
+    effects in `effects.UNDECIDED_OFF_TURN` so far: each is the author's
+    to add.
+    """
+    seat = top["seat"]
+    if top["effect"] not in effects.UNDECIDED_OFF_TURN or seat in engine.turn_seats(match):
+        return False
+    match.resolving.pop(0)
+    result.narration.append(
+        f"{top['by']} would have {tokens.player(seat)} decide on another player's turn, "
+        "so it does not resolve."
+    )
+    _finish(engine, match, top, result)
+    board.settle(engine, match, result, cause=cause_of(match, top))
     return True
 
 
