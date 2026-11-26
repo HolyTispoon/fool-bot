@@ -62,7 +62,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
             self.assertLessEqual(len(group.description), 100)
             self.assertEqual(
                 {command.name for command in group.commands},
-                {"card", "rules", "create_game", "games", "board", "hand", "side_by_side", "resume",
+                {"card", "spec", "color", "rules", "create_game", "games", "board", "hand", "side_by_side", "resume",
                  "concede", "abandon", "admin", "debug"},
             )
             self.assertEqual([command.name for command in bot.tree.get_commands()], ["codex"])
@@ -223,6 +223,77 @@ class CodexPicturesTests(unittest.IsolatedAsyncioTestCase):
             interaction.response.send_message = mock.AsyncMock()
             await cog.rules.callback(cog, interaction, "overpower", public=public)
             self.assertIs(interaction.response.send_message.call_args.kwargs["ephemeral"], not public)
+        await bot.close()
+
+
+class CodexSpecAndColorTests(unittest.IsolatedAsyncioTestCase):
+    """`/codex spec` and `/codex color`: a picture of many cards, its
+    caption above it (docs/design/codex.md, "The reference commands")."""
+
+    def cog(self) -> tuple[gamebot.GameBot, Codex, mock.Mock]:
+        bot = codex_bot()
+        cog = Codex(bot)
+        interaction = mock.Mock()
+        interaction.response.send_message = mock.AsyncMock()
+        return bot, cog, interaction
+
+    def test_a_spec_sheet_is_its_hero_then_its_cards_by_tech_then_its_spells(self) -> None:
+        cards = catalog()
+        sheet = cards.spec_sheet("Anarchy")
+        self.assertEqual(len(sheet), 13)
+        self.assertEqual(sheet[0], cards.hero_for("anarchy").slug)
+        self.assertEqual(sorted(sheet[1:]), sorted(card.slug for card in cards.by_spec("anarchy")))
+        rest = [cards.cards[slug] for slug in sheet[1:]]
+        spells = [card.is_spell for card in rest]
+        self.assertEqual(spells, sorted(spells))
+        levels = [card.tech_level or 0 for card in rest if not card.is_spell]
+        self.assertEqual(levels, sorted(levels))
+        self.assertIn("Ultimate", rest[-1].type)
+
+    def test_a_color_sheet_is_its_starting_deck_then_each_spec(self) -> None:
+        cards = catalog()
+        for color, specs in (("red", ("Anarchy", "Blood", "Fire")), ("neutral", ("Bashing", "Finesse"))):
+            with self.subTest(color=color):
+                sheet = cards.color_sheet(color)
+                self.assertEqual(sheet[0], cards.starting_deck(color))
+                self.assertEqual(sheet[1:], [cards.spec_sheet(spec) for spec in specs])
+
+    async def test_the_spec_command_attaches_its_picture_the_askers_alone_unless_public(self) -> None:
+        for public in (False, True):
+            bot, cog, interaction = self.cog()
+            with self.assertLogs("cogs.codex.reference", level="INFO"):
+                await cog.spec.callback(cog, interaction, "Anarchy", public=public)
+            call = interaction.response.send_message.call_args
+            self.assertIn("**Anarchy** (Red)", call.args[0])
+            self.assertEqual(call.kwargs["file"].filename, "codex_spec_anarchy.webp")
+            self.assertIs(call.kwargs["ephemeral"], not public)
+            await bot.close()
+
+    async def test_the_color_command_names_the_deck_and_its_specs(self) -> None:
+        bot, cog, interaction = self.cog()
+        with self.assertLogs("cogs.codex.reference", level="INFO"):
+            await cog.color.callback(cog, interaction, "red")
+        call = interaction.response.send_message.call_args
+        self.assertEqual(call.args[0], "**Red** (Blood Anarchs): the starting deck, then "
+                                       "Anarchy, Blood and Fire, each its hero first.")
+        self.assertEqual(call.kwargs["file"].filename, "codex_color_red.webp")
+        self.assertIs(call.kwargs["ephemeral"], True)
+        await bot.close()
+
+    async def test_an_unknown_spec_is_refused_to_the_asker(self) -> None:
+        bot, cog, interaction = self.cog()
+        await cog.spec.callback(cog, interaction, "Pirates")
+        call = interaction.response.send_message.call_args
+        self.assertIn("No spec is called 'Pirates'", call.args[0])
+        self.assertIs(call.kwargs["ephemeral"], True)
+        await bot.close()
+
+    async def test_the_spec_autocomplete_offers_every_spec_by_name_or_colour(self) -> None:
+        bot, cog, _ = self.cog()
+        everything = await cog.spec_autocomplete(mock.Mock(), "")
+        self.assertEqual(len(everything), 20)
+        red = await cog.spec_autocomplete(mock.Mock(), "red")
+        self.assertEqual([choice.value for choice in red], ["anarchy", "blood", "fire"])
         await bot.close()
 
 

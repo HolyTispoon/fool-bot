@@ -250,6 +250,41 @@ class CardCatalog:
                 return color
         return None
 
+    def specs(self) -> list[Hero]:
+        """Every landed colour's heroes, one a spec, by colour in
+        `LANDED_COLORS` order and then by spec: what `/codex spec`
+        offers."""
+        return sorted(
+            (hero for hero in self.landed_heroes() if hero.spec),
+            key=lambda hero: (LANDED_COLORS.index((hero.color or "").lower()), hero.spec),
+        )
+
+    def spec_sheet(self, spec: str) -> list[str]:
+        """
+        A spec's hero and its twelve codex cards, as slugs: the hero
+        first, then its units, buildings and upgrades by tech level, then
+        its spells with the ultimate last -- each group in the data's
+        order. What `/codex spec` shows, and a row of `/codex color`.
+        """
+        def order(card: Card) -> tuple[int, int]:
+            if card.is_spell:
+                return (4 if "Ultimate" in card.type else 3, 0)
+            return (0, card.tech_level or 0)
+
+        cards = sorted(self.by_spec(spec), key=order)
+        return [self.hero_for(spec).slug, *(card.slug for card in cards)]
+
+    def color_sheet(self, color: str) -> list[list[str]]:
+        """
+        A colour's cards, as rows of slugs: its ten starting cards, then
+        each of its specs' sheets (`spec_sheet`) by spec name. What
+        `/codex color` shows; tokens, buildings and workers are not a
+        colour's cards and are left out.
+        """
+        key = _spec_key(color)
+        specs = sorted(hero.spec for hero in self.specs() if _spec_key(hero.color or "") == key)
+        return [self.starting_deck(color), *(self.spec_sheet(spec) for spec in specs)]
+
     def hero_for(self, spec: str) -> Hero:
         key = _spec_key(spec)
         for hero in self.heroes.values():

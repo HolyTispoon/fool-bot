@@ -425,6 +425,24 @@ class RenderTests(unittest.TestCase):
         self.assertLess(len(png), 10 * 1024 * 1024)
 
 
+    def test_cards_start_a_row_a_group(self) -> None:
+        """`/codex color`'s picture: the starting deck, then a row a spec."""
+        groups = self.engine.catalog.color_sheet("red")
+        png = render.render_cards(groups, 13, self.engine.catalog)
+        self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
+        self.assertEqual(size(png), (13 * (render.CODEX_CARD[0] + 14) + 14,
+                                     4 * (render.CODEX_CARD[1] + 14) + 14
+                                     + 3 * render.CARD_GROUP_GAP))
+        self.assertLess(len(png), 10 * 1024 * 1024)
+
+    def test_a_group_wider_than_a_row_wraps(self) -> None:
+        """`/codex spec`'s: thirteen cards, seven a row."""
+        png = render.render_cards([self.engine.catalog.spec_sheet("anarchy")], 7,
+                                  self.engine.catalog)
+        self.assertEqual(size(png), (7 * (render.CODEX_CARD[0] + 14) + 14,
+                                     2 * (render.CODEX_CARD[1] + 14) + 14))
+
+
 class DeckLayoutTests(unittest.TestCase):
     """`deck_layout`: **My deck**'s frames packed so the rows are filled
     (the author, 2026-10-15)."""
