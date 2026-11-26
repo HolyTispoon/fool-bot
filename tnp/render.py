@@ -1004,6 +1004,72 @@ def _board_header(draw, catalog: Catalog, brief: BoardBrief) -> float:
     return top + BOARD_HEADER + 20
 
 
+#: A queued unit's counter on its facility, and how far each one under
+#: the top of a stack shows past it.
+COUNTER_SIZE, COUNTER_FAN = 92, 16
+
+
+def _counter(draw, catalog: Catalog, seat: str, slug: str, x: float, y: float, *, named: bool) -> None:
+    """One unit counter, as the print kit's sits on the player board: the
+    seat's colour round it, its type's stripe across the top, and on the
+    top counter of a stack the unit's name."""
+    border, ink = TYPE_COLOURS[catalog.units[slug].type]
+    size = COUNTER_SIZE
+    draw.rounded_rectangle((x, y, x + size, y + size), radius=10, fill=WHITE,
+                           outline=SEAT_COLOURS[seat]["strong"], width=4)
+    draw.rectangle((x + 4, y + 4, x + size - 4, y + 20), fill=border)
+    if not named:
+        return
+    words = catalog.name(slug).split()[:2]
+    # The largest face every word fits at, so no name is cut short.
+    face = next((font(points) for points in range(19, 12, -1)
+                 if all(font(points).getlength(word) <= size - 10 for word in words)), font(13))
+    for index, word in enumerate(words):
+        draw.text((x + size / 2, y + 44 + index * 24), _fit(word, face, size - 10), font=face,
+                  fill=ink, anchor="mm")
+
+
+def _producing_band(draw, catalog: Catalog, brief: BoardBrief, slug: str, x: float, y: float,
+                    width: float) -> float:
+    """
+    What one facility is producing this turn, **placed on it as on the
+    table** (TNP 5.2): in its column under its chips, a stack of counters
+    for each unit queued there, fanned, with the count on the top one,
+    and under them each of its upgrades placed; nothing where nothing is
+    queued there. The y under it.
+    """
+    facility = catalog.facilities[slug]
+    stacks = [(unit, int(brief.queued_units[unit])) for unit in facility.units if brief.queued_units.get(unit)]
+    upgrades = [one for one in (*facility.unit_upgrades, facility.infrastructure_upgrade) if one in brief.queued]
+    if not stacks and not upgrades:
+        return y
+    colours = SEAT_COLOURS[brief.seat]
+    size, fan, gap, row_h, line_h = COUNTER_SIZE, COUNTER_FAN, 16, COUNTER_SIZE + 18, 34
+    places, row, left = [], 0, x + 14
+    for unit, count in stacks:
+        stack_w = size + fan * (count - 1)
+        if places and left + stack_w > x + width - 14:
+            row, left = row + 1, x + 14
+        places.append((unit, count, left, row))
+        left += stack_w + gap
+    rows = row + 1 if stacks else 0
+    height = 42 + rows * row_h + line_h * len(upgrades) + 6
+    _dashed_box(draw, (x, y, x + width, y + height), colours["strong"])
+    draw.text((x + 14, y + 22), "PLACED HERE THIS TURN", font=font(SMALLEST), fill=colours["ink"], anchor="lm")
+    for unit, count, left, row in places:
+        top = y + 42 + row * row_h
+        for index in range(count):
+            _counter(draw, catalog, brief.seat, unit, left + fan * index, top, named=index == count - 1)
+        right = left + fan * (count - 1) + size
+        draw.ellipse((right - 22, top - 12, right + 12, top + 22), fill=colours["strong"])
+        draw.text((right - 5, top + 5), str(count), font=font(22), fill=WHITE, anchor="mm")
+    top = y + 42 + rows * row_h
+    for index, upgrade in enumerate(upgrades):
+        draw.text((x + 14, top + index * line_h + 10), "+ " + catalog.name(upgrade), font=font(22),
+                  fill=colours["ink"], anchor="lm")
+    return y + height + 12
+
+
 def _cap(catalog: Catalog, brief: BoardBrief, slug: str) -> int:
     facility = catalog.facilities[slug]
     if facility.infrastructure_upgrade in brief.built:
@@ -1021,10 +1087,7 @@ def _facility(draw, catalog: Catalog, brief: BoardBrief, slug: str, x: float, to
     y += 56
 
     built = slug in brief.built
-    queued_here = sum(int(brief.queued_units.get(unit, 0)) for unit in facility.units)
     chips = [f"Production cap {_cap(catalog, brief, slug)}"]
-    if queued_here:
-        chips.append(f"Producing {queued_here}")
     if built:
         chips.append("Built")
     elif slug in brief.queued:
@@ -1037,6 +1100,7 @@ def _facility(draw, catalog: Catalog, brief: BoardBrief, slug: str, x: float, to
         chips.append(words)
     y = _chip_rows(draw, chips, x + pad, y, inner, font(18), 36)
     y += 12
+    y = _producing_band(draw, catalog, brief, slug, x + pad, y, inner)
 
     groups: list[tuple[str, Optional[str], list[str]]] = [
         ("Units", None, [unit for unit in facility.units if catalog.units[unit].upgrade is None]),

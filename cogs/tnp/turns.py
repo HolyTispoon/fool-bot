@@ -40,11 +40,13 @@ from tnp.briefs import board_brief, deployment_brief, map_brief, spots_brief
 from tnp.catalog import Cost
 from tnp.formatting import (
     battle_heading, board_caption, card_trade_lines, cards_lines, cost_text, map_caption,
-    phase_heading, plan_lines, plan_offer_lines, pool_text, token_text, trade_lines,
+    phase_heading, plan_lines, plan_offer_lines, plan_summary_lines, pool_text, token_text, trade_lines,
 )
 from tnp.flow.result import FollowOnStep
 from tnp.game import GameStatus, RuleRefusal, TnpGame
 from tnp.prompts import SIMULTANEOUS, Action, PendingPrompt, PromptKind, prompt_for
+from tnp.components import PLAN
+from tnp.turn import attack_spots, normal_plan, plan_cost
 from tnp.render import render_attack, render_board, render_deployment, render_map, render_spots
 
 LOGGER = logging.getLogger(__name__)
@@ -260,7 +262,8 @@ class TurnMixin:
         ]
         if prompt is None:
             if match.seat(seat).locked:
-                lines.append("You have locked in. Nothing is shown to anyone until both of you have.")
+                lines.append("You have locked in your production and deployment choices. The game awaits the other player.")
+                lines += [self.render_text(line, game) for line in self.locked_plan_lines(match, seat)]
             elif fighting(match):
                 lines.append("A battle is being fought; the other seat is asked on its message.")
             else:
@@ -289,6 +292,18 @@ class TurnMixin:
             said = [f"{BATTLE_ELSEWHERE}" + (f": {link}" if link else ".")]
         lines += [self.render_text(line, game) for line in said]
         return fit("\n".join(lines))
+
+    def locked_plan_lines(self, match, seat: str) -> list[str]:
+        """A locked seat's plan in words, as its panel said it while the
+        plan was asked -- what it builds and places, each attack and
+        defense, and the cost against the pool (TNP 5.2, 5.3)."""
+        state = match.seat(seat)
+        if match.phase != PLAN or not state.plan:
+            return []
+        plan = normal_plan(state.plan)
+        cost = plan_cost(self.engine, plan, state)
+        return plan_summary_lines(state.plan, attack_spots(match, seat),
+                                  {"materials": cost.materials, "gold": cost.gold}, state.pool)
 
     async def answer_panel(self, interaction: discord.Interaction, view, action: Optional[Action],
                            state: PanelState) -> None:

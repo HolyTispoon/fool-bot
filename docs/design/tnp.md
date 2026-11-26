@@ -760,7 +760,21 @@ build nothing pays one more click. The panel's words are
 `trade_lines`), off the same options: the saved plan and what its
 Infrastructure costs (`PlanOptions.cost`), the saved trade and what it
 gains (`TradeOptions.gains`), both added to the options for this, since
-a cost is the model's to work out. **Three defense spots and one card a
+a cost is the model's to work out. **Once a seat has locked in, its
+panel still says what it chose** -- "You have locked in your production
+and deployment choices. The game awaits the other player." and the same
+plan words, from the saved plan with no prompt asked
+(`plan_summary_lines`, `Tnp.locked_plan_lines`) -- and **what a
+facility is producing is placed on it, as the table places a unit's
+counter on its structure**: in the facility's own column, "Placed here
+this turn", a stack of counters for each unit queued there -- the seat's
+colour round it, its type's stripe, the name on the top one, fanned with
+the count on it -- and under them each of its upgrades placed
+(`render._producing_band`, `_counter`, off `BoardBrief.queued_units` and
+`queued`), in place of the "Producing n" chip. The chip and the cards'
+small "queued" marks did not say what was produced; a band under the
+header, then a band in each column, were tried first and the counters
+chosen (the author, 2026-11-26). **Three defense spots and one card a
 territory** (TNP 2.5, the author, 2026-11-06) are the model's:
 `check_plan` refuses a fourth territory defended and a territory in two
 spots, and `PlanOptions.cards` says where each territory's card is, so

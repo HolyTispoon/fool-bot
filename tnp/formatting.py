@@ -8,7 +8,7 @@ cog only posts them, rendering the seat tokens at its door.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Optional
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence
 
 from tnp import tokens
 from tnp.catalog import Catalog, Cost, Rating, UnitType
@@ -274,7 +274,14 @@ def plan_lines(options) -> list[str]:
     what its Infrastructure costs against the pool. "Nothing yet" where
     nothing is saved.
     """
-    plan = options.plan or {}
+    return plan_summary_lines(options.plan, options.spots, options.cost, options.pool)
+
+
+def plan_summary_lines(plan: Optional[Mapping], spots: Sequence[str], cost: Mapping[str, int],
+                       pool: Mapping[str, int]) -> list[str]:
+    """`plan_lines` over the plan itself -- what a locked seat's panel
+    says, no prompt being asked of it then."""
+    plan = plan or {}
     build = plan.get("build") or {}
     structures = plan.get("structures") or []
     attacks = plan.get("attacks") or {}
@@ -292,7 +299,7 @@ def plan_lines(options) -> list[str]:
         lines.append(f"- Build the tech facility {tokens.card(card)}.")
     for card in techs.get("discard") or []:
         lines.append(f"- Discard the tech facility {tokens.card(card)}.")
-    for spot in options.spots:
+    for spot in spots:
         attack = attacks.get(spot)
         if attack:
             lines.append(f"- Attack {spot}: {units_text(attack['units'])} at {tokens.area(attack['target'])}.")
@@ -300,9 +307,8 @@ def plan_lines(options) -> list[str]:
             lines.append(f"- Attack {spot}: nothing.")
     for area, units in defense.items():
         lines.append(f"- Defend {tokens.area(area)}: {units_text(units)}.")
-    pool = options.pool
     lines.append(
-        f"- It costs {_cost_words(options.cost)}; the pool holds "
+        f"- It costs {_cost_words(cost)}; the pool holds "
         f"{cost_text(Cost(int(pool.get('materials', 0)), int(pool.get('gold', 0))))}."
     )
     return lines
