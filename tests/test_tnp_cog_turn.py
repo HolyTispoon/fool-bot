@@ -303,7 +303,11 @@ class TnpTurnTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("**Green** (Bob) is planning.", kwargs["content"])
         # The map has not moved: the edit is the text alone.
         self.assertNotIn("attachments", kwargs)
-        self.assertIn("You have locked in.", call.text())
+        self.assertIn("You have locked in your production and deployment choices.", call.text())
+        # The locked panel still says what the plan builds and costs.
+        self.assertIn("Your plan:", call.text())
+        self.assertIn("- Build: ", call.text())
+        self.assertIn("- It costs ", call.text())
         self.assertIsNone(view)
         self.assertNotIn("Worker", turn.public())
 
