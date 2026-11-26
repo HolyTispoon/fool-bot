@@ -3,8 +3,8 @@
 -- posts, rebuilt from the record on every change (docs/design/tnp.md,
 "The lobby, the channel and the table"): **Join as Blue**, **Join as
 Green**, **Leave**, **Start** and **Test game**; **Basic game** and
-**Advanced game**, the advanced greyed out until its technology cards
-are built (TNP 8); and under them a button a faction -- **Join as Humans**, the first free seat, and the
+**Advanced game**, the technology cards (TNP 8), the one chosen in
+green; and under them a button a faction -- **Join as Humans**, the first free seat, and the
 XzzzX and the Space Dragons greyed out until their rules come in. Both
 seats are people's; there is no AI (TNP 1.2).
 
@@ -40,6 +40,7 @@ class LobbyView(SafeView):
         self.game_id = game_id
         game = self.game()
         test_game = bool(game and game.test_game)
+        advanced = bool(game and game.advanced)
         buttons = [
             *((f"Join as {seat.title()}", f"seat_{seat}", discord.ButtonStyle.primary, 0, False)
               for seat in SEAT_NAMES),
@@ -47,10 +48,12 @@ class LobbyView(SafeView):
             ("Start", "start", discord.ButtonStyle.success, 0, False),
             (f"Test game: {'on' if test_game else 'off'}", "test_game",
              discord.ButtonStyle.success if test_game else discord.ButtonStyle.secondary, 0, False),
-            # The game: Advanced greyed out until its technology cards
-            # are built (TNP 8, step 9 of docs/tnp-bot.md).
-            ("Basic game", "basic", discord.ButtonStyle.success, 1, False),
-            ("Advanced game", "advanced", discord.ButtonStyle.secondary, 1, True),
+            # The game, the one chosen in green: the basic game, or the
+            # advanced one with the technology cards (TNP 8).
+            ("Basic game", "basic",
+             discord.ButtonStyle.secondary if advanced else discord.ButtonStyle.success, 1, False),
+            ("Advanced game", "advanced",
+             discord.ButtonStyle.success if advanced else discord.ButtonStyle.secondary, 1, False),
             *((f"Join as {FACTION_NAMES[faction]}", f"join_{faction}", discord.ButtonStyle.primary,
                2, faction not in PLAYABLE_FACTIONS) for faction in FACTIONS),
         ]
@@ -103,6 +106,7 @@ class LobbyView(SafeView):
         except RuleRefusal as refused:
             await send_ephemeral(interaction, str(refused))
             return
+        game = self.game() or game
         await interaction.response.edit_message(
             content=self.cog.lobby_text(game), view=LobbyView(self.cog, game.game_id),
             allowed_mentions=discord.AllowedMentions.none(),

@@ -195,6 +195,8 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.REPAIR: "That repair has already been settled.",
     PromptKind.SPLASH: "That splash has already been settled.",
     PromptKind.DESTROY: "What the base card's hits destroy has already been chosen.",
+    PromptKind.TACTIC: "That seat has chosen its tactic card, or Tactical Command is over.",
+    PromptKind.REROLL: "That roll's rerolls have already been settled.",
 }
 
 
@@ -256,6 +258,14 @@ def _answer_destroy(engine, game, match, prompt, choice, *, thing=None) -> StepR
     return fight.answer_destroy(engine, match, _required(thing, "thing"))
 
 
+def _answer_tactic(engine, game, match, prompt, choice, *, card=None) -> StepResult:
+    return fight.answer_tactic(engine, match, prompt.asked_seat, choice, card)
+
+
+def _answer_reroll(engine, game, match, prompt, choice, *, count=None) -> StepResult:
+    return fight.answer_reroll(engine, match, choice, count)
+
+
 #: Every `PromptKind`, answered. Covers the enum exactly.
 ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.PLAN: _answer_plan,
@@ -271,6 +281,8 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.REPAIR: _answer_repair,
     PromptKind.SPLASH: _answer_splash,
     PromptKind.DESTROY: _answer_destroy,
+    PromptKind.TACTIC: _answer_tactic,
+    PromptKind.REROLL: _answer_reroll,
 }
 
 #: The arguments each kind's answer may take.
@@ -288,6 +300,8 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.REPAIR: frozenset({"workers"}),
     PromptKind.SPLASH: frozenset({"force"}),
     PromptKind.DESTROY: frozenset({"thing"}),
+    PromptKind.TACTIC: frozenset({"card"}),
+    PromptKind.REROLL: frozenset({"count"}),
 }
 
 

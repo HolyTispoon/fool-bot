@@ -1,9 +1,12 @@
 """
 A seat's panel: the controls under its board, ephemeral, to its player
 alone (docs/design/tnp.md, "The turn on Discord"). One view a prompt
-kind of the turn's -- `PlanPanelView` (Infrastructure and Deployment),
+kind of the turn's -- `PlanPanelView` (Infrastructure and Deployment,
+and in the advanced game the cards put into play),
 `TradePanelView` (Production and Trade's trade), `ConquerPanelView` and
-`HarvestPanelView` (March's two questions) -- each built from
+`HarvestPanelView` (March's two questions), and the advanced game's
+`TacticPanelView` (Tactical Command's card, chosen in secret) -- each
+built from
 `PendingPrompt.options` and nothing else, and `panel_view` the one
 mapping from a prompt to its view.
 
@@ -51,9 +54,10 @@ MENU_OPTIONS = 25
 LABEL_LENGTH = 80
 ROW_BUTTONS = 5
 
-#: The plan's two steps.
-INFRASTRUCTURE, DEPLOYMENT = "infrastructure", "deployment"
-STEP_LABELS = {INFRASTRUCTURE: "① Infrastructure", DEPLOYMENT: "② Deployment"}
+#: The plan's steps: two, and in the advanced game a third, the cards
+#: put into play (TNP 8.3, 8.4).
+INFRASTRUCTURE, DEPLOYMENT, TECHS = "infrastructure", "deployment", "techs"
+STEP_LABELS = {INFRASTRUCTURE: "① Infrastructure", DEPLOYMENT: "② Deployment", TECHS: "③ Techs"}
 
 #: A defense spot the panel is filling, before any unit is in it.
 NEW_DEFENSE = "d:new"
@@ -259,16 +263,20 @@ class PlanPanelView(PanelView):
             self.button("Lock in anyway", discord.ButtonStyle.success, self.on_lock_anyway, row=0,
                         choice=("lock", "anyway"))
             return
-        step = self.state.step if self.state.step in STEP_LABELS else INFRASTRUCTURE
-        for one in (INFRASTRUCTURE, DEPLOYMENT):
+        steps = [INFRASTRUCTURE, DEPLOYMENT] + ([TECHS] if getattr(self.options, "advanced", False) else [])
+        step = self.state.step if self.state.step in steps else INFRASTRUCTURE
+        self.state = replace(self.state, step=step)
+        for one in steps:
             self.button(STEP_LABELS[one],
                         discord.ButtonStyle.primary if one == step else discord.ButtonStyle.secondary,
                         self.stepper(one), row=0, choice=("step", one))
-        self.button("Clear Infrastructure" if step == INFRASTRUCTURE else "Clear Deployment",
-                    discord.ButtonStyle.danger, self.on_clear, row=0, choice=("clear",))
+        self.button(f"Clear {STEP_LABELS[step][2:]}", discord.ButtonStyle.danger, self.on_clear, row=0,
+                    choice=("clear",))
         self.button("Lock in plan", discord.ButtonStyle.success, self.on_lock, row=0, choice=("lock",))
         if step == INFRASTRUCTURE:
             self.infrastructure()
+        elif step == TECHS:
+            self.cards_into_play()
         else:
             self.deployment()
 
@@ -527,6 +535,107 @@ class PlanPanelView(PanelView):
             await self.answer(interaction, self.save(plan), state)
         return apply
 
+    # -- ③ Techs, the advanced game's cards ------------------------------
+
+    def techs(self) -> dict:
+        techs = copy.deepcopy(dict(self.plan.get("techs") or {}))
+        techs.setdefault("attach", {})
+        techs.setdefault("build", [])
+        techs.setdefault("discard", [])
+        return techs
+
+    def held(self, kind: str) -> list:
+        """The cards of a kind in the hand whose effect is built -- what
+        may be put into play (TNP 8)."""
+        return [one for one in self.options.hand_cards if one.kind == kind and one.built]
+
+    def cards_into_play(self) -> None:
+        """A button each building tech on each facility it may go on, one
+        a facility -- "Lasers on the Factory" (TNP 8.3); a button each
+        tech facility in the hand to build, at its cost; and a button each
+        tech facility in play to discard to make room (TNP 8.4). Each
+        toggles."""
+        techs = self.techs()
+        attach = techs["attach"]
+        facilities = list(self.options.attach_to) + [one for one in attach if one not in self.options.attach_to]
+        attaching = [
+            Choice(
+                ("✓ " if attach.get(facility) == one.card else "")
+                + f"{self.name(one.card)} on the {self.name(facility)}",
+                self.attach_toggle(one.card, facility),
+                discord.ButtonStyle.success if attach.get(facility) == one.card else discord.ButtonStyle.secondary,
+                ("attach", one.card, facility),
+            )
+            for one in self.held("building_tech") for facility in facilities
+        ]
+        building = list(techs["build"])
+        to_build = [
+            Choice(
+                ("✓ " if building.count(one.card) > index else "")
+                + f"{self.name(one.card)} · {self.cog.cost_words(one.materials, 0)}",
+                self.build_toggle(one.card, index),
+                discord.ButtonStyle.success if building.count(one.card) > index else discord.ButtonStyle.secondary,
+                ("tech", one.card, index),
+            )
+            for one in self.held("tech_facility") for index in range(one.count)
+        ]
+        discarding = list(techs["discard"])
+        to_discard = [
+            Choice(
+                ("✓ " if self.options.tech[:index].count(card) < discarding.count(card) else "")
+                + f"Discard {self.name(card)}",
+                self.discard_toggle(card, index),
+                discord.ButtonStyle.danger if self.options.tech[:index].count(card) < discarding.count(card)
+                else discord.ButtonStyle.secondary,
+                ("discard", card, index),
+            )
+            for index, card in enumerate(self.options.tech)
+        ]
+        if not (attaching or to_build or to_discard):
+            self.label("No building tech or tech facility to put into play", row=1)
+            return
+        if attaching:
+            self.buttons(attaching, rows=(1, 2), key="attach")
+        if to_build:
+            self.buttons(to_build, rows=(3,), key="tech")
+        if to_discard:
+            self.buttons(to_discard, rows=(4,), key="discard")
+
+    def with_techs(self, techs: dict) -> dict:
+        plan = copy.deepcopy(self.plan)
+        plan["techs"] = techs
+        return plan
+
+    def attach_toggle(self, card: str, facility: str):
+        async def pressed(interaction) -> None:
+            techs = self.techs()
+            if techs["attach"].get(facility) == card:
+                techs["attach"].pop(facility)
+            else:
+                techs["attach"][facility] = card
+            await self.answer(interaction, self.save(self.with_techs(techs)))
+        return pressed
+
+    def build_toggle(self, card: str, index: int):
+        async def pressed(interaction) -> None:
+            techs = self.techs()
+            if techs["build"].count(card) > index:
+                techs["build"].remove(card)
+            else:
+                techs["build"].append(card)
+            await self.answer(interaction, self.save(self.with_techs(techs)))
+        return pressed
+
+    def discard_toggle(self, card: str, index: int):
+        async def pressed(interaction) -> None:
+            techs = self.techs()
+            if self.options.tech[:index].count(card) < techs["discard"].count(card):
+                techs["discard"].remove(card)
+            else:
+                techs["discard"].append(card)
+            await self.answer(interaction, self.save(self.with_techs(techs)))
+        return pressed
+
     # -- The step, Clear and Lock in ---------------------------------------
 
     def save(self, plan: dict) -> Action:
@@ -543,6 +652,8 @@ class PlanPanelView(PanelView):
         if state.step == DEPLOYMENT:
             plan["attacks"], plan["defense"] = {}, {}
             state = replace(state, targets=(), pile=None, choosing=False)
+        elif state.step == TECHS:
+            plan.pop("techs", None)
         else:
             plan["build"], plan["structures"] = {}, []
         await self.answer(interaction, self.save(plan), state)
@@ -576,19 +687,28 @@ class TradePanelView(PanelView):
 
     def __init__(self, *args) -> None:
         super().__init__(*args)
-        held = [kind for kind, count in self.options.tokens.items() if count]
+        if getattr(self.options, "advanced", False):
+            # The card is the mineral (TNP 8.1): a trade names cards.
+            counts = {one.card: one.count for one in self.options.cards}
+            labels = {one.card: f"{self.name(one.card)} · {one.count}" for one in self.options.cards}
+        else:
+            counts = {kind: count for kind, count in self.options.tokens.items() if count}
+            labels = {kind: self.cog.token_words(kind, count) for kind, count in counts.items()}
+        held = [kind for kind, count in counts.items() if count]
         trade = copy.deepcopy(dict(self.options.trade or {}))
         trade.setdefault("materials", {})
         trade.setdefault("gold", {})
         self.trade = trade
         kind = self.state.kind if self.state.kind in held else (held[0] if held else None)
         self.state = replace(self.state, kind=kind)
-        for one in held:
-            self.button(self.cog.token_words(one, self.options.tokens[one]),
-                        discord.ButtonStyle.primary if one == kind else discord.ButtonStyle.secondary,
-                        self.kind_picker(one), row=0, choice=("kind", one))
+        self.buttons([
+            Choice(labels[one], self.kind_picker(one),
+                   discord.ButtonStyle.primary if one == kind else discord.ButtonStyle.secondary,
+                   ("kind", one))
+            for one in held
+        ], rows=(0,), key="kind")
         if kind is not None:
-            most = int(self.options.tokens[kind])
+            most = int(counts[kind])
             for row, into, other in ((1, "materials", "gold"), (2, "gold", "materials")):
                 current = int(trade[into].get(kind, 0))
                 room = most - int(trade[other].get(kind, 0))
@@ -665,12 +785,44 @@ class HarvestPanelView(PanelView):
         ))
 
 
-#: The turn's prompt kinds, each to its panel. A battle's are step 7's.
+# -- Tactical Command ---------------------------------------------------------------
+
+
+class TacticPanelView(PanelView):
+    """
+    Tactical Command (TNP 6.3): a tactic card from the hand, face down,
+    or none -- on the seat's own panel, since the card is secret until
+    both seats have chosen. A card whose units are not in the battle is
+    offered too, and said to do nothing (TNP 8.2).
+    """
+
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        applies = set(self.options.applies)
+        self.buttons([
+            Choice("Play " + self.name(one.card) + ("" if one.card in applies else " (does nothing here)"),
+                   self.player(one.card), discord.ButtonStyle.primary, ("play", one.card))
+            for one in self.options.cards
+        ], rows=(0, 1, 2), key="tactic")
+        self.button("Play none", discord.ButtonStyle.secondary, self.on_none, row=3, choice=("none",))
+
+    def player(self, card: str):
+        async def pressed(interaction) -> None:
+            await self.answer(interaction, Action(PromptKind.TACTIC, "play", {"card": card}, seat=self.seat))
+        return pressed
+
+    async def on_none(self, interaction) -> None:
+        await self.answer(interaction, Action(PromptKind.TACTIC, "none", seat=self.seat))
+
+
+#: The prompt kinds a seat answers on its own panel, each to its view.
+#: A battle's public questions are on the battle's message (step 7).
 PANELS = {
     PromptKind.PLAN: PlanPanelView,
     PromptKind.TRADE: TradePanelView,
     PromptKind.CONQUER: ConquerPanelView,
     PromptKind.HARVEST: HarvestPanelView,
+    PromptKind.TACTIC: TacticPanelView,
 }
 
 
@@ -686,5 +838,6 @@ def panel_view(cog, game_id: str, seat: str, prompt: Optional[PendingPrompt],
 
 __all__ = [
     "ConquerPanelView", "DEPLOYMENT", "HarvestPanelView", "INFRASTRUCTURE", "PANELS", "PANEL_TIMEOUT",
-    "PanelState", "PanelView", "PlanPanelView", "TradePanelView", "empty_steps", "panel_view",
+    "PanelState", "PanelView", "PlanPanelView", "TECHS", "TacticPanelView", "TradePanelView", "empty_steps",
+    "panel_view",
 ]

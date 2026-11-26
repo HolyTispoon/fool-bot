@@ -149,6 +149,8 @@
   },
   "attacks": {},
   "battle": null,
+  "decks": {},
+  "discards": {},
   "phase": "over",
   "resolving": null,
   "revealed": [
@@ -179,12 +181,14 @@
   ],
   "seats": {
     "blue": {
+      "attached": {},
       "available": {},
       "built": [
         "barracks",
         "base_defenses"
       ],
       "faction": "humans",
+      "hand": {},
       "harvested": 18,
       "locked": false,
       "plan": null,
@@ -196,9 +200,12 @@
         "orange_minerals": 1
       },
       "queued": [],
-      "queued_units": {}
+      "queued_techs": {},
+      "queued_units": {},
+      "tech": []
     },
     "green": {
+      "attached": {},
       "available": {
         "worker": 8
       },
@@ -207,6 +214,7 @@
         "base_defenses"
       ],
       "faction": "humans",
+      "hand": {},
       "harvested": 20,
       "locked": false,
       "plan": null,
@@ -218,7 +226,9 @@
         "orange_minerals": 0
       },
       "queued": [],
-      "queued_units": {}
+      "queued_techs": {},
+      "queued_units": {},
+      "tech": []
     }
   },
   "spots": {

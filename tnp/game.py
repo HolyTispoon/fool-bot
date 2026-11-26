@@ -114,8 +114,7 @@ class TnpGame:
     seats: dict[str, dict] = field(default_factory=lambda: _seats_in(None))
     #: One person in both seats, to try the game alone.
     test_game: bool = False
-    #: The advanced game (TNP 8), a setting from the start; only the
-    #: basic game plays until step 9 of docs/tnp-bot.md.
+    #: The advanced game (TNP 8), the lobby's setting.
     advanced: bool = False
     #: The match once started, as `MatchState.to_dict` writes it.
     match_state: Optional[dict] = None
@@ -197,13 +196,10 @@ class TnpGame:
                 self.seats[SEAT_NAMES[1]] = {"id": None, "name": None}
 
     def set_advanced(self, advanced: bool) -> None:
-        """The basic game or the advanced one -- the advanced game's
-        technology cards are step 9's, so only the basic game may be
-        chosen until then (TNP 8)."""
+        """The basic game or the advanced one, with the technology cards
+        (TNP 8) -- the lobby's one setting."""
         self._in_lobby()
-        if advanced:
-            raise RuleRefusal("The advanced game, with the technology cards, is not built yet.", cite="TNP 8")
-        self.advanced = False
+        self.advanced = bool(advanced)
 
     def start(self, engine: "RulesEngine") -> None:
         """Start the game: both seats taken, the opening position dealt
@@ -213,7 +209,7 @@ class TnpGame:
         self._in_lobby()
         if not self.full:
             raise RuleRefusal("Both seats need a player before the game starts.")
-        self.match_state = opening(engine.catalog, advanced=self.advanced).to_dict()
+        self.match_state = opening(engine.catalog, advanced=self.advanced, rng=engine.rng).to_dict()
         self.status = GameStatus.PLAYING
 
     def finish(self) -> None:
@@ -224,7 +220,7 @@ class TnpGame:
         """
         This finished game played again: a new lobby with the same seats
         -- the same people, or the one person of a test game -- in the
-        same place, the basic game again, started from its lobby's
+        same place, the same game again, started from its lobby's
         **Start** as any game is (Codex's `CodexGame.rematch`). Refused
         for a game that is not finished: an abandoned game is not played
         again.

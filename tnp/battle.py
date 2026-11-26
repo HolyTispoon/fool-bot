@@ -53,6 +53,7 @@ BASE_CARD_HITS = 2
 # asked (`tnp.prompts`) or a step the bot owes (`OWED`).
 ROLE = "role"            # TNP 6.1: the advantaged seat chooses its side
 EMERGENCY = "emergency"  # TNP 6.2: the defender of a base produces defenses
+TACTICS = "tactics"      # TNP 6.3: each seat plays a tactic card face down
 ROUND = "round"          # owed: the round's start
 REPOSITION = "reposition"  # TNP 6.5: flanking forces kept or taken out
 PLACE = "place"          # TNP 6.5
@@ -221,9 +222,21 @@ class BattleState:
     emergency: Optional[dict] = None
     #: The units the emergency defense produced.
     produced: dict[str, int] = field(default_factory=dict)
-    #: Modifiers handed in from outside -- step 9's cards (TNP 4.2, 8.5):
-    #: each `{"seat", "unit", "against", "value"}`, `None` for any.
+    #: Modifiers handed in from outside -- the cards (TNP 4.2, 8.5): each
+    #: `{"seat", "unit", "against", "value", "card"}`, `None` for any;
+    #: `against` a unit type, or "base" for a base card or a Base Defense
+    #: unit.
     modifiers: list[dict] = field(default_factory=list)
+    #: What the cards do in this battle besides a modifier
+    #: (`tnp.effects`): by seat, `initiative` and `traits` by unit,
+    #: `hit_kills` by unit, `cloaked` units, `scouting`, `rerolls` left,
+    #: `salvage` and the materials it has `gains`ed, and the seats with
+    #: Improved Carrier Capacity (`carriers`). Empty in the basic game.
+    effects: dict = field(default_factory=dict)
+    #: Tactical Command (TNP 6.3): the seats with a tactic card to play,
+    #: and each one's choice once made -- a card, or "" for none --
+    #: **hidden until both have chosen**, then revealed together.
+    tactics: dict = field(default_factory=dict)
     #: How it ended, once it has (`tnp.flow.battle.finish`).
     outcome: Optional[dict] = None
 
@@ -284,7 +297,45 @@ BATTLE_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("produced", factory=dict, write=dict, read=dict),
     SavedField("modifiers", factory=list, write=_copy, read=_copy),
     SavedField("outcome", write=_copy, read=_copy),
+    SavedField("effects", factory=dict, write=_copy, read=_copy),
+    SavedField("tactics", factory=dict, write=_copy, read=_copy),
 )
+
+
+# -- What the cards change (TNP 8) --------------------------------------------------
+
+
+def _effect(battle: "BattleState", key: str, seat: str):
+    return battle.effects.get(key, {}).get(seat, {})
+
+
+def initiative(engine: "RulesEngine", battle: "BattleState", force: "Force") -> int:
+    """A force's initiative (TNP 6.7): its unit's, with what the cards
+    add -- Radars, Jet Engines, Enhancing Drugs."""
+    return engine.unit(force.unit).initiative + int(_effect(battle, "initiative", force.seat).get(force.unit, 0))
+
+
+def has_trait(engine: "RulesEngine", battle: "BattleState", force: "Force", trait: str) -> bool:
+    """A force's unit's trait, or one a card gives it (Jet Engines'
+    Mechanical)."""
+    return engine.has_trait(force.unit, trait) or trait in _effect(battle, "traits", force.seat).get(force.unit, ())
+
+
+def hit_kills(battle: "BattleState", force: "Force") -> int:
+    """Units one hit removes from a force: 1, or Enhancing Drugs' 2."""
+    return int(_effect(battle, "hit_kills", force.seat).get(force.unit, 1))
+
+
+def cloaked(battle: "BattleState", ident: str) -> bool:
+    """A force a card keeps from being targeted while it is unengaged
+    (Cloaking)."""
+    force = battle.force(ident)
+    return force.unit in _effect(battle, "cloaked", force.seat) and not engaged(battle, ident)
+
+
+def rerolls_left(battle: "BattleState", seat: str) -> int:
+    """Dice a seat may still roll again this battle (Ammo Depos)."""
+    return int(battle.effects.get("rerolls", {}).get(seat, 0))
 
 
 # -- The line ------------------------------------------------------------------
@@ -378,8 +429,8 @@ def reposition_asker(battle: BattleState) -> Optional[str]:
 
 def scouting_totals(engine: "RulesEngine", battle: BattleState) -> dict[str, int]:
     """Each seat's scouting points: every unit its Scouting number
-    (TNP 6.4)."""
-    totals = {seat: 0 for seat in SEATS}
+    (TNP 6.4), and Satellite Connection's +2 (TNP 8.4)."""
+    totals = {seat: int(battle.effects.get("scouting", {}).get(seat, 0)) for seat in SEATS}
     for found in battle.living():
         totals[found.seat] += engine.unit(found.unit).scouting * found.count
     return totals
@@ -400,7 +451,7 @@ def initiative_totals(engine: "RulesEngine", battle: BattleState) -> dict[str, i
     """Each seat's initiative values over all its units there (TNP 6.1)."""
     totals = {seat: 0 for seat in SEATS}
     for found in battle.living():
-        totals[found.seat] += engine.unit(found.unit).initiative * found.count
+        totals[found.seat] += initiative(engine, battle, found) * found.count
     return totals
 
 
@@ -455,6 +506,14 @@ def may_retreat(engine: "RulesEngine", battle: BattleState, seat: str) -> bool:
     return any(engine.unit(found.unit).type is UnitType.AIR for found in forces)
 
 
+def capacity(engine: "RulesEngine", battle: BattleState, seat: str) -> Mapping[str, Mapping[str, int]]:
+    """Each carrier's capacity for a seat (TNP 7): the regular table, or
+    Improved Carrier Capacity's."""
+    from tnp.effects import carrier_capacity
+
+    return carrier_capacity(engine, seat in battle.effects.get("carriers", ()))
+
+
 def carriers(engine: "RulesEngine", battle: BattleState, seat: str) -> dict[str, int]:
     """The seat's carrying units in the battle, by unit, with how many
     (TNP 7: Transport)."""
@@ -467,11 +526,11 @@ def carriers(engine: "RulesEngine", battle: BattleState, seat: str) -> dict[str,
 def carriable(engine: "RulesEngine", battle: BattleState, seat: str) -> dict[str, int]:
     """The seat's ground forces a carrier can take, and how many of each
     one carrier holds (TNP 7)."""
-    capacity = engine.catalog.board.get("transport", {})
+    table = capacity(engine, battle, seat)
     found = {}
     for carrier in carriers(engine, battle, seat):
         for one in battle.living(seat):
-            held = capacity[carrier].get(one.unit)
+            held = table[carrier].get(one.unit)
             if held:
                 found[one.id] = max(found.get(one.id, 0), int(held))
     return found
@@ -537,20 +596,34 @@ def position_modifier(battle: BattleState, ident: str, target: str) -> int:
     return -abs(locate(battle, ident)[0] - _target_column(battle, target))
 
 
-def outside_modifier(engine: "RulesEngine", battle: BattleState, ident: str, target: str) -> int:
-    """The modifiers handed in from outside (step 9's cards, TNP 8.5)."""
+def _outside_rows(engine: "RulesEngine", battle: BattleState, ident: str, target: str) -> list[dict]:
+    """The rows handed in from outside that apply to one force's dice
+    against one target (TNP 4.2, 8.5): the seat's, the unit's, and the
+    target's -- its type, or "base" for a base card or a Base Defense
+    unit (Explosives)."""
     attacker = battle.force(ident)
-    against = "base" if target in BASE_CARDS else target_type(engine, battle, target).value
-    total = 0
+    if target in BASE_CARDS:
+        against = {"base", UnitType.ARMORED.value}
+    else:
+        defending = battle.force(target)
+        against = {target_type(engine, battle, target).value}
+        if engine.has_trait(defending.unit, "base_defense"):
+            against.add("base")
+    found = []
     for row in battle.modifiers:
         if row.get("seat") not in (None, attacker.seat):
             continue
         if row.get("unit") not in (None, attacker.unit):
             continue
-        if row.get("against") not in (None, against):
+        if row.get("against") is not None and row["against"] not in against:
             continue
-        total += int(row["value"])
-    return total
+        found.append(row)
+    return found
+
+
+def outside_modifier(engine: "RulesEngine", battle: BattleState, ident: str, target: str) -> int:
+    """The modifiers handed in from outside -- the cards (TNP 8.5)."""
+    return sum(int(row["value"]) for row in _outside_rows(engine, battle, ident, target))
 
 
 def flank_modifier(battle: BattleState, ident: str, target: str) -> int:
@@ -578,8 +651,9 @@ def modifier_parts(engine: "RulesEngine", battle: BattleState, ident: str,
     one** (TNP 4.2), as `(kind, value, columns)`: the position modifier
     every force takes, −1 a column it reaches across, where it reaches
     across any (`ACROSS`, `columns` how many); a flanking force's +1 on
-    top (`FLANKING`); and each row handed in from outside that applies
-    (`OUTSIDE`). A modifier of 0 is not one. `modifier` is their sum, so
+    top (`FLANKING`); and each card that applies, by its slug
+    (`"outside:<card>"`), with any row handed in that names no card
+    added up as `OUTSIDE`. A modifier of 0 is not one. `modifier` is their sum, so
     the number a roll is made at and the reasons it is said with are one
     reading.
     """
@@ -589,9 +663,14 @@ def modifier_parts(engine: "RulesEngine", battle: BattleState, ident: str,
         parts.append((ACROSS, across, -across))
     if flanking(battle, ident):
         parts.append((FLANKING, 1, 0))
-    outside = outside_modifier(engine, battle, ident, target)
-    if outside:
-        parts.append((OUTSIDE, outside, 0))
+    unnamed = 0
+    for row in _outside_rows(engine, battle, ident, target):
+        if row.get("card"):
+            parts.append((f"{OUTSIDE}:{row['card']}", int(row["value"]), 0))
+        else:
+            unnamed += int(row["value"])
+    if unnamed:
+        parts.append((OUTSIDE, unnamed, 0))
     return tuple(parts)
 
 
@@ -620,13 +699,17 @@ def dice(engine: "RulesEngine", battle: BattleState, ident: str, target: str) ->
 def targets(engine: "RulesEngine", battle: BattleState, ident: str) -> tuple[str, ...]:
     """
     What a force may attack (TNP 6.7, 6.9): any opposing force in the
-    line, and, for the attacker of a base, the two base cards. Losses
+    line -- but an unengaged one a card cloaks (Cloaking) -- and, for the
+    attacker of a base, the two base cards. Losses
     come off only when the group has rolled, so a force its own group
     has already finished is still a target.
     """
     seat = battle.force(ident).seat
     enemy = other(seat)
-    found = [one for one in in_line(battle) if battle.force(one).seat == enemy and battle.force(one).count > 0]
+    found = [
+        one for one in in_line(battle)
+        if battle.force(one).seat == enemy and battle.force(one).count > 0 and not cloaked(battle, one)
+    ]
     if seat == battle.attacker and is_base(engine, battle):
         found.extend(BASE_CARDS)
     return tuple(found)
@@ -647,7 +730,7 @@ def rollers(engine: "RulesEngine", battle: BattleState, seat: str) -> list[str]:
     for force in battle.living(seat):
         if force.id not in placed or force.id in battle.rolled:
             continue
-        if engine.unit(force.unit).initiative != battle.group:
+        if initiative(engine, battle, force) != battle.group:
             continue
         if aimed(engine, battle, force.id):
             found.append(force.id)
@@ -673,7 +756,7 @@ def roller(engine: "RulesEngine", battle: BattleState) -> Optional[str]:
 def groups(engine: "RulesEngine", battle: BattleState) -> list[int]:
     """The initiative groups among the forces in the line, lowest first."""
     return sorted({
-        engine.unit(battle.force(one).unit).initiative
+        initiative(engine, battle, battle.force(one))
         for one in in_line(battle) if battle.force(one).count > 0
     })
 
@@ -715,18 +798,23 @@ def destroyable(engine: "RulesEngine", battle: BattleState) -> tuple[str, ...]:
     What a base card's hits may destroy (TNP 6.9): nothing once one
     thing has gone this attack; otherwise any upgrade the defender has
     built -- a facility's or the base's own, the Command and Control
-    CPU -- and a facility only once it has no upgrade left -- and never
-    the Barracks or Base Defenses.
+    CPU -- and in the advanced game any tech facility, and any building
+    tech, named `"<card>:<facility>"`; and a facility only once it has
+    no upgrade and no building tech left -- and never the Barracks or
+    Base Defenses.
     """
     if battle.destroyed is not None or battle.structures is None:
         return ()
     upgrades = list(battle.structures.get("upgrades", []))
-    standing = {engine.catalog.upgrades[slug].facility for slug in upgrades}
+    attached = dict(battle.structures.get("attached", {}))
+    standing = {engine.catalog.upgrades[slug].facility for slug in upgrades} | set(attached)
     facilities = [
         slug for slug in battle.structures.get("facilities", [])
         if engine.catalog.facilities[slug].destructible and slug not in standing
     ]
-    return tuple(upgrades + facilities)
+    tech = list(dict.fromkeys(battle.structures.get("tech", [])))
+    building = [f"{card}:{facility}" for facility, card in attached.items()]
+    return tuple(upgrades + tech + building + facilities)
 
 
 # -- The emergency base defense --------------------------------------------------
