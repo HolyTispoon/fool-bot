@@ -310,9 +310,10 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
             if _undecided(engine, match, top, result):
                 continue
             return False
-        if _chooses(part) and _undecided(engine, match, top, result):
-            # A choice on another player's turn, even of one answer (the
-            # author, 2026-11-27): the effect does not resolve.
+        if _chooses(top, part) and _undecided(engine, match, top, result):
+            # A choice on another player's turn, even of one answer --
+            # one possible target, one opponent (the author, 2026-11-27):
+            # the effect does not resolve.
             continue
         if part.does == "mode":
             if "mode" not in top:
@@ -366,10 +367,13 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
     return True
 
 
-def _chooses(part) -> bool:
-    """Whether `part` is a choice its controller makes: what it chooses,
-    "choose one", a number or an oath -- however many answers there are."""
-    return part.choose is not None or part.does == "mode" or part.does in ASKED_PARTS
+def _chooses(top: dict, part) -> bool:
+    """Whether `part` of `top`'s effect is a choice its controller makes:
+    what it chooses, "choose one", a number, an oath, or "an opponent"
+    (`effects.AN_OPPONENT`) -- however many answers there are, one
+    opponent among them (the author, 2026-11-27)."""
+    return (part.choose is not None or part.does == "mode" or part.does in ASKED_PARTS
+            or part.does == effects.AN_OPPONENT.get(top["effect"]))
 
 
 def _undecided(engine: "RulesEngine", match: MatchState, top: dict, result: StepResult) -> bool:
@@ -383,8 +387,9 @@ def _undecided(engine: "RulesEngine", match: MatchState, top: dict, result: Step
     several, a look -- and its controller is not a seat whose turn it
     is: the frame is dropped, said, and the stack goes on. Whether it
     was. **A choice with one possible answer is still a choice** (the
-    author, 2026-11-27), and so is one with none; an arrival that
-    chooses nothing resolves on any turn. Only the
+    author, 2026-11-27), and so is one with none, and "an opponent"
+    where there is one; an arrival that chooses nothing resolves on any
+    turn. Only the
     effects in `effects.UNDECIDED_OFF_TURN` -- the arrivals; any other
     kind is the author's to add.
     """

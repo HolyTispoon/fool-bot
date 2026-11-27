@@ -2467,8 +2467,9 @@ COSTS.update({
 #: arrival is dropped only where it chooses (the author, 2026-11-27:
 #: "Should only affect abilities where there's a choice involved") --
 #: **even where only one target is possible**, which "is still a
-#: choice" (the same day) -- so Scribe's draw resolves, and so does "an
-#: opponent" where there is one. "Arrives or attacks:" is one effect; an attack is
+#: choice" (the same day), and **"an opponent" even where there is
+#: one** (`AN_OPPONENT`: Tax Collector, Thieving Imp, Terras Q) -- so
+#: Scribe's draw resolves and Tax Collector's steal does not. "Arrives or attacks:" is one effect; an attack is
 #: always on its controller's turn, so the rule never touches it. Any
 #: other kind of ability is the author's to add.
 UNDECIDED_OFF_TURN = frozenset(
