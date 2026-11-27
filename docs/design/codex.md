@@ -1060,12 +1060,18 @@ black's, and the rest waits for step 13.
   comes back under its own controller, and its rune is dropped, said,
   where it would ask -- or Second Chances returns it; before this the
   question went to the seat whose turn it was not, which no panel
-  reaches, and the game stood still. Only an arrival that asks a
-  decision is dropped (the author, 2026-11-27): one that chooses nothing
-  -- Scribe's draw, Spore Shambler's runes -- resolves on any turn, the
-  set naming where to look rather than what to drop. "Arrives or
-  attacks:" is one effect, and an attack is always on its controller's
-  turn. A choice with
+  reaches, and the game stood still. Only an arrival that chooses is
+  dropped (the author, 2026-11-27) -- **and one with a single possible
+  target still chooses** ("When there's only one possible target that's
+  still a choice so the ability doesn't trigger"), so a returned
+  Insurance Agent with no other unit in play does not insure itself, as
+  it would on its controller's turn, where the one row is taken unasked.
+  One that chooses nothing -- Scribe's draw, Spore Shambler's runes, "an
+  opponent" where there is only one -- resolves on any turn, the set
+  naming where to look rather than what to drop. Every arrival that
+  chooses does so in its first part, so a dropped one has done nothing.
+  "Arrives or attacks:" is one effect, and an attack is always on its
+  controller's turn. A choice with
   one answer is no decision and is taken as anywhere. A choice that is the opponent's own --
   Banefire Golem's sacrifice, Carrion Curse's discards -- is asked of
   whoever the card says. **A look at hidden cards** (Carrion Curse's at

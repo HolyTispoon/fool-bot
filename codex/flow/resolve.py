@@ -310,6 +310,10 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
             if _undecided(engine, match, top, result):
                 continue
             return False
+        if _chooses(part) and _undecided(engine, match, top, result):
+            # A choice on another player's turn, even of one answer (the
+            # author, 2026-11-27): the effect does not resolve.
+            continue
         if part.does == "mode":
             if "mode" not in top:
                 # "If you boosted, choose both"; otherwise one is asked,
@@ -319,16 +323,12 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
                 else:
                     possible = [key for key, _, allowed in engine.mode_rows(match, top, part) if allowed]
                     if len(possible) != 1:
-                        if _undecided(engine, match, top, result):
-                            continue
                         return False
                     top["mode"] = possible[0]
             _next_part(top)
             continue
         if part.does in ASKED_PARTS and part.does not in top:
             # The number or the oath is asked (`CHOOSE_NUMBER`, `OATH`).
-            if _undecided(engine, match, top, result):
-                continue
             return False
         if (part.does == "look_at" or part.choose in effects.LOOK_FIRST) and top.get("looked") != top["part"]:
             # A look with nothing to choose (Martial Mastery): asked once,
@@ -340,8 +340,6 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
             return False
         if top.get("split") is not None:
             if sum(top["split"].values()) < damage_amount(engine, match, top, part.amount):
-                if _undecided(engine, match, top, result):
-                    continue
                 return False
             _deal_split(engine, match, top, part, result)
             continue
@@ -358,8 +356,6 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
         if len(picks) < least_picks(engine, match, top, part) and len(rows) == 1:
             _choose(engine, match, top, part, rows[0], result)
             continue
-        if _undecided(engine, match, top, result):
-            continue
         return False
     # The stack empty, the position's own consequences: a card played
     # with nothing to resolve -- a second copy of a legendary unit, say --
@@ -370,6 +366,12 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
     return True
 
 
+def _chooses(part) -> bool:
+    """Whether `part` is a choice its controller makes: what it chooses,
+    "choose one", a number or an oath -- however many answers there are."""
+    return part.choose is not None or part.does == "mode" or part.does in ASKED_PARTS
+
+
 def _undecided(engine: "RulesEngine", match: MatchState, top: dict, result: StepResult) -> bool:
     """
     **A decision on an opponent's turn**: "In the rare event that an
@@ -377,10 +379,12 @@ def _undecided(engine: "RulesEngine", match: MatchState, top: dict, result: Step
     resolve that effect" (UMR p. 14) -- an Insurance Agent that Prynn's
     fading returns to its controller's play in her controller's upkeep
     puts no rune anywhere, and so for every "Arrives:" text. Asked where the frame would ask its controller
-    something -- a target, a mode, a number, a split, a look -- and its
-    controller is not a seat whose turn it is: the frame is dropped,
-    said, and the stack goes on. Whether it was. A choice with one
-    answer is no decision, and is taken as anywhere (`run`). Only the
+    something -- a part that chooses (`_chooses`), "an opponent" among
+    several, a look -- and its controller is not a seat whose turn it
+    is: the frame is dropped, said, and the stack goes on. Whether it
+    was. **A choice with one possible answer is still a choice** (the
+    author, 2026-11-27), and so is one with none; an arrival that
+    chooses nothing resolves on any turn. Only the
     effects in `effects.UNDECIDED_OFF_TURN` -- the arrivals; any other
     kind is the author's to add.
     """

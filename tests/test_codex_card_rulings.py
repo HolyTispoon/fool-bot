@@ -3779,6 +3779,23 @@ class PurpleRulingTests(unittest.TestCase):
                          ["tiger_cub", "tyrannosaurus_rex"])
         self.assertIn("tyrannosaurus_rex", effects.UNDECIDED_OFF_TURN)
 
+    def test_one_possible_target_is_still_a_choice(self) -> None:
+        """With no other unit in play the returned Insurance Agent's one
+        possible target is itself -- still a choice on an opponent's turn
+        (the author, 2026-11-27), so it insures nothing."""
+        from test_codex_keywords import next_upkeep
+
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 1
+        prynn.trashed = [{"slug": "insurance_agent", "owner": 2, "controller": 2, "id": 90}]
+        next_upkeep(engine, game, match, 2)
+        next_upkeep(engine, game, match, 1)
+        agent = next(card for card in match.player(2).play if card.slug == "insurance_agent")
+        self.assertEqual(agent.runes.get("insurance"), None)
+        self.assertEqual((match.active, match.phase, match.resolving), (1, "main", []))
+
     def test_an_arrival_with_no_choice_resolves_on_an_opponents_turn(self) -> None:
         """The rule touches only an arrival that asks a decision (the
         author, 2026-11-27): Spore Shambler's "Put two +1/+1 runes on this"
