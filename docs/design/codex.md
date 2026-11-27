@@ -1060,8 +1060,12 @@ black's, and the rest waits for step 13.
   comes back under its own controller, and its rune is dropped, said,
   where it would ask -- or Second Chances returns it; before this the
   question went to the seat whose turn it was not, which no panel
-  reaches, and the game stood still. "Arrives or attacks:" is one
-  effect, and an attack is always on its controller's turn. A choice with
+  reaches, and the game stood still. Only an arrival that asks a
+  decision is dropped (the author, 2026-11-27): one that chooses nothing
+  -- Scribe's draw, Spore Shambler's runes -- resolves on any turn, the
+  set naming where to look rather than what to drop. "Arrives or
+  attacks:" is one effect, and an attack is always on its controller's
+  turn. A choice with
   one answer is no decision and is taken as anywhere. A choice that is the opponent's own --
   Banefire Golem's sacrifice, Carrion Curse's discards -- is asked of
   whoever the card says. **A look at hidden cards** (Carrion Curse's at

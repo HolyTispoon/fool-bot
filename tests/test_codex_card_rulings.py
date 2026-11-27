@@ -3779,6 +3779,16 @@ class PurpleRulingTests(unittest.TestCase):
                          ["tiger_cub", "tyrannosaurus_rex"])
         self.assertIn("tyrannosaurus_rex", effects.UNDECIDED_OFF_TURN)
 
+    def test_an_arrival_with_no_choice_resolves_on_an_opponents_turn(self) -> None:
+        """The rule touches only an arrival that asks a decision (the
+        author, 2026-11-27): Spore Shambler's "Put two +1/+1 runes on this"
+        chooses nothing, and resolves on an opponent's turn as on its
+        controller's."""
+        engine, game, match, _ = self.faded_back("spore_shambler")
+        shambler = next(card for card in match.player(2).play if card.slug == "spore_shambler")
+        self.assertEqual(shambler.plus_runes, 2)
+        self.assertEqual((match.active, match.phase, match.resolving), (1, "main", []))
+
     def test_insurance_agent_returned_on_an_opponents_turn_insures_nothing(self) -> None:
         """An Insurance Agent Prynn trashed comes back when she fades in
         her controller's upkeep -- under its own controller, on an
