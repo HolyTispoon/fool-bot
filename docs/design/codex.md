@@ -1050,7 +1050,29 @@ black's, and the rest waits for step 13.
 - **A decision the active player cannot make.** On an opponent's turn
   an effect that asks a decision does not resolve (UMR p. 14), so a
   "Max level:" text reached there that chooses is lost
-  (`board.max_level_reached`); a choice that is the opponent's own --
+  (`board.max_level_reached`). On the stack the same rule is
+  `resolve._undecided`, applied to **every "Arrives:" text**
+  (`effects.UNDECIDED_OFF_TURN`, read off `TEXT`; the author, 2026-11-26:
+  "All arrive ability follow the same rule") and to no other kind of
+  ability without the author's word ("for any other abilities ask me
+  first"). A unit arrives on an opponent's turn where Prynn's fading
+  returns it in her controller's upkeep -- an Insurance Agent she trashed
+  comes back under its own controller, and its rune is dropped, said,
+  where it would ask -- or Second Chances returns it; before this the
+  question went to the seat whose turn it was not, which no panel
+  reaches, and the game stood still. Only an arrival that chooses is
+  dropped (the author, 2026-11-27) -- **and one with a single possible
+  target still chooses** ("When there's only one possible target that's
+  still a choice so the ability doesn't trigger"), so a returned
+  Insurance Agent with no other unit in play does not insure itself, as
+  it would on its controller's turn, where the one row is taken unasked.
+  One that chooses nothing -- Scribe's draw, Spore Shambler's runes, "an
+  opponent" where there is only one -- resolves on any turn, the set
+  naming where to look rather than what to drop. Every arrival that
+  chooses does so in its first part, so a dropped one has done nothing.
+  "Arrives or attacks:" is one effect, and an attack is always on its
+  controller's turn. A choice with
+  one answer is no decision and is taken as anywhere. A choice that is the opponent's own --
   Banefire Golem's sacrifice, Carrion Curse's discards -- is asked of
   whoever the card says. **A look at hidden cards** (Carrion Curse's at
   the opponent's hand, Vir's at the top of the deck, the discard) is a

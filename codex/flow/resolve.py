@@ -307,7 +307,13 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
         if opponent_owed(engine, match, top):
             # "An opponent's": which one is asked before the part does
             # anything (`opponent_owed`).
+            if _undecided(engine, match, top, result):
+                continue
             return False
+        if _chooses(part) and _undecided(engine, match, top, result):
+            # A choice on another player's turn, even of one answer (the
+            # author, 2026-11-27): the effect does not resolve.
+            continue
         if part.does == "mode":
             if "mode" not in top:
                 # "If you boosted, choose both"; otherwise one is asked,
@@ -329,6 +335,8 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
             # what is seen pictured to the asker alone, and Done (step 13).
             top["looked"] = top["part"]
             top["picks"] = []
+            if _undecided(engine, match, top, result):
+                continue
             return False
         if top.get("split") is not None:
             if sum(top["split"].values()) < damage_amount(engine, match, top, part.amount):
@@ -355,6 +363,41 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
     board.settle(engine, match, result)
     if match.resolving and match.winner is None:
         return run(engine, match, result)
+    return True
+
+
+def _chooses(part) -> bool:
+    """Whether `part` is a choice its controller makes: what it chooses,
+    "choose one", a number or an oath -- however many answers there are."""
+    return part.choose is not None or part.does == "mode" or part.does in ASKED_PARTS
+
+
+def _undecided(engine: "RulesEngine", match: MatchState, top: dict, result: StepResult) -> bool:
+    """
+    **A decision on an opponent's turn**: "In the rare event that an
+    effect asks you to make a decision on an opponent's turn, you do not
+    resolve that effect" (UMR p. 14) -- an Insurance Agent that Prynn's
+    fading returns to its controller's play in her controller's upkeep
+    puts no rune anywhere, and so for every "Arrives:" text. Asked where the frame would ask its controller
+    something -- a part that chooses (`_chooses`), "an opponent" among
+    several, a look -- and its controller is not a seat whose turn it
+    is: the frame is dropped, said, and the stack goes on. Whether it
+    was. **A choice with one possible answer is still a choice** (the
+    author, 2026-11-27), and so is one with none; an arrival that
+    chooses nothing resolves on any turn. Only the
+    effects in `effects.UNDECIDED_OFF_TURN` -- the arrivals; any other
+    kind is the author's to add.
+    """
+    seat = top["seat"]
+    if top["effect"] not in effects.UNDECIDED_OFF_TURN or seat in engine.turn_seats(match):
+        return False
+    match.resolving.pop(0)
+    result.narration.append(
+        f"{top['by']} would have {tokens.player(seat)} decide on another player's turn, "
+        "so it does not resolve."
+    )
+    _finish(engine, match, top, result)
+    board.settle(engine, match, result, cause=cause_of(match, top))
     return True
 
 
