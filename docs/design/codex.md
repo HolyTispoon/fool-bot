@@ -1066,9 +1066,12 @@ black's, and the rest waits for step 13.
   still a choice so the ability doesn't trigger"), so a returned
   Insurance Agent with no other unit in play does not insure itself, as
   it would on its controller's turn, where the one row is taken unasked.
-  One that chooses nothing -- Scribe's draw, Spore Shambler's runes, "an
-  opponent" where there is only one -- resolves on any turn, the set
-  naming where to look rather than what to drop. Every arrival that
+  **"An opponent" is a choice even where there is only one** (the
+  author, 2026-11-27: "That includes one opponent choices"), so a
+  returned Tax Collector steals nothing and a Thieving Imp makes nobody
+  discard (`effects.AN_OPPONENT`, read by `resolve._chooses`). One that
+  chooses nothing -- Scribe's draw, Spore Shambler's runes -- resolves on
+  any turn, the set naming where to look rather than what to drop. Every arrival that
   chooses does so in its first part, so a dropped one has done nothing.
   "Arrives or attacks:" is one effect, and an attack is always on its
   controller's turn. A choice with

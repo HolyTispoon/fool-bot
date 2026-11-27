@@ -3796,6 +3796,27 @@ class PurpleRulingTests(unittest.TestCase):
         self.assertEqual(agent.runes.get("insurance"), None)
         self.assertEqual((match.active, match.phase, match.resolving), (1, "main", []))
 
+    def test_one_opponent_is_still_a_choice(self) -> None:
+        """"Steal 1 gold from an opponent" with one opponent at the table
+        is still a choice on an opponent's turn (the author, 2026-11-27):
+        a Tax Collector Prynn returns steals nothing."""
+        from test_codex_keywords import next_upkeep
+
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 1
+        prynn.trashed = [{"slug": "tax_collector", "owner": 2, "controller": 2, "id": 90}]
+        next_upkeep(engine, game, match, 2)
+        from codex.flow import resolve
+
+        with mock.patch.object(resolve, "steal_gold", wraps=resolve.steal_gold) as steal:
+            next_upkeep(engine, game, match, 1)
+        steal.assert_not_called()
+        self.assertEqual(prynn.zone, "command")
+        self.assertTrue(any(card.slug == "tax_collector" for card in match.player(2).play))
+        self.assertEqual((match.active, match.phase, match.resolving), (1, "main", []))
+
     def test_an_arrival_with_no_choice_resolves_on_an_opponents_turn(self) -> None:
         """The rule touches only an arrival that asks a decision (the
         author, 2026-11-27): Spore Shambler's "Put two +1/+1 runes on this"
